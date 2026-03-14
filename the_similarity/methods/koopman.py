@@ -26,11 +26,19 @@ KOOPMAN_MIN_WINDOW = 50
 
 
 @dataclass
+class KoopmanForecast:
+    """Forward evolution from a fitted Koopman operator."""
+    trajectory: NDArray[np.float64]   # (forward_bars,) predicted cumulative returns
+    uncertainty: NDArray[np.float64]  # (forward_bars,) per-step 1-sigma bounds
+
+
+@dataclass
 class KoopmanResult:
     """Result of Koopman EDMD decomposition."""
     eigenvalues: NDArray[np.complex128]
     eigenvectors: NDArray[np.complex128]
     a_tilde: NDArray[np.complex128]
+    u_r: NDArray[np.float64] | None = None  # left singular vectors for projection
 
 
 def fit_koopman(
@@ -77,6 +85,7 @@ def fit_koopman(
             eigenvalues=np.array([], dtype=np.complex128),
             eigenvectors=np.array([]).reshape(0, 0).astype(np.complex128),
             a_tilde=np.array([]).reshape(0, 0).astype(np.complex128),
+            u_r=None,
         )
 
     u_r = u[:, :r]
@@ -93,6 +102,7 @@ def fit_koopman(
         eigenvalues=eigenvalues.astype(np.complex128),
         eigenvectors=eigenvectors.astype(np.complex128),
         a_tilde=a_tilde.astype(np.complex128),
+        u_r=u_r,
     )
 
 
@@ -205,3 +215,156 @@ def koopman_match(
         result_q.eigenvalues, result_c.eigenvalues, top_k=n_modes,
     )
     return koopman_score(distance, n_modes)
+
+
+def clamp_eigenvalues(
+    eigenvalues: NDArray[np.complex128],
+) -> NDArray[np.complex128]:
+    """Project eigenvalues onto the unit disk, preserving phase.
+
+    Eigenvalues with |λ| > 1 represent unstable modes that would cause
+    the forecast to diverge. Clamping scales their magnitude to 1.0
+    while keeping the oscillation frequency (phase angle) intact.
+
+    Args:
+        eigenvalues: Complex eigenvalue array.
+
+    Returns:
+        Clamped eigenvalues with |λ| ≤ 1.
+    """
+    mags = np.abs(eigenvalues)
+    scale = np.where(mags > 1.0, 1.0 / mags, 1.0)
+    return eigenvalues * scale
+
+
+def koopman_evolve(
+    series: NDArray[np.float64],
+    forward_bars: int,
+    dim: int = 8,
+    lag: int = 3,
+    n_modes: int = 8,
+) -> KoopmanForecast | None:
+    """Evolve a time series forward using its fitted Koopman operator.
+
+    Fits a Koopman operator on the input series via EDMD, clamps
+    eigenvalues to the unit disk to prevent divergence, then evolves
+    the last embedded state forward to produce a forecast.
+
+    The trajectory is returned as cumulative returns relative to the
+    last value of the input series, matching the Forecast convention.
+
+    Args:
+        series: 1-D time series (raw values, not returns).
+        forward_bars: Number of steps to forecast.
+        dim: Embedding dimension.
+        lag: Time delay for embedding.
+        n_modes: Number of DMD modes.
+
+    Returns:
+        KoopmanForecast with trajectory and uncertainty, or None if
+        the series is too short or degenerate.
+
+    Architecture:
+        ┌─────────────┐
+        │  Raw series  │
+        └──────┬──────┘
+               ▼
+        ┌─────────────┐
+        │ delay_embed  │ → (n_rows, dim) embedded matrix
+        └──────┬──────┘
+               ▼
+        ┌─────────────┐
+        │  fit_koopman │ → eigenvalues λ, eigenvectors W, U_r
+        └──────┬──────┘
+               ▼
+        ┌──────────────────┐
+        │ clamp_eigenvalues │ → |λ| ≤ 1 (stable evolution)
+        └──────┬───────────┘
+               ▼
+        ┌──────────────────────────────────┐
+        │ Project last state → eigencoords │
+        │   x_reduced = U_r.T @ x_last     │
+        │   b = W⁻¹ @ x_reduced            │
+        └──────┬───────────────────────────┘
+               ▼
+        ┌──────────────────────────────────┐
+        │ Evolve: x(t) = W @ diag(λᵗ) @ b │
+        │   → take first component          │
+        │   → convert to cumulative returns  │
+        └──────────────────────────────────┘
+    """
+    series = np.asarray(series, dtype=np.float64).ravel()
+    if len(series) < KOOPMAN_MIN_WINDOW:
+        return None
+    if np.ptp(series) < 1e-12:
+        return None
+
+    try:
+        result = fit_koopman(series, dim, lag, n_modes)
+    except (ValueError, np.linalg.LinAlgError):
+        return None
+
+    if len(result.eigenvalues) == 0 or result.u_r is None:
+        return None
+
+    # Delay-embed the series and get the last state
+    embedded = delay_embed(series, dim, lag)
+    x_last = embedded[-1]  # (dim,)
+
+    # Project into reduced space
+    u_r = result.u_r  # (dim, r)
+    x_reduced = u_r.T @ x_last  # (r,)
+
+    # Clamp eigenvalues to unit disk
+    eigs_clamped = clamp_eigenvalues(result.eigenvalues)
+    W = result.eigenvectors  # (r, r)
+
+    # Project into eigenmode coordinates: b = W^{-1} @ x_reduced
+    try:
+        b = np.linalg.solve(W, x_reduced)
+    except np.linalg.LinAlgError:
+        return None
+
+    # Compute reconstruction residuals for uncertainty estimation
+    # Compare one-step predictions vs actuals on training data
+    n_snapshots = len(embedded) - 1
+    residuals = np.zeros(n_snapshots)
+    for i in range(n_snapshots):
+        x_i = u_r.T @ embedded[i]
+        x_pred = u_r @ (result.a_tilde @ x_i)
+        x_actual = embedded[i + 1]
+        # Residual in the first coordinate (predicted value)
+        residuals[i] = x_actual[0] - x_pred[0].real
+
+    sigma = float(np.std(residuals)) if len(residuals) > 1 else 0.0
+
+    # Evolve forward
+    last_value = series[-1]
+    use_returns = abs(last_value) > 1e-6
+    trajectory = np.zeros(forward_bars)
+    uncertainty = np.zeros(forward_bars)
+
+    for t in range(1, forward_bars + 1):
+        # x_reduced(t) = W @ diag(λ^t) @ b
+        x_evolved = W @ (b * eigs_clamped ** t)
+        # Project back to full space, take first component (most recent value)
+        x_full = u_r @ x_evolved
+        predicted_value = x_full[0].real
+
+        # Convert to cumulative return relative to last value.
+        # When last_value ≈ 0, use absolute difference instead of return.
+        if use_returns:
+            trajectory[t - 1] = (predicted_value - last_value) / last_value
+        else:
+            trajectory[t - 1] = predicted_value - last_value
+
+        # Uncertainty grows with sqrt(t) (random walk noise assumption)
+        unc = sigma * np.sqrt(t)
+        if use_returns and abs(last_value) > 1e-12:
+            unc /= abs(last_value)
+        uncertainty[t - 1] = unc
+
+    return KoopmanForecast(
+        trajectory=trajectory,
+        uncertainty=uncertainty,
+    )

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Nav } from "../components/nav";
 import "./globals.css";
+import { ErrorBoundary } from "../components/error-boundary";
 
 export const metadata: Metadata = {
   title: "The Similarity Dashboard",
@@ -16,7 +17,9 @@ export default function RootLayout({
     <html lang="en">
       <body>
         <Nav />
-        {children}
+        <ErrorBoundary>
+          {children}
+        </ErrorBoundary>
       </body>
     </html>
   );

@@ -7,6 +7,7 @@ from numpy.typing import NDArray
 
 from the_similarity.config import Config
 from the_similarity.core.scorer import MatchResult
+from the_similarity.methods.koopman import KoopmanForecast
 
 
 @dataclass
@@ -17,6 +18,7 @@ class Forecast:
     curves: dict[int, NDArray[np.float64]]  # percentile -> projected values
     all_paths: NDArray[np.float64]  # (n_matches, bars) raw projected paths
     weights: NDArray[np.float64]  # confidence weights used
+    koopman_forecast: KoopmanForecast | None = None  # Koopman operator evolution
 
 
 def project(
