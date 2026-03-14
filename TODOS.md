@@ -29,3 +29,15 @@
 **Context:** Best time to do this is right before or alongside Phase 4a implementation, when the 8th method addition makes the repetition impossible to ignore. The registry should handle the common case (normalize → score → assign) and allow hooks for special behavior.
 
 **Depends on:** Nothing — can be done anytime. Natural pairing with Phase 4a.
+
+---
+
+## Enable GitHub branch protection on main
+
+**What:** Require CI status checks to pass before merging PRs to main.
+
+**Why:** Without this, CI is advisory only — broken PRs can still be merged. The CI workflow runs tests but doesn't block anything.
+
+**Context:** This is a GitHub UI setting, not a code change. Go to Settings → Branches → Branch protection rules → Add rule for `main` → Check "Require status checks to pass before merging" and select both `Python Tests` and `Frontend Tests`. Do this after the CI workflow PR is merged so the status checks exist to select.
+
+**Depends on:** CI workflow being merged first.
