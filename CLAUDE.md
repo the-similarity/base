@@ -17,6 +17,7 @@
    gh pr create --title "<type>: <summary>" --body "<description of changes>"
    ```
 5. Share the PR URL with the user when done.
+6. Do NOT add Co-Authored-By trailers to commits.
 
 ## Parallel Development Rules
 - Multiple Claude Code instances may be running at the same time.
