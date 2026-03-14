@@ -10,6 +10,7 @@ from the_similarity.core.normalizer import normalize
 from the_similarity.core.matcher import find_matches
 from the_similarity.core.scorer import MatchResult
 from the_similarity.core.projector import project as _project, Forecast
+from the_similarity.methods.koopman import koopman_evolve
 from the_similarity.viz.plotter import plot_matches, plot_forecast
 
 
@@ -117,29 +118,48 @@ def project(
     history: TimeSeries | np.ndarray,
     forward_bars: int = 50,
     percentiles: list[int] | None = None,
+    query: TimeSeries | np.ndarray | None = None,
 ) -> Forecast:
     """Generate forward projection from matched patterns.
+
+    Combines weighted historical projection with an optional Koopman
+    operator forecast. If a query is provided (or matches is a
+    SearchResults with a stored query), the Koopman operator is fitted
+    on the query and evolved forward to produce a separate dynamical
+    forecast trajectory.
 
     Args:
         matches: Match results or SearchResults object.
         history: Full historical data.
         forward_bars: How many bars to project forward.
         percentiles: Percentile levels for uncertainty bands.
+        query: Query series for Koopman forward evolution. If matches
+            is a SearchResults, the query is extracted automatically.
 
     Returns:
-        Forecast with projection curves.
+        Forecast with projection curves and optional koopman_forecast.
     """
+    q_values = None
     if isinstance(matches, SearchResults):
+        q_values = matches.query
         matches = matches.matches
+    if query is not None:
+        q_values = query.values if isinstance(query, TimeSeries) else np.asarray(query, dtype=np.float64)
 
     h_values = history.values if isinstance(history, TimeSeries) else np.asarray(history, dtype=np.float64)
 
-    return _project(
+    forecast = _project(
         matches=matches,
         history=h_values,
         forward_bars=forward_bars,
         percentiles=percentiles,
     )
+
+    # Koopman forward evolution on the query
+    if q_values is not None:
+        forecast.koopman_forecast = koopman_evolve(q_values, forward_bars)
+
+    return forecast
 
 
 def plot(
