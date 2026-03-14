@@ -1,0 +1,346 @@
+[
+  {
+    "asset_class": "crypto",
+    "symbol": "btc_usdt",
+    "timeframe": "1m",
+    "source": "ccxt",
+    "source_symbol": "BTC/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 21,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "btc_usdt",
+    "timeframe": "15m",
+    "source": "ccxt",
+    "source_symbol": "BTC/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 120,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "btc_usdt",
+    "timeframe": "1h",
+    "source": "ccxt",
+    "source_symbol": "BTC/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "btc_usdt",
+    "timeframe": "4h",
+    "source": "ccxt",
+    "source_symbol": "BTC/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "btc_usdt",
+    "timeframe": "1d",
+    "source": "ccxt",
+    "source_symbol": "BTC/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "eth_usdt",
+    "timeframe": "1m",
+    "source": "ccxt",
+    "source_symbol": "ETH/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 21,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "eth_usdt",
+    "timeframe": "15m",
+    "source": "ccxt",
+    "source_symbol": "ETH/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 120,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "eth_usdt",
+    "timeframe": "1h",
+    "source": "ccxt",
+    "source_symbol": "ETH/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "eth_usdt",
+    "timeframe": "4h",
+    "source": "ccxt",
+    "source_symbol": "ETH/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "eth_usdt",
+    "timeframe": "1d",
+    "source": "ccxt",
+    "source_symbol": "ETH/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "sol_usdt",
+    "timeframe": "1m",
+    "source": "ccxt",
+    "source_symbol": "SOL/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 21,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "sol_usdt",
+    "timeframe": "15m",
+    "source": "ccxt",
+    "source_symbol": "SOL/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 120,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "sol_usdt",
+    "timeframe": "1h",
+    "source": "ccxt",
+    "source_symbol": "SOL/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "sol_usdt",
+    "timeframe": "4h",
+    "source": "ccxt",
+    "source_symbol": "SOL/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "sol_usdt",
+    "timeframe": "1d",
+    "source": "ccxt",
+    "source_symbol": "SOL/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "xrp_usdt",
+    "timeframe": "1m",
+    "source": "ccxt",
+    "source_symbol": "XRP/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 21,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "xrp_usdt",
+    "timeframe": "15m",
+    "source": "ccxt",
+    "source_symbol": "XRP/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 120,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "xrp_usdt",
+    "timeframe": "1h",
+    "source": "ccxt",
+    "source_symbol": "XRP/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "xrp_usdt",
+    "timeframe": "4h",
+    "source": "ccxt",
+    "source_symbol": "XRP/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "xrp_usdt",
+    "timeframe": "1d",
+    "source": "ccxt",
+    "source_symbol": "XRP/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "aapl",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "aapl.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "msft",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "msft.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "nvda",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "nvda.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "qqq",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "qqq.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "spy",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "spy.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "iwm",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "iwm.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "dia",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "dia.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "eurusd",
+    "timeframe": "1h",
+    "source": "twelvedata",
+    "source_symbol": "EUR/USD",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "eurusd",
+    "timeframe": "4h",
+    "source": "twelvedata",
+    "source_symbol": "EUR/USD",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "eurusd",
+    "timeframe": "1d",
+    "source": "twelvedata",
+    "source_symbol": "EUR/USD",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "usdjpy",
+    "timeframe": "1h",
+    "source": "twelvedata",
+    "source_symbol": "USD/JPY",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "usdjpy",
+    "timeframe": "4h",
+    "source": "twelvedata",
+    "source_symbol": "USD/JPY",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "usdjpy",
+    "timeframe": "1d",
+    "source": "twelvedata",
+    "source_symbol": "USD/JPY",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "commodities",
+    "symbol": "gold",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "gld.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "commodities",
+    "symbol": "silver",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "slv.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "commodities",
+    "symbol": "oil",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "uso.us",
+    "lookback_days": 3650,
+    "enabled": true
+  }
+]

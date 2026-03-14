@@ -1,0 +1,22 @@
+[tool.poetry]
+name = "the-similarity-data"
+version = "0.1.0"
+description = "Fetcher scripts and manifest management for The Similarity data bank"
+authors = ["Buyantogtokh"]
+license = "MIT"
+packages = [{include = "the_similarity_data"}]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+pandas = "^2.2.2"
+pyarrow = "^22.0.0"
+ccxt = "^4.5.42"
+yfinance = "^0.2.50"
+requests = "^2.32.5"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^9.0.2"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

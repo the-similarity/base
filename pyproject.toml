@@ -1,0 +1,31 @@
+[tool.poetry]
+name = "the-similarity"
+version = "0.1.0"
+description = "Research-grade time series pattern matching and prediction"
+authors = ["Buyantogtokh"]
+license = "MIT"
+packages = [{include = "the_similarity"}]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+numpy = "^1.26"
+pandas = "^2.1"
+scipy = "^1.11"
+dtaidistance = "^2.3"
+stumpy = "^1.12"
+matplotlib = "^3.8"
+plotly = "^5.18"
+pydantic = "^2.11"
+fastapi = "^0.115"
+uvicorn = "^0.34"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.4"
+pytest-cov = "^4.1"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.pytest.ini_options]
+testpaths = ["the_similarity/tests"]

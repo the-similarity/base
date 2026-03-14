@@ -1,0 +1,23 @@
+[tool.poetry]
+name = "the-similarity-playground"
+version = "0.1.0"
+description = "Research playground for The Similarity"
+authors = ["Buyantogtokh"]
+license = "MIT"
+packages = []
+
+[tool.poetry.dependencies]
+python = "^3.11"
+ipykernel = "*"
+jupyter = "*"
+matplotlib = "*"
+nbformat = "*"
+numpy = "*"
+pandas = "*"
+pyarrow = "*"
+requests = "*"
+the-similarity = { path = "..", develop = true }
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
