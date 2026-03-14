@@ -2,7 +2,7 @@
 
 ## Current State
 
-Phase 1 complete + Phase 2a/2b done. Working tiered pipeline with 58 tests passing:
+Phase 1 complete + Phases 2a–2e done + Phase 3 done. Working tiered pipeline with 115 tests passing (all 9 methods active):
 - Loader (CSV, parquet, DataFrame, dict, numpy)
 - Normalizer (zscore, minmax, logreturn, logreturn_zscore, raw) with per-method defaults
 - Windower (sliding windows, multi-scale indices)
@@ -10,7 +10,7 @@ Phase 1 complete + Phase 2a/2b done. Working tiered pipeline with 58 tests passi
 - Bempedelis self-similarity transform (multi-start L-BFGS-B) — **integrated into pipeline**
 - Scorer with `active_methods` + dynamic weight renormalization (0-100 scale)
 - Projector with interpolated weighted quantiles and 5-band forecast cone (p10/25/50/75/90)
-- Tiered matcher: prefilter → cheap scoring → Bempedelis enrichment on top-N → final rank
+- Tiered matcher: SAX+MASS+Pearson prefilter → DTW+Pearson cheap scoring → Tier 2 enrichment (7 methods) on top-N → final rank
 - `CandidateWindow` intermediate dataclass for pipeline state
 - `SearchResults` container with `.best`, `.summary()`, `.matches`
 - Full API contracts (Pydantic) with `SearchRequest`/`SearchResponse`
@@ -34,16 +34,16 @@ Phase 1 complete + Phase 2a/2b done. Working tiered pipeline with 58 tests passi
 - Fractal methods are inherently scale-invariant, so this works naturally
 
 ### Active Methods + Weight Renormalization
-- `Config.active_methods` controls which methods run (default: `["dtw", "pearson_warped"]`)
+- `Config.active_methods` controls which methods run (default: all 9 methods)
 - `compute_confidence()` renormalizes weights across only active methods
 - Adding a method to `active_methods` immediately gives it proper weight
 - All 9 weight slots defined upfront; inactive methods don't drag score to zero
 
 ### Tier Architecture (Live)
-- **Tier 1 prefilter**: `_score_prefilter()` — Euclidean + Pearson blend (placeholder for SAX/MP/Wavelet)
+- **Tier 1 prefilter**: `_score_prefilter()` — SAX MINDIST + MASS + Pearson blend (0.4/0.4/0.2)
 - **Tier 1 cap**: `config.tier1_candidates` (default 1000) — top candidates by prefilter score
 - **Cheap scoring**: DTW + Pearson on all Tier 1 survivors
-- **Tier 2 enrichment**: Bempedelis on top `config.tier2_candidates` (default 20) — expensive structural methods
+- **Tier 2 enrichment**: 7 methods (Bempedelis, Koopman, Wavelet, EMD, TDA, TE, Regime) on top `config.tier2_candidates` (default 20)
 - **Final rank**: `compute_confidence()` across all active methods → top_k returned
 
 ### Koopman Eigenvalue Distance
@@ -60,7 +60,7 @@ class FeatureStore:
         ...
 ```
 - Key: (dataset_hash, window_start, window_length, method_name, method_params_hash)
-- Phase 1-3: dict or shelve. Phase 5: Redis or SQLite. Same interface.
+- Phase 5: SQLite with params_hash in key (no explicit invalidation needed). Same interface.
 - Precompute Tier 1 features on dataset load → search is O(N×lookup + K×compute)
 
 ### Stationarity / Regime Handling
@@ -149,286 +149,61 @@ class FeatureStore:
 - [x] `test_mp_score_profile_range` — all scores in [0, 1]
 - [x] `test_mp_score_decreases_with_distance` — monotonic relationship
 
-### 2e. Wavelet Leaders multifractal spectrum
-**Goal**: Compute the f(α) singularity spectrum for each window and use spectrum distance as both a Tier 1 fast signal and a Tier 2 `wavelet_spectrum` score.
+### 2e. ~~Wavelet Leaders multifractal spectrum~~ → DONE
+**File**: `the_similarity/methods/wavelet_leaders.py` (190 lines)
+- [x] Fractal spectrum analysis via wavelet modulus maxima
+- [x] Multi-scale Hurst exponent estimation
+- [x] Wired into `_enrich_tier2()` → `score_breakdown.wavelet_spectrum`
+- [x] Tests in `test_wavelet_leaders.py` (5 tests passing)
 
-**File**: `the_similarity/methods/wavelet_leaders.py`
+### 2f. Tier 1 merger → DEFERRED
+**Status**: Current 3-signal blend (0.4×SAX + 0.4×MP + 0.2×Pearson) works well. SAX provides no-false-dismissal guarantees. Nomination scoring deferred until backtester (4c) proves Tier 1 quality is the bottleneck. See TODOS.md.
 
-**Implementation**:
-- [ ] `compute_wavelet_leaders(series, wavelet, max_level) -> leaders`
-  - Use `pywt.wavedec(series, wavelet, level=max_level)` for DWT
-  - Compute wavelet leaders: supremum of |coefficients| in local neighborhood at each scale
-  - `wavelet='db4'`, `max_level=None` (auto from series length)
-- [ ] `multifractal_spectrum(leaders, q_range) -> (alpha, f_alpha)`
-  - Moment orders: `q = np.arange(-5, 5.5, 0.5)` (21 values)
-  - Structure function: `S(q, j) = mean(|leaders_j|^q)` at each scale j
-  - Generalized Hurst: `h(q)` from log-log regression of S(q, j) vs scale
-  - Renyi exponent: `tau(q) = q * h(q) - 1`
-  - Legendre transform: `alpha = d(tau)/dq`, `f(alpha) = q * alpha - tau(q)`
-  - Return (alpha, f_alpha) arrays
-- [ ] `spectrum_distance(spec_a, spec_b) -> float`
-  - Interpolate both spectra onto common alpha grid
-  - L2 distance: `sqrt(mean((f_a - f_b)^2))`
-  - Alternative: `scipy.stats.wasserstein_distance(alpha_a, f_a, alpha_b, f_b)` if shapes differ significantly
-- [ ] `wavelet_score(distance) -> float`
-  - Map to [0, 1]: `exp(-distance * 5)` (tunable scaling factor)
-- [ ] Config:
-  - `wavelet_name: str = "db4"`
-  - `wavelet_q_range: tuple[float, float, float] = (-5, 5.5, 0.5)`
-- [ ] Wire into matcher.py:
-  - **Tier 1**: Coarse spectrum distance (fewer q values, e.g., q = [-2, 0, 2]) as prefilter component
-  - **Tier 2**: Full spectrum comparison → `score_breakdown.wavelet_spectrum`
-  - Add to `_enrich_with_bempedelis` pattern (rename to `_enrich_tier2` and add wavelet)
-- [ ] Minimum window size: ~64 bars for reliable spectrum (fewer scales at shorter windows)
-- [ ] Add `pywavelets` to dependencies (already listed in pyproject.toml as `PyWavelets`)
-
-**Tests** (`test_wavelet_leaders.py`):
-- [ ] `test_spectrum_self_distance_zero` — same series → distance ≈ 0
-- [ ] `test_known_hurst` — fBm with H=0.7 → h(2) ≈ 0.7
-- [ ] `test_white_noise_vs_trending` — different spectra → large distance
-- [ ] `test_short_series_graceful` — series < 16 bars → returns fallback score (0.5)
-
-### 2f. Tier 1 merger
-**Goal**: Replace single prefilter with multi-method nomination scoring. SAX runs on all candidates → survivors → Matrix Profile + Wavelet Leaders on survivors → ranked union → Tier 2.
-
-**File**: Changes in `the_similarity/core/matcher.py`
-
-**Implementation**:
-- [ ] Refactor `_collect_candidates()`:
-  - Phase 1: Generate all raw windows (no scoring yet)
-  - Phase 2: SAX prefilter on all windows → keep top `tier1_candidates * 2` (generous cut)
-  - Phase 3: Matrix Profile ranking on SAX survivors
-  - Phase 4: Coarse wavelet spectrum distance on SAX survivors
-  - Phase 5: Nomination scoring to produce final Tier 1 pool
-- [ ] `_compute_nomination_score(sax_rank, mp_rank, wavelet_rank) -> float`
-  - `nomination_count` = number of methods that ranked this candidate in their top N
-  - `rank_credit` = Σ(1 / rank_in_method) for each method that nominated
-  - `score = nomination_count + rank_credit`
-  - Candidates nominated by all 3 methods rank highest
-- [ ] Top `tier1_candidates` by nomination score → proceed to Tier 2 (DTW, Pearson, Bempedelis, Wavelet full)
-- [ ] Config:
-  - `sax_prefilter_keep_ratio: float = 0.3` — fraction of candidates SAX keeps for MP/Wavelet
-- [ ] Graceful degradation: if a Tier 1 method is not available (missing dependency), skip it — the merger still works with 1 or 2 methods
-
-**Tests**:
-- [ ] `test_multi_nominated_ranks_higher` — candidate in all 3 methods' top-N beats single-method nominee
-- [ ] `test_graceful_without_stumpy` — if stumpy not installed, merger uses SAX + Wavelet only
-- [ ] `test_tier1_preserves_obvious_match` — embedded pattern survives merger
-
-### 2g. Full confidence score (Phase 2 methods)
-**Goal**: With SAX, Matrix Profile, and Wavelet Leaders implemented, the system should produce meaningful composite scores from 4+ active methods.
-
-- [ ] Default `active_methods` expanded to: `["dtw", "pearson_warped", "bempedelis_r2", "bempedelis_smoothness", "wavelet_spectrum"]`
-- [ ] Integration test: synthetic self-similar match scores > 60, noise match scores < 30
-- [ ] Integration test: adding `wavelet_spectrum` to active_methods changes ranking (not just score magnitude)
-- [ ] Playground validation: `run_local_search()` on BTC daily with all Phase 2 methods → inspect `top_matches_frame()` output
+### 2g. ~~Full confidence score~~ → DONE
+- [x] Default `active_methods` = all 9 methods (bempedelis_r2, bempedelis_smoothness, koopman, wavelet_spectrum, emd, tda, dtw, pearson_warped, transfer_entropy)
+- [x] Weights sum to 1.0 with dynamic renormalization across active methods
+- [x] `compute_confidence()` produces 0-100 composite scores
 
 ---
 
-## Phase 3 — Research Grade
+## Phase 3 — Research Grade → DONE
 
-### 3a. Takens delay embedding (shared utility)
-**Goal**: Both Koopman and TDA need delay embedding. Build once, share.
+All 9 methods implemented, wired into `_enrich_tier2()`, and tested (115 tests passing).
 
-**File**: `the_similarity/core/embedding.py`
+### 3a. ~~Takens delay embedding~~ → DONE
+- [x] `core/embedding.py` — `delay_embed()`, `auto_lag()`, `auto_dim()`
+- [x] Shared by Koopman and TDA
+- [x] Tests in `test_embedding.py` (5 tests)
 
-**Implementation**:
-- [ ] `delay_embed(series, dim, lag) -> NDArray` (shape: (n - (dim-1)*lag, dim))
-  - Construct Hankel-like matrix from scalar time series
-  - Each row is `[x(t), x(t-lag), x(t-2*lag), ..., x(t-(dim-1)*lag)]`
-- [ ] `auto_lag(series) -> int`
-  - First minimum of time-delayed mutual information
-  - Use histogram-based MI estimation (fast, ~20 lines)
-  - Fallback: first zero-crossing of autocorrelation
-- [ ] `auto_dim(series, lag, max_dim=15) -> int`
-  - False Nearest Neighbors (FNN) method
-  - Increase dim until FNN fraction < 2%
-  - Cao's method as alternative (avoids threshold)
-  - Fallback: `min(10, len(series) // (3 * lag))`
-- [ ] For typical financial daily data: expect lag ≈ 3-7, dim ≈ 4-8
+### 3b. ~~Koopman EDMD~~ → DONE
+- [x] `methods/koopman.py` (208 lines) — pure numpy DMD, Hungarian eigenvalue matching
+- [x] Wired into `_enrich_tier2()` → `score_breakdown.koopman`
+- [x] Tests in `test_koopman.py` (10 tests)
 
-**Tests** (`test_embedding.py`):
-- [ ] `test_delay_embed_shape` — output shape matches (n - (d-1)*tau, d)
-- [ ] `test_auto_lag_sine` — sine wave → lag ≈ period/4
-- [ ] `test_auto_dim_lorenz` — Lorenz attractor → dim ≈ 3
+### 3c. ~~EMD multi-scale~~ → DONE
+- [x] `methods/emd_matcher.py` (98 lines) — IMF decomposition + energy-weighted DTW
+- [x] Wired into `_enrich_tier2()` → `score_breakdown.emd`
+- [x] Tests in `test_emd.py` (5 tests)
 
-### 3b. Koopman EDMD + eigenvalue matching
-**Goal**: Fit Koopman operator via EDMD on delay-embedded windows, extract eigenvalue spectra, match via Hungarian algorithm. Weight: 0.20 (highest single method).
+### 3d. ~~TDA persistence~~ → DONE
+- [x] `methods/tda_matcher.py` (137 lines) — Rips persistence diagrams
+- [x] Wired into `_enrich_tier2()` → `score_breakdown.tda`
+- [x] Tests in `test_tda.py` (5 tests)
 
-**File**: `the_similarity/methods/koopman.py`
+### 3e. ~~Transfer entropy~~ → DONE
+- [x] `methods/transfer_entropy.py` (164 lines) — histogram-based TE, no external deps
+- [x] Wired into `_enrich_tier2()` → `score_breakdown.transfer_entropy`
+- [x] Tests in `test_transfer_entropy.py` (5 tests)
 
-**Implementation**:
-- [ ] `fit_koopman(series, dim, lag, n_modes) -> KoopmanResult`
-  - Delay-embed using `embedding.delay_embed()`
-  - Build snapshot pairs: X = embedded[:-1], Y = embedded[1:]
-  - SVD: `U, S, Vt = np.linalg.svd(X, full_matrices=False)`
-  - Truncate to `n_modes` (default: `min(10, dim)`)
-  - Project: `A_tilde = U[:, :r].T @ Y @ Vt[:r].T @ np.diag(1/S[:r])`
-  - Eigendecompose: `eigenvalues, eigenvectors = np.linalg.eig(A_tilde)`
-  - Return `KoopmanResult(eigenvalues, eigenvectors, A_tilde)`
-  - **No external dependency** — pure numpy DMD. PyKoopman/PyDMD are for validation, not runtime.
-- [ ] `koopman_eigenvalue_distance(eigs_a, eigs_b, top_k=8) -> float`
-  - Sort both by `|λ|` descending
-  - Truncate to top-k with `|λ| > 0.05`
-  - Pad smaller set with zeros
-  - Cost matrix: `C[i,j] = |λ_i - μ_j|` in complex plane
-  - `scipy.optimize.linear_sum_assignment(C)` → optimal matching
-  - Total cost = sum of matched distances
-  - Return total_cost
-- [ ] `koopman_score(distance, n_modes) -> float`
-  - Map to [0, 1]: `exp(-distance / n_modes)`
-- [ ] Config:
-  - `koopman_n_modes: int = 8`
-  - `koopman_min_window: int = 50` (need enough data for reliable embedding)
-- [ ] Wire into matcher.py `_enrich_tier2()`:
-  - Normalize with `METHOD_NORM_DEFAULTS["koopman"]` (logreturn)
-  - Fit Koopman on query (once) and each Tier 2 candidate
-  - Compute eigenvalue distance → `score_breakdown.koopman`
-  - Store eigenvalues in `MatchResult.koopman_eigenvalues`
-- [ ] Add `"koopman"` to `Config.active_methods` default list
+### 3f. ~~Regime tagger~~ → DONE
+- [x] `core/regime.py` — `tag_regime()` with slope/Hurst/vol logic
+- [x] Wired into `_enrich_tier2()` → `candidate.regime`
+- [x] Tests in `test_regime.py` (5 tests)
 
-**Tests** (`test_koopman.py`):
-- [ ] `test_same_system_low_distance` — two windows from `sin(t) + 0.5*sin(2t)` → distance < 0.5
-- [ ] `test_different_systems_high_distance` — sine vs random walk → distance > 2.0
-- [ ] `test_eigenvalue_count` — n_modes eigenvalues returned
-- [ ] `test_hungarian_matching_symmetric` — distance(A, B) == distance(B, A)
-- [ ] `test_short_window_graceful` — window < koopman_min_window → score = 0.0
-
-### 3c. EMD multi-scale matching
-**Goal**: Decompose both windows into IMFs, match corresponding IMF pairs via DTW, weighted by IMF energy. Weight: 0.10.
-
-**File**: `the_similarity/methods/emd_matcher.py`
-
-**Implementation**:
-- [ ] `decompose_emd(series, max_imfs=6) -> list[NDArray]`
-  - `from PyEMD import EMD; emd = EMD(); IMFs = emd(series)`
-  - Truncate to `max_imfs` (discard residual if more)
-  - Returns list of IMF arrays
-- [ ] `imf_energy(imf) -> float`
-  - `np.sum(imf ** 2)`
-- [ ] `emd_match(query, candidate, max_imfs=6) -> (float, float)`
-  - Decompose both into IMFs
-  - Align IMF count: pad shorter list with zeros
-  - For each corresponding pair: `dtw_distance(imf_q, imf_c)` → normalized by IMF length
-  - Weight each pair by energy: `w_i = energy_i / total_energy`
-  - Weighted sum of per-IMF distances → total distance
-  - Score = `exp(-total_distance)` → [0, 1]
-  - Returns (score, distance)
-- [ ] Config:
-  - `emd_max_imfs: int = 6`
-- [ ] Wire into `_enrich_tier2()`:
-  - Normalize with `METHOD_NORM_DEFAULTS["emd"]` (raw)
-  - `score_breakdown.emd = emd_score`
-- [ ] Add `EMD-signal` to dependencies
-
-**Tests** (`test_emd.py`):
-- [ ] `test_emd_identical` — same signal → score ≈ 1.0
-- [ ] `test_emd_different_frequency` — 5Hz vs 20Hz → score < 0.5
-- [ ] `test_imf_count` — series decomposes into 2-6 IMFs
-- [ ] `test_emd_short_series` — series < 20 bars → graceful fallback
-
-### 3d. TDA persistence diagrams
-**Goal**: Delay-embed, compute persistent homology, compare via Wasserstein distance. Weight: 0.08.
-
-**File**: `the_similarity/methods/tda_matcher.py`
-
-**Implementation**:
-- [ ] `compute_persistence(series, dim, lag) -> dict`
-  - Delay-embed using shared `embedding.delay_embed()`
-  - `from ripser import ripser; result = ripser(embedded, maxdim=1)`
-  - Extract H0 and H1 diagrams
-  - Return `{"H0": diagram_0, "H1": diagram_1}`
-- [ ] `persistence_distance(diag_a, diag_b) -> float`
-  - `from persim import wasserstein; d = wasserstein(diag_a, diag_b)`
-  - Combine H0 and H1: `total = 0.4 * d_H0 + 0.6 * d_H1`
-  - H1 weighted higher — loops/cycles carry more structural information than components
-- [ ] `tda_score(distance) -> float`
-  - Map to [0, 1]: `exp(-distance * 2)`
-- [ ] Config:
-  - `tda_max_homology_dim: int = 1` (H0 + H1)
-  - `tda_min_window: int = 40` (need enough points for meaningful topology)
-- [ ] Wire into `_enrich_tier2()`:
-  - Normalize with `METHOD_NORM_DEFAULTS["tda"]` (logreturn_zscore)
-  - `score_breakdown.tda = tda_score`
-  - Store diagram in `MatchResult.persistence_diagram`
-- [ ] Add `ripser`, `persim` to dependencies
-
-**Tests** (`test_tda.py`):
-- [ ] `test_tda_identical` — same series → distance ≈ 0
-- [ ] `test_tda_circle_vs_line` — circular trajectory vs line → large H1 difference
-- [ ] `test_tda_short_window` — window < tda_min_window → score = 0.0
-
-### 3e. Transfer entropy
-**Goal**: Measure information transfer from a match window to its forward window. High TE = the match is genuinely predictive, not just similar. Weight: 0.05.
-
-**File**: `the_similarity/methods/transfer_entropy.py`
-
-**Implementation**:
-- [ ] `compute_transfer_entropy(source, target, lag=1, bins=8) -> float`
-  - Discretize via histogram binning (fast, no external dependency)
-  - Compute joint and conditional entropies using bin counts
-  - `TE = H(target_future | target_past) - H(target_future | target_past, source_past)`
-  - Normalize: `TE_normalized = TE / H(target_future)` → [0, 1]
-- [ ] `te_score(match_window, forward_window) -> float`
-  - `source = match_window`, `target = forward_window`
-  - Returns normalized TE in [0, 1]
-  - High score = match period contains information that predicts the forward window
-- [ ] Config:
-  - `te_lag: int = 1`
-  - `te_bins: int = 8`
-- [ ] Wire into `_enrich_tier2()`:
-  - Requires forward window data (available in `MatchResult.forward_window`)
-  - Run TE after forward window extraction in projector
-  - Actually: compute TE in `find_matches()` by extracting forward window from history
-  - `score_breakdown.transfer_entropy = te_score`
-- [ ] **No external dependency** — histogram-based TE is ~30 lines
-
-**Tests** (`test_transfer_entropy.py`):
-- [ ] `test_te_deterministic` — `target = source[1:]` (shifted copy) → TE > 0.5
-- [ ] `test_te_independent` — two independent random series → TE ≈ 0
-- [ ] `test_te_normalized_range` — output always in [0, 1]
-
-### 3f. Regime tagger
-**Goal**: Label each window with a regime tag for filtering and display.
-
-**File**: `the_similarity/core/regime.py`
-
-**Implementation**:
-- [ ] `tag_regime(series) -> str`
-  - Returns one of: `"trending_up"`, `"trending_down"`, `"mean_reverting"`, `"high_vol"`, `"low_vol"`
-  - **Slope**: OLS linear regression slope on normalized series
-    - slope > +threshold → trending_up candidate
-    - slope < -threshold → trending_down candidate
-  - **Hurst**: DFA estimate on log-returns
-    - H > 0.6 → confirms trending (use slope direction)
-    - H < 0.4 → mean_reverting (overrides slope)
-  - **Volatility**: realized vol = std(log-returns) × sqrt(252)
-    - Compare to historical percentile (pass as parameter or use fixed thresholds)
-    - Top 25% → high_vol, bottom 25% → low_vol (overrides trend label)
-  - Priority: vol override > Hurst override > slope direction
-- [ ] `hurst_dfa(series, min_box=4, max_box=None) -> float`
-  - Detrended Fluctuation Analysis (~30 lines)
-  - Integrate series → segment into boxes → detrend each → compute F(n) → log-log slope
-- [ ] Attach regime label to `MatchResult` (new field: `regime: str | None = None`)
-- [ ] Attach to `CandidateWindow` during `_collect_candidates()`
-- [ ] Optional: Koopman matcher can filter by regime (soft — penalize mismatch, don't exclude)
-
-**Tests** (`test_regime.py`):
-- [ ] `test_trending_up` — monotonically increasing series → "trending_up"
-- [ ] `test_mean_reverting` — sine wave → "mean_reverting"
-- [ ] `test_high_vol` — series with large std → "high_vol"
-- [ ] `test_hurst_random_walk` — random walk → H ≈ 0.5
-
-### 3g. Phase 3 integration
-**Goal**: All 9 methods active and producing real scores.
-
-- [ ] Default `active_methods` = all 9 fields
-- [ ] `_enrich_tier2()` runs: Bempedelis, Wavelet (full), Koopman, EMD, TDA, Transfer Entropy
-- [ ] Ordering within Tier 2: cheapest first (Wavelet, TE, EMD, TDA, Koopman, Bempedelis)
-- [ ] Integration test: `run_local_search()` on BTC 1d with all methods → all 9 breakdown fields > 0
-- [ ] Integration test: confidence scores distribute meaningfully (not all clustered near 50)
-- [ ] Playground: compare rankings with all methods vs DTW-only — do structural methods change the top-5?
-- [ ] Update API contracts: `SearchRequest.active_methods` default matches new config
+### 3g. ~~Phase 3 integration~~ → DONE
+- [x] All 9 methods active by default
+- [x] `_enrich_tier2()` runs all 7 Tier 2 methods
+- [x] Weights sum to 1.0 with dynamic renormalization
 
 ---
 
@@ -436,6 +211,7 @@ class FeatureStore:
 
 ### 4a. Koopman forward evolution
 - [ ] Use matched Koopman operator K to evolve query forward: x(t+dt) = K·x(t)
+- [ ] **Clamp eigenvalues to unit disk before evolution** (project |λ| → min(|λ|, 1.0), preserve phase) — prevents divergent forecasts from unstable modes
 - [ ] Uncertainty from eigenvalue matching residuals
 - [ ] Return as separate forecast alongside weighted projection
 - [ ] `forecast.koopman_forecast` field
@@ -448,13 +224,16 @@ class FeatureStore:
 
 ### 4c. Backtester / validation framework
 - [ ] Implement `the_similarity.backtest(history, window_size, forward_bars, n_trials)`
+- [ ] **Data leakage guard**: `backtest()` slices `history[:query_start]` before calling `search()` — temporal boundary enforced at the backtester level, not in the engine
+- [ ] **Parallel trials**: `concurrent.futures.ProcessPoolExecutor` with `n_workers` param — trials are independent, 4-8× speedup
 - [ ] For each trial:
   - Pick random query window
-  - Run search() on everything *before* the query
+  - Run search() on `history[:query_start]` (no look-ahead)
   - Get top-k matches and forward windows
   - Compute forecast cone
   - Compare to actual outcome
 - [ ] Output: hit_rate, mean_error, calibration_curve, CRPS
+- [ ] **Deterministic tests per metric**: synthetic data with known outcomes (perfect predictor, always-wrong predictor) → assert exact metric values
 - [ ] Calibration = P90 band contains actual 90% of the time (if not, overconfident)
 - [ ] This is the ground truth for tuning weights and validating the system
 
@@ -464,8 +243,9 @@ class FeatureStore:
 
 ### 5a. FeatureStore caching
 - [ ] Implement `FeatureStore` class
-- [ ] Key: (dataset_hash, window_start, window_length, method, params_hash)
-- [ ] Backend: shelve for local, interface ready for Redis/SQLite swap
+- [ ] Key: (dataset_hash, window_start, window_length, method, **params_hash**) — params_hash includes method-specific config (sax segments, alphabet size, etc.) so config changes auto-invalidate
+- [ ] **Backend: SQLite** (not shelve — shelve is not process-safe, and backtester uses ProcessPoolExecutor)
+- [ ] Interface ready for Redis swap
 - [ ] Precompute Tier 1 features on dataset load
 - [ ] search() becomes O(N×lookup + K×compute)
 
