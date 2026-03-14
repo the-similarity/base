@@ -53,3 +53,61 @@ export type DashboardData = {
   pipelineSteps: string[];
   baseBreakdown: ConfidenceBreakdownItem[];
 };
+
+export type ScoreBreakdown = {
+  bempedelisR2: number;
+  bempedelisSmoothness: number;
+  koopman: number;
+  waveletSpectrum: number;
+  emd: number;
+  tda: number;
+  dtw: number;
+  pearsonWarped: number;
+  transferEntropy: number;
+};
+
+export type MatchResult = {
+  startIdx: number;
+  endIdx: number;
+  startDate: string | null;
+  endDate: string | null;
+  confidenceScore: number;
+  scoreBreakdown: ScoreBreakdown;
+  matchedSeries: number[] | null;
+  transformAlpha: number[] | null;
+  transformBeta: number[] | null;
+  transformR2: number;
+  koopmanEigenvalues: number[] | null;
+  fractalSpectrum: number[] | null;
+  persistenceDiagram: number[][] | null;
+  forwardWindow: number[] | null;
+};
+
+export type ForecastResult = {
+  bars: number;
+  percentiles: number[];
+  curves: Record<string, number[]>;
+  allPaths: number[][];
+  weights: number[];
+};
+
+export type SearchResponse = {
+  queryValues: number[];
+  matches: MatchResult[];
+  forecast: ForecastResult | null;
+};
+
+export type SearchRequest = {
+  queryValues: number[];
+  historyValues: number[];
+  topK?: number;
+  forwardBars?: number;
+  excludeSelf?: boolean;
+  normalization?: string;
+  stride?: number;
+  tier1Candidates?: number;
+  tier2Candidates?: number;
+  activeMethods?: string[];
+  percentiles?: number[];
+  weights?: Record<string, number>;
+};
