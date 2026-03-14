@@ -1,4 +1,4 @@
-import { DashboardShell } from "../components/dashboard-shell";
+import { DashboardShell } from "../components/dashboard/dashboard-shell";
 import { getDashboardData } from "../lib/api";
 
 export default async function Page() {
