@@ -246,11 +246,11 @@ All 9 methods implemented, wired into `_enrich_tier2()`, and tested (115 tests p
 - [x] Graceful degradation: corrupt DB warns and falls through to compute
 - [x] 14 tests (13 unit + 1 integration)
 
-### 5b. Performance
-- [ ] Profile bottlenecks (DTW loop, Bempedelis optimization)
-- [ ] Parallelize Tier 2 methods across candidates (multiprocessing or joblib)
-- [ ] Vectorize where possible (batch DTW via dtaidistance)
-- [ ] Consider numba for inner loops if needed
+### 5b. ~~Performance~~ → DONE
+- [x] Batch DTW via `dtaidistance.distance_matrix_fast` with `block` parameter — eliminates per-candidate Python loop in Tier 1
+- [x] ThreadPoolExecutor for Tier 2 enrichment — parallel candidate processing (numpy/scipy release GIL)
+- [x] Regression tests verifying batch == sequential to 1e-10
+- [x] Benchmark: DTW+Pearson 0.32s, all 9 methods 1.03s (2000-bar history, stride=3)
 
 ### 5c. Cross-timeframe search
 - [ ] Implement `cross_timeframes` parameter in search()
