@@ -1,6 +1,6 @@
 import { DashboardDataSchema, SearchResponseSchema } from "./schemas";
 import { getMockDashboardData } from "./mock-data";
-import type { CatalogItem, DatasetSeries, DashboardData, SearchRequest, SearchResponse } from "./types";
+import type { CatalogItem, DatasetSeries, OhlcData, DashboardData, SearchRequest, SearchResponse } from "./types";
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_THE_SIMILARITY_API_URL ?? process.env.THE_SIMILARITY_API_URL ?? "";
 
@@ -68,6 +68,31 @@ export async function fetchSeries(
     datasetId: json.dataset_id,
     column: json.column,
     values: json.values,
+    dates: json.dates ?? [],
+    rowCount: json.row_count,
+  };
+}
+
+export async function fetchOhlc(
+  assetClass: string,
+  symbol: string,
+  timeframe: string,
+): Promise<OhlcData> {
+  if (!apiBaseUrl) throw new Error("API not configured");
+  const url = `${normalizeBaseUrl(apiBaseUrl)}/datasets/${assetClass}/${symbol}/${timeframe}/ohlc`;
+  const response = await fetch(url, {
+    headers: { Accept: "application/json" },
+    cache: "no-store",
+  });
+  if (!response.ok) throw new Error(`OHLC request failed (${response.status})`);
+  const json = await response.json();
+  return {
+    datasetId: json.dataset_id,
+    open: json.open,
+    high: json.high,
+    low: json.low,
+    close: json.close,
+    volume: json.volume ?? [],
     dates: json.dates ?? [],
     rowCount: json.row_count,
   };
