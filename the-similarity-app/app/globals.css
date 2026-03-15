@@ -910,3 +910,61 @@ button {
     position: static;
   }
 }
+
+/* -----------------------------------------------------------------------
+   Transitions & animations
+   ----------------------------------------------------------------------- */
+
+.transition-colors {
+  transition: color 150ms ease, background-color 150ms ease, border-color 150ms ease;
+}
+
+.transition-opacity {
+  transition: opacity 200ms ease;
+}
+
+.transition-transform {
+  transition: transform 200ms ease;
+}
+
+.transition-all {
+  transition: all 200ms ease;
+}
+
+/* Score bar animation */
+.score-bar-fill {
+  transition: width 300ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Forecast cone fade-in */
+.forecast-cone {
+  transition: opacity 400ms ease;
+}
+
+/* Match card highlight */
+.match-card {
+  transition: background-color 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.match-card:hover,
+.match-card[data-highlighted="true"] {
+  background: var(--bg-hover);
+  border-color: var(--border-focus);
+}
+
+.match-card[data-selected="true"] {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+/* Panel resize handle */
+.resize-handle {
+  width: 4px;
+  cursor: col-resize;
+  background: transparent;
+  transition: background-color 150ms ease;
+}
+.resize-handle:hover {
+  background: var(--accent);
+}
