@@ -5,29 +5,35 @@ import { fetchCatalog, fetchSeries, searchApi } from "../../lib/api";
 import type { CatalogItem } from "../../lib/types";
 
 function formatSymbol(item: CatalogItem): string {
-  return `${item.symbol.toUpperCase()} · ${item.timeframe}`;
+  return item.symbol.replace(/_/g, "/").toUpperCase();
 }
 
-function formatAssetClass(ac: string): string {
-  return ac.charAt(0).toUpperCase() + ac.slice(1);
+function formatTimeframe(tf: string): string {
+  return tf.toUpperCase();
 }
 
-export function SearchInput() {
+const ASSET_ICONS: Record<string, string> = {
+  crypto: "C",
+  stocks: "S",
+  forex: "F",
+  commodities: "G",
+};
+
+export function SearchSidebar() {
   const { state, dispatch } = useTerminal();
-  const [expanded, setExpanded] = useState(false);
   const [catalog, setCatalog] = useState<CatalogItem[]>([]);
   const [selectedDataset, setSelectedDataset] = useState<string>("");
   const [querySize, setQuerySize] = useState(60);
-  const [loadingData, setLoadingData] = useState(false);
+  const [filterText, setFilterText] = useState("");
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(["crypto", "stocks"]));
   const abortRef = useRef<AbortController | null>(null);
 
-  // Load catalog on first expand
+  // Load catalog on mount
   useEffect(() => {
-    if (!expanded || catalog.length > 0) return;
     fetchCatalog()
       .then(setCatalog)
-      .catch(() => dispatch({ type: "SET_ERROR", error: "Could not load dataset catalog." }));
-  }, [expanded, catalog.length, dispatch]);
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     return () => { abortRef.current?.abort(); };
@@ -40,6 +46,32 @@ export function SearchInput() {
     acc[key].push(item);
     return acc;
   }, {});
+
+  // Filter
+  const filter = filterText.toLowerCase();
+  const filteredGroups = Object.entries(groups).reduce<Record<string, CatalogItem[]>>(
+    (acc, [key, items]) => {
+      const filtered = filter
+        ? items.filter((i) =>
+            i.symbol.toLowerCase().includes(filter) ||
+            i.assetClass.toLowerCase().includes(filter) ||
+            i.timeframe.toLowerCase().includes(filter)
+          )
+        : items;
+      if (filtered.length > 0) acc[key] = filtered;
+      return acc;
+    },
+    {},
+  );
+
+  const toggleGroup = (group: string) => {
+    setExpandedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(group)) next.delete(group);
+      else next.add(group);
+      return next;
+    });
+  };
 
   const handleSearch = useCallback(async () => {
     if (!selectedDataset) {
@@ -57,15 +89,13 @@ export function SearchInput() {
     dispatch({ type: "SET_ERROR", error: null });
 
     try {
-      // Fetch the full series
       const series = await fetchSeries(assetClass, symbol, timeframe);
 
       if (series.values.length < querySize + 10) {
-        dispatch({ type: "SET_ERROR", error: `Not enough data. Dataset has ${series.values.length} points, need at least ${querySize + 10}.` });
+        dispatch({ type: "SET_ERROR", error: `Not enough data (${series.values.length} points, need ${querySize + 10}).` });
         return;
       }
 
-      // Query = last N bars, History = everything before that
       const queryValues = series.values.slice(-querySize);
       const historyValues = series.values.slice(0, -querySize);
 
@@ -80,7 +110,6 @@ export function SearchInput() {
         controller.signal,
       );
       dispatch({ type: "SET_SEARCH_RESPONSE", response });
-      setExpanded(false);
     } catch (err: unknown) {
       if (err instanceof Error && err.name === "AbortError") return;
       dispatch({ type: "SET_ERROR", error: err instanceof Error ? err.message : "Search failed." });
@@ -92,60 +121,77 @@ export function SearchInput() {
     dispatch({ type: "SET_LOADING", loading: false });
   }, [dispatch]);
 
-  if (!expanded) {
-    return (
-      <div className="search-bar-collapsed">
-        <button
-          type="button"
-          className="search-bar-toggle"
-          onClick={() => setExpanded(true)}
-        >
-          <span className="search-bar-icon">/</span>
-          <span>Search patterns…</span>
-        </button>
-        {state.searchResponse && (
-          <span className="search-bar-status">
-            {state.searchResponse.matches.length} matches found
-          </span>
-        )}
-      </div>
-    );
-  }
-
   return (
-    <div className="search-bar">
-      <div className="search-bar-fields">
-        {/* Dataset picker */}
-        <div className="search-bar-field">
-          <label className="search-bar-label">
-            Dataset
-          </label>
-          <select
-            className="search-bar-select"
-            value={selectedDataset}
-            onChange={(e) => setSelectedDataset(e.target.value)}
-          >
-            <option value="">Choose a dataset…</option>
-            {Object.entries(groups).map(([ac, items]) => (
-              <optgroup key={ac} label={formatAssetClass(ac)}>
+    <div className="search-sidebar">
+      {/* Search filter */}
+      <div className="search-sidebar__filter">
+        <input
+          type="text"
+          className="search-sidebar__filter-input"
+          placeholder="Filter datasets…"
+          value={filterText}
+          onChange={(e) => setFilterText(e.target.value)}
+        />
+      </div>
+
+      {/* Dataset list */}
+      <div className="search-sidebar__list">
+        {Object.entries(filteredGroups).map(([ac, items]) => (
+          <div key={ac} className="search-sidebar__group">
+            <button
+              type="button"
+              className="search-sidebar__group-header"
+              onClick={() => toggleGroup(ac)}
+            >
+              <span className="search-sidebar__group-icon">{ASSET_ICONS[ac] ?? "?"}</span>
+              <span className="search-sidebar__group-name">
+                {ac.charAt(0).toUpperCase() + ac.slice(1)}
+              </span>
+              <span className="search-sidebar__group-count">{items.length}</span>
+              <span className={`search-sidebar__chevron ${expandedGroups.has(ac) ? "open" : ""}`}>
+                ›
+              </span>
+            </button>
+            {expandedGroups.has(ac) && (
+              <div className="search-sidebar__group-items">
                 {items.map((item) => {
                   const id = `${item.assetClass}/${item.symbol}/${item.timeframe}`;
+                  const isActive = selectedDataset === id;
                   return (
-                    <option key={id} value={id}>
-                      {formatSymbol(item)} — {item.rowCount.toLocaleString()} bars
-                    </option>
+                    <button
+                      key={id}
+                      type="button"
+                      className="search-sidebar__item"
+                      data-active={isActive}
+                      onClick={() => setSelectedDataset(id)}
+                    >
+                      <span className="search-sidebar__item-symbol">
+                        {formatSymbol(item)}
+                      </span>
+                      <span className="search-sidebar__item-tf">
+                        {formatTimeframe(item.timeframe)}
+                      </span>
+                      <span className="search-sidebar__item-rows">
+                        {item.rowCount.toLocaleString()}
+                      </span>
+                    </button>
                   );
                 })}
-              </optgroup>
-            ))}
-          </select>
-        </div>
+              </div>
+            )}
+          </div>
+        ))}
+        {catalog.length === 0 && (
+          <div className="search-sidebar__empty">No datasets available</div>
+        )}
+      </div>
 
-        {/* Query window size */}
-        <div className="search-bar-field">
-          <label className="search-bar-label">
+      {/* Controls */}
+      <div className="search-sidebar__controls">
+        <div className="search-sidebar__control-group">
+          <label className="search-sidebar__label">
             Query window
-            <span className="search-bar-count">{querySize} bars</span>
+            <span className="search-sidebar__label-value">{querySize}</span>
           </label>
           <input
             type="range"
@@ -156,39 +202,26 @@ export function SearchInput() {
             value={querySize}
             onChange={(e) => setQuerySize(Number(e.target.value))}
           />
-          <div className="search-bar-range-labels">
-            <span>20</span>
-            <span>200</span>
-          </div>
         </div>
-      </div>
 
-      <div className="search-bar-actions">
         {!state.loading ? (
           <button
             type="button"
-            className="search-bar-btn search-bar-btn--run"
+            className="search-sidebar__run-btn"
             onClick={handleSearch}
             disabled={!selectedDataset}
           >
-            Run
+            Run search
           </button>
         ) : (
           <button
             type="button"
-            className="search-bar-btn search-bar-btn--cancel"
+            className="search-sidebar__cancel-btn"
             onClick={handleCancel}
           >
             Cancel
           </button>
         )}
-        <button
-          type="button"
-          className="search-bar-btn search-bar-btn--close"
-          onClick={() => setExpanded(false)}
-        >
-          Collapse
-        </button>
       </div>
     </div>
   );
