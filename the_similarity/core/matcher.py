@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 
 import numpy as np
@@ -12,7 +13,7 @@ from the_similarity.core.regime import tag_regime
 from the_similarity.core.scorer import MatchResult, ScoreBreakdown, compute_confidence
 from the_similarity.core.windower import sliding_windows, window_indices
 from the_similarity.methods.bempedelis import bempedelis_match
-from the_similarity.methods.dtw_matcher import dtw_distance, dtw_score
+from the_similarity.methods.dtw_matcher import batch_dtw_scores, dtw_distance, dtw_score
 from the_similarity.methods.emd_matcher import emd_score
 from the_similarity.methods.koopman import koopman_match
 from the_similarity.methods.matrix_profile_filter import (
@@ -130,13 +131,21 @@ def find_matches(
         active_methods=base_fields,
     )
 
-    for candidate in candidates:
-        candidate.breakdown = _score_cheap_methods(
-            query_shape=query_shape,
-            cand_shape=candidate.shape_series,
-            radius=radius,
-            active_fields=active_fields,
-        )
+    # Batch DTW computation
+    if "dtw" in active_fields:
+        cand_shapes = [c.shape_series for c in candidates]
+        dtw_scores_batch = batch_dtw_scores(query_shape, cand_shapes, radius)
+    else:
+        dtw_scores_batch = [0.0] * len(candidates)
+
+    for i, candidate in enumerate(candidates):
+        breakdown = ScoreBreakdown()
+        if "dtw" in active_fields:
+            breakdown.dtw = dtw_scores_batch[i]
+        if "pearson_warped" in active_fields:
+            breakdown.pearson_warped = score_pearson(query_shape, candidate.shape_series)
+        candidate.breakdown = breakdown
+
         if base_fields:
             candidate.base_rank_score = compute_confidence(candidate.breakdown, base_config)
         else:
@@ -328,7 +337,8 @@ def _enrich_tier2(
         else None
     )
 
-    for candidate in candidates:
+    def _enrich_one(candidate: CandidateWindow) -> None:
+        """Enrich a single candidate with all Tier 2 methods."""
         raw = candidate.raw_series
         _wlen = candidate.end_idx - candidate.start_idx
 
@@ -471,6 +481,15 @@ def _enrich_tier2(
             candidate.regime = tag_regime(raw)
         except Exception:
             candidate.regime = None
+
+    if len(candidates) > 1:
+        # Use threads — numpy/scipy release the GIL during computation
+        n_threads = min(4, len(candidates))
+        with ThreadPoolExecutor(max_workers=n_threads) as executor:
+            list(executor.map(_enrich_one, candidates))
+    else:
+        for candidate in candidates:
+            _enrich_one(candidate)
 
 
 def _resample(series: NDArray[np.float64], target_len: int) -> NDArray[np.float64]:
