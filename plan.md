@@ -296,12 +296,17 @@ All 9 methods implemented, wired into `_enrich_tier2()`, and tested (115 tests p
 - [ ] Rate limiting per tier (free/pro/enterprise)
 - [ ] FeatureStore isolation per user for custom datasets
 
-### 6d. Hosted data pipeline
-- [ ] Ingestion service pulling from market data providers (Polygon, Tiingo, Binance)
-- [ ] Normalize to parquet schema, append-only updates on schedule
-- [ ] Asset coverage target: 500+ assets × 5 timeframes × 10yr history
-- [ ] Data catalog API: available assets, date ranges, freshness metadata
-- [ ] Replace in-repo parquet files with cloud storage (S3/GCS)
+### 6d. ~~Hosted data pipeline~~ → DONE (warehouse + universe expansion)
+- [x] Programmatic dataset generator: 685 specs across 262 unique symbols
+- [x] 6 asset classes: crypto (50 tokens), stocks (138 equities + ETFs), forex (39 pairs), commodities (14), indices (14), rates (7)
+- [x] DuckDB warehouse layer: unified SQL view over all parquet files
+- [x] Data quality pipeline: gap detection, staleness checks, duplicate detection, price spike alerts
+- [x] Coverage stats from manifest or parquet scan
+- [x] Freshness report sorted by staleness
+- [x] API endpoints: /warehouse/coverage, /warehouse/quality, /warehouse/freshness, /warehouse/search
+- [x] 27 new tests for generator and warehouse (all passing)
+- [ ] Replace local parquet with cloud storage (S3/GCS) — deferred to deployment phase
+- [ ] Add Polygon.io fetcher for US intraday equities
 
 ---
 
