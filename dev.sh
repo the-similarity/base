@@ -103,7 +103,7 @@ run_backend() {
 
   (
     cd "$API_DIR"
-    PYTHONPATH="$ROOT_DIR" python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
+    THE_SIMILARITY_DATA_ROOT="${THE_SIMILARITY_DATA_ROOT:-$(git worktree list --porcelain | grep '^worktree ' | head -1 | sed 's/^worktree //')}/the-similarity-data" PYTHONPATH="$ROOT_DIR" python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
   )
 }
 
@@ -114,7 +114,7 @@ run_full() {
 
   (
     cd "$API_DIR"
-    PYTHONPATH="$ROOT_DIR" python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
+    THE_SIMILARITY_DATA_ROOT="${THE_SIMILARITY_DATA_ROOT:-$(git worktree list --porcelain | grep '^worktree ' | head -1 | sed 's/^worktree //')}/the-similarity-data" PYTHONPATH="$ROOT_DIR" python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
   ) &
   BACKEND_PID=$!
 
@@ -130,7 +130,7 @@ run_full() {
   )
 }
 
-case "${1:-dev}" in
+case "${1:-full}" in
   dev)
     run_frontend
     ;;

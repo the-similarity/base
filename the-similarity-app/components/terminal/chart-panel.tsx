@@ -23,15 +23,15 @@ export function ChartPanel() {
     // Forecast from search response
     if (sr.forecast) {
       const curves = sr.forecast.curves;
-      // Curves keyed by percentile string ("10", "50", "90")
+      // Curves are cumulative returns (near 0.0), convert to price levels
       const p50Raw = curves["50"] ?? [];
       const p10Raw = curves["10"] ?? [];
       const p90Raw = curves["90"] ?? [];
-      // Anchor at last query value for continuity
       const anchor = query.length > 0 ? query[query.length - 1] : 0;
-      fP10 = p10Raw.length > 0 ? [anchor, ...p10Raw] : [];
-      fP50 = p50Raw.length > 0 ? [anchor, ...p50Raw] : [];
-      fP90 = p90Raw.length > 0 ? [anchor, ...p90Raw] : [];
+      const toPrice = (ret: number) => anchor * (1 + ret);
+      fP10 = p10Raw.length > 0 ? [anchor, ...p10Raw.map(toPrice)] : [];
+      fP50 = p50Raw.length > 0 ? [anchor, ...p50Raw.map(toPrice)] : [];
+      fP90 = p90Raw.length > 0 ? [anchor, ...p90Raw.map(toPrice)] : [];
     }
     chartTitle = `Search Results · ${sr.matches.length} matches`;
   } else if (data) {
@@ -63,9 +63,9 @@ export function ChartPanel() {
   const plotW = W - pad.left - pad.right;
   const plotH = H - pad.top - pad.bottom;
 
-  // Trajectory anchored at last query value
+  // Trajectory anchored at last query value (forwardWindow values are returns)
   const anchor = query[query.length - 1];
-  const trajSeries = trajectory ? [anchor, ...trajectory] : [];
+  const trajSeries = trajectory ? [anchor, ...trajectory.map((r) => anchor * (1 + r))] : [];
   const fStart = query.length - 1;
   const totalSlots = query.length + Math.max(
     fP50.length > 0 ? fP50.length - 1 : 0,
