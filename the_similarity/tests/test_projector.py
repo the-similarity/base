@@ -1,5 +1,6 @@
 import numpy as np
 
+from the_similarity.config import Config
 from the_similarity.core.projector import _weighted_quantile, project
 from the_similarity.core.scorer import MatchResult
 
@@ -64,3 +65,41 @@ def test_projection_percentiles_remain_ordered():
     fc = project(matches, history, forward_bars=20, percentiles=[10, 50, 90])
     assert np.all(fc.curves[10] <= fc.curves[50])
     assert np.all(fc.curves[50] <= fc.curves[90])
+
+
+def test_confidence_decay_zero_no_change():
+    """decay_rate=0 should not change curves."""
+    history = np.arange(200, dtype=np.float64)
+    matches = [_make_match(0, 50, score=80.0), _make_match(50, 100, score=60.0)]
+
+    fc_no_decay = project(matches, history, forward_bars=20)
+
+    config = Config(confidence_decay_rate=0.0)
+    fc_decay = project(matches, history, forward_bars=20, config=config)
+
+    np.testing.assert_array_almost_equal(fc_no_decay.curves[50], fc_decay.curves[50])
+    np.testing.assert_array_almost_equal(fc_no_decay.curves[10], fc_decay.curves[10])
+
+
+def test_confidence_decay_widens_cone():
+    """Positive decay_rate should widen the cone over time."""
+    history = np.arange(200, dtype=np.float64)
+    matches = [_make_match(0, 50, score=80.0), _make_match(50, 100, score=60.0)]
+
+    fc_no_decay = project(matches, history, forward_bars=20)
+
+    config = Config(confidence_decay_rate=0.05)
+    fc_decay = project(matches, history, forward_bars=20, config=config)
+
+    # P50 should be unchanged
+    np.testing.assert_array_almost_equal(fc_no_decay.curves[50], fc_decay.curves[50])
+
+    # P90-P10 spread should be wider with decay, especially at later bars
+    spread_no_decay = fc_no_decay.curves[90] - fc_no_decay.curves[10]
+    spread_decay = fc_decay.curves[90] - fc_decay.curves[10]
+
+    # At bar 0, no difference (decay factor = 1.0)
+    assert abs(spread_decay[0] - spread_no_decay[0]) < 1e-10
+
+    # At bar 19, decay factor = 1 + 0.05*19 = 1.95, so spread should be ~2x
+    assert spread_decay[-1] > spread_no_decay[-1]
