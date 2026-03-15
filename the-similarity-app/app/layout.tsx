@@ -5,7 +5,6 @@ import { ErrorBoundary } from "../components/error-boundary";
 
 const inter = Inter({
   subsets: ["latin"],
-  variable: "--font-inter",
   display: "swap",
 });
 
@@ -20,8 +19,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={inter.variable}>
-      <body>
+    <html lang="en">
+      <body className={inter.className}>
         <ErrorBoundary>
           {children}
         </ErrorBoundary>
