@@ -1,8 +1,13 @@
-import { DashboardShell } from "../components/dashboard/dashboard-shell";
-import { getDashboardData } from "../lib/api";
+"use client";
+import { TerminalProvider } from "@/lib/terminal-context";
+import { TerminalShell } from "@/components/terminal/terminal-shell";
+import { TerminalDataLoader } from "@/components/terminal/data-loader";
 
-export default async function Page() {
-  const data = await getDashboardData();
-
-  return <DashboardShell data={data} />;
+export default function Page() {
+  return (
+    <TerminalProvider>
+      <TerminalDataLoader />
+      <TerminalShell />
+    </TerminalProvider>
+  );
 }

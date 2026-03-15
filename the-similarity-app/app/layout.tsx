@@ -1,11 +1,10 @@
 import type { Metadata } from "next";
-import { Nav } from "../components/nav";
 import "./globals.css";
 import { ErrorBoundary } from "../components/error-boundary";
 
 export const metadata: Metadata = {
-  title: "The Similarity Dashboard",
-  description: "Research-grade time series pattern matching dashboard",
+  title: "The Similarity Terminal",
+  description: "Bloomberg-style time series pattern matching terminal",
 };
 
 export default function RootLayout({
@@ -14,12 +13,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" data-theme="dark">
       <body>
-        <Nav />
-        <ErrorBoundary>
-          {children}
-        </ErrorBoundary>
+        <ErrorBoundary>{children}</ErrorBoundary>
       </body>
     </html>
   );

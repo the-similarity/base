@@ -1,10 +1,5 @@
-import { SearchWorkstation } from "../../components/search/search-workstation";
-
-export const metadata = {
-  title: "Search — The Similarity",
-  description: "Run pattern searches against historical time series data",
-};
+import { redirect } from "next/navigation";
 
 export default function SearchPage() {
-  return <SearchWorkstation />;
+  redirect("/");
 }
