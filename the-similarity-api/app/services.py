@@ -268,9 +268,52 @@ def build_forecast_response(forecast) -> ForecastResponse:
     )
 
 
+def _resolve_series(
+    raw_values: list[float] | None,
+    dataset_id: str | None,
+    start_date: str | None,
+    end_date: str | None,
+    label: str,
+) -> np.ndarray:
+    """Resolve either raw values or a dataset reference to a numpy array."""
+    if raw_values is not None:
+        return np.asarray(raw_values, dtype=np.float64)
+
+    if dataset_id is not None:
+        from app.data_service import load_series
+
+        values, _dates = load_series(
+            dataset_id, start_date=start_date, end_date=end_date
+        )
+        if len(values) < 2:
+            raise ValueError(
+                f"{label} resolved to {len(values)} values (need at least 2)"
+            )
+        return np.asarray(values, dtype=np.float64)
+
+    raise ValueError(f"Either {label}_values or {label}_dataset_id must be provided")
+
+
 def execute_search(request: SearchRequest) -> SearchResponse:
-    query_values = np.asarray(request.query_values, dtype=np.float64)
-    history_values = np.asarray(request.history_values, dtype=np.float64)
+    try:
+        query_values = _resolve_series(
+            getattr(request, "query_values", None),
+            getattr(request, "query_dataset_id", None),
+            getattr(request, "query_start", None),
+            getattr(request, "query_end", None),
+            "query",
+        )
+        history_values = _resolve_series(
+            getattr(request, "history_values", None),
+            getattr(request, "history_dataset_id", None),
+            getattr(request, "history_start", None),
+            getattr(request, "history_end", None),
+            "history",
+        )
+    except ValueError as exc:
+        from fastapi import HTTPException
+
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     search_kwargs: dict[str, Any] = {}
     if request.normalization is not None:

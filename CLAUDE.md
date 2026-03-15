@@ -8,7 +8,7 @@
    git checkout -b feat/<descriptive-name>
    ```
    This is safe because each worktree is isolated — your branch switch doesn't affect other worktrees.
-4. Commit often with clear messages as you work.
+4. **Commit granularly** — one logical change per commit. Don't bundle unrelated changes. A new method and its tests = one commit. A config change = separate commit. This makes PRs easy to review and `git bisect` useful.
 5. When the task is DONE:
    ```bash
    python -m pytest the_similarity/tests/ -v          # all tests must pass
