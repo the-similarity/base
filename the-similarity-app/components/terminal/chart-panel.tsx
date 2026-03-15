@@ -120,10 +120,10 @@ export function ChartPanel() {
         <span className="chart-title">{chartTitle}</span>
         <div className="chart-legend">
           <span className="chart-legend-item"><span className="chart-legend-dot" style={{ background: "var(--chart-query)" }} />Query</span>
-          {matchPts.length > 0 && <span className="chart-legend-item"><span className="chart-legend-dot" style={{ background: "var(--chart-match)" }} />Best Match</span>}
+          {matchPts.length > 0 && !sr && <span className="chart-legend-item"><span className="chart-legend-dot" style={{ background: "var(--chart-match)" }} />Best Match</span>}
+          {selMatchPts.length > 0 && sr && <span className="chart-legend-item"><span className="chart-legend-dot" style={{ background: "var(--chart-match)" }} />Match #{highlightIdx! + 1}</span>}
           {p50Pts.length > 0 && <span className="chart-legend-item"><span className="chart-legend-dot" style={{ background: "var(--chart-forecast)" }} />Forecast</span>}
-          {trajPts.length > 0 && <span className="chart-legend-item"><span className="chart-legend-dot" style={{ background: "#fb923c" }} />Trajectory</span>}
-          {selMatchPts.length > 0 && <span className="chart-legend-item"><span className="chart-legend-dot" style={{ background: "var(--chart-match)" }} />#{highlightIdx! + 1}</span>}
+          {trajPts.length > 0 && <span className="chart-legend-item"><span className="chart-legend-dot" style={{ background: "#fbbf24" }} />Trajectory</span>}
         </div>
       </div>
       <svg className="chart-svg" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid meet">
@@ -147,11 +147,11 @@ export function ChartPanel() {
           <line x1={dividerX} y1={pad.top} x2={dividerX} y2={pad.top + plotH}
             stroke="var(--border-strong)" strokeWidth={1} strokeDasharray="4 3" />
         )}
-        {/* Best match line */}
-        {matchPts.length > 1 && <path d={pointsToPath(matchPts)} className="chart-line chart-line-match" />}
-        {/* Selected match's matched series (different match, shown as overlay) */}
+        {/* Best match line (dashboard mode only) */}
+        {matchPts.length > 1 && !sr && <path d={pointsToPath(matchPts)} className="chart-line chart-line-match" />}
+        {/* Selected match's matched series (search mode) */}
         {selMatchPts.length > 1 && sr && (
-          <path d={pointsToPath(selMatchPts)} className="chart-line" stroke="var(--chart-match)" strokeWidth={1.5} strokeDasharray="5 3" opacity={0.7} />
+          <path d={pointsToPath(selMatchPts)} className="chart-line chart-line-match" />
         )}
         {/* Query line */}
         {queryPts.length > 1 && <path d={pointsToPath(queryPts)} className="chart-line chart-line-query" />}
