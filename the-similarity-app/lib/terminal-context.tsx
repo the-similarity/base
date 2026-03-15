@@ -1,9 +1,9 @@
 "use client";
 import { createContext, useContext, useReducer, useEffect, type ReactNode } from "react";
-import type { MatchResult, DashboardData } from "./types";
+import type { MatchCard, DashboardData } from "./types";
 
 export interface TerminalState {
-  matches: MatchResult[];
+  matches: MatchCard[];
   dashboardData: DashboardData | null;
   loading: boolean;
   error: string | null;
@@ -15,7 +15,7 @@ export interface TerminalState {
 }
 
 export type Action =
-  | { type: "SET_MATCHES"; matches: MatchResult[] }
+  | { type: "SET_MATCHES"; matches: MatchCard[] }
   | { type: "SET_DASHBOARD"; data: DashboardData }
   | { type: "SET_LOADING"; loading: boolean }
   | { type: "SET_ERROR"; error: string | null }

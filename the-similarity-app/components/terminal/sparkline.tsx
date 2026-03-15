@@ -14,10 +14,13 @@ export function Sparkline({ data, width = 80, height = 20, color }: SparklinePro
   }
 
   const pad = 1;
-  const pts = scalePoints(data, width - pad * 2, height - pad * 2);
-  const shifted = pts.map(([x, y]) => [x + pad, y + pad] as [number, number]);
-  const d = pointsToPath(shifted);
-
+  const w = width - pad * 2;
+  const h = height - pad * 2;
+  const minVal = Math.min(...data);
+  const maxVal = Math.max(...data);
+  const pts = scalePoints(data, 0, data.length, w, h, minVal, maxVal)
+    .map(p => ({ x: p.x + pad, y: p.y + pad }));
+  const d = pointsToPath(pts);
   const strokeColor = color || "var(--chart-query)";
 
   return (

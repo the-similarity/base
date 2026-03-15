@@ -21,7 +21,7 @@ export function MatchList() {
         <div className="match-list">
           {state.matches.map((match, idx) => (
             <MatchCard
-              key={`${match.start_idx}-${match.end_idx}`}
+              key={`${match.label}-${idx}`}
               match={match}
               rank={idx + 1}
               idx={idx}

@@ -1,12 +1,10 @@
 "use client";
 import { useRef, useEffect } from "react";
 import { useTerminal } from "../../lib/terminal-context";
-import { Sparkline } from "./sparkline";
-import { ScoreBar } from "./score-bar";
-import type { MatchResult } from "../../lib/types";
+import type { MatchCard as MatchCardType } from "../../lib/types";
 
 interface Props {
-  match: MatchResult;
+  match: MatchCardType;
   rank: number;
   idx: number;
 }
@@ -23,6 +21,9 @@ export function MatchCard({ match, rank, idx }: Props) {
     }
   }, [state.focusedIdx, idx]);
 
+  const deltaClass = match.delta > 0 ? "positive" : match.delta < 0 ? "negative" : "";
+  const deltaSign = match.delta > 0 ? "+" : "";
+
   return (
     <div
       ref={ref}
@@ -34,17 +35,16 @@ export function MatchCard({ match, rank, idx }: Props) {
       onMouseLeave={() => dispatch({ type: "HOVER", idx: null })}
     >
       <span className="match-card-rank">{rank}</span>
-      <span className="match-card-score">{match.confidence_score.toFixed(1)}</span>
-      <div className="match-card-sparkline">
-        <Sparkline data={match.matched_series || []} height={20} width={70} />
-      </div>
-      <div className="match-card-bar">
-        <ScoreBar breakdown={match.score_breakdown} />
-      </div>
-      <span className="match-card-meta">
-        {match.start_date || `${match.start_idx}–${match.end_idx}`}
+      <span className="match-card-score">{match.score.toFixed(1)}</span>
+      <span style={{ flex: 1, fontSize: 11, color: "var(--text-secondary)" }}>{match.label}</span>
+      <span className="match-card-meta">{match.method}</span>
+      <span className="match-card-regime">{match.regime}</span>
+      <span style={{
+        fontFamily: "var(--font-mono)", fontSize: 10, fontWeight: 600,
+        color: deltaClass === "positive" ? "var(--positive)" : deltaClass === "negative" ? "var(--negative)" : "var(--text-muted)",
+      }}>
+        {deltaSign}{match.delta.toFixed(1)}%
       </span>
-      {match.regime && <span className="match-card-regime">{match.regime}</span>}
     </div>
   );
 }
