@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from fastapi import FastAPI, HTTPException, WebSocket
+import logging
+
+from fastapi import FastAPI, HTTPException, Query, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 
 from the_similarity.contracts.api import DashboardDataResponse, SearchRequest, SearchResponse
@@ -10,6 +12,8 @@ from app.models import CatalogItem, CatalogResponse, DatasetSeriesResponse
 from app.services import execute_search, get_dashboard_payload
 from app.settings import settings
 from app.streaming import handle_search_stream, handle_watch_stream
+
+logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title=settings.app_name,
@@ -90,3 +94,99 @@ async def ws_search(websocket: WebSocket) -> None:
 async def ws_watch(websocket: WebSocket) -> None:
     """Watch for pattern matches on a live candle stream."""
     await handle_watch_stream(websocket)
+
+
+# ---------------------------------------------------------------------------
+# Data warehouse endpoints
+# ---------------------------------------------------------------------------
+
+def _get_warehouse():
+    """Lazy-init warehouse singleton."""
+    from app.data_service import _data_root
+    from the_similarity_data.warehouse import Warehouse
+
+    return Warehouse(_data_root())
+
+
+@app.get("/warehouse/coverage")
+def warehouse_coverage() -> dict:
+    """Coverage statistics: asset classes, symbols, row counts, date ranges."""
+    try:
+        wh = _get_warehouse()
+        stats = wh.coverage()
+        return {
+            "totalDatasets": stats.total_datasets,
+            "totalRows": stats.total_rows,
+            "byAssetClass": stats.by_asset_class,
+            "byTimeframe": stats.by_timeframe,
+            "bySource": stats.by_source,
+            "uniqueSymbols": len(stats.symbols),
+            "symbols": stats.symbols,
+            "oldestTimestamp": stats.oldest_timestamp,
+            "newestTimestamp": stats.newest_timestamp,
+        }
+    except Exception as exc:
+        logger.exception("warehouse coverage error")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@app.get("/warehouse/quality")
+def warehouse_quality(
+    max_gap_multiplier: float = Query(3.0, ge=1.0),
+    stale_hours: float = Query(48.0, ge=1.0),
+) -> dict:
+    """Run data quality checks across all datasets."""
+    try:
+        wh = _get_warehouse()
+        issues = wh.check_quality(
+            max_gap_multiplier=max_gap_multiplier,
+            stale_hours=stale_hours,
+        )
+        return {
+            "totalIssues": len(issues),
+            "errors": len([i for i in issues if i.severity == "error"]),
+            "warnings": len([i for i in issues if i.severity == "warning"]),
+            "issues": [
+                {
+                    "datasetId": i.dataset_id,
+                    "issueType": i.issue_type,
+                    "severity": i.severity,
+                    "message": i.message,
+                    "details": i.details,
+                }
+                for i in issues
+            ],
+        }
+    except Exception as exc:
+        logger.exception("warehouse quality error")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@app.get("/warehouse/freshness")
+def warehouse_freshness() -> list[dict]:
+    """Freshness report for all datasets, sorted by staleness."""
+    try:
+        wh = _get_warehouse()
+        return wh.freshness_report()
+    except Exception as exc:
+        logger.exception("warehouse freshness error")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@app.get("/warehouse/search")
+def warehouse_search(
+    asset_class: str | None = Query(None),
+    source: str | None = Query(None),
+    min_rows: int = Query(0, ge=0),
+) -> list[dict]:
+    """Search the catalog for datasets matching filters."""
+    try:
+        wh = _get_warehouse()
+        return wh.search_assets(
+            asset_class=asset_class,
+            source=source,
+            min_rows=min_rows,
+        )
+    except Exception as exc:
+        logger.exception("warehouse search error")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
