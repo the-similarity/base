@@ -68,15 +68,6 @@ export function TerminalShell() {
         second={rightPane}
         className="terminal-body"
       />
-      <div className="terminal-body">
-        <div className="terminal-left">
-          <ChartPanel />
-        </div>
-        <div className="terminal-right">
-          <MatchList />
-          {state.selectedIdx !== null && <DetailPanel />}
-        </div>
-      </div>
     </div>
   );
 }
