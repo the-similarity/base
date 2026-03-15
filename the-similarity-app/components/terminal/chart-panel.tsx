@@ -127,14 +127,15 @@ export function ChartPanel() {
   const selectedMatch = highlightIdx !== null ? state.matches[highlightIdx] : null;
   const selMatchSeries = sr && selectedMatch?.matchedSeries ? selectedMatch.matchedSeries : null;
   const matchToDisplay = selMatchSeries ?? bestMatch;
-  // Offset match 8% below query so it doesn't obscure candles
-  const normalizedMatch = matchToDisplay.length > 1 ? normalizeToRange(matchToDisplay, query, 0.08) : [];
+  // Offset match 25% below query so it's clearly separated from candles
+  const normalizedMatch = matchToDisplay.length > 1 ? normalizeToRange(matchToDisplay, query, 0.25) : [];
 
   // Continuation: what happened after the matched pattern
+  // Anchor from the END of the normalized match (so continuation extends the purple line, not the query)
   const forwardWindow = selectedMatch?.forwardWindow ?? (sr?.matches[0]?.forwardWindow ?? null);
-  const anchor = query.length > 0 ? query[query.length - 1] : 0;
-  const continuationSeries = forwardWindow
-    ? [anchor, ...forwardWindow.map((r) => anchor * (1 + r))]
+  const matchAnchor = normalizedMatch.length > 0 ? normalizedMatch[normalizedMatch.length - 1] : 0;
+  const continuationSeries = forwardWindow && matchAnchor !== 0
+    ? [matchAnchor, ...forwardWindow.map((r) => matchAnchor * (1 + r))]
     : [];
 
   // ── Full OHLC data for scrollable chart (show history + query + continuation) ──
