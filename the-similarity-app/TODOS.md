@@ -23,25 +23,23 @@
 - **Priority:** P3
 - **Depends on:** Search UI being stable.
 
-## Backtester Improvements
-
-### Plot backtester equity curve
-- **What:** Add a chart (e.g., Recharts line chart) that plots the backtester's cumulative return / equity curve over time.
-- **Why:** Visual feedback is essential for evaluating strategy performance at a glance.
-- **Effort:** S
+### Matplotlib backtest report visualization
+- **What:** Add `BacktestReport.plot()` that produces a 4-panel matplotlib figure: (1) calibration curve, (2) rolling hit rate, (3) P50 error distribution histogram, (4) CRPS by trial.
+- **Why:** Researchers want to see, not just read, their backtest results. Visual validation is much faster than parsing numbers.
+- **Effort:** S (~30 min)
 - **Priority:** P2
-- **Depends on:** Backtester API returning time-series data.
+- **Depends on:** Backtester (core/backtester.py) being built.
 
-### Ablation study support
-- **What:** Allow running the backtester with individual features toggled off to measure each signal's marginal contribution.
-- **Why:** Identifies which similarity signals actually drive returns vs. add noise.
+### Method ablation framework
+- **What:** Add `backtest_ablation(history, ...)` that runs N+1 backtests: one with all methods, then one with each method removed. Produces a table showing delta hit_rate and delta CRPS for each ablation.
+- **Why:** Tells you which methods actually improve predictions vs adding noise. Data-driven method selection.
 - **Effort:** M
 - **Priority:** P2
-- **Depends on:** Backtester core being stable.
+- **Depends on:** Backtester being correct and trusted.
 
-### Auto-tune backtester parameters
-- **What:** Add a grid-search or Bayesian optimization pass that sweeps backtester hyperparameters (lookback, threshold, rebalance frequency) and reports the best config.
-- **Why:** Manual tuning is tedious and leaves alpha on the table.
-- **Effort:** M
+### Auto-weight-tuning from calibration feedback
+- **What:** Add `tune_weights(backtest_report)` that adjusts `Config.weights` to minimize calibration error using `scipy.optimize.minimize`.
+- **Why:** Current weights are hand-tuned guesses. This makes them empirical.
+- **Effort:** L
 - **Priority:** P3
-- **Depends on:** Ablation study (to know which params matter).
+- **Depends on:** Backtester + method ablation identifying which methods matter.
