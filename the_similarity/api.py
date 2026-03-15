@@ -119,6 +119,7 @@ def project(
     forward_bars: int = 50,
     percentiles: list[int] | None = None,
     query: TimeSeries | np.ndarray | None = None,
+    config: Config | None = None,
 ) -> Forecast:
     """Generate forward projection from matched patterns.
 
@@ -153,11 +154,27 @@ def project(
         history=h_values,
         forward_bars=forward_bars,
         percentiles=percentiles,
+        config=config,
     )
 
     # Koopman forward evolution on the query
     if q_values is not None:
         forecast.koopman_forecast = koopman_evolve(q_values, forward_bars)
+
+    # Blend Koopman into curves if available
+    if forecast.koopman_forecast is not None and config is not None:
+        blend_w = config.koopman_blend_weight
+        if blend_w > 0 and 50 in forecast.curves:
+            koop = forecast.koopman_forecast.trajectory
+            p50 = forecast.curves[50]
+            blend_len = min(len(p50), len(koop))
+            blended = np.zeros_like(p50)
+            for i in range(len(p50)):
+                if i < blend_len:
+                    blended[i] = (1 - blend_w) * p50[i] + blend_w * koop[i]
+                else:
+                    blended[i] = p50[i]
+            forecast.curves[50] = blended
 
     return forecast
 

@@ -9,11 +9,13 @@ packages = []
 [tool.poetry.dependencies]
 python = "^3.11"
 ipykernel = "*"
+ipywidgets = ">=8.0"
 jupyter = "*"
 matplotlib = "*"
 nbformat = "*"
 numpy = "*"
 pandas = "*"
+plotly = ">=5.0"
 pyarrow = "*"
 requests = "*"
 the-similarity = { path = "..", develop = true }
