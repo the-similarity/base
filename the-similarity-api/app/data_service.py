@@ -23,17 +23,31 @@ def _data_root() -> Path:
 
 
 def load_catalog() -> list[dict]:
-    """Load the dataset catalog from manifests/catalog.json."""
+    """Load the dataset catalog from manifests/catalog.json.
+
+    Only returns entries whose parquet files actually exist on disk.
+    """
     catalog_path = _data_root() / "manifests" / "catalog.json"
     if not catalog_path.exists():
         logger.warning("Catalog not found at %s", catalog_path)
         return []
     try:
         payload = json.loads(catalog_path.read_text())
-        return payload.get("datasets", [])
+        raw = payload.get("datasets", [])
     except (json.JSONDecodeError, OSError) as exc:
         logger.error("Failed to read catalog: %s", exc)
         return []
+
+    root = _data_root()
+    valid: list[dict] = []
+    for d in raw:
+        parquet = root / "data" / d["asset_class"] / d["symbol"] / f"{d['timeframe']}.parquet"
+        if parquet.exists():
+            valid.append(d)
+        else:
+            logger.warning("Catalog entry %s/%s/%s has no data file — hiding from catalog",
+                           d["asset_class"], d["symbol"], d["timeframe"])
+    return valid
 
 
 def _catalog_ids() -> set[str]:
