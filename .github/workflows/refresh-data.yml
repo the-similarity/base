@@ -1,0 +1,41 @@
+name: Refresh Data
+
+on:
+  schedule:
+    - cron: "0 8 * * *"  # 8am UTC daily (1am PT)
+  workflow_dispatch: {}    # Manual trigger
+
+jobs:
+  refresh:
+    name: Refresh Datasets
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: the-similarity-data
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          pip install poetry-core
+          pip install -e .
+
+      - name: Refresh all datasets
+        env:
+          TWELVEDATA_API_KEY: ${{ secrets.TWELVEDATA_API_KEY }}
+        run: python scripts/refresh_all.py
+
+      - name: Upload refreshed data
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: refreshed-data-${{ github.run_id }}
+          path: |
+            the-similarity-data/data/
+            the-similarity-data/manifests/catalog.json
+          retention-days: 7
