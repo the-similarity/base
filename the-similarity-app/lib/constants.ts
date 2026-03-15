@@ -28,3 +28,12 @@ export const METHOD_LABELS: Record<string, string> = {
   tda: "TDA",
   transfer_entropy: "TE",
 };
+
+// Camel-case keyed version for use with ScoreBreakdown fields
+const snakeToCamel = (s: string) =>
+  s.replace(/_([a-z])/g, (_, c: string) => c.toUpperCase());
+
+export const METHOD_LABELS_CAMEL: Record<string, string> =
+  Object.fromEntries(
+    Object.entries(METHOD_LABELS).map(([k, v]) => [snakeToCamel(k), v]),
+  );

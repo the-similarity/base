@@ -1,6 +1,6 @@
 "use client";
 import { useEffect } from "react";
-import { useTerminal } from "@/lib/terminal-context";
+import { useTerminal } from "../../lib/terminal-context";
 import { TopBar } from "./top-bar";
 import { ChartPanel } from "./chart-panel";
 import { MatchList } from "./match-list";
@@ -9,20 +9,10 @@ import { DetailPanel } from "./detail-panel";
 export function TerminalShell() {
   const { state, dispatch } = useTerminal();
 
-  // Apply theme to document
-  useEffect(() => {
-    document.documentElement.setAttribute("data-theme", state.theme);
-  }, [state.theme]);
-
   // Keyboard shortcuts
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
-      // Don't capture when typing in an input
-      if (
-        e.target instanceof HTMLInputElement ||
-        e.target instanceof HTMLTextAreaElement
-      )
-        return;
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
 
       switch (e.key) {
         case "ArrowDown":
@@ -42,12 +32,6 @@ export function TerminalShell() {
         case "Escape":
           e.preventDefault();
           dispatch({ type: "SELECT", idx: null });
-          break;
-        case "/":
-          e.preventDefault();
-          document
-            .querySelector<HTMLInputElement>("[data-search-input]")
-            ?.focus();
           break;
       }
     }

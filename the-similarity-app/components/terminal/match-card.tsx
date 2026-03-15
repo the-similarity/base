@@ -1,52 +1,49 @@
 "use client";
 import { useRef, useEffect } from "react";
-import { useTerminal } from "@/lib/terminal-context";
-import { Sparkline } from "./sparkline";
-import { ScoreBar } from "./score-bar";
-import type { MatchResult } from "@/lib/types";
+import { useTerminal } from "../../lib/terminal-context";
+import type { MatchCard as MatchCardType } from "../../lib/types";
 
-interface MatchCardProps {
-  match: MatchResult;
+interface Props {
+  match: MatchCardType;
   rank: number;
   idx: number;
 }
 
-export function MatchCard({ match, rank, idx }: MatchCardProps) {
+export function MatchCard({ match, rank, idx }: Props) {
   const { state, dispatch } = useTerminal();
   const ref = useRef<HTMLDivElement>(null);
   const isSelected = state.selectedIdx === idx;
-  const isHighlighted = state.hoveredIdx === idx;
-  const isFocused = state.focusedIdx === idx;
+  const isHighlighted = state.hoveredIdx === idx || state.focusedIdx === idx;
 
-  // Auto-scroll focused card into view
   useEffect(() => {
-    if (isFocused && ref.current) {
+    if (state.focusedIdx === idx && ref.current) {
       ref.current.scrollIntoView({ block: "nearest", behavior: "smooth" });
     }
-  }, [isFocused]);
+  }, [state.focusedIdx, idx]);
+
+  const deltaClass = match.delta > 0 ? "positive" : match.delta < 0 ? "negative" : "";
+  const deltaSign = match.delta > 0 ? "+" : "";
 
   return (
     <div
       ref={ref}
       className="match-card"
-      data-selected={isSelected || undefined}
-      data-highlighted={isHighlighted || isFocused || undefined}
+      data-selected={isSelected}
+      data-highlighted={isHighlighted}
       onClick={() => dispatch({ type: "SELECT", idx })}
       onMouseEnter={() => dispatch({ type: "HOVER", idx })}
       onMouseLeave={() => dispatch({ type: "HOVER", idx: null })}
     >
-      <span className="match-card-rank">#{rank}</span>
-      <span className="match-card-score">
-        {match.confidenceScore.toFixed(1)}
-      </span>
-      <div className="match-card-sparkline">
-        <Sparkline data={match.matchedSeries || []} height={24} />
-      </div>
-      <div style={{ flex: 1, minWidth: 80 }}>
-        <ScoreBar breakdown={match.scoreBreakdown} />
-      </div>
-      <span className="match-card-meta">
-        {match.startDate ? `${match.startDate}` : `idx ${match.startIdx}`}
+      <span className="match-card-rank">{rank}</span>
+      <span className="match-card-score">{match.score.toFixed(1)}</span>
+      <span style={{ flex: 1, fontSize: 11, color: "var(--text-secondary)" }}>{match.label}</span>
+      <span className="match-card-meta">{match.method}</span>
+      <span className="match-card-regime">{match.regime}</span>
+      <span style={{
+        fontFamily: "var(--font-mono)", fontSize: 10, fontWeight: 600,
+        color: deltaClass === "positive" ? "var(--positive)" : deltaClass === "negative" ? "var(--negative)" : "var(--text-muted)",
+      }}>
+        {deltaSign}{match.delta.toFixed(1)}%
       </span>
     </div>
   );
