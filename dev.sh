@@ -130,7 +130,7 @@ run_full() {
   )
 }
 
-case "${1:-dev}" in
+case "${1:-full}" in
   dev)
     run_frontend
     ;;
