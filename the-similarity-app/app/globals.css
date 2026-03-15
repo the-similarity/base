@@ -131,28 +131,87 @@ button { cursor: pointer; }
   flex-shrink: 0;
 }
 
-/* ── Split Body ── */
-.terminal-body {
+/* ═══════════════════════════════════════════════════════════════════
+   Resizable Split Pane
+   ═══════════════════════════════════════════════════════════════════ */
+
+.split-pane {
   display: flex;
-  flex: 1;
   overflow: hidden;
 }
 
-.terminal-left {
-  flex: 3;
+.split-pane--horizontal {
+  flex-direction: row;
+}
+
+.split-pane--vertical {
+  flex-direction: column;
+}
+
+.split-pane__panel {
+  overflow: hidden;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* ── Divider ── */
+
+.split-pane__divider {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+  touch-action: none;
+}
+
+.split-pane__divider--horizontal {
+  width: 5px;
+  cursor: col-resize;
+  border-left: 1px solid var(--border);
   border-right: 1px solid var(--border);
-  min-width: 0;
+  background: var(--bg-elevated);
 }
 
-.terminal-right {
-  flex: 2;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  min-width: 0;
+.split-pane__divider--vertical {
+  height: 5px;
+  cursor: row-resize;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-elevated);
+}
+
+.split-pane__divider:hover,
+.split-pane__divider:active {
+  background: var(--bg-hover);
+}
+
+.split-pane__divider:hover .split-pane__divider-handle,
+.split-pane__divider:active .split-pane__divider-handle {
+  background: var(--accent);
+}
+
+.split-pane__divider-handle {
+  border-radius: 2px;
+  background: var(--border-strong);
+  transition: background 120ms ease;
+}
+
+.split-pane__divider--horizontal .split-pane__divider-handle {
+  width: 2px;
+  height: 24px;
+}
+
+.split-pane__divider--vertical .split-pane__divider-handle {
+  width: 24px;
+  height: 2px;
+}
+
+/* ── Split Body (terminal main area) ── */
+.terminal-body {
+  flex: 1;
 }
 
 /* ── Panels ── */
@@ -701,16 +760,21 @@ button { cursor: pointer; }
 
 /* ── Responsive ── */
 @media (max-width: 768px) {
-  .terminal-body {
+  .split-pane--horizontal {
     flex-direction: column;
   }
-  .terminal-left {
-    border-right: none;
-    border-bottom: 1px solid var(--border);
-    flex: 1;
+  .split-pane--horizontal > .split-pane__panel {
+    width: 100% !important;
+    height: 50% !important;
   }
-  .terminal-right {
-    flex: 1;
+  .split-pane__divider--horizontal {
+    width: 100%;
+    height: 5px;
+    border-left: none;
+    border-right: none;
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    cursor: row-resize;
   }
   .terminal-topbar {
     overflow-x: auto;
