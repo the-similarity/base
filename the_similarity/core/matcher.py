@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 
 import numpy as np
@@ -336,7 +337,8 @@ def _enrich_tier2(
         else None
     )
 
-    for candidate in candidates:
+    def _enrich_one(candidate: CandidateWindow) -> None:
+        """Enrich a single candidate with all Tier 2 methods."""
         raw = candidate.raw_series
         _wlen = candidate.end_idx - candidate.start_idx
 
@@ -479,6 +481,15 @@ def _enrich_tier2(
             candidate.regime = tag_regime(raw)
         except Exception:
             candidate.regime = None
+
+    if len(candidates) > 1:
+        # Use threads — numpy/scipy release the GIL during computation
+        n_threads = min(4, len(candidates))
+        with ThreadPoolExecutor(max_workers=n_threads) as executor:
+            list(executor.map(_enrich_one, candidates))
+    else:
+        for candidate in candidates:
+            _enrich_one(candidate)
 
 
 def _resample(series: NDArray[np.float64], target_len: int) -> NDArray[np.float64]:
