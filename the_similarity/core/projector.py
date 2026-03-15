@@ -26,6 +26,7 @@ def project(
     history: NDArray[np.float64],
     forward_bars: int = 50,
     percentiles: list[int] | None = None,
+    config: Config | None = None,
 ) -> Forecast:
     """Generate forward projection from matched patterns.
 
@@ -92,6 +93,17 @@ def project(
             col = paths_arr[:, bar]
             curve[bar] = _weighted_quantile(col, weights_arr, p / 100.0)
         curves[p] = curve
+
+    # Apply confidence decay to widen the cone over time
+    if config is not None and config.confidence_decay_rate > 0 and 50 in curves:
+        p50 = curves[50]
+        for p in curves:
+            if p == 50:
+                continue
+            for bar in range(forward_bars):
+                decay = 1.0 + config.confidence_decay_rate * bar
+                distance = curves[p][bar] - p50[bar]
+                curves[p][bar] = p50[bar] + distance * decay
 
     return Forecast(
         bars=forward_bars,
