@@ -60,6 +60,7 @@ def search(
     config: Config | None = None,
     weights: dict[str, float] | None = None,
     exclude_self: bool = True,
+    feature_store=None,
     **kwargs,
 ) -> SearchResults:
     """Search history for patterns similar to query.
@@ -71,6 +72,7 @@ def search(
         config: Pipeline configuration. Created with defaults if None.
         weights: Optional custom confidence score weights (overrides config).
         exclude_self: If True and query is a slice of history, exclude the query region.
+        feature_store: Optional FeatureStore for caching expensive computations.
         **kwargs: Additional config overrides (stride, normalization, etc).
 
     Returns:
@@ -101,6 +103,11 @@ def search(
                 exclude_region = (i, i + len(q_values))
                 break
 
+    ds_hash = ""
+    if feature_store is not None:
+        from the_similarity.core.feature_store import dataset_hash
+        ds_hash = dataset_hash(h_values)
+
     matches = find_matches(
         query=q_values,
         history=h_values,
@@ -108,6 +115,8 @@ def search(
         config=config,
         dates=h_dates,
         exclude_query_region=exclude_region,
+        feature_store=feature_store,
+        ds_hash=ds_hash,
     )
 
     return SearchResults(matches=matches, query=q_values)
@@ -213,6 +222,7 @@ def backtest(
     n_workers: int | None = None,
     progress_fn=None,
     top_k: int = 10,
+    feature_store=None,
 ):
     """Run walk-forward backtest to validate the search pipeline.
 
@@ -226,6 +236,7 @@ def backtest(
         n_workers: Parallel workers. None = auto.
         progress_fn: Optional callback(completed, total).
         top_k: Matches per trial.
+        feature_store: Optional FeatureStore for caching expensive computations.
 
     Returns:
         BacktestReport with per-trial results and aggregate metrics.
