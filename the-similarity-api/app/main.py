@@ -5,8 +5,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from the_similarity.contracts.api import DashboardDataResponse, SearchRequest, SearchResponse
 
-from app.data_service import load_catalog, load_series
-from app.models import CatalogItem, CatalogResponse, DatasetSeriesResponse
+from app.data_service import load_catalog, load_ohlc, load_series
+from app.models import CatalogItem, CatalogResponse, DatasetSeriesResponse, OhlcResponse
 from app.services import execute_search, get_dashboard_payload
 from app.settings import settings
 
@@ -71,6 +71,35 @@ def get_dataset_series(
         values=values,
         dates=dates,
         row_count=len(values),
+    )
+
+
+@app.get(
+    "/datasets/{asset_class}/{symbol}/{timeframe}/ohlc",
+    response_model=OhlcResponse,
+)
+def get_dataset_ohlc(
+    asset_class: str,
+    symbol: str,
+    timeframe: str,
+    start: str | None = None,
+    end: str | None = None,
+) -> OhlcResponse:
+    dataset_id = f"{asset_class}/{symbol}/{timeframe}"
+    try:
+        data = load_ohlc(dataset_id, start_date=start, end_date=end)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    return OhlcResponse(
+        dataset_id=dataset_id,
+        open=data["open"],
+        high=data["high"],
+        low=data["low"],
+        close=data["close"],
+        volume=data.get("volume", []),
+        dates=data.get("dates", []),
+        row_count=len(data["close"]),
     )
 
 
