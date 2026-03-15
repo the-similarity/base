@@ -185,28 +185,23 @@ button { cursor: pointer; }
 }
 
 .split-pane__divider--horizontal {
-  width: 1px;
+  width: 9px;
   cursor: col-resize;
-  background: var(--border);
-  /* Invisible grab area wider than visible line */
-  padding: 0 4px;
-  margin: 0 -4px;
-  background-clip: content-box;
+  background: transparent;
+  border-left: 1px solid var(--border-strong);
 }
 
 .split-pane__divider--vertical {
-  height: 1px;
+  height: 9px;
   cursor: row-resize;
-  background: var(--border);
-  padding: 4px 0;
-  margin: -4px 0;
-  background-clip: content-box;
+  background: transparent;
+  border-top: 1px solid var(--border-strong);
 }
 
 .split-pane__divider:hover,
 .split-pane__divider:active {
-  background: var(--accent);
-  background-clip: content-box;
+  background: var(--accent-dim);
+  border-color: var(--accent);
 }
 
 .split-pane__divider-handle {
