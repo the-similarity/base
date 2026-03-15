@@ -19,7 +19,10 @@ jobs:
           cache: "pip"
 
       - name: Install dependencies
-        run: pip install -e ".[dev]" 2>/dev/null || pip install -e . && pip install pytest pytest-cov
+        run: |
+          pip install poetry-core
+          pip install -e .
+          pip install pytest pytest-cov
 
       - name: Run tests
         run: python -m pytest the_similarity/tests/ -v
