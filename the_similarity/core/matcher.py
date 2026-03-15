@@ -81,13 +81,15 @@ def find_matches(
     config: Config | None = None,
     dates: list[str] | NDArray | None = None,
     exclude_query_region: tuple[int, int] | None = None,
+    feature_store=None,
+    ds_hash: str = "",
 ) -> list[MatchResult]:
     """Run the full tiered matching pipeline.
 
     1. Generate multi-scale candidate windows
-    2. SAX + MASS + Pearson prefilter → tier1_candidates survivors
+    2. SAX + MASS + Pearson prefilter -> tier1_candidates survivors
     3. Score cheap methods (DTW, Pearson) on all tier-1 survivors
-    4. Select tier2_candidates best → enrich with all expensive methods
+    4. Select tier2_candidates best -> enrich with all expensive methods
        (Bempedelis, Koopman, Wavelet, EMD, TDA, Transfer Entropy)
     5. Regime-tag each result
     6. Return top_k by final composite confidence
@@ -155,6 +157,8 @@ def find_matches(
             history=history,
             config=config,
             active_fields=active_fields,
+            feature_store=feature_store,
+            ds_hash=ds_hash,
         )
         for candidate in rerank_pool:
             candidate.confidence_score = compute_confidence(candidate.breakdown, config)
@@ -303,6 +307,8 @@ def _enrich_tier2(
     history: NDArray[np.float64],
     config: Config,
     active_fields: set[str],
+    feature_store=None,
+    ds_hash: str = "",
 ) -> None:
     """Run all expensive Tier 2 methods on a shortlist of candidates."""
     # Pre-normalize query for methods that need specific normalization
@@ -324,17 +330,40 @@ def _enrich_tier2(
 
     for candidate in candidates:
         raw = candidate.raw_series
+        _wlen = candidate.end_idx - candidate.start_idx
 
         # --- Bempedelis ---
         if BEMPEDELIS_SCORE_FIELDS & active_fields and query_bemp is not None:
             cand_bemp = normalize(raw, METHOD_NORM_DEFAULTS["bempedelis"])
             try:
-                _, cand_result, r2, smoothness = bempedelis_match(
-                    query=query_bemp,
-                    candidate=cand_bemp,
-                    n_subwindows=config.bempedelis_n_subwindows,
-                    n_restarts=config.bempedelis_n_restarts,
-                )
+                if feature_store is not None:
+                    from the_similarity.core.feature_store import params_hash as _params_hash
+                    p_hash = _params_hash(
+                        "bempedelis",
+                        n_subwindows=config.bempedelis_n_subwindows,
+                        n_restarts=config.bempedelis_n_restarts,
+                    )
+                    result_tuple = feature_store.get_or_compute(
+                        dataset_hash=ds_hash,
+                        window_start=candidate.start_idx,
+                        window_length=_wlen,
+                        method="bempedelis",
+                        params_hash=p_hash,
+                        compute_fn=lambda q=query_bemp, c=cand_bemp: bempedelis_match(
+                            query=q,
+                            candidate=c,
+                            n_subwindows=config.bempedelis_n_subwindows,
+                            n_restarts=config.bempedelis_n_restarts,
+                        ),
+                    )
+                    _, cand_result, r2, smoothness = result_tuple
+                else:
+                    _, cand_result, r2, smoothness = bempedelis_match(
+                        query=query_bemp,
+                        candidate=cand_bemp,
+                        n_subwindows=config.bempedelis_n_subwindows,
+                        n_restarts=config.bempedelis_n_restarts,
+                    )
                 candidate.breakdown.bempedelis_r2 = r2
                 candidate.breakdown.bempedelis_smoothness = smoothness
                 candidate.transform_alpha = cand_result.alpha
@@ -347,25 +376,61 @@ def _enrich_tier2(
         if "koopman" in active_fields and query_logret is not None:
             cand_logret = normalize(raw, METHOD_NORM_DEFAULTS["koopman"])
             try:
-                candidate.breakdown.koopman = koopman_match(query_logret, cand_logret)
+                if feature_store is not None:
+                    from the_similarity.core.feature_store import params_hash as _params_hash
+                    p_hash = _params_hash("koopman", dim=8, lag=3, n_modes=8)
+                    candidate.breakdown.koopman = feature_store.get_or_compute(
+                        dataset_hash=ds_hash,
+                        window_start=candidate.start_idx,
+                        window_length=_wlen,
+                        method="koopman",
+                        params_hash=p_hash,
+                        compute_fn=lambda q=query_logret, c=cand_logret: koopman_match(q, c),
+                    )
+                else:
+                    candidate.breakdown.koopman = koopman_match(query_logret, cand_logret)
             except Exception:
                 pass
 
         # --- Wavelet Leaders ---
         if "wavelet_spectrum" in active_fields and query_logret is not None:
-            cand_logret = normalize(raw, METHOD_NORM_DEFAULTS["wavelet"])
+            cand_logret_w = normalize(raw, METHOD_NORM_DEFAULTS["wavelet"])
             try:
-                candidate.breakdown.wavelet_spectrum = wavelet_spectrum_score(
-                    query_logret, cand_logret,
-                )
+                if feature_store is not None:
+                    from the_similarity.core.feature_store import params_hash as _params_hash
+                    p_hash = _params_hash("wavelet_spectrum")
+                    candidate.breakdown.wavelet_spectrum = feature_store.get_or_compute(
+                        dataset_hash=ds_hash,
+                        window_start=candidate.start_idx,
+                        window_length=_wlen,
+                        method="wavelet_spectrum",
+                        params_hash=p_hash,
+                        compute_fn=lambda q=query_logret, c=cand_logret_w: wavelet_spectrum_score(q, c),
+                    )
+                else:
+                    candidate.breakdown.wavelet_spectrum = wavelet_spectrum_score(
+                        query_logret, cand_logret_w,
+                    )
             except Exception:
                 pass
 
         # --- EMD ---
         if "emd" in active_fields and query_raw is not None:
-            cand_raw = normalize(raw, METHOD_NORM_DEFAULTS["emd"])
+            cand_raw_emd = normalize(raw, METHOD_NORM_DEFAULTS["emd"])
             try:
-                candidate.breakdown.emd = emd_score(query_raw, cand_raw)
+                if feature_store is not None:
+                    from the_similarity.core.feature_store import params_hash as _params_hash
+                    p_hash = _params_hash("emd")
+                    candidate.breakdown.emd = feature_store.get_or_compute(
+                        dataset_hash=ds_hash,
+                        window_start=candidate.start_idx,
+                        window_length=_wlen,
+                        method="emd",
+                        params_hash=p_hash,
+                        compute_fn=lambda q=query_raw, c=cand_raw_emd: emd_score(q, c),
+                    )
+                else:
+                    candidate.breakdown.emd = emd_score(query_raw, cand_raw_emd)
             except Exception:
                 pass
 
@@ -373,13 +438,25 @@ def _enrich_tier2(
         if "tda" in active_fields and query_logret is not None:
             cand_tda = normalize(raw, METHOD_NORM_DEFAULTS["tda"])
             try:
-                candidate.breakdown.tda = tda_compare(query_logret, cand_tda)
+                if feature_store is not None:
+                    from the_similarity.core.feature_store import params_hash as _params_hash
+                    p_hash = _params_hash("tda")
+                    candidate.breakdown.tda = feature_store.get_or_compute(
+                        dataset_hash=ds_hash,
+                        window_start=candidate.start_idx,
+                        window_length=_wlen,
+                        method="tda",
+                        params_hash=p_hash,
+                        compute_fn=lambda q=query_logret, c=cand_tda: tda_compare(q, c),
+                    )
+                else:
+                    candidate.breakdown.tda = tda_compare(query_logret, cand_tda)
             except Exception:
                 pass
 
         # --- Transfer Entropy ---
         if "transfer_entropy" in active_fields:
-            # TE measures predictive info from match → forward region
+            # TE measures predictive info from match -> forward region
             end_idx = candidate.end_idx
             forward_len = config.forward_bars
             if end_idx + forward_len <= len(history):
