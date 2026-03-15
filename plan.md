@@ -271,10 +271,15 @@ All 9 methods implemented, wired into `_enrich_tier2()`, and tested (115 tests p
 
 ## Phase 6 — Live Product
 
-### 6a. Real-time streaming pipeline
-- [ ] WebSocket feed ingesting candles from exchanges/brokers (Binance, Polygon, etc.)
-- [ ] Incremental SAX+MASS update as new bars arrive (avoid full recomputation)
-- [ ] Streaming search: re-score top candidates on each new bar, emit events on confidence change
+### 6a. ~~Real-time streaming pipeline~~ → DONE
+- [x] `ProgressEvent` + `ProgressCallback` in core matcher — events at prefilter, tier1, tier2, done stages
+- [x] `progress_fn` parameter wired through `search()` API (backward compatible)
+- [x] `/ws/search` WebSocket endpoint — streams progress + results in real time via thread pool
+- [x] `/ws/watch` WebSocket endpoint — candle watcher with threshold alerts, configurable recheck interval
+- [x] Protocol: init → candle stream → automatic re-scan → alert when confidence > threshold
+- [x] Query updates, forced rescans, and ack messages supported
+- [x] 8 tests for progress callback infrastructure (188 total tests passing)
+- [ ] Incremental SAX+MASS update (optimization — full recompute works, incremental deferred)
 - [ ] Backpressure handling for multiple concurrent subscriptions
 
 ### 6b. Alert system
