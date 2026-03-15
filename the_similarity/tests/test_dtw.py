@@ -1,6 +1,11 @@
 import numpy as np
 
-from the_similarity.methods.dtw_matcher import dtw_distance, dtw_score, rank_candidates
+from the_similarity.methods.dtw_matcher import (
+    batch_dtw_scores,
+    dtw_distance,
+    dtw_score,
+    rank_candidates,
+)
 
 
 def test_identical_series():
@@ -38,3 +43,27 @@ def test_sakoe_chiba():
     b = np.array([1.5, 2.5, 3.5, 4.5, 5.5])
     dist = dtw_distance(a, b, sakoe_chiba_radius=1)
     assert dist > 0
+
+
+def test_batch_dtw_matches_sequential():
+    """Batch DTW should produce identical scores to sequential."""
+    np.random.seed(42)
+    query = np.random.randn(60)
+    candidates = [np.random.randn(60) for _ in range(20)]
+
+    # Batch
+    batch_scores = batch_dtw_scores(query, candidates, sakoe_chiba_radius=6)
+
+    # Sequential
+    seq_scores = []
+    for c in candidates:
+        d = dtw_distance(query, c, sakoe_chiba_radius=6)
+        seq_scores.append(dtw_score(d, 60))
+
+    for b, s in zip(batch_scores, seq_scores):
+        assert abs(b - s) < 1e-10, f"Mismatch: batch={b}, sequential={s}"
+
+
+def test_batch_dtw_empty():
+    """Batch DTW with no candidates should return empty list."""
+    assert batch_dtw_scores(np.array([1.0, 2.0]), [], sakoe_chiba_radius=1) == []

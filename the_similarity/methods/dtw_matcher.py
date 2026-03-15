@@ -44,6 +44,54 @@ def dtw_score(distance: float, window_size: int) -> float:
     return float(np.exp(-normalized))
 
 
+def batch_dtw_scores(
+    query: NDArray[np.float64],
+    candidates: list[NDArray[np.float64]],
+    sakoe_chiba_radius: int | None = None,
+) -> list[float]:
+    """Compute DTW scores for query vs all candidates in batch.
+
+    Uses dtaidistance's C-parallelized distance_matrix_fast when available,
+    falling back to sequential computation otherwise.
+
+    Args:
+        query: Normalized query window.
+        candidates: List of normalized candidate windows.
+        sakoe_chiba_radius: Sakoe-Chiba band constraint.
+
+    Returns:
+        List of DTW scores in [0, 1], one per candidate.
+    """
+    if not candidates:
+        return []
+
+    window_size = len(query)
+    n_cands = len(candidates)
+
+    # Try batch computation via C extension
+    try:
+        series = [query.astype(np.double)] + [c.astype(np.double) for c in candidates]
+        kwargs = {"compact": True, "only_triu": False}
+        if sakoe_chiba_radius is not None:
+            kwargs["window"] = sakoe_chiba_radius
+
+        # block=((0, 1), (1, n_cands+1)) computes only row 0 vs columns 1..N
+        kwargs["block"] = ((0, 1), (1, n_cands + 1))
+
+        distances = dtw.distance_matrix_fast(series, **kwargs)
+        return [dtw_score(float(d), window_size) for d in distances]
+    except Exception:
+        # Fallback to sequential
+        return [
+            dtw_score(dtw.distance(
+                query.astype(np.double),
+                c.astype(np.double),
+                **({"window": sakoe_chiba_radius} if sakoe_chiba_radius is not None else {}),
+            ), window_size)
+            for c in candidates
+        ]
+
+
 def rank_candidates(
     query: NDArray[np.float64],
     candidates: NDArray[np.float64],

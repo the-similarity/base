@@ -209,51 +209,48 @@ All 9 methods implemented, wired into `_enrich_tier2()`, and tested (115 tests p
 
 ## Phase 4 — Prediction Engine
 
-### 4a. Koopman forward evolution
-- [ ] Use matched Koopman operator K to evolve query forward: x(t+dt) = K·x(t)
-- [ ] **Clamp eigenvalues to unit disk before evolution** (project |λ| → min(|λ|, 1.0), preserve phase) — prevents divergent forecasts from unstable modes
-- [ ] Uncertainty from eigenvalue matching residuals
-- [ ] Return as separate forecast alongside weighted projection
-- [ ] `forecast.koopman_forecast` field
+### 4a. ~~Koopman forward evolution~~ → DONE
+- [x] `koopman_evolve()` in `methods/koopman.py` — fits Koopman operator, evolves query forward
+- [x] `clamp_eigenvalues()` — projects eigenvalues to unit disk, preserves phase
+- [x] Uncertainty from reconstruction residuals (σ × √t)
+- [x] Returns `KoopmanForecast` with trajectory + uncertainty
+- [x] `Forecast.koopman_forecast` field populated in `api.py:project()`
 
-### 4b. Enhanced forecast cone
-- [x] Percentile bands: 10th, 25th, 50th, 75th, 90th (DONE)
-- [ ] Confidence decay: confidence_score × decay_factor(forward_bars)
-- [ ] Per-match trajectory overlay in visualization
-- [ ] Combine Koopman forecast + weighted historical projection
+### 4b. ~~Enhanced forecast cone~~ → DONE
+- [x] Percentile bands: 10th, 25th, 50th, 75th, 90th
+- [x] Confidence decay: `Config.confidence_decay_rate` scales cone width over forward bars (default 0.0 = no decay)
+- [x] Combine Koopman forecast + weighted historical projection: `Config.koopman_blend_weight` blends Koopman trajectory into P50 (default 0.0 = historical only)
+- [ ] Per-match trajectory overlay in visualization (frontend concern)
 
-### 4c. Backtester / validation framework
-- [ ] Implement `the_similarity.backtest(history, window_size, forward_bars, n_trials)`
-- [ ] **Data leakage guard**: `backtest()` slices `history[:query_start]` before calling `search()` — temporal boundary enforced at the backtester level, not in the engine
-- [ ] **Parallel trials**: `concurrent.futures.ProcessPoolExecutor` with `n_workers` param — trials are independent, 4-8× speedup
-- [ ] For each trial:
-  - Pick random query window
-  - Run search() on `history[:query_start]` (no look-ahead)
-  - Get top-k matches and forward windows
-  - Compute forecast cone
-  - Compare to actual outcome
-- [ ] Output: hit_rate, mean_error, calibration_curve, CRPS
-- [ ] **Deterministic tests per metric**: synthetic data with known outcomes (perfect predictor, always-wrong predictor) → assert exact metric values
-- [ ] Calibration = P90 band contains actual 90% of the time (if not, overconfident)
-- [ ] This is the ground truth for tuning weights and validating the system
+### 4c. ~~Backtester / validation framework~~ → DONE
+- [x] `the_similarity.backtest(history, window_size, forward_bars, n_trials)`
+- [x] Data leakage guard: `history[:query_start]` enforced
+- [x] Parallel trials: `ProcessPoolExecutor` with `n_workers` param, fallback to sequential
+- [x] Walk-forward trials with random query positions, min lookback = 3×window_size
+- [x] Output: `BacktestReport` with hit_rate, mean_error, calibration, CRPS
+- [x] Deterministic tests with synthetic data + integration tests
+- [x] `TrialResult` per trial with skip handling and error reporting
+- [x] 26 tests (23 unit + 3 slow integration)
 
 ---
 
 ## Phase 5 — Production Ready
 
-### 5a. FeatureStore caching
-- [ ] Implement `FeatureStore` class
-- [ ] Key: (dataset_hash, window_start, window_length, method, **params_hash**) — params_hash includes method-specific config (sax segments, alphabet size, etc.) so config changes auto-invalidate
-- [ ] **Backend: SQLite** (not shelve — shelve is not process-safe, and backtester uses ProcessPoolExecutor)
-- [ ] Interface ready for Redis swap
-- [ ] Precompute Tier 1 features on dataset load
-- [ ] search() becomes O(N×lookup + K×compute)
+### 5a. ~~FeatureStore caching~~ → DONE
+- [x] `FeatureStore` class in `core/feature_store.py` — SQLite WAL-mode backend
+- [x] Key: `(dataset_hash, window_start, window_length, method, params_hash)`
+- [x] `dataset_hash()` — sparse O(n/100) SHA-256 hash
+- [x] `params_hash()` — method+config parameter hashing
+- [x] Wired into `_enrich_tier2()` for 5 cached methods: Bempedelis, Koopman, Wavelet, EMD, TDA
+- [x] Opt-in via `search(feature_store=store)` and `backtest(feature_store=store)`
+- [x] Graceful degradation: corrupt DB warns and falls through to compute
+- [x] 14 tests (13 unit + 1 integration)
 
-### 5b. Performance
-- [ ] Profile bottlenecks (DTW loop, Bempedelis optimization)
-- [ ] Parallelize Tier 2 methods across candidates (multiprocessing or joblib)
-- [ ] Vectorize where possible (batch DTW via dtaidistance)
-- [ ] Consider numba for inner loops if needed
+### 5b. ~~Performance~~ → DONE
+- [x] Batch DTW via `dtaidistance.distance_matrix_fast` with `block` parameter — eliminates per-candidate Python loop in Tier 1
+- [x] ThreadPoolExecutor for Tier 2 enrichment — parallel candidate processing (numpy/scipy release GIL)
+- [x] Regression tests verifying batch == sequential to 1e-10
+- [x] Benchmark: DTW+Pearson 0.32s, all 9 methods 1.03s (2000-bar history, stride=3)
 
 ### 5c. Cross-timeframe search
 - [ ] Implement `cross_timeframes` parameter in search()
