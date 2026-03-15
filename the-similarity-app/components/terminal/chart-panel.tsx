@@ -25,26 +25,24 @@ function normalizeToRange(src: number[], target: number[], offset = 0): number[]
   return src.map((v) => tMin + ((v - sMin) / sRange) * tRange - shift);
 }
 
-/** Parse ISO date to YYYY-MM-DD for lightweight-charts. */
-function isoToDay(iso: string): string {
-  return iso.slice(0, 10); // "2024-01-15T00:00:00+00:00" → "2024-01-15"
+/** Convert ISO timestamp to UTC seconds for lightweight-charts. */
+function isoToUtc(iso: string): number {
+  return Math.floor(new Date(iso).getTime() / 1000);
 }
 
-/** Fallback: generate a synthetic date from an index (used when no real dates). */
-function indexToDate(idx: number): string {
-  const base = new Date(2020, 0, 1);
-  const d = new Date(base.getTime() + idx * 86400000);
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
+/** Fallback: generate synthetic UTC timestamp from index (86400s = 1 day). */
+function indexToUtc(idx: number): number {
+  const base = new Date(2020, 0, 1).getTime() / 1000;
+  return base + idx * 86400;
 }
 
-type TimeStr = LineData["time"];
+function timeVal(dates: string[], i: number): LineData["time"] {
+  return (dates[i] ? isoToUtc(dates[i]) : indexToUtc(i)) as unknown as LineData["time"];
+}
 
 function toLineDataWithDates(values: number[], dates: string[]): LineData[] {
   return values.map((value, i) => ({
-    time: (dates[i] ? isoToDay(dates[i]) : indexToDate(i)) as unknown as TimeStr,
+    time: timeVal(dates, i),
     value,
   }));
 }
@@ -53,28 +51,23 @@ function toCandleDataWithDates(
   open: number[], high: number[], low: number[], close: number[], dates: string[],
 ): CandlestickData[] {
   return close.map((_, i) => ({
-    time: (dates[i] ? isoToDay(dates[i]) : indexToDate(i)) as unknown as CandlestickData["time"],
+    time: timeVal(dates, i) as unknown as CandlestickData["time"],
     open: open[i], high: high[i], low: low[i], close: close[i],
   }));
 }
 
-/** Generate continuation dates by incrementing from the last date. */
-function continuationDates(lastDate: string, count: number): string[] {
-  const base = new Date(lastDate);
-  const dates: string[] = [];
-  let d = new Date(base);
-  for (let i = 0; i < count; i++) {
-    d.setDate(d.getDate() + 1);
-    // Skip weekends for non-crypto
-    while (d.getDay() === 0 || d.getDay() === 6) {
-      d.setDate(d.getDate() + 1);
-    }
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, "0");
-    const day = String(d.getDate()).padStart(2, "0");
-    dates.push(`${y}-${m}-${day}`);
-  }
-  return dates;
+/** Generate continuation timestamps by incrementing from the last date. */
+function continuationTimestamps(lastIso: string, count: number, intervalSec: number): number[] {
+  const base = isoToUtc(lastIso);
+  return Array.from({ length: count }, (_, i) => base + (i + 1) * intervalSec);
+}
+
+/** Guess interval in seconds from dates array. */
+function guessInterval(dates: string[]): number {
+  if (dates.length < 2) return 86400;
+  const a = isoToUtc(dates[dates.length - 2]);
+  const b = isoToUtc(dates[dates.length - 1]);
+  return Math.max(b - a, 60); // at least 1 minute
 }
 
 const COLORS = {
@@ -152,10 +145,11 @@ export function ChartPanel() {
   // Dates for the query window (from full OHLC dates, last N entries)
   const queryDates = hasOhlcData ? ohlc!.dates.slice(-queryLen) : [];
 
-  // Continuation dates (extend from last query date)
-  const lastQueryDate = queryDates.length > 0 ? isoToDay(queryDates[queryDates.length - 1]) : "";
-  const contDates = lastQueryDate && continuationSeries.length > 1
-    ? [lastQueryDate, ...continuationDates(lastQueryDate, continuationSeries.length - 1)]
+  // Continuation timestamps (extend from last query date)
+  const lastQueryIso = queryDates.length > 0 ? queryDates[queryDates.length - 1] : "";
+  const interval = hasOhlcData ? guessInterval(ohlc!.dates) : 86400;
+  const contTimestamps = lastQueryIso && continuationSeries.length > 1
+    ? [isoToUtc(lastQueryIso), ...continuationTimestamps(lastQueryIso, continuationSeries.length - 1, interval)]
     : [];
 
   // Match dates = same as query dates (overlay)
@@ -192,7 +186,6 @@ export function ChartPanel() {
       },
       timeScale: {
         borderColor: isDark ? COLORS.border : COLORS.borderLight,
-        timeVisible: false,
       },
       handleScroll: true,
       handleScale: true,
@@ -288,9 +281,12 @@ export function ChartPanel() {
       s.match?.setData([]);
     }
 
-    // Continuation (extends past query with generated dates)
-    if (continuationSeries.length > 1 && contDates.length > 0) {
-      s.continuation?.setData(toLineDataWithDates(continuationSeries, contDates));
+    // Continuation (extends past query with generated timestamps)
+    if (continuationSeries.length > 1 && contTimestamps.length > 0) {
+      s.continuation?.setData(continuationSeries.map((value, i) => ({
+        time: contTimestamps[i] as unknown as LineData["time"],
+        value,
+      })));
     } else {
       s.continuation?.setData([]);
     }
@@ -301,28 +297,18 @@ export function ChartPanel() {
       if (ts) {
         const visibleBarsBack = Math.min(queryLen + 20, ohlc!.close.length);
         const fromIdx = ohlc!.close.length - visibleBarsBack;
-        const fromDate = isoToDay(ohlc!.dates[fromIdx]);
-        const toDate = contDates.length > 0
-          ? contDates[contDates.length - 1]
-          : isoToDay(queryDates[queryDates.length - 1]);
+        const fromUtc = isoToUtc(ohlc!.dates[fromIdx]);
+        const toUtc = contTimestamps.length > 0
+          ? contTimestamps[contTimestamps.length - 1]
+          : isoToUtc(queryDates[queryDates.length - 1]);
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (ts as any).setVisibleRange({ from: fromDate, to: toDate });
+        (ts as any).setVisibleRange({ from: fromUtc, to: toUtc });
       }
     } else {
       chartRef.current?.timeScale().fitContent();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    // Use stable primitives as deps to avoid array identity issues
-    query.length,
-    normalizedMatch.length,
-    continuationSeries.length,
-    chartMode,
-    hasOhlcData,
-    ohlc?.rowCount,
-    highlightIdx,
-    sr,
-  ]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sr, data, ohlc, chartMode, highlightIdx]);
 
   // ── Legend ──
   const legendItems: { color: string; label: string }[] = [
