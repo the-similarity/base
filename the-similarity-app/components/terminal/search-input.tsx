@@ -1,7 +1,7 @@
 "use client";
 import { useState, useRef, useCallback, useEffect } from "react";
 import { useTerminal } from "../../lib/terminal-context";
-import { fetchCatalog, fetchSeries, searchApi } from "../../lib/api";
+import { fetchCatalog, fetchSeries, fetchOhlc, searchApi } from "../../lib/api";
 import type { CatalogItem } from "../../lib/types";
 
 function formatSymbol(item: CatalogItem): string {
@@ -89,7 +89,14 @@ export function SearchSidebar() {
     dispatch({ type: "SET_ERROR", error: null });
 
     try {
-      const series = await fetchSeries(assetClass, symbol, timeframe);
+      const [series, ohlc] = await Promise.all([
+        fetchSeries(assetClass, symbol, timeframe),
+        fetchOhlc(assetClass, symbol, timeframe).catch(() => null),
+      ]);
+
+      if (ohlc) {
+        dispatch({ type: "SET_OHLC", data: ohlc });
+      }
 
       if (series.values.length < querySize + 10) {
         dispatch({ type: "SET_ERROR", error: `Not enough data (${series.values.length} points, need ${querySize + 10}).` });

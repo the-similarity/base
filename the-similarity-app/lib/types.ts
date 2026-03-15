@@ -115,6 +115,17 @@ export type DatasetSeries = {
   rowCount: number;
 };
 
+export type OhlcData = {
+  datasetId: string;
+  open: number[];
+  high: number[];
+  low: number[];
+  close: number[];
+  volume: number[];
+  dates: string[];
+  rowCount: number;
+};
+
 export type SearchRequest = {
   queryValues: number[];
   historyValues: number[];
