@@ -1,48 +1,53 @@
 "use client";
 import { useState, useRef, useCallback, useEffect } from "react";
 import { useTerminal } from "../../lib/terminal-context";
-import { searchApi } from "../../lib/api";
+import { fetchCatalog, fetchSeries, searchApi } from "../../lib/api";
+import type { CatalogItem } from "../../lib/types";
 
-function parseValues(raw: string): number[] {
-  return raw
-    .split(/[,\n]+/)
-    .map((s) => s.trim())
-    .filter((s) => s.length > 0)
-    .map(Number)
-    .filter((n) => !Number.isNaN(n));
+function formatSymbol(item: CatalogItem): string {
+  return `${item.symbol.toUpperCase()} · ${item.timeframe}`;
+}
+
+function formatAssetClass(ac: string): string {
+  return ac.charAt(0).toUpperCase() + ac.slice(1);
 }
 
 export function SearchInput() {
   const { state, dispatch } = useTerminal();
-  const [queryText, setQueryText] = useState("");
-  const [historyText, setHistoryText] = useState("");
   const [expanded, setExpanded] = useState(false);
+  const [catalog, setCatalog] = useState<CatalogItem[]>([]);
+  const [selectedDataset, setSelectedDataset] = useState<string>("");
+  const [querySize, setQuerySize] = useState(60);
+  const [loadingData, setLoadingData] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
+
+  // Load catalog on first expand
+  useEffect(() => {
+    if (!expanded || catalog.length > 0) return;
+    fetchCatalog()
+      .then(setCatalog)
+      .catch(() => dispatch({ type: "SET_ERROR", error: "Could not load dataset catalog." }));
+  }, [expanded, catalog.length, dispatch]);
 
   useEffect(() => {
     return () => { abortRef.current?.abort(); };
   }, []);
 
-  const queryCount = parseValues(queryText).length;
-  const historyCount = historyText.trim() ? parseValues(historyText).length : 0;
+  // Group catalog by asset class
+  const groups = catalog.reduce<Record<string, CatalogItem[]>>((acc, item) => {
+    const key = item.assetClass;
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(item);
+    return acc;
+  }, {});
 
   const handleSearch = useCallback(async () => {
-    const queryValues = parseValues(queryText);
-    if (queryValues.length < 2) {
-      dispatch({ type: "SET_ERROR", error: "Query must contain at least 2 numeric values." });
+    if (!selectedDataset) {
+      dispatch({ type: "SET_ERROR", error: "Select a dataset first." });
       return;
     }
 
-    const historyValues = parseValues(historyText);
-    if (historyValues.length < 2 && historyText.trim()) {
-      dispatch({ type: "SET_ERROR", error: "History must contain at least 2 numeric values." });
-      return;
-    }
-
-    if (!historyText.trim()) {
-      dispatch({ type: "SET_ERROR", error: "Paste history values to search against." });
-      return;
-    }
+    const [assetClass, symbol, timeframe] = selectedDataset.split("/");
 
     abortRef.current?.abort();
     const controller = new AbortController();
@@ -52,6 +57,18 @@ export function SearchInput() {
     dispatch({ type: "SET_ERROR", error: null });
 
     try {
+      // Fetch the full series
+      const series = await fetchSeries(assetClass, symbol, timeframe);
+
+      if (series.values.length < querySize + 10) {
+        dispatch({ type: "SET_ERROR", error: `Not enough data. Dataset has ${series.values.length} points, need at least ${querySize + 10}.` });
+        return;
+      }
+
+      // Query = last N bars, History = everything before that
+      const queryValues = series.values.slice(-querySize);
+      const historyValues = series.values.slice(0, -querySize);
+
       const response = await searchApi(
         {
           queryValues,
@@ -68,7 +85,7 @@ export function SearchInput() {
       if (err instanceof Error && err.name === "AbortError") return;
       dispatch({ type: "SET_ERROR", error: err instanceof Error ? err.message : "Search failed." });
     }
-  }, [queryText, historyText, state.activeMethods, dispatch]);
+  }, [selectedDataset, querySize, state.activeMethods, dispatch]);
 
   const handleCancel = useCallback(() => {
     abortRef.current?.abort();
@@ -98,42 +115,61 @@ export function SearchInput() {
   return (
     <div className="search-bar">
       <div className="search-bar-fields">
+        {/* Dataset picker */}
         <div className="search-bar-field">
           <label className="search-bar-label">
-            Query
-            <span className="search-bar-count">{queryCount} values</span>
+            Dataset
           </label>
-          <textarea
-            className="search-bar-textarea"
-            placeholder="Paste comma or newline separated values…"
-            value={queryText}
-            onChange={(e) => setQueryText(e.target.value)}
-            rows={2}
-          />
+          <select
+            className="search-bar-select"
+            value={selectedDataset}
+            onChange={(e) => setSelectedDataset(e.target.value)}
+          >
+            <option value="">Choose a dataset…</option>
+            {Object.entries(groups).map(([ac, items]) => (
+              <optgroup key={ac} label={formatAssetClass(ac)}>
+                {items.map((item) => {
+                  const id = `${item.assetClass}/${item.symbol}/${item.timeframe}`;
+                  return (
+                    <option key={id} value={id}>
+                      {formatSymbol(item)} — {item.rowCount.toLocaleString()} bars
+                    </option>
+                  );
+                })}
+              </optgroup>
+            ))}
+          </select>
         </div>
+
+        {/* Query window size */}
         <div className="search-bar-field">
           <label className="search-bar-label">
-            History
-            <span className="search-bar-count">
-              {historyText.trim() ? `${historyCount} values` : "required"}
-            </span>
+            Query window
+            <span className="search-bar-count">{querySize} bars</span>
           </label>
-          <textarea
-            className="search-bar-textarea"
-            placeholder="Paste the historical series to search against…"
-            value={historyText}
-            onChange={(e) => setHistoryText(e.target.value)}
-            rows={2}
+          <input
+            type="range"
+            className="search-bar-range"
+            min={20}
+            max={200}
+            step={5}
+            value={querySize}
+            onChange={(e) => setQuerySize(Number(e.target.value))}
           />
+          <div className="search-bar-range-labels">
+            <span>20</span>
+            <span>200</span>
+          </div>
         </div>
       </div>
+
       <div className="search-bar-actions">
         {!state.loading ? (
           <button
             type="button"
             className="search-bar-btn search-bar-btn--run"
             onClick={handleSearch}
-            disabled={queryCount < 2}
+            disabled={!selectedDataset}
           >
             Run
           </button>
