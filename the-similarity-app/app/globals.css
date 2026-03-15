@@ -43,7 +43,7 @@
 
   /* Typography */
   --font-mono: "SF Mono", "Fira Code", "Cascadia Code", "JetBrains Mono", monospace;
-  --font-sans: "SF Pro Display", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 
   --radius-sm: 4px;
   --radius-md: 6px;
@@ -131,28 +131,85 @@ button { cursor: pointer; }
   flex-shrink: 0;
 }
 
-/* ── Split Body ── */
+/* ═══════════════════════════════════════════════════════════════════
+   Resizable Split Pane
+   ═══════════════════════════════════════════════════════════════════ */
+
+.split-pane {
+  display: flex;
+  overflow: hidden;
+  width: 100%;
+  height: 100%;
+}
+
+.split-pane--horizontal {
+  flex-direction: row;
+}
+
+.split-pane--vertical {
+  flex-direction: column;
+}
+
+.split-pane__panel {
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Divider ── */
+
+.split-pane__divider {
+  flex-shrink: 0;
+  flex-grow: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+  touch-action: none;
+  position: relative;
+}
+
+.split-pane__divider--horizontal {
+  width: 6px;
+  cursor: col-resize;
+  background: var(--border);
+}
+
+.split-pane__divider--vertical {
+  height: 6px;
+  cursor: row-resize;
+  background: var(--border);
+}
+
+.split-pane__divider:hover,
+.split-pane__divider:active {
+  background: var(--accent);
+}
+
+.split-pane__divider-handle {
+  border-radius: 2px;
+  background: var(--border-strong);
+  transition: background 120ms ease;
+}
+
+.split-pane__divider:hover .split-pane__divider-handle,
+.split-pane__divider:active .split-pane__divider-handle {
+  background: #fff;
+}
+
+.split-pane__divider--horizontal .split-pane__divider-handle {
+  width: 2px;
+  height: 32px;
+}
+
+.split-pane__divider--vertical .split-pane__divider-handle {
+  width: 32px;
+  height: 2px;
+}
+
+/* ── Split Body (terminal main area) ── */
 .terminal-body {
-  display: flex;
   flex: 1;
-  overflow: hidden;
-}
-
-.terminal-left {
-  flex: 3;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  border-right: 1px solid var(--border);
-  min-width: 0;
-}
-
-.terminal-right {
-  flex: 2;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  min-width: 0;
+  min-height: 0;
 }
 
 /* ── Panels ── */
@@ -399,6 +456,7 @@ button { cursor: pointer; }
   display: flex;
   flex-direction: column;
   min-height: 0;
+  overflow: hidden;
 }
 
 .chart-header {
@@ -531,18 +589,186 @@ button { cursor: pointer; }
   border-color: var(--border-strong);
 }
 
+/* ═══════════════════════════════════════════════════════════════════
+   Search Input Bar
+   ═══════════════════════════════════════════════════════════════════ */
+
+.search-bar-collapsed {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: 0 var(--space-lg);
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-elevated);
+  height: 32px;
+  flex-shrink: 0;
+}
+
+.search-bar-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 2px 10px;
+  cursor: pointer;
+  transition: border-color 120ms ease, color 120ms ease;
+}
+
+.search-bar-toggle:hover {
+  border-color: var(--border-strong);
+  color: var(--text-secondary);
+}
+
+.search-bar-icon {
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.search-bar-status {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-secondary);
+}
+
+.search-bar {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-md);
+  padding: var(--space-md) var(--space-lg);
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-elevated);
+  flex-shrink: 0;
+}
+
+.search-bar-fields {
+  display: flex;
+  gap: var(--space-md);
+  flex: 1;
+  min-width: 0;
+}
+
+.search-bar-field {
+  flex: 1;
+  min-width: 0;
+}
+
+.search-bar-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+}
+
+.search-bar-count {
+  font-weight: 400;
+  color: var(--text-secondary);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.search-bar-textarea {
+  width: 100%;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: var(--space-sm);
+  resize: vertical;
+  min-height: 36px;
+  max-height: 80px;
+  transition: border-color 120ms ease;
+}
+
+.search-bar-textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.search-bar-textarea::placeholder {
+  color: var(--text-muted);
+}
+
+.search-bar-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.search-bar-btn {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  padding: 4px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: all 120ms ease;
+}
+
+.search-bar-btn--run {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.search-bar-btn--run:hover {
+  opacity: 0.9;
+}
+
+.search-bar-btn--run:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.search-bar-btn--cancel {
+  background: var(--negative-dim);
+  border-color: var(--negative);
+  color: var(--negative);
+}
+
+.search-bar-btn--close {
+  background: none;
+  color: var(--text-muted);
+}
+
+.search-bar-btn--close:hover {
+  color: var(--text-secondary);
+}
+
+/* Trajectory line on chart */
+.chart-line-trajectory {
+  stroke: #fb923c;
+  stroke-width: 1.5;
+  stroke-dasharray: 2 3;
+  opacity: 0.85;
+}
+
 /* ── Responsive ── */
 @media (max-width: 768px) {
-  .terminal-body {
+  .split-pane--horizontal {
     flex-direction: column;
   }
-  .terminal-left {
-    border-right: none;
-    border-bottom: 1px solid var(--border);
-    flex: 1;
+  .split-pane--horizontal > .split-pane__panel {
+    flex-basis: 50% !important;
   }
-  .terminal-right {
-    flex: 1;
+  .split-pane__divider--horizontal {
+    width: 100%;
+    height: 6px;
+    cursor: row-resize;
   }
   .terminal-topbar {
     overflow-x: auto;

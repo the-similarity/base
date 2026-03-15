@@ -43,3 +43,24 @@
 - **Effort:** L
 - **Priority:** P3
 - **Depends on:** Backtester + method ablation identifying which methods matter.
+
+### Wire time range selector to search API
+- **What:** Map range selector (1D/1W/1M/3M/1Y/ALL) to query window size parameter when calling searchApi. Currently ranges only switch mock dashboard views.
+- **Why:** Range selection should re-run the search with a different window size, not just swap pre-computed mock views.
+- **Effort:** S
+- **Priority:** P2
+- **Depends on:** Real API data wiring (this PR must land first).
+
+### Align search workstation rendering with shared types
+- **What:** The search workstation rendering code still references old field names from its inline types. Update template references to use shared MatchResult fields (confidenceScore, matchedSeries, etc.).
+- **Why:** DRY — imports were fixed but some rendering code may still drift from shared types.
+- **Effort:** S
+- **Priority:** P3
+- **Depends on:** Nothing.
+
+### Add component render tests for ChartPanel and SearchInput
+- **What:** Add vitest render tests for ChartPanel (with real search data, trajectory overlay) and SearchInput (validation, error states).
+- **Why:** Reducer tests cover state logic but not rendering. SearchInput validation is a good candidate for render tests.
+- **Effort:** S
+- **Priority:** P3
+- **Depends on:** Real API data wiring.

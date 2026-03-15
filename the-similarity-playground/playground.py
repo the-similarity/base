@@ -11,7 +11,41 @@ from plotly.subplots import make_subplots
 import requests
 
 
-ROOT = Path(__file__).resolve().parents[1]
+def _find_root() -> Path:
+    """Find the project root, handling git worktrees.
+
+    In a worktree (e.g. Projects/14-playground), the data/engine dirs
+    may live in the main repo (Projects/14). Walk up to find them.
+    """
+    candidate = Path(__file__).resolve().parents[1]
+    # Check for actual parquet data, not just the directory (parquets are gitignored)
+    data_dir = candidate / "the-similarity-data" / "data"
+    if data_dir.exists() and any(data_dir.rglob("*.parquet")):
+        return candidate
+    # Worktree: check the main repo via git
+    try:
+        import subprocess
+        result = subprocess.run(
+            ["git", "worktree", "list", "--porcelain"],
+            capture_output=True, text=True, cwd=candidate,
+        )
+        for line in result.stdout.splitlines():
+            if line.startswith("worktree ") and "bare" not in line:
+                main_path = Path(line.split(" ", 1)[1])
+                main_data = main_path / "the-similarity-data" / "data"
+                if main_data.exists() and any(main_data.rglob("*.parquet")):
+                    return main_path
+    except Exception:
+        pass
+    # Fallback: try Projects/14 directly
+    fallback = candidate.parent / "14"
+    fallback_data = fallback / "the-similarity-data" / "data"
+    if fallback.exists() and fallback_data.exists() and any(fallback_data.rglob("*.parquet")):
+        return fallback
+    return candidate
+
+
+ROOT = _find_root()
 ENGINE_ROOT = ROOT / "the_similarity"
 DATA_ROOT = ROOT / "the-similarity-data"
 API_ROOT = ROOT / "the-similarity-api"
