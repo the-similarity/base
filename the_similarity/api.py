@@ -184,3 +184,47 @@ def plot(
 
     if show:
         plt.show()
+
+
+def backtest(
+    history: TimeSeries | np.ndarray,
+    window_size: int,
+    forward_bars: int = 50,
+    n_trials: int = 100,
+    config: Config | None = None,
+    seed: int | None = 42,
+    n_workers: int | None = None,
+    progress_fn=None,
+    top_k: int = 10,
+):
+    """Run walk-forward backtest to validate the search pipeline.
+
+    Args:
+        history: Full historical data to backtest on.
+        window_size: Length of the query window for each trial.
+        forward_bars: How many bars to project forward.
+        n_trials: Number of random trials.
+        config: Pipeline configuration. Uses defaults if None.
+        seed: Random seed for reproducibility.
+        n_workers: Parallel workers. None = auto.
+        progress_fn: Optional callback(completed, total).
+        top_k: Matches per trial.
+
+    Returns:
+        BacktestReport with per-trial results and aggregate metrics.
+    """
+    from the_similarity.core.backtester import run_backtest as _run_backtest
+
+    h_values = history.values if isinstance(history, TimeSeries) else np.asarray(history, dtype=np.float64)
+
+    return _run_backtest(
+        history=h_values,
+        window_size=window_size,
+        forward_bars=forward_bars,
+        n_trials=n_trials,
+        config=config,
+        seed=seed,
+        n_workers=n_workers,
+        progress_fn=progress_fn,
+        top_k=top_k,
+    )
