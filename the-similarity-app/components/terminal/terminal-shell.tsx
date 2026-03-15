@@ -70,12 +70,15 @@ export function TerminalShell() {
   return (
     <div className="terminal">
       <TopBar />
-      <div className="terminal-body">
-        <SearchSidebar />
-        <div className="terminal-main">
-          {mainContent}
-        </div>
-      </div>
+      <SplitPane
+        direction="horizontal"
+        defaultRatio={0.15}
+        minRatio={0.1}
+        maxRatio={0.3}
+        first={<SearchSidebar />}
+        second={<div className="terminal-main">{mainContent}</div>}
+        className="terminal-body"
+      />
     </div>
   );
 }
