@@ -7,7 +7,7 @@ These models are the canonical boundary types for a split-repo setup:
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -54,7 +54,7 @@ class RangeView(ApiContract):
 class MatchCard(ApiContract):
     label: str
     window: str
-    score: float = Field(ge=0, le=100)
+    score: Annotated[float, Field(ge=0, le=100)]
     delta: float
     method: str
     regime: str
@@ -68,7 +68,7 @@ class ModuleCard(ApiContract):
 
 class ConfidenceBreakdownItem(ApiContract):
     label: str
-    value: float = Field(ge=0, le=1)
+    value: Annotated[float, Field(ge=0, le=1)]
 
 
 class DashboardDataResponse(ApiContract):
@@ -84,28 +84,28 @@ class DashboardDataResponse(ApiContract):
 
 
 class ScoreBreakdownResponse(ApiContract):
-    bempedelis_r2: float = Field(default=0.0, ge=0, le=1)
-    bempedelis_smoothness: float = Field(default=0.0, ge=0, le=1)
-    koopman: float = Field(default=0.0, ge=0, le=1)
-    wavelet_spectrum: float = Field(default=0.0, ge=0, le=1)
-    emd: float = Field(default=0.0, ge=0, le=1)
-    tda: float = Field(default=0.0, ge=0, le=1)
-    dtw: float = Field(default=0.0, ge=0, le=1)
-    pearson_warped: float = Field(default=0.0, ge=0, le=1)
-    transfer_entropy: float = Field(default=0.0, ge=0, le=1)
+    bempedelis_r2: Annotated[float, Field(ge=0, le=1)] = 0.0
+    bempedelis_smoothness: Annotated[float, Field(ge=0, le=1)] = 0.0
+    koopman: Annotated[float, Field(ge=0, le=1)] = 0.0
+    wavelet_spectrum: Annotated[float, Field(ge=0, le=1)] = 0.0
+    emd: Annotated[float, Field(ge=0, le=1)] = 0.0
+    tda: Annotated[float, Field(ge=0, le=1)] = 0.0
+    dtw: Annotated[float, Field(ge=0, le=1)] = 0.0
+    pearson_warped: Annotated[float, Field(ge=0, le=1)] = 0.0
+    transfer_entropy: Annotated[float, Field(ge=0, le=1)] = 0.0
 
 
 class MatchResultResponse(ApiContract):
-    start_idx: int = Field(ge=0)
-    end_idx: int = Field(gt=0)
+    start_idx: Annotated[int, Field(ge=0)]
+    end_idx: Annotated[int, Field(gt=0)]
     start_date: str | None = None
     end_date: str | None = None
-    confidence_score: float = Field(ge=0, le=100)
+    confidence_score: Annotated[float, Field(ge=0, le=100)]
     score_breakdown: ScoreBreakdownResponse
     matched_series: list[float] | None = None
     transform_alpha: list[float] | None = None
     transform_beta: list[float] | None = None
-    transform_r2: float = Field(default=0.0, ge=0, le=1)
+    transform_r2: Annotated[float, Field(ge=0, le=1)] = 0.0
     koopman_eigenvalues: list[float] | None = None
     fractal_spectrum: list[float] | None = None
     persistence_diagram: list[list[float]] | None = None
@@ -113,7 +113,7 @@ class MatchResultResponse(ApiContract):
 
 
 class ForecastResponse(ApiContract):
-    bars: int = Field(ge=1)
+    bars: Annotated[int, Field(ge=1)]
     percentiles: list[int] = Field(default_factory=list)
     curves: dict[int, list[float]] = Field(default_factory=dict)
     all_paths: list[list[float]] = Field(default_factory=list)
@@ -121,15 +121,15 @@ class ForecastResponse(ApiContract):
 
 
 class SearchRequest(ApiContract):
-    query_values: list[float] = Field(min_length=2)
-    history_values: list[float] = Field(min_length=2)
-    top_k: int = Field(default=20, ge=1, le=200)
-    forward_bars: int = Field(default=50, ge=1, le=500)
+    query_values: Annotated[list[float], Field(min_length=2)]
+    history_values: Annotated[list[float], Field(min_length=2)]
+    top_k: Annotated[int, Field(ge=1, le=200)] = 20
+    forward_bars: Annotated[int, Field(ge=1, le=500)] = 50
     exclude_self: bool = True
     normalization: str | None = None
-    stride: int | None = Field(default=None, ge=1)
-    tier1_candidates: int | None = Field(default=None, ge=1, le=5000)
-    tier2_candidates: int | None = Field(default=None, ge=1, le=1000)
+    stride: Annotated[int | None, Field(ge=1)] = None
+    tier1_candidates: Annotated[int | None, Field(ge=1, le=5000)] = None
+    tier2_candidates: Annotated[int | None, Field(ge=1, le=1000)] = None
     active_methods: list[str] = Field(default_factory=list)
     percentiles: list[int] = Field(default_factory=list)
     weights: dict[str, float] = Field(default_factory=dict)
