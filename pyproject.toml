@@ -31,3 +31,4 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.pytest.ini_options]
 testpaths = ["the_similarity/tests"]
+markers = ["slow: marks tests as slow (deselect with '-m \"not slow\"')"]
