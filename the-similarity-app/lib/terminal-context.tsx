@@ -1,9 +1,10 @@
 "use client";
 import { createContext, useContext, useReducer, useEffect, type ReactNode } from "react";
-import type { MatchCard, DashboardData } from "./types";
+import type { MatchResult, DashboardData, SearchResponse } from "./types";
 
 export interface TerminalState {
-  matches: MatchCard[];
+  matches: MatchResult[];
+  searchResponse: SearchResponse | null;
   dashboardData: DashboardData | null;
   loading: boolean;
   error: string | null;
@@ -15,7 +16,8 @@ export interface TerminalState {
 }
 
 export type Action =
-  | { type: "SET_MATCHES"; matches: MatchCard[] }
+  | { type: "SET_MATCHES"; matches: MatchResult[] }
+  | { type: "SET_SEARCH_RESPONSE"; response: SearchResponse }
   | { type: "SET_DASHBOARD"; data: DashboardData }
   | { type: "SET_LOADING"; loading: boolean }
   | { type: "SET_ERROR"; error: string | null }
@@ -29,6 +31,7 @@ export type Action =
 
 const initialState: TerminalState = {
   matches: [],
+  searchResponse: null,
   dashboardData: null,
   loading: false,
   error: null,
@@ -42,10 +45,21 @@ const initialState: TerminalState = {
   theme: "dark",
 };
 
-function reducer(state: TerminalState, action: Action): TerminalState {
+export function reducer(state: TerminalState, action: Action): TerminalState {
   switch (action.type) {
     case "SET_MATCHES":
       return { ...state, matches: action.matches, loading: false, error: null };
+    case "SET_SEARCH_RESPONSE":
+      return {
+        ...state,
+        searchResponse: action.response,
+        matches: action.response.matches,
+        loading: false,
+        error: null,
+        selectedIdx: null,
+        hoveredIdx: null,
+        focusedIdx: 0,
+      };
     case "SET_DASHBOARD":
       return { ...state, dashboardData: action.data };
     case "SET_LOADING":

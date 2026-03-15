@@ -2,6 +2,7 @@
 import { useEffect } from "react";
 import { useTerminal } from "../../lib/terminal-context";
 import { TopBar } from "./top-bar";
+import { SearchInput } from "./search-input";
 import { ChartPanel } from "./chart-panel";
 import { MatchList } from "./match-list";
 import { DetailPanel } from "./detail-panel";
@@ -43,6 +44,7 @@ export function TerminalShell() {
   return (
     <div className="terminal">
       <TopBar />
+      <SearchInput />
       <div className="terminal-body">
         <div className="terminal-left">
           <ChartPanel />

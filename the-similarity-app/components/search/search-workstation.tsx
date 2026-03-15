@@ -4,38 +4,8 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { Sparkline } from "./sparkline";
 import { ScoreBreakdownBar } from "./score-breakdown-bar";
 import { OverlayChart } from "./overlay-chart";
-
-// ---------------------------------------------------------------------------
-// Inline types (will be consolidated when worktrees merge)
-// ---------------------------------------------------------------------------
-
-type SearchRequest = {
-  queryValues: number[];
-  historyValues: number[];
-  activeMethods: string[];
-  topK: number;
-  forwardBars: number;
-};
-
-type MatchResult = {
-  rank: number;
-  confidence: number;
-  scoreBreakdown: Record<string, number>;
-  matchedValues: number[];
-  startDate: string;
-  endDate: string;
-  regime: string;
-};
-
-type SearchResponse = {
-  matches: MatchResult[];
-  queryValues: number[];
-  meta: {
-    methodsUsed: string[];
-    totalCandidates: number;
-    elapsedMs: number;
-  };
-};
+import { searchApi } from "../../lib/api";
+import type { MatchResult, SearchResponse } from "../../lib/types";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -52,38 +22,6 @@ const ALL_METHODS = [
   { key: "tda", label: "TDA" },
   { key: "transfer_entropy", label: "Transfer Entropy" },
 ] as const;
-
-// ---------------------------------------------------------------------------
-// API helper
-// ---------------------------------------------------------------------------
-
-async function searchApi(
-  request: SearchRequest,
-  signal?: AbortSignal
-): Promise<SearchResponse> {
-  const apiUrl = process.env.NEXT_PUBLIC_THE_SIMILARITY_API_URL ?? "";
-  if (!apiUrl)
-    throw new Error(
-      "API URL not configured. Set NEXT_PUBLIC_THE_SIMILARITY_API_URL."
-    );
-
-  const response = await fetch(`${apiUrl.replace(/\/+$/, "")}/search`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Accept: "application/json",
-    },
-    body: JSON.stringify(request),
-    signal,
-  });
-
-  if (!response.ok) {
-    const text = await response.text().catch(() => "");
-    throw new Error(`Search failed (${response.status}): ${text}`);
-  }
-
-  return response.json();
-}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -201,7 +139,7 @@ export function SearchWorkstation() {
     }
   }, [response]);
 
-  const selectedMatch =
+  const selectedMatch: MatchResult | null =
     selectedIdx !== null && response ? response.matches[selectedIdx] : null;
 
   return (
@@ -363,18 +301,6 @@ export function SearchWorkstation() {
                       </strong>{" "}
                       matches
                     </span>
-                    <span>
-                      <strong style={{ color: "var(--text-primary)" }}>
-                        {response.meta.totalCandidates}
-                      </strong>{" "}
-                      candidates scanned
-                    </span>
-                    <span>
-                      <strong style={{ color: "var(--text-primary)" }}>
-                        {response.meta.elapsedMs.toFixed(0)}
-                      </strong>{" "}
-                      ms
-                    </span>
                   </div>
                   <button
                     type="button"
@@ -414,10 +340,10 @@ export function SearchWorkstation() {
                             fontVariantNumeric: "tabular-nums",
                           }}
                         >
-                          #{match.rank}
+                          #{idx + 1}
                         </span>
                         <span className="card-value">
-                          {(match.confidence * 100).toFixed(1)}
+                          {match.confidenceScore.toFixed(1)}
                         </span>
                         <span className="card-unit">confidence</span>
                       </div>
@@ -431,10 +357,7 @@ export function SearchWorkstation() {
                         }}
                       >
                         <span>
-                          {match.startDate} &mdash; {match.endDate}
-                        </span>
-                        <span className="badge" style={{ padding: "2px 8px", fontSize: 10 }}>
-                          {match.regime}
+                          {match.startDate ?? match.startIdx} &mdash; {match.endDate ?? match.endIdx}
                         </span>
                       </div>
                       <div style={{ marginTop: 8 }}>
@@ -442,23 +365,25 @@ export function SearchWorkstation() {
                       </div>
                     </div>
                     <div>
-                      <Sparkline
-                        values={match.matchedValues}
-                        width={100}
-                        height={32}
-                        color="var(--chart-match)"
-                      />
+                      {match.matchedSeries && match.matchedSeries.length > 2 && (
+                        <Sparkline
+                          values={match.matchedSeries}
+                          width={100}
+                          height={32}
+                          color="var(--chart-match)"
+                        />
+                      )}
                     </div>
                   </button>
                 ))}
 
                 {/* Overlay chart */}
-                {selectedMatch && (
+                {selectedMatch && selectedMatch.matchedSeries && (
                   <OverlayChart
                     queryValues={response.queryValues}
-                    matchValues={selectedMatch.matchedValues}
+                    matchValues={selectedMatch.matchedSeries}
                     queryLabel="Your query"
-                    matchLabel={`Match #${selectedMatch.rank}`}
+                    matchLabel={`Match #${selectedIdx! + 1}`}
                   />
                 )}
               </>
