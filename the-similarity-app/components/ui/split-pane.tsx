@@ -1,5 +1,5 @@
 "use client";
-import { useRef, useCallback, useState, useEffect, type ReactNode } from "react";
+import { useRef, useCallback, useState, type ReactNode, type CSSProperties } from "react";
 
 interface SplitPaneProps {
   direction: "horizontal" | "vertical";
@@ -57,18 +57,31 @@ export function SplitPane({
     document.body.style.userSelect = "";
   }, []);
 
-  // Reset on double-click
   const handleDoubleClick = useCallback(() => {
     setRatio(defaultRatio);
   }, [defaultRatio]);
 
   const isH = direction === "horizontal";
-  const firstStyle = isH
-    ? { width: `${ratio * 100}%`, height: "100%" }
-    : { height: `${ratio * 100}%`, width: "100%" };
-  const secondStyle = isH
-    ? { width: `${(1 - ratio) * 100}%`, height: "100%" }
-    : { height: `${(1 - ratio) * 100}%`, width: "100%" };
+  const pct1 = `${ratio * 100}%`;
+  const pct2 = `${(1 - ratio) * 100}%`;
+
+  const firstStyle: CSSProperties = {
+    flexBasis: pct1,
+    flexGrow: 0,
+    flexShrink: 0,
+    overflow: "hidden",
+    minWidth: 0,
+    minHeight: 0,
+  };
+
+  const secondStyle: CSSProperties = {
+    flexBasis: pct2,
+    flexGrow: 0,
+    flexShrink: 0,
+    overflow: "hidden",
+    minWidth: 0,
+    minHeight: 0,
+  };
 
   return (
     <div
