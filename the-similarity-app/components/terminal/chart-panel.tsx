@@ -50,10 +50,16 @@ function toLineDataWithDates(values: number[], dates: string[]): LineData[] {
 function toCandleDataWithDates(
   open: number[], high: number[], low: number[], close: number[], dates: string[],
 ): CandlestickData[] {
-  return close.map((_, i) => ({
-    time: timeVal(dates, i) as unknown as CandlestickData["time"],
-    open: open[i], high: high[i], low: low[i], close: close[i],
-  }));
+  const result: CandlestickData[] = [];
+  for (let i = 0; i < close.length; i++) {
+    // Skip flat bars (market closed: O=H=L=C)
+    if (open[i] === high[i] && high[i] === low[i] && low[i] === close[i]) continue;
+    result.push({
+      time: timeVal(dates, i) as unknown as CandlestickData["time"],
+      open: open[i], high: high[i], low: low[i], close: close[i],
+    });
+  }
+  return result;
 }
 
 /** Generate continuation timestamps by incrementing from the last date. */

@@ -108,6 +108,10 @@ def load_series(
         if end_date:
             df = df[df["timestamp"] <= pd.Timestamp(end_date, tz="UTC")]
 
+    # Drop flat bars (market closed / no movement: O=H=L=C)
+    if all(c in df.columns for c in ("open", "high", "low", "close")):
+        df = df[~((df["open"] == df["high"]) & (df["high"] == df["low"]) & (df["low"] == df["close"]))]
+
     if len(df) > max_points:
         logger.info(
             "Truncating %s from %d to %d points (keeping most recent)",
@@ -153,6 +157,9 @@ def load_ohlc(
             df = df[df["timestamp"] >= pd.Timestamp(start_date, tz="UTC")]
         if end_date:
             df = df[df["timestamp"] <= pd.Timestamp(end_date, tz="UTC")]
+
+    # Drop flat bars (market closed / no movement: O=H=L=C)
+    df = df[~((df["open"] == df["high"]) & (df["high"] == df["low"]) & (df["low"] == df["close"]))]
 
     if len(df) > max_points:
         df = df.tail(max_points)
