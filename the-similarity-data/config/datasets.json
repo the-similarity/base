@@ -319,10 +319,28 @@
   {
     "asset_class": "forex",
     "symbol": "eurusd",
+    "timeframe": "15m",
+    "source": "twelvedata",
+    "source_symbol": "EUR/USD",
+    "lookback_days": 120,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "eurusd",
     "timeframe": "1d",
     "source": "twelvedata",
     "source_symbol": "EUR/USD",
     "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "gbpusd",
+    "timeframe": "15m",
+    "source": "twelvedata",
+    "source_symbol": "GBP/USD",
+    "lookback_days": 120,
     "enabled": true
   },
   {
@@ -409,6 +427,24 @@
   {
     "asset_class": "commodities",
     "symbol": "gold",
+    "timeframe": "1h",
+    "source": "twelvedata",
+    "source_symbol": "XAU/USD",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "commodities",
+    "symbol": "gold",
+    "timeframe": "4h",
+    "source": "twelvedata",
+    "source_symbol": "XAU/USD",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "commodities",
+    "symbol": "gold",
     "timeframe": "1d",
     "source": "stooq",
     "source_symbol": "gld.us",
@@ -421,6 +457,24 @@
     "timeframe": "1d",
     "source": "stooq",
     "source_symbol": "slv.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "commodities",
+    "symbol": "oil",
+    "timeframe": "1h",
+    "source": "twelvedata",
+    "source_symbol": "CL",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "commodities",
+    "symbol": "oil",
+    "timeframe": "4h",
+    "source": "twelvedata",
+    "source_symbol": "CL",
     "lookback_days": 3650,
     "enabled": true
   },
