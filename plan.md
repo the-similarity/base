@@ -252,14 +252,104 @@ All 9 methods implemented, wired into `_enrich_tier2()`, and tested (115 tests p
 - [x] Regression tests verifying batch == sequential to 1e-10
 - [x] Benchmark: DTW+Pearson 0.32s, all 9 methods 1.03s (2000-bar history, stride=3)
 
-### 5c. Cross-timeframe search
-- [ ] Implement `cross_timeframes` parameter in search()
-- [ ] Resample history to each target timeframe
-- [ ] Search each independently, merge results
-- [ ] Deduplicate overlapping matches across timeframes
+### 5c. ~~Cross-timeframe search~~ → DONE
+- [x] `cross_timeframe_search()` in `api.py` — standalone function searching across multiple timeframes
+- [x] `_resample_timeseries()` — resamples TimeSeries to coarser frequencies via pandas `.resample().last()`
+- [x] Query window scaled proportionally (linear interpolation in [0,1] space)
+- [x] `_deduplicate_matches()` — temporal overlap detection with configurable threshold, keeps highest-scoring
+- [x] `MatchResult.source_timeframe` field tracks origin timeframe per match
+- [x] `min_window` guard skips timeframes where scaled query < 10 bars
+- [x] 10 tests (unit + slow integration) in `test_cross_timeframe.py`
 
-### 5d. Documentation & release
-- [ ] Full API reference
-- [ ] Theory document with paper references
-- [ ] Tutorial notebooks
-- [ ] PyPI package
+### 5d. ~~Documentation & release~~ → DONE
+- [x] Full API reference — `docs/API_REFERENCE.md` (all functions, params, examples, data classes)
+- [x] Theory document with paper references — `docs/THEORY.md` (9 methods, scoring, forecasting, backtesting, 16 references)
+- [x] Tutorial notebooks — `docs/tutorials/` (01_quickstart, 02_configuration, 03_backtesting)
+- [x] PyPI package — `pyproject.toml` with classifiers, keywords, extras, test exclusion, MIT LICENSE
+
+---
+
+## Phase 6 — Live Product
+
+### 6a. Real-time streaming pipeline
+- [ ] WebSocket feed ingesting candles from exchanges/brokers (Binance, Polygon, etc.)
+- [ ] Incremental SAX+MASS update as new bars arrive (avoid full recomputation)
+- [ ] Streaming search: re-score top candidates on each new bar, emit events on confidence change
+- [ ] Backpressure handling for multiple concurrent subscriptions
+
+### 6b. Alert system
+- [ ] User-defined watchlists: "notify me when a pattern similar to X appears on Y"
+- [ ] Confidence threshold triggers (e.g., fire when composite > 80)
+- [ ] Notification channels: webhook, email, push
+- [ ] Alert persistence + deduplication (don't fire same pattern repeatedly)
+- [ ] Depends on: 6a (streaming pipeline)
+
+### 6c. Auth & multi-tenancy
+- [ ] JWT authentication with refresh tokens
+- [ ] User accounts in Postgres (watchlists, saved searches, alert configs)
+- [ ] API key management for programmatic access
+- [ ] Rate limiting per tier (free/pro/enterprise)
+- [ ] FeatureStore isolation per user for custom datasets
+
+### 6d. Hosted data pipeline
+- [ ] Ingestion service pulling from market data providers (Polygon, Tiingo, Binance)
+- [ ] Normalize to parquet schema, append-only updates on schedule
+- [ ] Asset coverage target: 500+ assets × 5 timeframes × 10yr history
+- [ ] Data catalog API: available assets, date ranges, freshness metadata
+- [ ] Replace in-repo parquet files with cloud storage (S3/GCS)
+
+---
+
+## Phase 7 — Intelligence Layer
+
+### 7a. Strategy builder
+- [ ] Rule engine: chain pattern match + forecast cone into entry/exit signals
+- [ ] Expose backtester as strategy validation: user-defined rules → walk-forward metrics
+- [ ] Strategy templates (momentum, mean-reversion, breakout) as starting points
+- [ ] No-code strategy editor in frontend
+
+### 7b. Ensemble forecasting
+- [ ] Monte Carlo simulation from match distribution
+- [ ] Regime-conditional projections (trending vs. mean-reverting matches weighted differently)
+- [ ] Conformal prediction intervals for calibrated coverage guarantees
+- [ ] Forecast combination: Koopman + historical quantiles + Monte Carlo → blended cone
+
+### 7c. Portfolio-level analysis
+- [ ] Cross-asset pattern correlation: "last time BTC looked like this, what did ETH do?"
+- [ ] Portfolio regime detection: which assets are in similar regimes right now?
+- [ ] Divergence scanner: find assets whose patterns are decoupling from historical correlations
+- [ ] Leverage existing transfer entropy for cross-asset information flow
+
+### 7d. Explainability layer
+- [ ] Natural language match explanations: which methods drove the score, why this match matters
+- [ ] Per-method contribution breakdown in human-readable form
+- [ ] Historical context: what happened after previous occurrences of this pattern
+- [ ] Confidence calibration commentary: "this confidence level has been accurate X% of the time"
+
+---
+
+## Phase 8 — Platform
+
+### 8a. API-as-a-service
+- [ ] Tiered pricing: free (limited searches, delayed data), pro (real-time, alerts, full methods), enterprise (dedicated compute, SLA)
+- [ ] Usage metering and billing integration
+- [ ] Developer portal with API docs, SDKs (Python, JS), and playground
+- [ ] Compute isolation for enterprise tenants
+
+### 8b. Custom datasets
+- [ ] User-uploaded time series (CSV, API push)
+- [ ] Domain-agnostic: IoT sensors, medical, climate, web traffic — not just financial
+- [ ] Private dataset storage with access controls
+- [ ] Auto-detection of appropriate normalization and method weights per domain
+
+### 8c. Method marketplace
+- [ ] Public method interface specification for community contributions
+- [ ] Plugin registry: researchers submit new Tier 2 scoring methods
+- [ ] Review + benchmarking pipeline: new methods tested against backtester before approval
+- [ ] Revenue share for method contributors
+
+### 8d. Embeddable widget
+- [ ] `<script>` tag drops pattern search + forecast chart into any website
+- [ ] Configurable: asset selector, timeframe picker, chart theme
+- [ ] Partnership integrations with charting platforms (TradingView, etc.)
+- [ ] White-label option for enterprise
