@@ -2,13 +2,12 @@
 
 ## Git Workflow (MANDATORY)
 1. **NEVER commit directly to `main`.** Always create a feature branch first.
-2. **ALWAYS use a git worktree** when creating a new branch. This prevents branch switching from disrupting other running instances.
+2. You are running inside a **git worktree**. Stay in your worktree directory — do NOT `cd` into other worktrees.
+3. To start a new task, create a feature branch **within your worktree**:
    ```bash
-   # Create a new worktree for your branch (from the main repo):
-   git worktree add /Users/buyantogtokh/Projects/14-<short-name> -b <branch-name>
-   # Then work ONLY inside that worktree directory.
+   git checkout -b feat/<descriptive-name>
    ```
-3. **NEVER run `git checkout` to switch branches** in a shared working directory. If you need a different branch, create a worktree for it.
+   This is safe because each worktree is isolated — your branch switch doesn't affect other worktrees.
 4. Commit often with clear messages as you work.
 5. When the task is DONE:
    ```bash
