@@ -1,13 +1,76 @@
 "use client";
+import { useEffect, useRef } from "react";
+import { createChart, LineSeries, AreaSeries, type IChartApi, type ISeriesApi, type LineData, type AreaData } from "lightweight-charts";
 import { useTerminal } from "../../lib/terminal-context";
-import { scalePoints, pointsToPath, areaPath } from "../../lib/chart-utils";
+
+/** Normalize `src` into the value range of `target` (preserving shape). */
+function normalizeToRange(src: number[], target: number[]): number[] {
+  if (src.length === 0 || target.length === 0) return [];
+  const sMin = Math.min(...src);
+  const sMax = Math.max(...src);
+  const tMin = Math.min(...target);
+  const tMax = Math.max(...target);
+  const sRange = sMax - sMin || 1;
+  const tRange = tMax - tMin || 1;
+  return src.map((v) => tMin + ((v - sMin) / sRange) * tRange);
+}
+
+/**
+ * Convert an index to a synthetic business-day string (YYYY-MM-DD).
+ * Lightweight-charts needs real-looking dates, not raw numbers.
+ */
+function indexToDate(idx: number): string {
+  const base = new Date(2020, 0, 1); // Jan 1, 2020
+  const d = new Date(base.getTime() + idx * 86400000);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function toLineData(values: number[], offset = 0): LineData[] {
+  return values.map((value, i) => ({
+    time: indexToDate(offset + i) as unknown as LineData["time"],
+    value,
+  }));
+}
+
+function toAreaData(values: number[], offset = 0): AreaData[] {
+  return values.map((value, i) => ({
+    time: indexToDate(offset + i) as unknown as AreaData["time"],
+    value,
+  }));
+}
+
+const COLORS = {
+  query: "#e8e9ed",
+  match: "#818cf8",
+  forecast: "#34d399",
+  forecastFill: "rgba(52, 211, 153, 0.08)",
+  trajectory: "#fbbf24",
+  bg: "#08090d",
+  grid: "rgba(255, 255, 255, 0.04)",
+  border: "rgba(255, 255, 255, 0.06)",
+  text: "#454857",
+};
 
 export function ChartPanel() {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const chartRef = useRef<IChartApi | null>(null);
+  const seriesRefs = useRef<{
+    query?: ISeriesApi<"Line">;
+    match?: ISeriesApi<"Line">;
+    forecastP50?: ISeriesApi<"Line">;
+    forecastP90?: ISeriesApi<"Area">;
+    forecastP10?: ISeriesApi<"Area">;
+    trajectory?: ISeriesApi<"Line">;
+  }>({});
+
   const { state } = useTerminal();
   const sr = state.searchResponse;
   const data = state.dashboardData;
 
-  // ── Resolve data source: searchResponse > dashboardData ──
+  // ── Resolve data ──
   let query: number[] = [];
   let bestMatch: number[] = [];
   let fP10: number[] = [];
@@ -17,13 +80,10 @@ export function ChartPanel() {
 
   if (sr) {
     query = sr.queryValues;
-    // Best match = top match's matchedSeries (if available)
     const topMatch = sr.matches[0];
     bestMatch = topMatch?.matchedSeries ?? [];
-    // Forecast from search response
     if (sr.forecast) {
       const curves = sr.forecast.curves;
-      // Curves are cumulative returns (near 0.0), convert to price levels
       const p50Raw = curves["50"] ?? [];
       const p10Raw = curves["10"] ?? [];
       const p90Raw = curves["90"] ?? [];
@@ -49,133 +109,212 @@ export function ChartPanel() {
     chartTitle = `Price History · ${range}`;
   }
 
-  if (query.length < 2) {
-    return <div className="chart-container"><div className="empty-msg">Loading chart data…</div></div>;
-  }
-
-  // ── Selected match trajectory overlay ──
+  // ── Selected match overlay ──
   const highlightIdx = state.hoveredIdx ?? state.selectedIdx;
   const selectedMatch = highlightIdx !== null ? state.matches[highlightIdx] : null;
   const trajectory = selectedMatch?.forwardWindow ?? null;
-
-  const W = 760, H = 300;
-  const pad = { top: 20, right: 20, bottom: 30, left: 50 };
-  const plotW = W - pad.left - pad.right;
-  const plotH = H - pad.top - pad.bottom;
-
-  // Trajectory anchored at last query value (forwardWindow values are returns)
-  const anchor = query[query.length - 1];
+  const anchor = query.length > 0 ? query[query.length - 1] : 0;
   const trajSeries = trajectory ? [anchor, ...trajectory.map((r) => anchor * (1 + r))] : [];
+
+  // Selected match's matchedSeries (search mode)
+  const selMatchSeries = sr && selectedMatch?.matchedSeries ? selectedMatch.matchedSeries : null;
+  const matchToDisplay = selMatchSeries ?? bestMatch;
+
+  // Normalize match to query range for shape comparison
+  const normalizedMatch = matchToDisplay.length > 1 ? normalizeToRange(matchToDisplay, query) : [];
+
   const fStart = query.length - 1;
-  const totalSlots = query.length + Math.max(
-    fP50.length > 0 ? fP50.length - 1 : 0,
-    trajSeries.length > 0 ? trajSeries.length - 1 : 0,
-  );
 
-  // Global min/max including all series
-  const allValues = [
-    ...query, ...bestMatch,
-    ...fP10, ...fP90,
-    ...trajSeries,
+  // ── Create chart once ──
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const chart = createChart(el, {
+      autoSize: true,
+      layout: {
+        background: { color: COLORS.bg },
+        textColor: COLORS.text,
+        fontFamily: "'SF Mono', 'Fira Code', monospace",
+        fontSize: 10,
+      },
+      grid: {
+        vertLines: { color: COLORS.grid },
+        horzLines: { color: COLORS.grid },
+      },
+      crosshair: {
+        vertLine: { color: "rgba(255,255,255,0.1)", width: 1, style: 2 },
+        horzLine: { color: "rgba(255,255,255,0.1)", width: 1, style: 2 },
+      },
+      rightPriceScale: {
+        borderColor: COLORS.border,
+        textColor: COLORS.text,
+      },
+      timeScale: {
+        borderColor: COLORS.border,
+        timeVisible: false,
+        tickMarkFormatter: () => "",
+        fixLeftEdge: true,
+        fixRightEdge: true,
+      },
+      handleScroll: true,
+      handleScale: true,
+    });
+    chartRef.current = chart;
+
+    // Forecast p90 area (upper bound)
+    const p90Area = chart.addSeries(AreaSeries, {
+      lineColor: "transparent",
+      topColor: COLORS.forecastFill,
+      bottomColor: "transparent",
+      lineWidth: 1 as const,
+      priceLineVisible: false,
+      crosshairMarkerVisible: false,
+      lastValueVisible: false,
+    });
+
+    // Forecast p10 area (erase below lower bound)
+    const p10Area = chart.addSeries(AreaSeries, {
+      lineColor: "transparent",
+      topColor: COLORS.bg,
+      bottomColor: COLORS.bg,
+      lineWidth: 1 as const,
+      priceLineVisible: false,
+      crosshairMarkerVisible: false,
+      lastValueVisible: false,
+    });
+
+    // Match line (normalized to overlay query)
+    const matchLine = chart.addSeries(LineSeries, {
+      color: COLORS.match,
+      lineWidth: 1,
+      lineStyle: 2, // dashed
+      priceLineVisible: false,
+      crosshairMarkerVisible: true,
+      crosshairMarkerRadius: 3,
+      lastValueVisible: false,
+    });
+
+    // Query line
+    const queryLine = chart.addSeries(LineSeries, {
+      color: COLORS.query,
+      lineWidth: 2,
+      priceLineVisible: false,
+      crosshairMarkerVisible: true,
+      crosshairMarkerRadius: 3,
+      lastValueVisible: false,
+    });
+
+    // Forecast p50 (median)
+    const p50Line = chart.addSeries(LineSeries, {
+      color: COLORS.forecast,
+      lineWidth: 2,
+      priceLineVisible: false,
+      crosshairMarkerVisible: true,
+      crosshairMarkerRadius: 3,
+      lastValueVisible: true,
+    });
+
+    // Trajectory overlay
+    const trajLine = chart.addSeries(LineSeries, {
+      color: COLORS.trajectory,
+      lineWidth: 2,
+      priceLineVisible: false,
+      crosshairMarkerVisible: true,
+      crosshairMarkerRadius: 3,
+      lastValueVisible: false,
+    });
+
+    seriesRefs.current = {
+      query: queryLine,
+      match: matchLine,
+      forecastP50: p50Line,
+      forecastP90: p90Area,
+      forecastP10: p10Area,
+      trajectory: trajLine,
+    };
+
+    return () => {
+      chart.remove();
+      chartRef.current = null;
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Update data ──
+  useEffect(() => {
+    const s = seriesRefs.current;
+    if (!s.query || query.length < 2) return;
+
+    s.query.setData(toLineData(query));
+
+    if (normalizedMatch.length > 1) {
+      s.match?.setData(toLineData(normalizedMatch));
+    } else {
+      s.match?.setData([]);
+    }
+
+    if (fP50.length > 1) {
+      s.forecastP50?.setData(toLineData(fP50, fStart));
+    } else {
+      s.forecastP50?.setData([]);
+    }
+
+    if (fP90.length > 1) {
+      s.forecastP90?.setData(toAreaData(fP90, fStart));
+    } else {
+      s.forecastP90?.setData([]);
+    }
+
+    if (fP10.length > 1) {
+      s.forecastP10?.setData(toAreaData(fP10, fStart));
+    } else {
+      s.forecastP10?.setData([]);
+    }
+
+    if (trajSeries.length > 1) {
+      s.trajectory?.setData(toLineData(trajSeries, fStart));
+    } else {
+      s.trajectory?.setData([]);
+    }
+
+    chartRef.current?.timeScale().fitContent();
+  }, [query, normalizedMatch, fP50, fP10, fP90, trajSeries, fStart]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Legend items ──
+  const legendItems: { color: string; label: string }[] = [
+    { color: COLORS.query, label: "Query" },
   ];
-  const minVal = Math.min(...allValues) - 1.5;
-  const maxVal = Math.max(...allValues) + 1.5;
-
-  const off = (p: { x: number; y: number }) => ({ x: p.x + pad.left, y: p.y + pad.top });
-  const queryPts = scalePoints(query, 0, totalSlots, plotW, plotH, minVal, maxVal).map(off);
-  const matchPts = bestMatch.length > 1
-    ? scalePoints(bestMatch, 0, totalSlots, plotW, plotH, minVal, maxVal).map(off)
-    : [];
-
-  const p10Pts = fP10.length > 1 ? scalePoints(fP10, fStart, totalSlots, plotW, plotH, minVal, maxVal).map(off) : [];
-  const p50Pts = fP50.length > 1 ? scalePoints(fP50, fStart, totalSlots, plotW, plotH, minVal, maxVal).map(off) : [];
-  const p90Pts = fP90.length > 1 ? scalePoints(fP90, fStart, totalSlots, plotW, plotH, minVal, maxVal).map(off) : [];
-  const trajPts = trajSeries.length > 1 ? scalePoints(trajSeries, fStart, totalSlots, plotW, plotH, minVal, maxVal).map(off) : [];
-
-  const dividerX = ((query.length - 1) / Math.max(totalSlots - 1, 1)) * plotW + pad.left;
-  const lastPt = p50Pts.length > 0 ? p50Pts[p50Pts.length - 1] : null;
-  const lastVal = fP50.length > 0 ? fP50[fP50.length - 1] : null;
-
-  // Grid
-  const gridYs = Array.from({ length: 5 }, (_, i) => pad.top + (plotH / 4) * i);
-
-  // Match highlight region (for non-search mode, approximate position)
-  const hasHighlight = highlightIdx !== null && highlightIdx < state.matches.length;
-  let hlX1 = 0, hlX2 = 0;
-  if (hasHighlight && !sr) {
-    const frac = (highlightIdx! + 1) / (state.matches.length + 1);
-    hlX1 = Math.max(pad.left, pad.left + (frac - 0.06) * plotW);
-    hlX2 = Math.min(pad.left + plotW, pad.left + (frac + 0.06) * plotW);
+  if (normalizedMatch.length > 0) {
+    const matchLabel = sr && highlightIdx !== null ? `Match #${highlightIdx + 1}` : "Best Match";
+    legendItems.push({ color: COLORS.match, label: matchLabel });
+  }
+  if (fP50.length > 0) {
+    legendItems.push({ color: COLORS.forecast, label: "Forecast" });
+  }
+  if (trajSeries.length > 0) {
+    legendItems.push({ color: COLORS.trajectory, label: "Trajectory" });
   }
 
-  // Selected match's matchedSeries overlay (when in search mode, show matched pattern)
-  const selMatchSeries = selectedMatch?.matchedSeries ?? null;
-  const selMatchPts = selMatchSeries && selMatchSeries.length > 1
-    ? scalePoints(selMatchSeries, 0, totalSlots, plotW, plotH, minVal, maxVal).map(off)
-    : [];
+  const isLoading = query.length < 2;
 
   return (
     <div className="chart-container">
-      <div className="chart-header">
-        <span className="chart-title">{chartTitle}</span>
-        <div className="chart-legend">
-          <span className="chart-legend-item"><span className="chart-legend-dot" style={{ background: "var(--chart-query)" }} />Query</span>
-          {matchPts.length > 0 && !sr && <span className="chart-legend-item"><span className="chart-legend-dot" style={{ background: "var(--chart-match)" }} />Best Match</span>}
-          {selMatchPts.length > 0 && sr && <span className="chart-legend-item"><span className="chart-legend-dot" style={{ background: "var(--chart-match)" }} />Match #{highlightIdx! + 1}</span>}
-          {p50Pts.length > 0 && <span className="chart-legend-item"><span className="chart-legend-dot" style={{ background: "var(--chart-forecast)" }} />Forecast</span>}
-          {trajPts.length > 0 && <span className="chart-legend-item"><span className="chart-legend-dot" style={{ background: "#fbbf24" }} />Trajectory</span>}
+      {isLoading ? (
+        <div className="empty-msg">Loading chart data…</div>
+      ) : (
+        <div className="chart-header">
+          <span className="chart-title">{chartTitle}</span>
+          <div className="chart-legend">
+            {legendItems.map((item) => (
+              <span key={item.label} className="chart-legend-item">
+                <span className="chart-legend-dot" style={{ background: item.color }} />
+                {item.label}
+              </span>
+            ))}
+          </div>
         </div>
-      </div>
-      <svg className="chart-svg" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid meet">
-        <defs>
-          <linearGradient id="fc-grad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="var(--chart-forecast)" stopOpacity="0.15" />
-            <stop offset="100%" stopColor="var(--chart-forecast)" stopOpacity="0" />
-          </linearGradient>
-        </defs>
-        {gridYs.map((y, i) => <line key={i} x1={pad.left} y1={y} x2={W - pad.right} y2={y} className="chart-grid-line" />)}
-        {/* Match highlight region (dashboard mode) */}
-        {hasHighlight && !sr && hlX2 > hlX1 && (
-          <rect x={hlX1} y={pad.top} width={hlX2 - hlX1} height={plotH} className="chart-region-highlight" opacity={0.5} />
-        )}
-        {/* Forecast cone fill */}
-        {p10Pts.length > 1 && p90Pts.length > 1 && (
-          <path d={areaPath(p90Pts, p10Pts)} fill="url(#fc-grad)" />
-        )}
-        {/* Divider line between history and forecast */}
-        {(p50Pts.length > 0 || trajPts.length > 0) && (
-          <line x1={dividerX} y1={pad.top} x2={dividerX} y2={pad.top + plotH}
-            stroke="var(--border-strong)" strokeWidth={1} strokeDasharray="4 3" />
-        )}
-        {/* Best match line (dashboard mode only) */}
-        {matchPts.length > 1 && !sr && <path d={pointsToPath(matchPts)} className="chart-line chart-line-match" />}
-        {/* Selected match's matched series (search mode) */}
-        {selMatchPts.length > 1 && sr && (
-          <path d={pointsToPath(selMatchPts)} className="chart-line chart-line-match" />
-        )}
-        {/* Query line */}
-        {queryPts.length > 1 && <path d={pointsToPath(queryPts)} className="chart-line chart-line-query" />}
-        {/* Forecast median */}
-        {p50Pts.length > 1 && <path d={pointsToPath(p50Pts)} className="chart-line chart-line-forecast" />}
-        {/* Per-match trajectory overlay (forwardWindow) */}
-        {trajPts.length > 1 && (
-          <path d={pointsToPath(trajPts)} className="chart-line chart-line-trajectory" />
-        )}
-        {/* Forecast endpoint label */}
-        {lastPt && lastVal !== null && (
-          <>
-            <circle cx={lastPt.x} cy={lastPt.y} r={3} fill="var(--chart-forecast)" />
-            <rect x={lastPt.x + 6} y={lastPt.y - 10} width={44} height={18} rx={3}
-              fill="var(--bg-elevated)" stroke="var(--border-strong)" strokeWidth={0.5} />
-            <text x={lastPt.x + 28} y={lastPt.y + 2} textAnchor="middle" fill="var(--chart-forecast)"
-              style={{ fontSize: 10, fontWeight: 600, fontFamily: "var(--font-mono)" }}>
-              {lastVal.toFixed(1)}
-            </text>
-          </>
-        )}
-        <text x={pad.left - 8} y={pad.top + 4} className="chart-axis-label" textAnchor="end">H</text>
-        <text x={pad.left - 8} y={H - pad.bottom + 4} className="chart-axis-label" textAnchor="end">L</text>
-      </svg>
+      )}
+      <div ref={containerRef} style={{ flex: 1, minHeight: 0, position: "relative", display: isLoading ? "none" : "block" }} />
     </div>
   );
 }
