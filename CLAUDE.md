@@ -22,13 +22,13 @@
 7. Do NOT add Co-Authored-By trailers to commits.
 
 ## Active Worktrees
-| Directory | Branch | Purpose |
-|-----------|--------|---------|
-| `Projects/14` | `main` | Main repo — do not switch branches here |
-| `Projects/14-forecast` | `feat/enhanced-forecast-cone` | Forecast cone work |
-| `Projects/14-terminal` | `feat/dark-terminal-css` | Terminal UI/CSS |
-| `Projects/14-jupyter` | `feat/jupyter-playground-v3` | Jupyter playground |
-| `Projects/14-todos` | `chore/update-todos-backtester` | Backtester TODOs |
+| Directory | Scope | What goes here |
+|-----------|-------|----------------|
+| `Projects/14` | main | Main repo — coordination, engine core |
+| `Projects/14-front` | frontend | `the-similarity-app/` — Next.js UI |
+| `Projects/14-backend` | backend | `the-similarity-api/`, `the_similarity/` — API + engine |
+| `Projects/14-data` | data | `the-similarity-data/` — datasets, pipelines |
+| `Projects/14-playground` | jupyter | `the-similarity-playground/` — Jupyter notebooks |
 
 ## Parallel Development Rules
 - Multiple Claude Code instances may be running at the same time.
