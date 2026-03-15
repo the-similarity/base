@@ -45,7 +45,7 @@ describe("SplitPane", () => {
     expect(divider.getAttribute("aria-orientation")).toBe("horizontal");
   });
 
-  it("applies default ratio as width percentage", () => {
+  it("applies default ratio as flex-basis", () => {
     const { container } = render(
       <SplitPane
         direction="horizontal"
@@ -57,8 +57,8 @@ describe("SplitPane", () => {
 
     const panels = container.querySelectorAll(".split-pane__panel");
     expect(panels.length).toBe(2);
-    expect((panels[0] as HTMLElement).style.width).toBe("50%");
-    expect((panels[1] as HTMLElement).style.width).toBe("50%");
+    expect((panels[0] as HTMLElement).style.flexBasis).toBe("50%");
+    expect((panels[1] as HTMLElement).style.flexBasis).toBe("50%");
   });
 
   it("applies className to container", () => {
