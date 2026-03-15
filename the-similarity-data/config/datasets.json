@@ -210,6 +210,42 @@
   },
   {
     "asset_class": "stocks",
+    "symbol": "tsla",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "tsla.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "amzn",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "amzn.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "goog",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "goog.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "meta",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "meta.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
     "symbol": "msft",
     "timeframe": "1d",
     "source": "stooq",
@@ -286,6 +322,60 @@
     "timeframe": "1d",
     "source": "twelvedata",
     "source_symbol": "EUR/USD",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "gbpusd",
+    "timeframe": "1h",
+    "source": "twelvedata",
+    "source_symbol": "GBP/USD",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "gbpusd",
+    "timeframe": "4h",
+    "source": "twelvedata",
+    "source_symbol": "GBP/USD",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "gbpusd",
+    "timeframe": "1d",
+    "source": "twelvedata",
+    "source_symbol": "GBP/USD",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "gbpjpy",
+    "timeframe": "1h",
+    "source": "twelvedata",
+    "source_symbol": "GBP/JPY",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "gbpjpy",
+    "timeframe": "4h",
+    "source": "twelvedata",
+    "source_symbol": "GBP/JPY",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "gbpjpy",
+    "timeframe": "1d",
+    "source": "twelvedata",
+    "source_symbol": "GBP/JPY",
     "lookback_days": 3650,
     "enabled": true
   },
