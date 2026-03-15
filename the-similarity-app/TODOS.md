@@ -22,3 +22,24 @@
 - **Effort:** S (~30 min)
 - **Priority:** P3
 - **Depends on:** Search UI being stable.
+
+### Matplotlib backtest report visualization
+- **What:** Add `BacktestReport.plot()` that produces a 4-panel matplotlib figure: (1) calibration curve, (2) rolling hit rate, (3) P50 error distribution histogram, (4) CRPS by trial.
+- **Why:** Researchers want to see, not just read, their backtest results. Visual validation is much faster than parsing numbers.
+- **Effort:** S (~30 min)
+- **Priority:** P2
+- **Depends on:** Backtester (core/backtester.py) being built.
+
+### Method ablation framework
+- **What:** Add `backtest_ablation(history, ...)` that runs N+1 backtests: one with all methods, then one with each method removed. Produces a table showing delta hit_rate and delta CRPS for each ablation.
+- **Why:** Tells you which methods actually improve predictions vs adding noise. Data-driven method selection.
+- **Effort:** M
+- **Priority:** P2
+- **Depends on:** Backtester being correct and trusted.
+
+### Auto-weight-tuning from calibration feedback
+- **What:** Add `tune_weights(backtest_report)` that adjusts `Config.weights` to minimize calibration error using `scipy.optimize.minimize`.
+- **Why:** Current weights are hand-tuned guesses. This makes them empirical.
+- **Effort:** L
+- **Priority:** P3
+- **Depends on:** Backtester + method ablation identifying which methods matter.
