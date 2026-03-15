@@ -1,5 +1,5 @@
 "use client";
-import type { ScoreBreakdown } from "@/lib/types";
+import type { ScoreBreakdown } from "../../lib/types";
 
 const METHOD_COLORS: Record<string, string> = {
   bempedelisR2: "#f472b6",

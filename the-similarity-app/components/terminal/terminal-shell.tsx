@@ -1,6 +1,6 @@
 "use client";
 import { useEffect } from "react";
-import { useTerminal } from "@/lib/terminal-context";
+import { useTerminal } from "../../lib/terminal-context";
 import { TopBar } from "./top-bar";
 import { ChartPanel } from "./chart-panel";
 import { MatchList } from "./match-list";

@@ -1,7 +1,7 @@
 "use client";
-import { useTerminal } from "@/lib/terminal-context";
+import { useTerminal } from "../../lib/terminal-context";
 import { Sparkline } from "./sparkline";
-import { clampRatio } from "@/lib/chart-utils";
+
 
 const METHOD_LABELS: Record<string, string> = {
   bempedelisR2: "Bemp R\u00B2",

@@ -1,5 +1,5 @@
 "use client";
-import { useTerminal } from "@/lib/terminal-context";
+import { useTerminal } from "../../lib/terminal-context";
 
 const METHOD_LABELS: Record<string, string> = {
   dtw: "DTW",

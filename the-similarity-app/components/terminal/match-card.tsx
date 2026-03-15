@@ -1,9 +1,9 @@
 "use client";
 import { useRef, useEffect } from "react";
-import { useTerminal } from "@/lib/terminal-context";
+import { useTerminal } from "../../lib/terminal-context";
 import { Sparkline } from "./sparkline";
 import { ScoreBar } from "./score-bar";
-import type { MatchResult } from "@/lib/types";
+import type { MatchResult } from "../../lib/types";
 
 interface MatchCardProps {
   match: MatchResult;

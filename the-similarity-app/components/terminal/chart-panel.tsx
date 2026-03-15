@@ -1,12 +1,11 @@
 "use client";
 import { useRef, useState, useEffect } from "react";
-import { useTerminal } from "@/lib/terminal-context";
+import { useTerminal } from "../../lib/terminal-context";
 import {
   scalePoints,
   pointsToPath,
   areaPath,
-  clampRatio,
-} from "@/lib/chart-utils";
+} from "../../lib/chart-utils";
 
 export function ChartPanel() {
   const { state } = useTerminal();

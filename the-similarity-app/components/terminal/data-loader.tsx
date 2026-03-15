@@ -1,7 +1,7 @@
 "use client";
 import { useEffect } from "react";
-import { useTerminal } from "@/lib/terminal-context";
-import { getDashboardData } from "@/lib/api";
+import { useTerminal } from "../../lib/terminal-context";
+import { getDashboardData } from "../../lib/api";
 
 export function TerminalDataLoader() {
   const { dispatch } = useTerminal();

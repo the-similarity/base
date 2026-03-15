@@ -1,6 +1,6 @@
 "use client";
 
-import { clampRatio } from "@/lib/chart-utils";
+import { clampRatio } from "../../lib/chart-utils";
 
 type SparklineProps = {
   data: number[];

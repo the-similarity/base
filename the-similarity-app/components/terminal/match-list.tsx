@@ -1,5 +1,5 @@
 "use client";
-import { useTerminal } from "@/lib/terminal-context";
+import { useTerminal } from "../../lib/terminal-context";
 import { MatchCard } from "./match-card";
 
 export function MatchList() {
