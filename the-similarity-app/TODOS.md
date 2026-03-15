@@ -22,3 +22,26 @@
 - **Effort:** S (~30 min)
 - **Priority:** P3
 - **Depends on:** Search UI being stable.
+
+## Backtester Improvements
+
+### Plot backtester equity curve
+- **What:** Add a chart (e.g., Recharts line chart) that plots the backtester's cumulative return / equity curve over time.
+- **Why:** Visual feedback is essential for evaluating strategy performance at a glance.
+- **Effort:** S
+- **Priority:** P2
+- **Depends on:** Backtester API returning time-series data.
+
+### Ablation study support
+- **What:** Allow running the backtester with individual features toggled off to measure each signal's marginal contribution.
+- **Why:** Identifies which similarity signals actually drive returns vs. add noise.
+- **Effort:** M
+- **Priority:** P2
+- **Depends on:** Backtester core being stable.
+
+### Auto-tune backtester parameters
+- **What:** Add a grid-search or Bayesian optimization pass that sweeps backtester hyperparameters (lookback, threshold, rebalance frequency) and reports the best config.
+- **Why:** Manual tuning is tedious and leaves alpha on the table.
+- **Effort:** M
+- **Priority:** P3
+- **Depends on:** Ablation study (to know which params matter).
