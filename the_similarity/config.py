@@ -62,3 +62,7 @@ class Config:
     # Projection
     forward_bars: int = 50
     percentiles: list[int] = field(default_factory=lambda: [10, 25, 50, 75, 90])
+
+    # Forecast cone
+    confidence_decay_rate: float = 0.0  # 0.0 = no decay (backward compatible)
+    koopman_blend_weight: float = 0.0   # 0.0 = historical only (backward compatible)
