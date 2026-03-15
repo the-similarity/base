@@ -2,12 +2,33 @@ from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
+from typing import Callable, Literal
 
 import numpy as np
 from numpy.typing import NDArray
 from scipy.stats import pearsonr
 
 from the_similarity.config import Config
+
+
+@dataclass
+class ProgressEvent:
+    """Progress update from the matching pipeline.
+
+    Emitted at key stages so callers (e.g., WebSocket handlers) can
+    stream real-time updates to clients.
+    """
+    stage: Literal["prefilter", "tier1", "tier2", "done"]
+    completed: int = 0
+    total: int = 0
+    message: str = ""
+    # Intermediate top match (updated as scoring progresses)
+    top_score: float = 0.0
+    top_match_idx: int = -1
+
+
+# Callback type: receives a ProgressEvent, returns nothing.
+ProgressCallback = Callable[[ProgressEvent], None]
 from the_similarity.core.normalizer import METHOD_NORM_DEFAULTS, normalize
 from the_similarity.core.regime import tag_regime
 from the_similarity.core.scorer import MatchResult, ScoreBreakdown, compute_confidence
@@ -84,6 +105,7 @@ def find_matches(
     exclude_query_region: tuple[int, int] | None = None,
     feature_store=None,
     ds_hash: str = "",
+    progress_fn: ProgressCallback | None = None,
 ) -> list[MatchResult]:
     """Run the full tiered matching pipeline.
 
@@ -94,6 +116,10 @@ def find_matches(
        (Bempedelis, Koopman, Wavelet, EMD, TDA, Transfer Entropy)
     5. Regime-tag each result
     6. Return top_k by final composite confidence
+
+    Args:
+        progress_fn: Optional callback receiving ProgressEvent updates
+            for streaming/real-time progress reporting.
     """
     if config is None:
         config = Config()
@@ -122,7 +148,17 @@ def find_matches(
         exclude_query_region=exclude_query_region,
     )
     if not candidates:
+        if progress_fn is not None:
+            progress_fn(ProgressEvent(stage="done", message="no candidates found"))
         return []
+
+    if progress_fn is not None:
+        progress_fn(ProgressEvent(
+            stage="prefilter",
+            completed=len(candidates),
+            total=len(candidates),
+            message=f"{len(candidates)} candidates after prefilter",
+        ))
 
     # --- Tier 1: Cheap methods on all survivors ---
     base_fields = [f for f in config.active_methods if f in CHEAP_SCORE_FIELDS]
@@ -152,6 +188,17 @@ def find_matches(
             candidate.base_rank_score = candidate.prefilter_score * 100.0
         candidate.confidence_score = compute_confidence(candidate.breakdown, config)
 
+    if progress_fn is not None:
+        best_so_far = max(candidates, key=lambda c: c.confidence_score)
+        progress_fn(ProgressEvent(
+            stage="tier1",
+            completed=len(candidates),
+            total=len(candidates),
+            message=f"DTW+Pearson scored {len(candidates)} candidates",
+            top_score=best_so_far.confidence_score,
+            top_match_idx=best_so_far.start_idx,
+        ))
+
     # --- Tier 2: Expensive methods on top candidates ---
     tier2_fields = (BEMPEDELIS_SCORE_FIELDS | TIER2_SCORE_FIELDS) & active_fields
     if tier2_fields:
@@ -168,12 +215,25 @@ def find_matches(
             active_fields=active_fields,
             feature_store=feature_store,
             ds_hash=ds_hash,
+            progress_fn=progress_fn,
         )
         for candidate in rerank_pool:
             candidate.confidence_score = compute_confidence(candidate.breakdown, config)
 
     # --- Build results ---
     candidates.sort(key=lambda c: c.confidence_score, reverse=True)
+
+    if progress_fn is not None:
+        best = candidates[0] if candidates else None
+        progress_fn(ProgressEvent(
+            stage="done",
+            completed=min(top_k, len(candidates)),
+            total=min(top_k, len(candidates)),
+            message=f"returning {min(top_k, len(candidates))} matches",
+            top_score=best.confidence_score if best else 0.0,
+            top_match_idx=best.start_idx if best else -1,
+        ))
+
     results: list[MatchResult] = []
     for candidate in candidates[:top_k]:
         start = candidate.start_idx
@@ -318,6 +378,7 @@ def _enrich_tier2(
     active_fields: set[str],
     feature_store=None,
     ds_hash: str = "",
+    progress_fn: ProgressCallback | None = None,
 ) -> None:
     """Run all expensive Tier 2 methods on a shortlist of candidates."""
     # Pre-normalize query for methods that need specific normalization
@@ -482,14 +543,28 @@ def _enrich_tier2(
         except Exception:
             candidate.regime = None
 
-    if len(candidates) > 1:
+    total = len(candidates)
+    _completed = [0]  # mutable counter for closure
+
+    def _enrich_and_report(candidate: CandidateWindow) -> None:
+        _enrich_one(candidate)
+        _completed[0] += 1
+        if progress_fn is not None:
+            progress_fn(ProgressEvent(
+                stage="tier2",
+                completed=_completed[0],
+                total=total,
+                message=f"enriched {_completed[0]}/{total} candidates",
+            ))
+
+    if total > 1:
         # Use threads — numpy/scipy release the GIL during computation
-        n_threads = min(4, len(candidates))
+        n_threads = min(4, total)
         with ThreadPoolExecutor(max_workers=n_threads) as executor:
-            list(executor.map(_enrich_one, candidates))
+            list(executor.map(_enrich_and_report, candidates))
     else:
         for candidate in candidates:
-            _enrich_one(candidate)
+            _enrich_and_report(candidate)
 
 
 def _resample(series: NDArray[np.float64], target_len: int) -> NDArray[np.float64]:
