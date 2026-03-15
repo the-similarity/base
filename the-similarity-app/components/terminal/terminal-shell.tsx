@@ -1,6 +1,7 @@
 "use client";
 import { useEffect } from "react";
 import { useTerminal } from "../../lib/terminal-context";
+import { SplitPane } from "../ui/split-pane";
 import { TopBar } from "./top-bar";
 import { SearchInput } from "./search-input";
 import { ChartPanel } from "./chart-panel";
@@ -41,10 +42,32 @@ export function TerminalShell() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [dispatch, state.focusedIdx]);
 
+  const rightPane = state.selectedIdx !== null ? (
+    <SplitPane
+      direction="vertical"
+      defaultRatio={0.55}
+      minRatio={0.2}
+      maxRatio={0.8}
+      first={<MatchList />}
+      second={<DetailPanel />}
+    />
+  ) : (
+    <MatchList />
+  );
+
   return (
     <div className="terminal">
       <TopBar />
       <SearchInput />
+      <SplitPane
+        direction="horizontal"
+        defaultRatio={0.6}
+        minRatio={0.25}
+        maxRatio={0.8}
+        first={<ChartPanel />}
+        second={rightPane}
+        className="terminal-body"
+      />
       <div className="terminal-body">
         <div className="terminal-left">
           <ChartPanel />
