@@ -1,16 +1,38 @@
 :root {
-  --bg: #ffffff;
-  --card-bg: #fafafa;
-  --text-primary: #1a1a1a;
-  --text-secondary: #8a8a8a;
-  --border: #f0f0f0;
-  --border-strong: #e8e8e8;
-  --positive: #22a06b;
-  --negative: #e34935;
-  --active: #1a1a1a;
-  --active-text: #ffffff;
-  --pill-bg: #f5f5f5;
-  --shadow-soft: 0 2px 12px rgba(0, 0, 0, 0.06);
+  /* Dark terminal palette */
+  --bg: #0a0a0f;
+  --bg-elevated: #12121a;
+  --bg-surface: #1a1a26;
+  --bg-hover: #222233;
+
+  --text-primary: #e8e8ef;
+  --text-secondary: #6b6b80;
+  --text-muted: #45455a;
+
+  --border: #1e1e2e;
+  --border-strong: #2a2a3e;
+  --border-focus: #4a4a6a;
+
+  --positive: #22c55e;
+  --positive-dim: rgba(34, 197, 94, 0.15);
+  --negative: #ef4444;
+  --negative-dim: rgba(239, 68, 68, 0.15);
+
+  --accent: #6366f1;
+  --accent-dim: rgba(99, 102, 241, 0.15);
+
+  --active: #e8e8ef;
+  --active-text: #0a0a0f;
+
+  /* Chart colors */
+  --chart-query: #e8e8ef;
+  --chart-match: #6366f1;
+  --chart-match-dim: rgba(99, 102, 241, 0.3);
+  --chart-forecast: #22c55e;
+  --chart-forecast-fill: rgba(34, 197, 94, 0.08);
+  --chart-grid: #1e1e2e;
+
+  /* Spacing */
   --space-xs: 4px;
   --space-sm: 8px;
   --space-md: 12px;
@@ -18,10 +40,38 @@
   --space-xl: 24px;
   --space-2xl: 32px;
   --space-3xl: 40px;
+
+  /* Typography */
+  --font-mono: "SF Mono", "Fira Code", "Cascadia Code", monospace;
+  --font-sans: "SF Pro Display", -apple-system, BlinkMacSystemFont, sans-serif;
+
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+
+  /* Legacy aliases for existing components */
+  --card-bg: var(--bg-elevated);
+  --pill-bg: var(--bg-surface);
+  --shadow-soft: 0 2px 12px rgba(0, 0, 0, 0.3);
+  --font-family: var(--font-sans);
+}
+
+/* Light mode override */
+[data-theme="light"] {
+  --bg: #fafafa;
+  --bg-elevated: #ffffff;
+  --bg-surface: #f5f5f5;
+  --bg-hover: #eeeeee;
+  --text-primary: #1a1a1a;
+  --text-secondary: #8a8a8a;
+  --text-muted: #bbbbbb;
+  --border: #e8e8e8;
+  --border-strong: #d4d4d4;
+  --border-focus: #999999;
   --chart-query: #1a1a1a;
-  --chart-match: #9f9f9f;
-  --chart-forecast: #22a06b;
-  --font-family: "SF Pro Display", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --chart-match: #6366f1;
+  --chart-match-dim: rgba(99, 102, 241, 0.2);
+  --chart-grid: #f0f0f0;
 }
 
 * {
@@ -33,12 +83,12 @@ html {
 }
 
 body {
-  margin: 0;
   background: var(--bg);
   color: var(--text-primary);
-  font-family: var(--font-family);
+  font-family: var(--font-sans);
+  margin: 0;
   -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  overflow: hidden; /* terminal fills viewport */
 }
 
 button,
@@ -310,7 +360,7 @@ button {
   height: 16px;
   border-radius: 999px;
   margin-bottom: 10px;
-  background: linear-gradient(135deg, #1a1a1a 0%, #666666 100%);
+  background: linear-gradient(135deg, var(--text-primary) 0%, var(--text-secondary) 100%);
   opacity: 0.85;
 }
 
@@ -516,14 +566,14 @@ button {
 .breakdown-track {
   height: 8px;
   border-radius: 999px;
-  background: #ededed;
+  background: var(--bg-surface);
   overflow: hidden;
 }
 
 .breakdown-fill {
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, #1a1a1a 0%, #22a06b 100%);
+  background: linear-gradient(90deg, var(--text-primary) 0%, var(--positive) 100%);
 }
 
 .pipeline-card {
@@ -539,7 +589,7 @@ button {
   min-height: 54px;
   border: 1px solid var(--border);
   border-radius: 10px;
-  background: #ffffff;
+  background: var(--bg-elevated);
   padding: 12px 14px;
 }
 
@@ -645,7 +695,7 @@ button {
   border: 1px solid var(--border-strong);
   border-radius: 8px;
   font-size: 12px;
-  font-family: "SF Mono", "Fira Code", monospace;
+  font-family: var(--font-mono);
   color: var(--text-primary);
   background: var(--bg);
   resize: vertical;
