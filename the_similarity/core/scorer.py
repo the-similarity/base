@@ -57,6 +57,8 @@ class MatchResult:
     regime: str | None = None
     # What happened after this match
     forward_window: np.ndarray | None = None
+    # Cross-timeframe search: source timeframe label
+    source_timeframe: str | None = None
 
 
 def compute_confidence(breakdown: ScoreBreakdown, config: Config | None = None) -> float:

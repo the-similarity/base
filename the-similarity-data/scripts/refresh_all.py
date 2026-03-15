@@ -49,7 +49,18 @@ def main() -> int:
             f"end={result.end_timestamp} "
             f"path={result.path.as_posix()}"
         )
-    return 1 if failures else 0
+
+    total = len(results) + failures
+    if total == 0:
+        print("No datasets matched filters.", file=sys.stderr)
+        return 1
+    if failures:
+        print(
+            f"\n{len(results)}/{total} succeeded, {failures} failed.",
+            file=sys.stderr,
+        )
+    # Exit 0 if at least half succeeded (partial refresh is better than none)
+    return 1 if failures > len(results) else 0
 
 
 if __name__ == "__main__":

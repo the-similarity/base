@@ -45,7 +45,7 @@
   --space-3xl: 40px;
 
   /* Typography */
-  --font-mono: "Berkeley Mono", "SF Mono", "Fira Code", "JetBrains Mono", monospace;
+  --font-mono: "SF Mono", "Fira Code", "Cascadia Code", "JetBrains Mono", monospace;
   --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 
   /* Radii — generous, soft edges */
@@ -185,23 +185,20 @@ button { cursor: pointer; }
 }
 
 .split-pane__divider--horizontal {
-  width: 9px;
+  width: 6px;
   cursor: col-resize;
-  background: transparent;
-  border-left: 1px solid var(--border-strong);
+  background: var(--border);
 }
 
 .split-pane__divider--vertical {
-  height: 9px;
+  height: 6px;
   cursor: row-resize;
-  background: transparent;
-  border-top: 1px solid var(--border-strong);
+  background: var(--border);
 }
 
 .split-pane__divider:hover,
 .split-pane__divider:active {
-  background: var(--accent-dim);
-  border-color: var(--accent);
+  background: var(--accent);
 }
 
 .split-pane__divider-handle {
@@ -212,16 +209,16 @@ button { cursor: pointer; }
 
 .split-pane__divider:hover .split-pane__divider-handle,
 .split-pane__divider:active .split-pane__divider-handle {
-  background: var(--accent);
+  background: #fff;
 }
 
 .split-pane__divider--horizontal .split-pane__divider-handle {
   width: 2px;
-  height: 28px;
+  height: 32px;
 }
 
 .split-pane__divider--vertical .split-pane__divider-handle {
-  width: 28px;
+  width: 32px;
   height: 2px;
 }
 
@@ -229,8 +226,6 @@ button { cursor: pointer; }
 .terminal-body {
   flex: 1;
   min-height: 0;
-  display: flex;
-  overflow: hidden;
 }
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -499,7 +494,6 @@ button { cursor: pointer; }
   flex-direction: column;
   min-height: 0;
   overflow: hidden;
-  background: var(--bg-elevated);
 }
 
 .chart-header {
@@ -926,7 +920,7 @@ button { cursor: pointer; }
   }
   .split-pane__divider--horizontal {
     width: 100%;
-    height: 1px;
+    height: 6px;
     cursor: row-resize;
   }
   .terminal-topbar {
