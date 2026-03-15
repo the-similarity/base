@@ -26,7 +26,7 @@
 - If you encounter merge conflicts, stop and tell the user.
 
 ## Tests
-- 115 tests across 16 test files. All must pass before shipping.
+- 153 tests across 19 test files. All must pass before shipping.
 - Test command: `python -m pytest the_similarity/tests/ -v`
 
 ## Architecture
