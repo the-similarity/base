@@ -282,19 +282,24 @@ All 9 methods implemented, wired into `_enrich_tier2()`, and tested (115 tests p
 - [ ] Incremental SAX+MASS update (optimization — full recompute works, incremental deferred)
 - [ ] Backpressure handling for multiple concurrent subscriptions
 
-### 6b. Alert system
-- [ ] User-defined watchlists: "notify me when a pattern similar to X appears on Y"
-- [ ] Confidence threshold triggers (e.g., fire when composite > 80)
-- [ ] Notification channels: webhook, email, push
-- [ ] Alert persistence + deduplication (don't fire same pattern repeatedly)
-- [ ] Depends on: 6a (streaming pipeline)
+### 6b. ~~Alert system~~ → DONE
+- [x] AlertManager with SQLite-backed persistence (WAL mode, process-safe)
+- [x] Watchlist CRUD: create, get, list, update, delete
+- [x] Confidence threshold triggers with cooldown deduplication
+- [x] Pluggable notification channels: log (default), webhook, custom via `register_notifier()`
+- [x] Alert history with acknowledgement tracking
+- [x] REST endpoints: `/alerts/watchlists` (CRUD), `/alerts/history`, `/alerts/count`, `/{id}/ack`
+- [x] 24 tests covering CRUD, evaluation, cooldown, history, custom notifiers
 
-### 6c. Auth & multi-tenancy
-- [ ] JWT authentication with refresh tokens
-- [ ] User accounts in Postgres (watchlists, saved searches, alert configs)
-- [ ] API key management for programmatic access
-- [ ] Rate limiting per tier (free/pro/enterprise)
-- [ ] FeatureStore isolation per user for custom datasets
+### 6c. ~~Auth & multi-tenancy~~ → DONE
+- [x] Pure-stdlib HS256 JWT implementation (no PyJWT/cryptography dependency)
+- [x] User accounts in SQLite (PBKDF2-SHA256 password hashing, constant-time comparison)
+- [x] Token refresh with rotation (old refresh tokens auto-revoked)
+- [x] API key management: create (sim_ prefix), verify, list, revoke
+- [x] Sliding window rate limiter per tier (free: 10/min, pro: 60/min, enterprise: 300/min)
+- [x] FastAPI dependency injection: `get_current_user` (Bearer + X-API-Key), `enforce_rate_limit`
+- [x] REST endpoints: `/auth/register`, `/auth/login`, `/auth/refresh`, `/auth/me`, `/auth/api-keys`
+- [x] 23 tests covering users, JWT, API keys, rate limiting, edge cases
 
 ### 6d. ~~Hosted data pipeline~~ → DONE (warehouse + universe expansion)
 - [x] Programmatic dataset generator: 685 specs across 262 unique symbols
