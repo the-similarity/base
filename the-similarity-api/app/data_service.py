@@ -12,6 +12,28 @@ logger = logging.getLogger(__name__)
 
 MAX_HISTORY_POINTS = 10_000
 
+
+def _drop_dead_bars(df: pd.DataFrame, dataset_id: str) -> pd.DataFrame:
+    """Remove bars with no meaningful price movement (weekends, stale fills)."""
+    if not all(c in df.columns for c in ("open", "high", "low", "close")):
+        return df
+    price_range = df["high"] - df["low"]
+    mid = df["close"].clip(lower=0.01)
+    pct_range = price_range / mid
+    # Exact flat (O=H=L=C) or near-zero range (<0.01% of price)
+    dead = (
+        ((df["open"] == df["high"]) & (df["high"] == df["low"]) & (df["low"] == df["close"]))
+        | (pct_range < 0.0001)
+    )
+    # Weekend filter for non-crypto (crypto trades 24/7)
+    is_crypto = "crypto" in dataset_id.lower()
+    if "timestamp" in df.columns and not is_crypto:
+        dead = dead | (df["timestamp"].dt.dayofweek >= 5)
+    n_dropped = dead.sum()
+    if n_dropped > 0:
+        logger.info("Dropped %d dead bars from %s", n_dropped, dataset_id)
+    return df[~dead]
+
 _DATA_ROOT = Path(__file__).resolve().parents[2] / "the-similarity-data"
 
 
@@ -108,21 +130,7 @@ def load_series(
         if end_date:
             df = df[df["timestamp"] <= pd.Timestamp(end_date, tz="UTC")]
 
-    # Drop dead bars: exactly flat or near-zero range
-    if all(c in df.columns for c in ("open", "high", "low", "close")):
-        price_range = df["high"] - df["low"]
-        mid = df["close"].clip(lower=0.01)
-        pct_range = price_range / mid
-        dead = ((df["open"] == df["high"]) & (df["high"] == df["low"]) & (df["low"] == df["close"])) | (pct_range < 0.0001)
-        # Only filter weekends for non-crypto (crypto trades 24/7)
-        is_crypto = "crypto" in dataset_id.lower()
-        if "timestamp" in df.columns and not is_crypto:
-            weekday = df["timestamp"].dt.dayofweek
-            dead = dead | (weekday >= 5)
-        n_dropped = dead.sum()
-        if n_dropped > 0:
-            logger.info("Dropped %d dead bars from %s", n_dropped, dataset_id)
-        df = df[~dead]
+    df = _drop_dead_bars(df, dataset_id)
 
     if len(df) > max_points:
         logger.info(
@@ -170,8 +178,7 @@ def load_ohlc(
         if end_date:
             df = df[df["timestamp"] <= pd.Timestamp(end_date, tz="UTC")]
 
-    # Drop flat bars (market closed / no movement: O=H=L=C)
-    df = df[~((df["open"] == df["high"]) & (df["high"] == df["low"]) & (df["low"] == df["close"]))]
+    df = _drop_dead_bars(df, dataset_id)
 
     if len(df) > max_points:
         df = df.tail(max_points)
