@@ -12,6 +12,8 @@ from app.models import CatalogItem, CatalogResponse, DatasetSeriesResponse
 from app.services import execute_search, get_dashboard_payload
 from app.settings import settings
 from app.streaming import handle_search_stream, handle_watch_stream
+from app.auth_routes import router as auth_router
+from app.alert_routes import router as alert_router
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +29,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(auth_router)
+app.include_router(alert_router)
 
 
 @app.get("/health")
