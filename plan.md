@@ -271,47 +271,32 @@ All 9 methods implemented, wired into `_enrich_tier2()`, and tested (115 tests p
 
 ## Phase 6 — Live Product
 
-### 6a. ~~Real-time streaming pipeline~~ → DONE
-- [x] `ProgressEvent` + `ProgressCallback` in core matcher — events at prefilter, tier1, tier2, done stages
-- [x] `progress_fn` parameter wired through `search()` API (backward compatible)
-- [x] `/ws/search` WebSocket endpoint — streams progress + results in real time via thread pool
-- [x] `/ws/watch` WebSocket endpoint — candle watcher with threshold alerts, configurable recheck interval
-- [x] Protocol: init → candle stream → automatic re-scan → alert when confidence > threshold
-- [x] Query updates, forced rescans, and ack messages supported
-- [x] 8 tests for progress callback infrastructure (188 total tests passing)
-- [ ] Incremental SAX+MASS update (optimization — full recompute works, incremental deferred)
+### 6a. Real-time streaming pipeline
+- [ ] WebSocket feed ingesting candles from exchanges/brokers (Binance, Polygon, etc.)
+- [ ] Incremental SAX+MASS update as new bars arrive (avoid full recomputation)
+- [ ] Streaming search: re-score top candidates on each new bar, emit events on confidence change
 - [ ] Backpressure handling for multiple concurrent subscriptions
 
-### 6b. ~~Alert system~~ → DONE
-- [x] AlertManager with SQLite-backed persistence (WAL mode, process-safe)
-- [x] Watchlist CRUD: create, get, list, update, delete
-- [x] Confidence threshold triggers with cooldown deduplication
-- [x] Pluggable notification channels: log (default), webhook, custom via `register_notifier()`
-- [x] Alert history with acknowledgement tracking
-- [x] REST endpoints: `/alerts/watchlists` (CRUD), `/alerts/history`, `/alerts/count`, `/{id}/ack`
-- [x] 24 tests covering CRUD, evaluation, cooldown, history, custom notifiers
+### 6b. Alert system
+- [ ] User-defined watchlists: "notify me when a pattern similar to X appears on Y"
+- [ ] Confidence threshold triggers (e.g., fire when composite > 80)
+- [ ] Notification channels: webhook, email, push
+- [ ] Alert persistence + deduplication (don't fire same pattern repeatedly)
+- [ ] Depends on: 6a (streaming pipeline)
 
-### 6c. ~~Auth & multi-tenancy~~ → DONE
-- [x] Pure-stdlib HS256 JWT implementation (no PyJWT/cryptography dependency)
-- [x] User accounts in SQLite (PBKDF2-SHA256 password hashing, constant-time comparison)
-- [x] Token refresh with rotation (old refresh tokens auto-revoked)
-- [x] API key management: create (sim_ prefix), verify, list, revoke
-- [x] Sliding window rate limiter per tier (free: 10/min, pro: 60/min, enterprise: 300/min)
-- [x] FastAPI dependency injection: `get_current_user` (Bearer + X-API-Key), `enforce_rate_limit`
-- [x] REST endpoints: `/auth/register`, `/auth/login`, `/auth/refresh`, `/auth/me`, `/auth/api-keys`
-- [x] 23 tests covering users, JWT, API keys, rate limiting, edge cases
+### 6c. Auth & multi-tenancy
+- [ ] JWT authentication with refresh tokens
+- [ ] User accounts in Postgres (watchlists, saved searches, alert configs)
+- [ ] API key management for programmatic access
+- [ ] Rate limiting per tier (free/pro/enterprise)
+- [ ] FeatureStore isolation per user for custom datasets
 
-### 6d. ~~Hosted data pipeline~~ → DONE (warehouse + universe expansion)
-- [x] Programmatic dataset generator: 685 specs across 262 unique symbols
-- [x] 6 asset classes: crypto (50 tokens), stocks (138 equities + ETFs), forex (39 pairs), commodities (14), indices (14), rates (7)
-- [x] DuckDB warehouse layer: unified SQL view over all parquet files
-- [x] Data quality pipeline: gap detection, staleness checks, duplicate detection, price spike alerts
-- [x] Coverage stats from manifest or parquet scan
-- [x] Freshness report sorted by staleness
-- [x] API endpoints: /warehouse/coverage, /warehouse/quality, /warehouse/freshness, /warehouse/search
-- [x] 27 new tests for generator and warehouse (all passing)
-- [ ] Replace local parquet with cloud storage (S3/GCS) — deferred to deployment phase
-- [ ] Add Polygon.io fetcher for US intraday equities
+### 6d. Hosted data pipeline
+- [ ] Ingestion service pulling from market data providers (Polygon, Tiingo, Binance)
+- [ ] Normalize to parquet schema, append-only updates on schedule
+- [ ] Asset coverage target: 500+ assets × 5 timeframes × 10yr history
+- [ ] Data catalog API: available assets, date ranges, freshness metadata
+- [ ] Replace in-repo parquet files with cloud storage (S3/GCS)
 
 ---
 
