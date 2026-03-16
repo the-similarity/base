@@ -24,7 +24,6 @@ export function SearchSidebar() {
   const [catalog, setCatalog] = useState<CatalogItem[]>([]);
   const [selectedDataset, setSelectedDataset] = useState<string>("");
   const [querySize, setQuerySize] = useState(60);
-  const [forwardBars, setForwardBars] = useState(30);
   const [filterText, setFilterText] = useState("");
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(["crypto", "stocks"]));
   const abortRef = useRef<AbortController | null>(null);
@@ -113,7 +112,7 @@ export function SearchSidebar() {
           historyValues,
           activeMethods: state.activeMethods,
           topK: 20,
-          forwardBars,
+          forwardBars: 200, // fetch max, slider controls display
         },
         controller.signal,
       );
@@ -122,7 +121,7 @@ export function SearchSidebar() {
       if (err instanceof Error && err.name === "AbortError") return;
       dispatch({ type: "SET_ERROR", error: err instanceof Error ? err.message : "Search failed." });
     }
-  }, [selectedDataset, querySize, forwardBars, state.activeMethods, dispatch]);
+  }, [selectedDataset, querySize, state.activeMethods, dispatch]);
 
   const handleCancel = useCallback(() => {
     abortRef.current?.abort();
@@ -212,21 +211,6 @@ export function SearchSidebar() {
           />
         </div>
 
-        <div className="search-sidebar__control-group">
-          <label className="search-sidebar__label">
-            Forward bars
-            <span className="search-sidebar__label-value">{forwardBars}</span>
-          </label>
-          <input
-            type="range"
-            className="search-bar-range"
-            min={5}
-            max={200}
-            step={5}
-            value={forwardBars}
-            onChange={(e) => setForwardBars(Number(e.target.value))}
-          />
-        </div>
 
         {!state.loading ? (
           <button
