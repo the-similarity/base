@@ -83,10 +83,10 @@
       "timeframe": "15m",
       "source": "ccxt",
       "path": "data/crypto/btc_usdt/15m.parquet",
-      "start_timestamp": "2025-11-15T01:15:00+00:00",
-      "end_timestamp": "2026-03-15T01:00:00+00:00",
-      "row_count": 11520,
-      "last_updated_at": "2026-03-15T01:14:50.205594+00:00"
+      "start_timestamp": "2025-03-16T06:15:00+00:00",
+      "end_timestamp": "2026-03-16T06:00:00+00:00",
+      "row_count": 35040,
+      "last_updated_at": "2026-03-16T06:06:04.177100+00:00"
     },
     {
       "asset_class": "crypto",
@@ -95,9 +95,9 @@
       "source": "ccxt",
       "path": "data/crypto/btc_usdt/1d.parquet",
       "start_timestamp": "2019-09-23T00:00:00+00:00",
-      "end_timestamp": "2026-03-15T00:00:00+00:00",
-      "row_count": 2366,
-      "last_updated_at": "2026-03-15T01:14:58.117133+00:00"
+      "end_timestamp": "2026-03-16T00:00:00+00:00",
+      "row_count": 2367,
+      "last_updated_at": "2026-03-16T06:06:17.842869+00:00"
     },
     {
       "asset_class": "crypto",
@@ -105,10 +105,10 @@
       "timeframe": "1h",
       "source": "ccxt",
       "path": "data/crypto/btc_usdt/1h.parquet",
-      "start_timestamp": "2024-03-15T02:00:00+00:00",
-      "end_timestamp": "2026-03-15T01:00:00+00:00",
-      "row_count": 17520,
-      "last_updated_at": "2026-03-15T01:14:54.079459+00:00"
+      "start_timestamp": "2021-03-17T07:00:00+00:00",
+      "end_timestamp": "2026-03-16T06:00:00+00:00",
+      "row_count": 43786,
+      "last_updated_at": "2026-03-16T06:06:13.283933+00:00"
     },
     {
       "asset_class": "crypto",
@@ -116,10 +116,10 @@
       "timeframe": "1m",
       "source": "ccxt",
       "path": "data/crypto/btc_usdt/1m.parquet",
-      "start_timestamp": "2026-02-22T01:15:00+00:00",
-      "end_timestamp": "2026-03-15T01:14:00+00:00",
-      "row_count": 30240,
-      "last_updated_at": "2026-03-15T01:14:47.856673+00:00"
+      "start_timestamp": "2025-12-16T06:06:00+00:00",
+      "end_timestamp": "2026-03-16T06:05:00+00:00",
+      "row_count": 129600,
+      "last_updated_at": "2026-03-16T06:05:56.807930+00:00"
     },
     {
       "asset_class": "crypto",
@@ -128,9 +128,9 @@
       "source": "ccxt",
       "path": "data/crypto/btc_usdt/4h.parquet",
       "start_timestamp": "2019-09-23T08:00:00+00:00",
-      "end_timestamp": "2026-03-15T00:00:00+00:00",
-      "row_count": 14183,
-      "last_updated_at": "2026-03-15T01:14:57.097470+00:00"
+      "end_timestamp": "2026-03-16T04:00:00+00:00",
+      "row_count": 14190,
+      "last_updated_at": "2026-03-16T06:06:16.618107+00:00"
     },
     {
       "asset_class": "crypto",
@@ -138,10 +138,10 @@
       "timeframe": "15m",
       "source": "ccxt",
       "path": "data/crypto/eth_usdt/15m.parquet",
-      "start_timestamp": "2025-11-15T01:30:00+00:00",
-      "end_timestamp": "2026-03-15T01:15:00+00:00",
-      "row_count": 11520,
-      "last_updated_at": "2026-03-15T01:15:06.535279+00:00"
+      "start_timestamp": "2025-03-16T06:15:00+00:00",
+      "end_timestamp": "2026-03-16T06:00:00+00:00",
+      "row_count": 35040,
+      "last_updated_at": "2026-03-16T06:06:50.157725+00:00"
     },
     {
       "asset_class": "crypto",
@@ -150,9 +150,9 @@
       "source": "ccxt",
       "path": "data/crypto/eth_usdt/1d.parquet",
       "start_timestamp": "2019-09-23T00:00:00+00:00",
-      "end_timestamp": "2026-03-15T00:00:00+00:00",
-      "row_count": 2366,
-      "last_updated_at": "2026-03-15T01:15:14.028286+00:00"
+      "end_timestamp": "2026-03-16T00:00:00+00:00",
+      "row_count": 2367,
+      "last_updated_at": "2026-03-16T06:07:04.107920+00:00"
     },
     {
       "asset_class": "crypto",
@@ -160,10 +160,10 @@
       "timeframe": "1h",
       "source": "ccxt",
       "path": "data/crypto/eth_usdt/1h.parquet",
-      "start_timestamp": "2024-03-15T02:00:00+00:00",
-      "end_timestamp": "2026-03-15T01:00:00+00:00",
-      "row_count": 17520,
-      "last_updated_at": "2026-03-15T01:15:10.054607+00:00"
+      "start_timestamp": "2021-03-17T07:00:00+00:00",
+      "end_timestamp": "2026-03-16T06:00:00+00:00",
+      "row_count": 43786,
+      "last_updated_at": "2026-03-16T06:06:59.090292+00:00"
     },
     {
       "asset_class": "crypto",
@@ -171,10 +171,10 @@
       "timeframe": "1m",
       "source": "ccxt",
       "path": "data/crypto/eth_usdt/1m.parquet",
-      "start_timestamp": "2026-02-22T01:15:00+00:00",
-      "end_timestamp": "2026-03-15T01:15:00+00:00",
-      "row_count": 30241,
-      "last_updated_at": "2026-03-15T01:15:04.081798+00:00"
+      "start_timestamp": "2025-12-16T06:07:00+00:00",
+      "end_timestamp": "2026-03-16T06:06:00+00:00",
+      "row_count": 129600,
+      "last_updated_at": "2026-03-16T06:06:43.292127+00:00"
     },
     {
       "asset_class": "crypto",
@@ -183,9 +183,9 @@
       "source": "ccxt",
       "path": "data/crypto/eth_usdt/4h.parquet",
       "start_timestamp": "2019-09-23T08:00:00+00:00",
-      "end_timestamp": "2026-03-15T00:00:00+00:00",
-      "row_count": 14183,
-      "last_updated_at": "2026-03-15T01:15:13.190407+00:00"
+      "end_timestamp": "2026-03-16T04:00:00+00:00",
+      "row_count": 14190,
+      "last_updated_at": "2026-03-16T06:07:03.124295+00:00"
     },
     {
       "asset_class": "crypto",
@@ -193,10 +193,10 @@
       "timeframe": "15m",
       "source": "ccxt",
       "path": "data/crypto/sol_usdt/15m.parquet",
-      "start_timestamp": "2025-11-15T01:30:00+00:00",
-      "end_timestamp": "2026-03-15T01:15:00+00:00",
-      "row_count": 11520,
-      "last_updated_at": "2026-03-15T01:15:22.115756+00:00"
+      "start_timestamp": "2025-03-16T06:15:00+00:00",
+      "end_timestamp": "2026-03-16T06:00:00+00:00",
+      "row_count": 35040,
+      "last_updated_at": "2026-03-16T06:07:36.268036+00:00"
     },
     {
       "asset_class": "crypto",
@@ -205,9 +205,9 @@
       "source": "ccxt",
       "path": "data/crypto/sol_usdt/1d.parquet",
       "start_timestamp": "2020-09-18T00:00:00+00:00",
-      "end_timestamp": "2026-03-15T00:00:00+00:00",
-      "row_count": 2005,
-      "last_updated_at": "2026-03-15T01:15:29.055171+00:00"
+      "end_timestamp": "2026-03-16T00:00:00+00:00",
+      "row_count": 2006,
+      "last_updated_at": "2026-03-16T06:07:50.012853+00:00"
     },
     {
       "asset_class": "crypto",
@@ -215,10 +215,10 @@
       "timeframe": "1h",
       "source": "ccxt",
       "path": "data/crypto/sol_usdt/1h.parquet",
-      "start_timestamp": "2024-03-15T02:00:00+00:00",
-      "end_timestamp": "2026-03-15T01:00:00+00:00",
-      "row_count": 17520,
-      "last_updated_at": "2026-03-15T01:15:25.568431+00:00"
+      "start_timestamp": "2021-03-17T07:00:00+00:00",
+      "end_timestamp": "2026-03-16T06:00:00+00:00",
+      "row_count": 43786,
+      "last_updated_at": "2026-03-16T06:07:45.371892+00:00"
     },
     {
       "asset_class": "crypto",
@@ -226,10 +226,10 @@
       "timeframe": "1m",
       "source": "ccxt",
       "path": "data/crypto/sol_usdt/1m.parquet",
-      "start_timestamp": "2026-02-22T01:16:00+00:00",
-      "end_timestamp": "2026-03-15T01:15:00+00:00",
-      "row_count": 30240,
-      "last_updated_at": "2026-03-15T01:15:19.734850+00:00"
+      "start_timestamp": "2025-12-16T06:08:00+00:00",
+      "end_timestamp": "2026-03-16T06:07:00+00:00",
+      "row_count": 129600,
+      "last_updated_at": "2026-03-16T06:07:28.638651+00:00"
     },
     {
       "asset_class": "crypto",
@@ -238,9 +238,9 @@
       "source": "ccxt",
       "path": "data/crypto/sol_usdt/4h.parquet",
       "start_timestamp": "2020-09-18T12:00:00+00:00",
-      "end_timestamp": "2026-03-15T00:00:00+00:00",
-      "row_count": 12020,
-      "last_updated_at": "2026-03-15T01:15:28.175815+00:00"
+      "end_timestamp": "2026-03-16T04:00:00+00:00",
+      "row_count": 12027,
+      "last_updated_at": "2026-03-16T06:07:48.832523+00:00"
     },
     {
       "asset_class": "crypto",
@@ -248,10 +248,10 @@
       "timeframe": "15m",
       "source": "ccxt",
       "path": "data/crypto/xrp_usdt/15m.parquet",
-      "start_timestamp": "2025-11-15T01:30:00+00:00",
-      "end_timestamp": "2026-03-15T01:15:00+00:00",
-      "row_count": 11520,
-      "last_updated_at": "2026-03-15T01:15:37.181709+00:00"
+      "start_timestamp": "2025-03-16T06:15:00+00:00",
+      "end_timestamp": "2026-03-16T06:00:00+00:00",
+      "row_count": 35040,
+      "last_updated_at": "2026-03-16T06:08:20.162444+00:00"
     },
     {
       "asset_class": "crypto",
@@ -260,9 +260,9 @@
       "source": "ccxt",
       "path": "data/crypto/xrp_usdt/1d.parquet",
       "start_timestamp": "2019-09-23T00:00:00+00:00",
-      "end_timestamp": "2026-03-15T00:00:00+00:00",
-      "row_count": 1455,
-      "last_updated_at": "2026-03-15T01:15:43.326933+00:00"
+      "end_timestamp": "2026-03-16T00:00:00+00:00",
+      "row_count": 1456,
+      "last_updated_at": "2026-03-16T06:08:28.909513+00:00"
     },
     {
       "asset_class": "crypto",
@@ -270,10 +270,10 @@
       "timeframe": "1h",
       "source": "ccxt",
       "path": "data/crypto/xrp_usdt/1h.parquet",
-      "start_timestamp": "2024-03-15T02:00:00+00:00",
-      "end_timestamp": "2026-03-15T01:00:00+00:00",
-      "row_count": 17520,
-      "last_updated_at": "2026-03-15T01:15:40.754909+00:00"
+      "start_timestamp": "2023-07-14T13:00:00+00:00",
+      "end_timestamp": "2026-03-16T06:00:00+00:00",
+      "row_count": 23418,
+      "last_updated_at": "2026-03-16T06:08:25.338885+00:00"
     },
     {
       "asset_class": "crypto",
@@ -281,10 +281,10 @@
       "timeframe": "1m",
       "source": "ccxt",
       "path": "data/crypto/xrp_usdt/1m.parquet",
-      "start_timestamp": "2026-02-22T01:16:00+00:00",
-      "end_timestamp": "2026-03-15T01:15:00+00:00",
-      "row_count": 30240,
-      "last_updated_at": "2026-03-15T01:15:34.833534+00:00"
+      "start_timestamp": "2025-12-16T06:08:00+00:00",
+      "end_timestamp": "2026-03-16T06:08:00+00:00",
+      "row_count": 129601,
+      "last_updated_at": "2026-03-16T06:08:13.320154+00:00"
     },
     {
       "asset_class": "crypto",
@@ -293,9 +293,9 @@
       "source": "ccxt",
       "path": "data/crypto/xrp_usdt/4h.parquet",
       "start_timestamp": "2019-09-23T08:00:00+00:00",
-      "end_timestamp": "2026-03-15T00:00:00+00:00",
-      "row_count": 8714,
-      "last_updated_at": "2026-03-15T01:15:42.660537+00:00"
+      "end_timestamp": "2026-03-16T04:00:00+00:00",
+      "row_count": 8721,
+      "last_updated_at": "2026-03-16T06:08:27.474117+00:00"
     },
     {
       "asset_class": "forex",
