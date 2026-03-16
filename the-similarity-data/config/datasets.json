@@ -12,6 +12,16 @@
   {
     "asset_class": "crypto",
     "symbol": "btc_usdt",
+    "timeframe": "5m",
+    "source": "ccxt",
+    "source_symbol": "BTC/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 60,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "btc_usdt",
     "timeframe": "15m",
     "source": "ccxt",
     "source_symbol": "BTC/USDT",
@@ -62,6 +72,16 @@
   {
     "asset_class": "crypto",
     "symbol": "eth_usdt",
+    "timeframe": "5m",
+    "source": "ccxt",
+    "source_symbol": "ETH/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 60,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "eth_usdt",
     "timeframe": "15m",
     "source": "ccxt",
     "source_symbol": "ETH/USDT",
@@ -95,6 +115,66 @@
     "timeframe": "1d",
     "source": "ccxt",
     "source_symbol": "ETH/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "bnb_usdt",
+    "timeframe": "1m",
+    "source": "ccxt",
+    "source_symbol": "BNB/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 21,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "bnb_usdt",
+    "timeframe": "5m",
+    "source": "ccxt",
+    "source_symbol": "BNB/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 60,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "bnb_usdt",
+    "timeframe": "15m",
+    "source": "ccxt",
+    "source_symbol": "BNB/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 120,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "bnb_usdt",
+    "timeframe": "1h",
+    "source": "ccxt",
+    "source_symbol": "BNB/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "bnb_usdt",
+    "timeframe": "4h",
+    "source": "ccxt",
+    "source_symbol": "BNB/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "bnb_usdt",
+    "timeframe": "1d",
+    "source": "ccxt",
+    "source_symbol": "BNB/USDT",
     "exchange": "binanceus",
     "lookback_days": 3650,
     "enabled": true
@@ -112,6 +192,16 @@
   {
     "asset_class": "crypto",
     "symbol": "sol_usdt",
+    "timeframe": "5m",
+    "source": "ccxt",
+    "source_symbol": "SOL/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 60,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "sol_usdt",
     "timeframe": "15m",
     "source": "ccxt",
     "source_symbol": "SOL/USDT",
@@ -162,6 +252,16 @@
   {
     "asset_class": "crypto",
     "symbol": "xrp_usdt",
+    "timeframe": "5m",
+    "source": "ccxt",
+    "source_symbol": "XRP/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 60,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "xrp_usdt",
     "timeframe": "15m",
     "source": "ccxt",
     "source_symbol": "XRP/USDT",
@@ -195,6 +295,2706 @@
     "timeframe": "1d",
     "source": "ccxt",
     "source_symbol": "XRP/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "ada_usdt",
+    "timeframe": "1m",
+    "source": "ccxt",
+    "source_symbol": "ADA/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 21,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "ada_usdt",
+    "timeframe": "5m",
+    "source": "ccxt",
+    "source_symbol": "ADA/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 60,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "ada_usdt",
+    "timeframe": "15m",
+    "source": "ccxt",
+    "source_symbol": "ADA/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 120,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "ada_usdt",
+    "timeframe": "1h",
+    "source": "ccxt",
+    "source_symbol": "ADA/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "ada_usdt",
+    "timeframe": "4h",
+    "source": "ccxt",
+    "source_symbol": "ADA/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "ada_usdt",
+    "timeframe": "1d",
+    "source": "ccxt",
+    "source_symbol": "ADA/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "doge_usdt",
+    "timeframe": "1m",
+    "source": "ccxt",
+    "source_symbol": "DOGE/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 21,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "doge_usdt",
+    "timeframe": "5m",
+    "source": "ccxt",
+    "source_symbol": "DOGE/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 60,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "doge_usdt",
+    "timeframe": "15m",
+    "source": "ccxt",
+    "source_symbol": "DOGE/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 120,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "doge_usdt",
+    "timeframe": "1h",
+    "source": "ccxt",
+    "source_symbol": "DOGE/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "doge_usdt",
+    "timeframe": "4h",
+    "source": "ccxt",
+    "source_symbol": "DOGE/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "doge_usdt",
+    "timeframe": "1d",
+    "source": "ccxt",
+    "source_symbol": "DOGE/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "avax_usdt",
+    "timeframe": "1m",
+    "source": "ccxt",
+    "source_symbol": "AVAX/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 21,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "avax_usdt",
+    "timeframe": "5m",
+    "source": "ccxt",
+    "source_symbol": "AVAX/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 60,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "avax_usdt",
+    "timeframe": "15m",
+    "source": "ccxt",
+    "source_symbol": "AVAX/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 120,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "avax_usdt",
+    "timeframe": "1h",
+    "source": "ccxt",
+    "source_symbol": "AVAX/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "avax_usdt",
+    "timeframe": "4h",
+    "source": "ccxt",
+    "source_symbol": "AVAX/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "avax_usdt",
+    "timeframe": "1d",
+    "source": "ccxt",
+    "source_symbol": "AVAX/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "dot_usdt",
+    "timeframe": "1m",
+    "source": "ccxt",
+    "source_symbol": "DOT/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 21,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "dot_usdt",
+    "timeframe": "5m",
+    "source": "ccxt",
+    "source_symbol": "DOT/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 60,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "dot_usdt",
+    "timeframe": "15m",
+    "source": "ccxt",
+    "source_symbol": "DOT/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 120,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "dot_usdt",
+    "timeframe": "1h",
+    "source": "ccxt",
+    "source_symbol": "DOT/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "dot_usdt",
+    "timeframe": "4h",
+    "source": "ccxt",
+    "source_symbol": "DOT/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "dot_usdt",
+    "timeframe": "1d",
+    "source": "ccxt",
+    "source_symbol": "DOT/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "link_usdt",
+    "timeframe": "1m",
+    "source": "ccxt",
+    "source_symbol": "LINK/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 21,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "link_usdt",
+    "timeframe": "5m",
+    "source": "ccxt",
+    "source_symbol": "LINK/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 60,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "link_usdt",
+    "timeframe": "15m",
+    "source": "ccxt",
+    "source_symbol": "LINK/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 120,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "link_usdt",
+    "timeframe": "1h",
+    "source": "ccxt",
+    "source_symbol": "LINK/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "link_usdt",
+    "timeframe": "4h",
+    "source": "ccxt",
+    "source_symbol": "LINK/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "link_usdt",
+    "timeframe": "1d",
+    "source": "ccxt",
+    "source_symbol": "LINK/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "matic_usdt",
+    "timeframe": "1m",
+    "source": "ccxt",
+    "source_symbol": "MATIC/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 21,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "matic_usdt",
+    "timeframe": "5m",
+    "source": "ccxt",
+    "source_symbol": "MATIC/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 60,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "matic_usdt",
+    "timeframe": "15m",
+    "source": "ccxt",
+    "source_symbol": "MATIC/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 120,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "matic_usdt",
+    "timeframe": "1h",
+    "source": "ccxt",
+    "source_symbol": "MATIC/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "matic_usdt",
+    "timeframe": "4h",
+    "source": "ccxt",
+    "source_symbol": "MATIC/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "matic_usdt",
+    "timeframe": "1d",
+    "source": "ccxt",
+    "source_symbol": "MATIC/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "uni_usdt",
+    "timeframe": "1m",
+    "source": "ccxt",
+    "source_symbol": "UNI/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 21,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "uni_usdt",
+    "timeframe": "5m",
+    "source": "ccxt",
+    "source_symbol": "UNI/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 60,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "uni_usdt",
+    "timeframe": "15m",
+    "source": "ccxt",
+    "source_symbol": "UNI/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 120,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "uni_usdt",
+    "timeframe": "1h",
+    "source": "ccxt",
+    "source_symbol": "UNI/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "uni_usdt",
+    "timeframe": "4h",
+    "source": "ccxt",
+    "source_symbol": "UNI/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "uni_usdt",
+    "timeframe": "1d",
+    "source": "ccxt",
+    "source_symbol": "UNI/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "shib_usdt",
+    "timeframe": "1m",
+    "source": "ccxt",
+    "source_symbol": "SHIB/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 21,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "shib_usdt",
+    "timeframe": "5m",
+    "source": "ccxt",
+    "source_symbol": "SHIB/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 60,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "shib_usdt",
+    "timeframe": "15m",
+    "source": "ccxt",
+    "source_symbol": "SHIB/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 120,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "shib_usdt",
+    "timeframe": "1h",
+    "source": "ccxt",
+    "source_symbol": "SHIB/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "shib_usdt",
+    "timeframe": "4h",
+    "source": "ccxt",
+    "source_symbol": "SHIB/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "shib_usdt",
+    "timeframe": "1d",
+    "source": "ccxt",
+    "source_symbol": "SHIB/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "ltc_usdt",
+    "timeframe": "1m",
+    "source": "ccxt",
+    "source_symbol": "LTC/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 21,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "ltc_usdt",
+    "timeframe": "5m",
+    "source": "ccxt",
+    "source_symbol": "LTC/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 60,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "ltc_usdt",
+    "timeframe": "15m",
+    "source": "ccxt",
+    "source_symbol": "LTC/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 120,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "ltc_usdt",
+    "timeframe": "1h",
+    "source": "ccxt",
+    "source_symbol": "LTC/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "ltc_usdt",
+    "timeframe": "4h",
+    "source": "ccxt",
+    "source_symbol": "LTC/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "ltc_usdt",
+    "timeframe": "1d",
+    "source": "ccxt",
+    "source_symbol": "LTC/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "atom_usdt",
+    "timeframe": "1m",
+    "source": "ccxt",
+    "source_symbol": "ATOM/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 21,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "atom_usdt",
+    "timeframe": "5m",
+    "source": "ccxt",
+    "source_symbol": "ATOM/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 60,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "atom_usdt",
+    "timeframe": "15m",
+    "source": "ccxt",
+    "source_symbol": "ATOM/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 120,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "atom_usdt",
+    "timeframe": "1h",
+    "source": "ccxt",
+    "source_symbol": "ATOM/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "atom_usdt",
+    "timeframe": "4h",
+    "source": "ccxt",
+    "source_symbol": "ATOM/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "atom_usdt",
+    "timeframe": "1d",
+    "source": "ccxt",
+    "source_symbol": "ATOM/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "xlm_usdt",
+    "timeframe": "1m",
+    "source": "ccxt",
+    "source_symbol": "XLM/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 21,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "xlm_usdt",
+    "timeframe": "5m",
+    "source": "ccxt",
+    "source_symbol": "XLM/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 60,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "xlm_usdt",
+    "timeframe": "15m",
+    "source": "ccxt",
+    "source_symbol": "XLM/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 120,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "xlm_usdt",
+    "timeframe": "1h",
+    "source": "ccxt",
+    "source_symbol": "XLM/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "xlm_usdt",
+    "timeframe": "4h",
+    "source": "ccxt",
+    "source_symbol": "XLM/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "xlm_usdt",
+    "timeframe": "1d",
+    "source": "ccxt",
+    "source_symbol": "XLM/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "etc_usdt",
+    "timeframe": "1m",
+    "source": "ccxt",
+    "source_symbol": "ETC/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 21,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "etc_usdt",
+    "timeframe": "5m",
+    "source": "ccxt",
+    "source_symbol": "ETC/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 60,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "etc_usdt",
+    "timeframe": "15m",
+    "source": "ccxt",
+    "source_symbol": "ETC/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 120,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "etc_usdt",
+    "timeframe": "1h",
+    "source": "ccxt",
+    "source_symbol": "ETC/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "etc_usdt",
+    "timeframe": "4h",
+    "source": "ccxt",
+    "source_symbol": "ETC/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "etc_usdt",
+    "timeframe": "1d",
+    "source": "ccxt",
+    "source_symbol": "ETC/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "near_usdt",
+    "timeframe": "1m",
+    "source": "ccxt",
+    "source_symbol": "NEAR/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 21,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "near_usdt",
+    "timeframe": "5m",
+    "source": "ccxt",
+    "source_symbol": "NEAR/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 60,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "near_usdt",
+    "timeframe": "15m",
+    "source": "ccxt",
+    "source_symbol": "NEAR/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 120,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "near_usdt",
+    "timeframe": "1h",
+    "source": "ccxt",
+    "source_symbol": "NEAR/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "near_usdt",
+    "timeframe": "4h",
+    "source": "ccxt",
+    "source_symbol": "NEAR/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "near_usdt",
+    "timeframe": "1d",
+    "source": "ccxt",
+    "source_symbol": "NEAR/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "apt_usdt",
+    "timeframe": "1m",
+    "source": "ccxt",
+    "source_symbol": "APT/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 21,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "apt_usdt",
+    "timeframe": "5m",
+    "source": "ccxt",
+    "source_symbol": "APT/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 60,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "apt_usdt",
+    "timeframe": "15m",
+    "source": "ccxt",
+    "source_symbol": "APT/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 120,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "apt_usdt",
+    "timeframe": "1h",
+    "source": "ccxt",
+    "source_symbol": "APT/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "apt_usdt",
+    "timeframe": "4h",
+    "source": "ccxt",
+    "source_symbol": "APT/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "apt_usdt",
+    "timeframe": "1d",
+    "source": "ccxt",
+    "source_symbol": "APT/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "fil_usdt",
+    "timeframe": "1m",
+    "source": "ccxt",
+    "source_symbol": "FIL/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 21,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "fil_usdt",
+    "timeframe": "5m",
+    "source": "ccxt",
+    "source_symbol": "FIL/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 60,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "fil_usdt",
+    "timeframe": "15m",
+    "source": "ccxt",
+    "source_symbol": "FIL/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 120,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "fil_usdt",
+    "timeframe": "1h",
+    "source": "ccxt",
+    "source_symbol": "FIL/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "fil_usdt",
+    "timeframe": "4h",
+    "source": "ccxt",
+    "source_symbol": "FIL/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "fil_usdt",
+    "timeframe": "1d",
+    "source": "ccxt",
+    "source_symbol": "FIL/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "arb_usdt",
+    "timeframe": "1m",
+    "source": "ccxt",
+    "source_symbol": "ARB/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 21,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "arb_usdt",
+    "timeframe": "5m",
+    "source": "ccxt",
+    "source_symbol": "ARB/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 60,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "arb_usdt",
+    "timeframe": "15m",
+    "source": "ccxt",
+    "source_symbol": "ARB/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 120,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "arb_usdt",
+    "timeframe": "1h",
+    "source": "ccxt",
+    "source_symbol": "ARB/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "arb_usdt",
+    "timeframe": "4h",
+    "source": "ccxt",
+    "source_symbol": "ARB/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "arb_usdt",
+    "timeframe": "1d",
+    "source": "ccxt",
+    "source_symbol": "ARB/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "op_usdt",
+    "timeframe": "1m",
+    "source": "ccxt",
+    "source_symbol": "OP/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 21,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "op_usdt",
+    "timeframe": "5m",
+    "source": "ccxt",
+    "source_symbol": "OP/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 60,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "op_usdt",
+    "timeframe": "15m",
+    "source": "ccxt",
+    "source_symbol": "OP/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 120,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "op_usdt",
+    "timeframe": "1h",
+    "source": "ccxt",
+    "source_symbol": "OP/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "op_usdt",
+    "timeframe": "4h",
+    "source": "ccxt",
+    "source_symbol": "OP/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "op_usdt",
+    "timeframe": "1d",
+    "source": "ccxt",
+    "source_symbol": "OP/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "sui_usdt",
+    "timeframe": "1m",
+    "source": "ccxt",
+    "source_symbol": "SUI/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 21,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "sui_usdt",
+    "timeframe": "5m",
+    "source": "ccxt",
+    "source_symbol": "SUI/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 60,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "sui_usdt",
+    "timeframe": "15m",
+    "source": "ccxt",
+    "source_symbol": "SUI/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 120,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "sui_usdt",
+    "timeframe": "1h",
+    "source": "ccxt",
+    "source_symbol": "SUI/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "sui_usdt",
+    "timeframe": "4h",
+    "source": "ccxt",
+    "source_symbol": "SUI/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "sui_usdt",
+    "timeframe": "1d",
+    "source": "ccxt",
+    "source_symbol": "SUI/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "sei_usdt",
+    "timeframe": "1m",
+    "source": "ccxt",
+    "source_symbol": "SEI/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 21,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "sei_usdt",
+    "timeframe": "5m",
+    "source": "ccxt",
+    "source_symbol": "SEI/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 60,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "sei_usdt",
+    "timeframe": "15m",
+    "source": "ccxt",
+    "source_symbol": "SEI/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 120,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "sei_usdt",
+    "timeframe": "1h",
+    "source": "ccxt",
+    "source_symbol": "SEI/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "sei_usdt",
+    "timeframe": "4h",
+    "source": "ccxt",
+    "source_symbol": "SEI/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "sei_usdt",
+    "timeframe": "1d",
+    "source": "ccxt",
+    "source_symbol": "SEI/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "inj_usdt",
+    "timeframe": "1m",
+    "source": "ccxt",
+    "source_symbol": "INJ/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 21,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "inj_usdt",
+    "timeframe": "5m",
+    "source": "ccxt",
+    "source_symbol": "INJ/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 60,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "inj_usdt",
+    "timeframe": "15m",
+    "source": "ccxt",
+    "source_symbol": "INJ/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 120,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "inj_usdt",
+    "timeframe": "1h",
+    "source": "ccxt",
+    "source_symbol": "INJ/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "inj_usdt",
+    "timeframe": "4h",
+    "source": "ccxt",
+    "source_symbol": "INJ/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "inj_usdt",
+    "timeframe": "1d",
+    "source": "ccxt",
+    "source_symbol": "INJ/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "imx_usdt",
+    "timeframe": "1m",
+    "source": "ccxt",
+    "source_symbol": "IMX/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 21,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "imx_usdt",
+    "timeframe": "5m",
+    "source": "ccxt",
+    "source_symbol": "IMX/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 60,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "imx_usdt",
+    "timeframe": "15m",
+    "source": "ccxt",
+    "source_symbol": "IMX/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 120,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "imx_usdt",
+    "timeframe": "1h",
+    "source": "ccxt",
+    "source_symbol": "IMX/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "imx_usdt",
+    "timeframe": "4h",
+    "source": "ccxt",
+    "source_symbol": "IMX/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "imx_usdt",
+    "timeframe": "1d",
+    "source": "ccxt",
+    "source_symbol": "IMX/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "vet_usdt",
+    "timeframe": "1m",
+    "source": "ccxt",
+    "source_symbol": "VET/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 21,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "vet_usdt",
+    "timeframe": "5m",
+    "source": "ccxt",
+    "source_symbol": "VET/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 60,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "vet_usdt",
+    "timeframe": "15m",
+    "source": "ccxt",
+    "source_symbol": "VET/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 120,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "vet_usdt",
+    "timeframe": "1h",
+    "source": "ccxt",
+    "source_symbol": "VET/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "vet_usdt",
+    "timeframe": "4h",
+    "source": "ccxt",
+    "source_symbol": "VET/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "vet_usdt",
+    "timeframe": "1d",
+    "source": "ccxt",
+    "source_symbol": "VET/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "algo_usdt",
+    "timeframe": "1m",
+    "source": "ccxt",
+    "source_symbol": "ALGO/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 21,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "algo_usdt",
+    "timeframe": "5m",
+    "source": "ccxt",
+    "source_symbol": "ALGO/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 60,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "algo_usdt",
+    "timeframe": "15m",
+    "source": "ccxt",
+    "source_symbol": "ALGO/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 120,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "algo_usdt",
+    "timeframe": "1h",
+    "source": "ccxt",
+    "source_symbol": "ALGO/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "algo_usdt",
+    "timeframe": "4h",
+    "source": "ccxt",
+    "source_symbol": "ALGO/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "algo_usdt",
+    "timeframe": "1d",
+    "source": "ccxt",
+    "source_symbol": "ALGO/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "ftm_usdt",
+    "timeframe": "1m",
+    "source": "ccxt",
+    "source_symbol": "FTM/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 21,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "ftm_usdt",
+    "timeframe": "5m",
+    "source": "ccxt",
+    "source_symbol": "FTM/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 60,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "ftm_usdt",
+    "timeframe": "15m",
+    "source": "ccxt",
+    "source_symbol": "FTM/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 120,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "ftm_usdt",
+    "timeframe": "1h",
+    "source": "ccxt",
+    "source_symbol": "FTM/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "ftm_usdt",
+    "timeframe": "4h",
+    "source": "ccxt",
+    "source_symbol": "FTM/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "ftm_usdt",
+    "timeframe": "1d",
+    "source": "ccxt",
+    "source_symbol": "FTM/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "aave_usdt",
+    "timeframe": "1m",
+    "source": "ccxt",
+    "source_symbol": "AAVE/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 21,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "aave_usdt",
+    "timeframe": "5m",
+    "source": "ccxt",
+    "source_symbol": "AAVE/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 60,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "aave_usdt",
+    "timeframe": "15m",
+    "source": "ccxt",
+    "source_symbol": "AAVE/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 120,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "aave_usdt",
+    "timeframe": "1h",
+    "source": "ccxt",
+    "source_symbol": "AAVE/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "aave_usdt",
+    "timeframe": "4h",
+    "source": "ccxt",
+    "source_symbol": "AAVE/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "aave_usdt",
+    "timeframe": "1d",
+    "source": "ccxt",
+    "source_symbol": "AAVE/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "mkr_usdt",
+    "timeframe": "1m",
+    "source": "ccxt",
+    "source_symbol": "MKR/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 21,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "mkr_usdt",
+    "timeframe": "5m",
+    "source": "ccxt",
+    "source_symbol": "MKR/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 60,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "mkr_usdt",
+    "timeframe": "15m",
+    "source": "ccxt",
+    "source_symbol": "MKR/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 120,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "mkr_usdt",
+    "timeframe": "1h",
+    "source": "ccxt",
+    "source_symbol": "MKR/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "mkr_usdt",
+    "timeframe": "4h",
+    "source": "ccxt",
+    "source_symbol": "MKR/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "mkr_usdt",
+    "timeframe": "1d",
+    "source": "ccxt",
+    "source_symbol": "MKR/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "grt_usdt",
+    "timeframe": "1m",
+    "source": "ccxt",
+    "source_symbol": "GRT/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 21,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "grt_usdt",
+    "timeframe": "5m",
+    "source": "ccxt",
+    "source_symbol": "GRT/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 60,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "grt_usdt",
+    "timeframe": "15m",
+    "source": "ccxt",
+    "source_symbol": "GRT/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 120,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "grt_usdt",
+    "timeframe": "1h",
+    "source": "ccxt",
+    "source_symbol": "GRT/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "grt_usdt",
+    "timeframe": "4h",
+    "source": "ccxt",
+    "source_symbol": "GRT/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "grt_usdt",
+    "timeframe": "1d",
+    "source": "ccxt",
+    "source_symbol": "GRT/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "snx_usdt",
+    "timeframe": "1m",
+    "source": "ccxt",
+    "source_symbol": "SNX/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 21,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "snx_usdt",
+    "timeframe": "5m",
+    "source": "ccxt",
+    "source_symbol": "SNX/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 60,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "snx_usdt",
+    "timeframe": "15m",
+    "source": "ccxt",
+    "source_symbol": "SNX/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 120,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "snx_usdt",
+    "timeframe": "1h",
+    "source": "ccxt",
+    "source_symbol": "SNX/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "snx_usdt",
+    "timeframe": "4h",
+    "source": "ccxt",
+    "source_symbol": "SNX/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "snx_usdt",
+    "timeframe": "1d",
+    "source": "ccxt",
+    "source_symbol": "SNX/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "crv_usdt",
+    "timeframe": "1m",
+    "source": "ccxt",
+    "source_symbol": "CRV/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 21,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "crv_usdt",
+    "timeframe": "5m",
+    "source": "ccxt",
+    "source_symbol": "CRV/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 60,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "crv_usdt",
+    "timeframe": "15m",
+    "source": "ccxt",
+    "source_symbol": "CRV/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 120,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "crv_usdt",
+    "timeframe": "1h",
+    "source": "ccxt",
+    "source_symbol": "CRV/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "crv_usdt",
+    "timeframe": "4h",
+    "source": "ccxt",
+    "source_symbol": "CRV/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "crv_usdt",
+    "timeframe": "1d",
+    "source": "ccxt",
+    "source_symbol": "CRV/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "ldo_usdt",
+    "timeframe": "1m",
+    "source": "ccxt",
+    "source_symbol": "LDO/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 21,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "ldo_usdt",
+    "timeframe": "5m",
+    "source": "ccxt",
+    "source_symbol": "LDO/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 60,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "ldo_usdt",
+    "timeframe": "15m",
+    "source": "ccxt",
+    "source_symbol": "LDO/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 120,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "ldo_usdt",
+    "timeframe": "1h",
+    "source": "ccxt",
+    "source_symbol": "LDO/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "ldo_usdt",
+    "timeframe": "4h",
+    "source": "ccxt",
+    "source_symbol": "LDO/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "ldo_usdt",
+    "timeframe": "1d",
+    "source": "ccxt",
+    "source_symbol": "LDO/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "rune_usdt",
+    "timeframe": "1m",
+    "source": "ccxt",
+    "source_symbol": "RUNE/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 21,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "rune_usdt",
+    "timeframe": "5m",
+    "source": "ccxt",
+    "source_symbol": "RUNE/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 60,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "rune_usdt",
+    "timeframe": "15m",
+    "source": "ccxt",
+    "source_symbol": "RUNE/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 120,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "rune_usdt",
+    "timeframe": "1h",
+    "source": "ccxt",
+    "source_symbol": "RUNE/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "rune_usdt",
+    "timeframe": "4h",
+    "source": "ccxt",
+    "source_symbol": "RUNE/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "rune_usdt",
+    "timeframe": "1d",
+    "source": "ccxt",
+    "source_symbol": "RUNE/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "sand_usdt",
+    "timeframe": "1m",
+    "source": "ccxt",
+    "source_symbol": "SAND/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 21,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "sand_usdt",
+    "timeframe": "5m",
+    "source": "ccxt",
+    "source_symbol": "SAND/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 60,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "sand_usdt",
+    "timeframe": "15m",
+    "source": "ccxt",
+    "source_symbol": "SAND/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 120,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "sand_usdt",
+    "timeframe": "1h",
+    "source": "ccxt",
+    "source_symbol": "SAND/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "sand_usdt",
+    "timeframe": "4h",
+    "source": "ccxt",
+    "source_symbol": "SAND/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "sand_usdt",
+    "timeframe": "1d",
+    "source": "ccxt",
+    "source_symbol": "SAND/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "mana_usdt",
+    "timeframe": "1m",
+    "source": "ccxt",
+    "source_symbol": "MANA/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 21,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "mana_usdt",
+    "timeframe": "5m",
+    "source": "ccxt",
+    "source_symbol": "MANA/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 60,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "mana_usdt",
+    "timeframe": "15m",
+    "source": "ccxt",
+    "source_symbol": "MANA/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 120,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "mana_usdt",
+    "timeframe": "1h",
+    "source": "ccxt",
+    "source_symbol": "MANA/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "mana_usdt",
+    "timeframe": "4h",
+    "source": "ccxt",
+    "source_symbol": "MANA/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "mana_usdt",
+    "timeframe": "1d",
+    "source": "ccxt",
+    "source_symbol": "MANA/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "axs_usdt",
+    "timeframe": "1m",
+    "source": "ccxt",
+    "source_symbol": "AXS/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 21,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "axs_usdt",
+    "timeframe": "5m",
+    "source": "ccxt",
+    "source_symbol": "AXS/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 60,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "axs_usdt",
+    "timeframe": "15m",
+    "source": "ccxt",
+    "source_symbol": "AXS/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 120,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "axs_usdt",
+    "timeframe": "1h",
+    "source": "ccxt",
+    "source_symbol": "AXS/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "axs_usdt",
+    "timeframe": "4h",
+    "source": "ccxt",
+    "source_symbol": "AXS/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "axs_usdt",
+    "timeframe": "1d",
+    "source": "ccxt",
+    "source_symbol": "AXS/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "enj_usdt",
+    "timeframe": "1m",
+    "source": "ccxt",
+    "source_symbol": "ENJ/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 21,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "enj_usdt",
+    "timeframe": "5m",
+    "source": "ccxt",
+    "source_symbol": "ENJ/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 60,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "enj_usdt",
+    "timeframe": "15m",
+    "source": "ccxt",
+    "source_symbol": "ENJ/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 120,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "enj_usdt",
+    "timeframe": "1h",
+    "source": "ccxt",
+    "source_symbol": "ENJ/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "enj_usdt",
+    "timeframe": "4h",
+    "source": "ccxt",
+    "source_symbol": "ENJ/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "enj_usdt",
+    "timeframe": "1d",
+    "source": "ccxt",
+    "source_symbol": "ENJ/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "1inch_usdt",
+    "timeframe": "1m",
+    "source": "ccxt",
+    "source_symbol": "1INCH/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 21,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "1inch_usdt",
+    "timeframe": "5m",
+    "source": "ccxt",
+    "source_symbol": "1INCH/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 60,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "1inch_usdt",
+    "timeframe": "15m",
+    "source": "ccxt",
+    "source_symbol": "1INCH/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 120,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "1inch_usdt",
+    "timeframe": "1h",
+    "source": "ccxt",
+    "source_symbol": "1INCH/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "1inch_usdt",
+    "timeframe": "4h",
+    "source": "ccxt",
+    "source_symbol": "1INCH/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "1inch_usdt",
+    "timeframe": "1d",
+    "source": "ccxt",
+    "source_symbol": "1INCH/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "comp_usdt",
+    "timeframe": "1m",
+    "source": "ccxt",
+    "source_symbol": "COMP/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 21,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "comp_usdt",
+    "timeframe": "5m",
+    "source": "ccxt",
+    "source_symbol": "COMP/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 60,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "comp_usdt",
+    "timeframe": "15m",
+    "source": "ccxt",
+    "source_symbol": "COMP/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 120,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "comp_usdt",
+    "timeframe": "1h",
+    "source": "ccxt",
+    "source_symbol": "COMP/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "comp_usdt",
+    "timeframe": "4h",
+    "source": "ccxt",
+    "source_symbol": "COMP/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "comp_usdt",
+    "timeframe": "1d",
+    "source": "ccxt",
+    "source_symbol": "COMP/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "sushi_usdt",
+    "timeframe": "1m",
+    "source": "ccxt",
+    "source_symbol": "SUSHI/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 21,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "sushi_usdt",
+    "timeframe": "5m",
+    "source": "ccxt",
+    "source_symbol": "SUSHI/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 60,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "sushi_usdt",
+    "timeframe": "15m",
+    "source": "ccxt",
+    "source_symbol": "SUSHI/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 120,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "sushi_usdt",
+    "timeframe": "1h",
+    "source": "ccxt",
+    "source_symbol": "SUSHI/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "sushi_usdt",
+    "timeframe": "4h",
+    "source": "ccxt",
+    "source_symbol": "SUSHI/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "sushi_usdt",
+    "timeframe": "1d",
+    "source": "ccxt",
+    "source_symbol": "SUSHI/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "yfi_usdt",
+    "timeframe": "1m",
+    "source": "ccxt",
+    "source_symbol": "YFI/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 21,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "yfi_usdt",
+    "timeframe": "5m",
+    "source": "ccxt",
+    "source_symbol": "YFI/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 60,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "yfi_usdt",
+    "timeframe": "15m",
+    "source": "ccxt",
+    "source_symbol": "YFI/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 120,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "yfi_usdt",
+    "timeframe": "1h",
+    "source": "ccxt",
+    "source_symbol": "YFI/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "yfi_usdt",
+    "timeframe": "4h",
+    "source": "ccxt",
+    "source_symbol": "YFI/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "yfi_usdt",
+    "timeframe": "1d",
+    "source": "ccxt",
+    "source_symbol": "YFI/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "bal_usdt",
+    "timeframe": "1m",
+    "source": "ccxt",
+    "source_symbol": "BAL/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 21,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "bal_usdt",
+    "timeframe": "5m",
+    "source": "ccxt",
+    "source_symbol": "BAL/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 60,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "bal_usdt",
+    "timeframe": "15m",
+    "source": "ccxt",
+    "source_symbol": "BAL/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 120,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "bal_usdt",
+    "timeframe": "1h",
+    "source": "ccxt",
+    "source_symbol": "BAL/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "bal_usdt",
+    "timeframe": "4h",
+    "source": "ccxt",
+    "source_symbol": "BAL/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "bal_usdt",
+    "timeframe": "1d",
+    "source": "ccxt",
+    "source_symbol": "BAL/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "zrx_usdt",
+    "timeframe": "1m",
+    "source": "ccxt",
+    "source_symbol": "ZRX/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 21,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "zrx_usdt",
+    "timeframe": "5m",
+    "source": "ccxt",
+    "source_symbol": "ZRX/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 60,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "zrx_usdt",
+    "timeframe": "15m",
+    "source": "ccxt",
+    "source_symbol": "ZRX/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 120,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "zrx_usdt",
+    "timeframe": "1h",
+    "source": "ccxt",
+    "source_symbol": "ZRX/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "zrx_usdt",
+    "timeframe": "4h",
+    "source": "ccxt",
+    "source_symbol": "ZRX/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "zrx_usdt",
+    "timeframe": "1d",
+    "source": "ccxt",
+    "source_symbol": "ZRX/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "bat_usdt",
+    "timeframe": "1m",
+    "source": "ccxt",
+    "source_symbol": "BAT/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 21,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "bat_usdt",
+    "timeframe": "5m",
+    "source": "ccxt",
+    "source_symbol": "BAT/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 60,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "bat_usdt",
+    "timeframe": "15m",
+    "source": "ccxt",
+    "source_symbol": "BAT/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 120,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "bat_usdt",
+    "timeframe": "1h",
+    "source": "ccxt",
+    "source_symbol": "BAT/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "bat_usdt",
+    "timeframe": "4h",
+    "source": "ccxt",
+    "source_symbol": "BAT/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "bat_usdt",
+    "timeframe": "1d",
+    "source": "ccxt",
+    "source_symbol": "BAT/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "ens_usdt",
+    "timeframe": "1m",
+    "source": "ccxt",
+    "source_symbol": "ENS/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 21,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "ens_usdt",
+    "timeframe": "5m",
+    "source": "ccxt",
+    "source_symbol": "ENS/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 60,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "ens_usdt",
+    "timeframe": "15m",
+    "source": "ccxt",
+    "source_symbol": "ENS/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 120,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "ens_usdt",
+    "timeframe": "1h",
+    "source": "ccxt",
+    "source_symbol": "ENS/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "ens_usdt",
+    "timeframe": "4h",
+    "source": "ccxt",
+    "source_symbol": "ENS/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "ens_usdt",
+    "timeframe": "1d",
+    "source": "ccxt",
+    "source_symbol": "ENS/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "ren_usdt",
+    "timeframe": "1m",
+    "source": "ccxt",
+    "source_symbol": "REN/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 21,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "ren_usdt",
+    "timeframe": "5m",
+    "source": "ccxt",
+    "source_symbol": "REN/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 60,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "ren_usdt",
+    "timeframe": "15m",
+    "source": "ccxt",
+    "source_symbol": "REN/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 120,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "ren_usdt",
+    "timeframe": "1h",
+    "source": "ccxt",
+    "source_symbol": "REN/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "ren_usdt",
+    "timeframe": "4h",
+    "source": "ccxt",
+    "source_symbol": "REN/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "ren_usdt",
+    "timeframe": "1d",
+    "source": "ccxt",
+    "source_symbol": "REN/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "perp_usdt",
+    "timeframe": "1m",
+    "source": "ccxt",
+    "source_symbol": "PERP/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 21,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "perp_usdt",
+    "timeframe": "5m",
+    "source": "ccxt",
+    "source_symbol": "PERP/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 60,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "perp_usdt",
+    "timeframe": "15m",
+    "source": "ccxt",
+    "source_symbol": "PERP/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 120,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "perp_usdt",
+    "timeframe": "1h",
+    "source": "ccxt",
+    "source_symbol": "PERP/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "perp_usdt",
+    "timeframe": "4h",
+    "source": "ccxt",
+    "source_symbol": "PERP/USDT",
+    "exchange": "binanceus",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "crypto",
+    "symbol": "perp_usdt",
+    "timeframe": "1d",
+    "source": "ccxt",
+    "source_symbol": "PERP/USDT",
     "exchange": "binanceus",
     "lookback_days": 3650,
     "enabled": true
@@ -219,6 +3019,42 @@
   },
   {
     "asset_class": "stocks",
+    "symbol": "amzn",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "amzn.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "goog",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "goog.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "googl",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "googl.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "meta",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "meta.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
     "symbol": "nvda",
     "timeframe": "1d",
     "source": "stooq",
@@ -228,10 +3064,874 @@
   },
   {
     "asset_class": "stocks",
-    "symbol": "qqq",
+    "symbol": "tsla",
     "timeframe": "1d",
     "source": "stooq",
-    "source_symbol": "qqq.us",
+    "source_symbol": "tsla.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "avgo",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "avgo.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "amd",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "amd.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "intc",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "intc.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "qcom",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "qcom.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "txn",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "txn.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "mu",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "mu.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "mrvl",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "mrvl.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "on",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "on.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "nxpi",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "nxpi.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "klac",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "klac.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "lrcx",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "lrcx.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "amat",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "amat.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "asml",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "asml.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "crm",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "crm.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "adbe",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "adbe.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "orcl",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "orcl.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "now",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "now.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "snow",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "snow.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "pltr",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "pltr.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "panw",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "panw.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "ftnt",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "ftnt.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "zs",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "zs.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "crwd",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "crwd.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "ddog",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "ddog.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "net",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "net.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "mdb",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "mdb.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "wmt",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "wmt.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "cost",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "cost.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "hd",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "hd.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "tgt",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "tgt.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "low",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "low.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "sbux",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "sbux.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "mcd",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "mcd.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "nke",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "nke.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "lulu",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "lulu.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "jpm",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "jpm.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "bac",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "bac.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "wfc",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "wfc.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "gs",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "gs.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "ms",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "ms.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "schw",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "schw.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "bx",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "bx.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "kkr",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "kkr.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "c",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "c.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "usb",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "usb.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "axp",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "axp.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "v",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "v.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "ma",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "ma.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "pypl",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "pypl.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "sq",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "sq.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "unh",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "unh.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "jnj",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "jnj.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "pfe",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "pfe.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "mrk",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "mrk.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "abbv",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "abbv.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "lly",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "lly.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "tmo",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "tmo.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "dhr",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "dhr.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "bmy",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "bmy.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "amgn",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "amgn.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "gild",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "gild.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "isrg",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "isrg.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "vrtx",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "vrtx.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "regn",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "regn.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "mrna",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "mrna.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "xom",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "xom.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "cvx",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "cvx.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "cop",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "cop.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "slb",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "slb.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "eog",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "eog.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "psx",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "psx.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "vlo",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "vlo.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "mpc",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "mpc.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "oxy",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "oxy.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "dvn",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "dvn.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "cat",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "cat.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "de",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "de.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "hon",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "hon.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "ge",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "ge.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "mmm",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "mmm.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "ba",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "ba.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "rtx",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "rtx.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "lmt",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "lmt.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "noc",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "noc.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "gd",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "gd.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "dis",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "dis.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "cmcsa",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "cmcsa.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "nflx",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "nflx.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "t",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "t.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "vz",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "vz.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "tmus",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "tmus.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "amt",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "amt.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "pld",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "pld.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "eqr",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "eqr.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "avb",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "avb.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "o",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "o.us",
     "lookback_days": 3650,
     "enabled": true
   },
@@ -246,10 +3946,10 @@
   },
   {
     "asset_class": "stocks",
-    "symbol": "iwm",
+    "symbol": "qqq",
     "timeframe": "1d",
     "source": "stooq",
-    "source_symbol": "iwm.us",
+    "source_symbol": "qqq.us",
     "lookback_days": 3650,
     "enabled": true
   },
@@ -263,62 +3963,161 @@
     "enabled": true
   },
   {
-    "asset_class": "forex",
-    "symbol": "eurusd",
-    "timeframe": "1h",
-    "source": "twelvedata",
-    "source_symbol": "EUR/USD",
-    "lookback_days": 730,
-    "enabled": true
-  },
-  {
-    "asset_class": "forex",
-    "symbol": "eurusd",
-    "timeframe": "4h",
-    "source": "twelvedata",
-    "source_symbol": "EUR/USD",
-    "lookback_days": 3650,
-    "enabled": true
-  },
-  {
-    "asset_class": "forex",
-    "symbol": "eurusd",
+    "asset_class": "stocks",
+    "symbol": "iwm",
     "timeframe": "1d",
-    "source": "twelvedata",
-    "source_symbol": "EUR/USD",
+    "source": "stooq",
+    "source_symbol": "iwm.us",
     "lookback_days": 3650,
     "enabled": true
   },
   {
-    "asset_class": "forex",
-    "symbol": "usdjpy",
-    "timeframe": "1h",
-    "source": "twelvedata",
-    "source_symbol": "USD/JPY",
-    "lookback_days": 730,
-    "enabled": true
-  },
-  {
-    "asset_class": "forex",
-    "symbol": "usdjpy",
-    "timeframe": "4h",
-    "source": "twelvedata",
-    "source_symbol": "USD/JPY",
-    "lookback_days": 3650,
-    "enabled": true
-  },
-  {
-    "asset_class": "forex",
-    "symbol": "usdjpy",
+    "asset_class": "stocks",
+    "symbol": "vti",
     "timeframe": "1d",
-    "source": "twelvedata",
-    "source_symbol": "USD/JPY",
+    "source": "stooq",
+    "source_symbol": "vti.us",
     "lookback_days": 3650,
     "enabled": true
   },
   {
-    "asset_class": "commodities",
-    "symbol": "gold",
+    "asset_class": "stocks",
+    "symbol": "voo",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "voo.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "arkk",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "arkk.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "xlf",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "xlf.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "xlk",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "xlk.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "xle",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "xle.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "xli",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "xli.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "xlv",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "xlv.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "xlc",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "xlc.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "xly",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "xly.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "xlp",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "xlp.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "xlu",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "xlu.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "xlb",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "xlb.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "tlt",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "tlt.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "hyg",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "hyg.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "lqd",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "lqd.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "gld",
     "timeframe": "1d",
     "source": "stooq",
     "source_symbol": "gld.us",
@@ -326,8 +4125,8 @@
     "enabled": true
   },
   {
-    "asset_class": "commodities",
-    "symbol": "silver",
+    "asset_class": "stocks",
+    "symbol": "slv",
     "timeframe": "1d",
     "source": "stooq",
     "source_symbol": "slv.us",
@@ -335,11 +4134,2333 @@
     "enabled": true
   },
   {
-    "asset_class": "commodities",
-    "symbol": "oil",
+    "asset_class": "stocks",
+    "symbol": "uso",
     "timeframe": "1d",
     "source": "stooq",
     "source_symbol": "uso.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "ung",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "ung.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "eem",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "eem.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "efa",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "efa.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "vwo",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "vwo.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "vea",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "vea.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "agg",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "agg.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "bnd",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "bnd.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "smh",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "smh.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "soxx",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "soxx.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "kweb",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "kweb.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "stocks",
+    "symbol": "fxi",
+    "timeframe": "1d",
+    "source": "stooq",
+    "source_symbol": "fxi.us",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "eurusd",
+    "timeframe": "15m",
+    "source": "twelvedata",
+    "source_symbol": "EUR/USD",
+    "lookback_days": 120,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "eurusd",
+    "timeframe": "1h",
+    "source": "twelvedata",
+    "source_symbol": "EUR/USD",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "eurusd",
+    "timeframe": "4h",
+    "source": "twelvedata",
+    "source_symbol": "EUR/USD",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "eurusd",
+    "timeframe": "1d",
+    "source": "twelvedata",
+    "source_symbol": "EUR/USD",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "gbpusd",
+    "timeframe": "15m",
+    "source": "twelvedata",
+    "source_symbol": "GBP/USD",
+    "lookback_days": 120,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "gbpusd",
+    "timeframe": "1h",
+    "source": "twelvedata",
+    "source_symbol": "GBP/USD",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "gbpusd",
+    "timeframe": "4h",
+    "source": "twelvedata",
+    "source_symbol": "GBP/USD",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "gbpusd",
+    "timeframe": "1d",
+    "source": "twelvedata",
+    "source_symbol": "GBP/USD",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "usdjpy",
+    "timeframe": "15m",
+    "source": "twelvedata",
+    "source_symbol": "USD/JPY",
+    "lookback_days": 120,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "usdjpy",
+    "timeframe": "1h",
+    "source": "twelvedata",
+    "source_symbol": "USD/JPY",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "usdjpy",
+    "timeframe": "4h",
+    "source": "twelvedata",
+    "source_symbol": "USD/JPY",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "usdjpy",
+    "timeframe": "1d",
+    "source": "twelvedata",
+    "source_symbol": "USD/JPY",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "usdchf",
+    "timeframe": "15m",
+    "source": "twelvedata",
+    "source_symbol": "USD/CHF",
+    "lookback_days": 120,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "usdchf",
+    "timeframe": "1h",
+    "source": "twelvedata",
+    "source_symbol": "USD/CHF",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "usdchf",
+    "timeframe": "4h",
+    "source": "twelvedata",
+    "source_symbol": "USD/CHF",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "usdchf",
+    "timeframe": "1d",
+    "source": "twelvedata",
+    "source_symbol": "USD/CHF",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "audusd",
+    "timeframe": "15m",
+    "source": "twelvedata",
+    "source_symbol": "AUD/USD",
+    "lookback_days": 120,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "audusd",
+    "timeframe": "1h",
+    "source": "twelvedata",
+    "source_symbol": "AUD/USD",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "audusd",
+    "timeframe": "4h",
+    "source": "twelvedata",
+    "source_symbol": "AUD/USD",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "audusd",
+    "timeframe": "1d",
+    "source": "twelvedata",
+    "source_symbol": "AUD/USD",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "usdcad",
+    "timeframe": "15m",
+    "source": "twelvedata",
+    "source_symbol": "USD/CAD",
+    "lookback_days": 120,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "usdcad",
+    "timeframe": "1h",
+    "source": "twelvedata",
+    "source_symbol": "USD/CAD",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "usdcad",
+    "timeframe": "4h",
+    "source": "twelvedata",
+    "source_symbol": "USD/CAD",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "usdcad",
+    "timeframe": "1d",
+    "source": "twelvedata",
+    "source_symbol": "USD/CAD",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "nzdusd",
+    "timeframe": "15m",
+    "source": "twelvedata",
+    "source_symbol": "NZD/USD",
+    "lookback_days": 120,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "nzdusd",
+    "timeframe": "1h",
+    "source": "twelvedata",
+    "source_symbol": "NZD/USD",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "nzdusd",
+    "timeframe": "4h",
+    "source": "twelvedata",
+    "source_symbol": "NZD/USD",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "nzdusd",
+    "timeframe": "1d",
+    "source": "twelvedata",
+    "source_symbol": "NZD/USD",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "eurgbp",
+    "timeframe": "15m",
+    "source": "twelvedata",
+    "source_symbol": "EUR/GBP",
+    "lookback_days": 120,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "eurgbp",
+    "timeframe": "1h",
+    "source": "twelvedata",
+    "source_symbol": "EUR/GBP",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "eurgbp",
+    "timeframe": "4h",
+    "source": "twelvedata",
+    "source_symbol": "EUR/GBP",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "eurgbp",
+    "timeframe": "1d",
+    "source": "twelvedata",
+    "source_symbol": "EUR/GBP",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "eurjpy",
+    "timeframe": "15m",
+    "source": "twelvedata",
+    "source_symbol": "EUR/JPY",
+    "lookback_days": 120,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "eurjpy",
+    "timeframe": "1h",
+    "source": "twelvedata",
+    "source_symbol": "EUR/JPY",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "eurjpy",
+    "timeframe": "4h",
+    "source": "twelvedata",
+    "source_symbol": "EUR/JPY",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "eurjpy",
+    "timeframe": "1d",
+    "source": "twelvedata",
+    "source_symbol": "EUR/JPY",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "eurchf",
+    "timeframe": "15m",
+    "source": "twelvedata",
+    "source_symbol": "EUR/CHF",
+    "lookback_days": 120,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "eurchf",
+    "timeframe": "1h",
+    "source": "twelvedata",
+    "source_symbol": "EUR/CHF",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "eurchf",
+    "timeframe": "4h",
+    "source": "twelvedata",
+    "source_symbol": "EUR/CHF",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "eurchf",
+    "timeframe": "1d",
+    "source": "twelvedata",
+    "source_symbol": "EUR/CHF",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "euraud",
+    "timeframe": "15m",
+    "source": "twelvedata",
+    "source_symbol": "EUR/AUD",
+    "lookback_days": 120,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "euraud",
+    "timeframe": "1h",
+    "source": "twelvedata",
+    "source_symbol": "EUR/AUD",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "euraud",
+    "timeframe": "4h",
+    "source": "twelvedata",
+    "source_symbol": "EUR/AUD",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "euraud",
+    "timeframe": "1d",
+    "source": "twelvedata",
+    "source_symbol": "EUR/AUD",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "eurcad",
+    "timeframe": "15m",
+    "source": "twelvedata",
+    "source_symbol": "EUR/CAD",
+    "lookback_days": 120,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "eurcad",
+    "timeframe": "1h",
+    "source": "twelvedata",
+    "source_symbol": "EUR/CAD",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "eurcad",
+    "timeframe": "4h",
+    "source": "twelvedata",
+    "source_symbol": "EUR/CAD",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "eurcad",
+    "timeframe": "1d",
+    "source": "twelvedata",
+    "source_symbol": "EUR/CAD",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "eurnzd",
+    "timeframe": "15m",
+    "source": "twelvedata",
+    "source_symbol": "EUR/NZD",
+    "lookback_days": 120,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "eurnzd",
+    "timeframe": "1h",
+    "source": "twelvedata",
+    "source_symbol": "EUR/NZD",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "eurnzd",
+    "timeframe": "4h",
+    "source": "twelvedata",
+    "source_symbol": "EUR/NZD",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "eurnzd",
+    "timeframe": "1d",
+    "source": "twelvedata",
+    "source_symbol": "EUR/NZD",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "gbpjpy",
+    "timeframe": "15m",
+    "source": "twelvedata",
+    "source_symbol": "GBP/JPY",
+    "lookback_days": 120,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "gbpjpy",
+    "timeframe": "1h",
+    "source": "twelvedata",
+    "source_symbol": "GBP/JPY",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "gbpjpy",
+    "timeframe": "4h",
+    "source": "twelvedata",
+    "source_symbol": "GBP/JPY",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "gbpjpy",
+    "timeframe": "1d",
+    "source": "twelvedata",
+    "source_symbol": "GBP/JPY",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "gbpchf",
+    "timeframe": "15m",
+    "source": "twelvedata",
+    "source_symbol": "GBP/CHF",
+    "lookback_days": 120,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "gbpchf",
+    "timeframe": "1h",
+    "source": "twelvedata",
+    "source_symbol": "GBP/CHF",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "gbpchf",
+    "timeframe": "4h",
+    "source": "twelvedata",
+    "source_symbol": "GBP/CHF",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "gbpchf",
+    "timeframe": "1d",
+    "source": "twelvedata",
+    "source_symbol": "GBP/CHF",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "gbpaud",
+    "timeframe": "15m",
+    "source": "twelvedata",
+    "source_symbol": "GBP/AUD",
+    "lookback_days": 120,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "gbpaud",
+    "timeframe": "1h",
+    "source": "twelvedata",
+    "source_symbol": "GBP/AUD",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "gbpaud",
+    "timeframe": "4h",
+    "source": "twelvedata",
+    "source_symbol": "GBP/AUD",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "gbpaud",
+    "timeframe": "1d",
+    "source": "twelvedata",
+    "source_symbol": "GBP/AUD",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "gbpcad",
+    "timeframe": "15m",
+    "source": "twelvedata",
+    "source_symbol": "GBP/CAD",
+    "lookback_days": 120,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "gbpcad",
+    "timeframe": "1h",
+    "source": "twelvedata",
+    "source_symbol": "GBP/CAD",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "gbpcad",
+    "timeframe": "4h",
+    "source": "twelvedata",
+    "source_symbol": "GBP/CAD",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "gbpcad",
+    "timeframe": "1d",
+    "source": "twelvedata",
+    "source_symbol": "GBP/CAD",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "gbpnzd",
+    "timeframe": "15m",
+    "source": "twelvedata",
+    "source_symbol": "GBP/NZD",
+    "lookback_days": 120,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "gbpnzd",
+    "timeframe": "1h",
+    "source": "twelvedata",
+    "source_symbol": "GBP/NZD",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "gbpnzd",
+    "timeframe": "4h",
+    "source": "twelvedata",
+    "source_symbol": "GBP/NZD",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "gbpnzd",
+    "timeframe": "1d",
+    "source": "twelvedata",
+    "source_symbol": "GBP/NZD",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "audjpy",
+    "timeframe": "15m",
+    "source": "twelvedata",
+    "source_symbol": "AUD/JPY",
+    "lookback_days": 120,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "audjpy",
+    "timeframe": "1h",
+    "source": "twelvedata",
+    "source_symbol": "AUD/JPY",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "audjpy",
+    "timeframe": "4h",
+    "source": "twelvedata",
+    "source_symbol": "AUD/JPY",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "audjpy",
+    "timeframe": "1d",
+    "source": "twelvedata",
+    "source_symbol": "AUD/JPY",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "audchf",
+    "timeframe": "15m",
+    "source": "twelvedata",
+    "source_symbol": "AUD/CHF",
+    "lookback_days": 120,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "audchf",
+    "timeframe": "1h",
+    "source": "twelvedata",
+    "source_symbol": "AUD/CHF",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "audchf",
+    "timeframe": "4h",
+    "source": "twelvedata",
+    "source_symbol": "AUD/CHF",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "audchf",
+    "timeframe": "1d",
+    "source": "twelvedata",
+    "source_symbol": "AUD/CHF",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "audcad",
+    "timeframe": "15m",
+    "source": "twelvedata",
+    "source_symbol": "AUD/CAD",
+    "lookback_days": 120,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "audcad",
+    "timeframe": "1h",
+    "source": "twelvedata",
+    "source_symbol": "AUD/CAD",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "audcad",
+    "timeframe": "4h",
+    "source": "twelvedata",
+    "source_symbol": "AUD/CAD",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "audcad",
+    "timeframe": "1d",
+    "source": "twelvedata",
+    "source_symbol": "AUD/CAD",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "audnzd",
+    "timeframe": "15m",
+    "source": "twelvedata",
+    "source_symbol": "AUD/NZD",
+    "lookback_days": 120,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "audnzd",
+    "timeframe": "1h",
+    "source": "twelvedata",
+    "source_symbol": "AUD/NZD",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "audnzd",
+    "timeframe": "4h",
+    "source": "twelvedata",
+    "source_symbol": "AUD/NZD",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "audnzd",
+    "timeframe": "1d",
+    "source": "twelvedata",
+    "source_symbol": "AUD/NZD",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "nzdjpy",
+    "timeframe": "15m",
+    "source": "twelvedata",
+    "source_symbol": "NZD/JPY",
+    "lookback_days": 120,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "nzdjpy",
+    "timeframe": "1h",
+    "source": "twelvedata",
+    "source_symbol": "NZD/JPY",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "nzdjpy",
+    "timeframe": "4h",
+    "source": "twelvedata",
+    "source_symbol": "NZD/JPY",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "nzdjpy",
+    "timeframe": "1d",
+    "source": "twelvedata",
+    "source_symbol": "NZD/JPY",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "nzdcad",
+    "timeframe": "15m",
+    "source": "twelvedata",
+    "source_symbol": "NZD/CAD",
+    "lookback_days": 120,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "nzdcad",
+    "timeframe": "1h",
+    "source": "twelvedata",
+    "source_symbol": "NZD/CAD",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "nzdcad",
+    "timeframe": "4h",
+    "source": "twelvedata",
+    "source_symbol": "NZD/CAD",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "nzdcad",
+    "timeframe": "1d",
+    "source": "twelvedata",
+    "source_symbol": "NZD/CAD",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "nzdchf",
+    "timeframe": "15m",
+    "source": "twelvedata",
+    "source_symbol": "NZD/CHF",
+    "lookback_days": 120,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "nzdchf",
+    "timeframe": "1h",
+    "source": "twelvedata",
+    "source_symbol": "NZD/CHF",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "nzdchf",
+    "timeframe": "4h",
+    "source": "twelvedata",
+    "source_symbol": "NZD/CHF",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "nzdchf",
+    "timeframe": "1d",
+    "source": "twelvedata",
+    "source_symbol": "NZD/CHF",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "cadjpy",
+    "timeframe": "15m",
+    "source": "twelvedata",
+    "source_symbol": "CAD/JPY",
+    "lookback_days": 120,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "cadjpy",
+    "timeframe": "1h",
+    "source": "twelvedata",
+    "source_symbol": "CAD/JPY",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "cadjpy",
+    "timeframe": "4h",
+    "source": "twelvedata",
+    "source_symbol": "CAD/JPY",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "cadjpy",
+    "timeframe": "1d",
+    "source": "twelvedata",
+    "source_symbol": "CAD/JPY",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "cadchf",
+    "timeframe": "15m",
+    "source": "twelvedata",
+    "source_symbol": "CAD/CHF",
+    "lookback_days": 120,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "cadchf",
+    "timeframe": "1h",
+    "source": "twelvedata",
+    "source_symbol": "CAD/CHF",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "cadchf",
+    "timeframe": "4h",
+    "source": "twelvedata",
+    "source_symbol": "CAD/CHF",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "cadchf",
+    "timeframe": "1d",
+    "source": "twelvedata",
+    "source_symbol": "CAD/CHF",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "chfjpy",
+    "timeframe": "15m",
+    "source": "twelvedata",
+    "source_symbol": "CHF/JPY",
+    "lookback_days": 120,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "chfjpy",
+    "timeframe": "1h",
+    "source": "twelvedata",
+    "source_symbol": "CHF/JPY",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "chfjpy",
+    "timeframe": "4h",
+    "source": "twelvedata",
+    "source_symbol": "CHF/JPY",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "chfjpy",
+    "timeframe": "1d",
+    "source": "twelvedata",
+    "source_symbol": "CHF/JPY",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "usdtry",
+    "timeframe": "15m",
+    "source": "twelvedata",
+    "source_symbol": "USD/TRY",
+    "lookback_days": 120,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "usdtry",
+    "timeframe": "1h",
+    "source": "twelvedata",
+    "source_symbol": "USD/TRY",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "usdtry",
+    "timeframe": "4h",
+    "source": "twelvedata",
+    "source_symbol": "USD/TRY",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "usdtry",
+    "timeframe": "1d",
+    "source": "twelvedata",
+    "source_symbol": "USD/TRY",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "usdmxn",
+    "timeframe": "15m",
+    "source": "twelvedata",
+    "source_symbol": "USD/MXN",
+    "lookback_days": 120,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "usdmxn",
+    "timeframe": "1h",
+    "source": "twelvedata",
+    "source_symbol": "USD/MXN",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "usdmxn",
+    "timeframe": "4h",
+    "source": "twelvedata",
+    "source_symbol": "USD/MXN",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "usdmxn",
+    "timeframe": "1d",
+    "source": "twelvedata",
+    "source_symbol": "USD/MXN",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "usdzar",
+    "timeframe": "15m",
+    "source": "twelvedata",
+    "source_symbol": "USD/ZAR",
+    "lookback_days": 120,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "usdzar",
+    "timeframe": "1h",
+    "source": "twelvedata",
+    "source_symbol": "USD/ZAR",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "usdzar",
+    "timeframe": "4h",
+    "source": "twelvedata",
+    "source_symbol": "USD/ZAR",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "usdzar",
+    "timeframe": "1d",
+    "source": "twelvedata",
+    "source_symbol": "USD/ZAR",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "usdsgd",
+    "timeframe": "15m",
+    "source": "twelvedata",
+    "source_symbol": "USD/SGD",
+    "lookback_days": 120,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "usdsgd",
+    "timeframe": "1h",
+    "source": "twelvedata",
+    "source_symbol": "USD/SGD",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "usdsgd",
+    "timeframe": "4h",
+    "source": "twelvedata",
+    "source_symbol": "USD/SGD",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "usdsgd",
+    "timeframe": "1d",
+    "source": "twelvedata",
+    "source_symbol": "USD/SGD",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "usdhkd",
+    "timeframe": "15m",
+    "source": "twelvedata",
+    "source_symbol": "USD/HKD",
+    "lookback_days": 120,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "usdhkd",
+    "timeframe": "1h",
+    "source": "twelvedata",
+    "source_symbol": "USD/HKD",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "usdhkd",
+    "timeframe": "4h",
+    "source": "twelvedata",
+    "source_symbol": "USD/HKD",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "usdhkd",
+    "timeframe": "1d",
+    "source": "twelvedata",
+    "source_symbol": "USD/HKD",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "usdnok",
+    "timeframe": "15m",
+    "source": "twelvedata",
+    "source_symbol": "USD/NOK",
+    "lookback_days": 120,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "usdnok",
+    "timeframe": "1h",
+    "source": "twelvedata",
+    "source_symbol": "USD/NOK",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "usdnok",
+    "timeframe": "4h",
+    "source": "twelvedata",
+    "source_symbol": "USD/NOK",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "usdnok",
+    "timeframe": "1d",
+    "source": "twelvedata",
+    "source_symbol": "USD/NOK",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "usdsek",
+    "timeframe": "15m",
+    "source": "twelvedata",
+    "source_symbol": "USD/SEK",
+    "lookback_days": 120,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "usdsek",
+    "timeframe": "1h",
+    "source": "twelvedata",
+    "source_symbol": "USD/SEK",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "usdsek",
+    "timeframe": "4h",
+    "source": "twelvedata",
+    "source_symbol": "USD/SEK",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "usdsek",
+    "timeframe": "1d",
+    "source": "twelvedata",
+    "source_symbol": "USD/SEK",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "usddkk",
+    "timeframe": "15m",
+    "source": "twelvedata",
+    "source_symbol": "USD/DKK",
+    "lookback_days": 120,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "usddkk",
+    "timeframe": "1h",
+    "source": "twelvedata",
+    "source_symbol": "USD/DKK",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "usddkk",
+    "timeframe": "4h",
+    "source": "twelvedata",
+    "source_symbol": "USD/DKK",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "usddkk",
+    "timeframe": "1d",
+    "source": "twelvedata",
+    "source_symbol": "USD/DKK",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "usdpln",
+    "timeframe": "15m",
+    "source": "twelvedata",
+    "source_symbol": "USD/PLN",
+    "lookback_days": 120,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "usdpln",
+    "timeframe": "1h",
+    "source": "twelvedata",
+    "source_symbol": "USD/PLN",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "usdpln",
+    "timeframe": "4h",
+    "source": "twelvedata",
+    "source_symbol": "USD/PLN",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "usdpln",
+    "timeframe": "1d",
+    "source": "twelvedata",
+    "source_symbol": "USD/PLN",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "usdczk",
+    "timeframe": "15m",
+    "source": "twelvedata",
+    "source_symbol": "USD/CZK",
+    "lookback_days": 120,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "usdczk",
+    "timeframe": "1h",
+    "source": "twelvedata",
+    "source_symbol": "USD/CZK",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "usdczk",
+    "timeframe": "4h",
+    "source": "twelvedata",
+    "source_symbol": "USD/CZK",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "usdczk",
+    "timeframe": "1d",
+    "source": "twelvedata",
+    "source_symbol": "USD/CZK",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "usdhuf",
+    "timeframe": "15m",
+    "source": "twelvedata",
+    "source_symbol": "USD/HUF",
+    "lookback_days": 120,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "usdhuf",
+    "timeframe": "1h",
+    "source": "twelvedata",
+    "source_symbol": "USD/HUF",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "usdhuf",
+    "timeframe": "4h",
+    "source": "twelvedata",
+    "source_symbol": "USD/HUF",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "forex",
+    "symbol": "usdhuf",
+    "timeframe": "1d",
+    "source": "twelvedata",
+    "source_symbol": "USD/HUF",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "commodities",
+    "symbol": "gold",
+    "timeframe": "1h",
+    "source": "twelvedata",
+    "source_symbol": "XAU/USD",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "commodities",
+    "symbol": "gold",
+    "timeframe": "4h",
+    "source": "twelvedata",
+    "source_symbol": "XAU/USD",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "commodities",
+    "symbol": "gold",
+    "timeframe": "1d",
+    "source": "twelvedata",
+    "source_symbol": "XAU/USD",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "commodities",
+    "symbol": "silver",
+    "timeframe": "1h",
+    "source": "twelvedata",
+    "source_symbol": "XAG/USD",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "commodities",
+    "symbol": "silver",
+    "timeframe": "4h",
+    "source": "twelvedata",
+    "source_symbol": "XAG/USD",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "commodities",
+    "symbol": "silver",
+    "timeframe": "1d",
+    "source": "twelvedata",
+    "source_symbol": "XAG/USD",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "commodities",
+    "symbol": "oil_wti",
+    "timeframe": "1h",
+    "source": "twelvedata",
+    "source_symbol": "CL",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "commodities",
+    "symbol": "oil_wti",
+    "timeframe": "4h",
+    "source": "twelvedata",
+    "source_symbol": "CL",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "commodities",
+    "symbol": "oil_wti",
+    "timeframe": "1d",
+    "source": "twelvedata",
+    "source_symbol": "CL",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "commodities",
+    "symbol": "oil_brent",
+    "timeframe": "1h",
+    "source": "twelvedata",
+    "source_symbol": "BZ",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "commodities",
+    "symbol": "oil_brent",
+    "timeframe": "4h",
+    "source": "twelvedata",
+    "source_symbol": "BZ",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "commodities",
+    "symbol": "oil_brent",
+    "timeframe": "1d",
+    "source": "twelvedata",
+    "source_symbol": "BZ",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "commodities",
+    "symbol": "natural_gas",
+    "timeframe": "1h",
+    "source": "twelvedata",
+    "source_symbol": "NG",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "commodities",
+    "symbol": "natural_gas",
+    "timeframe": "4h",
+    "source": "twelvedata",
+    "source_symbol": "NG",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "commodities",
+    "symbol": "natural_gas",
+    "timeframe": "1d",
+    "source": "twelvedata",
+    "source_symbol": "NG",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "commodities",
+    "symbol": "copper",
+    "timeframe": "1h",
+    "source": "twelvedata",
+    "source_symbol": "HG",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "commodities",
+    "symbol": "copper",
+    "timeframe": "4h",
+    "source": "twelvedata",
+    "source_symbol": "HG",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "commodities",
+    "symbol": "copper",
+    "timeframe": "1d",
+    "source": "twelvedata",
+    "source_symbol": "HG",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "commodities",
+    "symbol": "platinum",
+    "timeframe": "1h",
+    "source": "twelvedata",
+    "source_symbol": "PL",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "commodities",
+    "symbol": "platinum",
+    "timeframe": "4h",
+    "source": "twelvedata",
+    "source_symbol": "PL",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "commodities",
+    "symbol": "platinum",
+    "timeframe": "1d",
+    "source": "twelvedata",
+    "source_symbol": "PL",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "commodities",
+    "symbol": "palladium",
+    "timeframe": "1h",
+    "source": "twelvedata",
+    "source_symbol": "PA",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "commodities",
+    "symbol": "palladium",
+    "timeframe": "4h",
+    "source": "twelvedata",
+    "source_symbol": "PA",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "commodities",
+    "symbol": "palladium",
+    "timeframe": "1d",
+    "source": "twelvedata",
+    "source_symbol": "PA",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "commodities",
+    "symbol": "wheat",
+    "timeframe": "1h",
+    "source": "twelvedata",
+    "source_symbol": "ZW",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "commodities",
+    "symbol": "wheat",
+    "timeframe": "4h",
+    "source": "twelvedata",
+    "source_symbol": "ZW",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "commodities",
+    "symbol": "wheat",
+    "timeframe": "1d",
+    "source": "twelvedata",
+    "source_symbol": "ZW",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "commodities",
+    "symbol": "corn",
+    "timeframe": "1h",
+    "source": "twelvedata",
+    "source_symbol": "ZC",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "commodities",
+    "symbol": "corn",
+    "timeframe": "4h",
+    "source": "twelvedata",
+    "source_symbol": "ZC",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "commodities",
+    "symbol": "corn",
+    "timeframe": "1d",
+    "source": "twelvedata",
+    "source_symbol": "ZC",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "commodities",
+    "symbol": "soybean",
+    "timeframe": "1h",
+    "source": "twelvedata",
+    "source_symbol": "ZS",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "commodities",
+    "symbol": "soybean",
+    "timeframe": "4h",
+    "source": "twelvedata",
+    "source_symbol": "ZS",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "commodities",
+    "symbol": "soybean",
+    "timeframe": "1d",
+    "source": "twelvedata",
+    "source_symbol": "ZS",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "commodities",
+    "symbol": "cotton",
+    "timeframe": "1h",
+    "source": "twelvedata",
+    "source_symbol": "CT",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "commodities",
+    "symbol": "cotton",
+    "timeframe": "4h",
+    "source": "twelvedata",
+    "source_symbol": "CT",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "commodities",
+    "symbol": "cotton",
+    "timeframe": "1d",
+    "source": "twelvedata",
+    "source_symbol": "CT",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "commodities",
+    "symbol": "sugar",
+    "timeframe": "1h",
+    "source": "twelvedata",
+    "source_symbol": "SB",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "commodities",
+    "symbol": "sugar",
+    "timeframe": "4h",
+    "source": "twelvedata",
+    "source_symbol": "SB",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "commodities",
+    "symbol": "sugar",
+    "timeframe": "1d",
+    "source": "twelvedata",
+    "source_symbol": "SB",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "commodities",
+    "symbol": "coffee",
+    "timeframe": "1h",
+    "source": "twelvedata",
+    "source_symbol": "KC",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "commodities",
+    "symbol": "coffee",
+    "timeframe": "4h",
+    "source": "twelvedata",
+    "source_symbol": "KC",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "commodities",
+    "symbol": "coffee",
+    "timeframe": "1d",
+    "source": "twelvedata",
+    "source_symbol": "KC",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "indices",
+    "symbol": "sp500",
+    "timeframe": "1h",
+    "source": "twelvedata",
+    "source_symbol": "SPX",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "indices",
+    "symbol": "sp500",
+    "timeframe": "4h",
+    "source": "twelvedata",
+    "source_symbol": "SPX",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "indices",
+    "symbol": "sp500",
+    "timeframe": "1d",
+    "source": "twelvedata",
+    "source_symbol": "SPX",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "indices",
+    "symbol": "nasdaq",
+    "timeframe": "1h",
+    "source": "twelvedata",
+    "source_symbol": "IXIC",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "indices",
+    "symbol": "nasdaq",
+    "timeframe": "4h",
+    "source": "twelvedata",
+    "source_symbol": "IXIC",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "indices",
+    "symbol": "nasdaq",
+    "timeframe": "1d",
+    "source": "twelvedata",
+    "source_symbol": "IXIC",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "indices",
+    "symbol": "dowjones",
+    "timeframe": "1h",
+    "source": "twelvedata",
+    "source_symbol": "DJI",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "indices",
+    "symbol": "dowjones",
+    "timeframe": "4h",
+    "source": "twelvedata",
+    "source_symbol": "DJI",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "indices",
+    "symbol": "dowjones",
+    "timeframe": "1d",
+    "source": "twelvedata",
+    "source_symbol": "DJI",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "indices",
+    "symbol": "russell2000",
+    "timeframe": "1h",
+    "source": "twelvedata",
+    "source_symbol": "RUT",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "indices",
+    "symbol": "russell2000",
+    "timeframe": "4h",
+    "source": "twelvedata",
+    "source_symbol": "RUT",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "indices",
+    "symbol": "russell2000",
+    "timeframe": "1d",
+    "source": "twelvedata",
+    "source_symbol": "RUT",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "indices",
+    "symbol": "vix",
+    "timeframe": "1h",
+    "source": "twelvedata",
+    "source_symbol": "VIX",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "indices",
+    "symbol": "vix",
+    "timeframe": "4h",
+    "source": "twelvedata",
+    "source_symbol": "VIX",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "indices",
+    "symbol": "vix",
+    "timeframe": "1d",
+    "source": "twelvedata",
+    "source_symbol": "VIX",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "indices",
+    "symbol": "ftse100",
+    "timeframe": "1h",
+    "source": "twelvedata",
+    "source_symbol": "UKX",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "indices",
+    "symbol": "ftse100",
+    "timeframe": "4h",
+    "source": "twelvedata",
+    "source_symbol": "UKX",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "indices",
+    "symbol": "ftse100",
+    "timeframe": "1d",
+    "source": "twelvedata",
+    "source_symbol": "UKX",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "indices",
+    "symbol": "dax",
+    "timeframe": "1h",
+    "source": "twelvedata",
+    "source_symbol": "DAX",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "indices",
+    "symbol": "dax",
+    "timeframe": "4h",
+    "source": "twelvedata",
+    "source_symbol": "DAX",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "indices",
+    "symbol": "dax",
+    "timeframe": "1d",
+    "source": "twelvedata",
+    "source_symbol": "DAX",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "indices",
+    "symbol": "nikkei225",
+    "timeframe": "1h",
+    "source": "twelvedata",
+    "source_symbol": "NI225",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "indices",
+    "symbol": "nikkei225",
+    "timeframe": "4h",
+    "source": "twelvedata",
+    "source_symbol": "NI225",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "indices",
+    "symbol": "nikkei225",
+    "timeframe": "1d",
+    "source": "twelvedata",
+    "source_symbol": "NI225",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "indices",
+    "symbol": "hang_seng",
+    "timeframe": "1h",
+    "source": "twelvedata",
+    "source_symbol": "HSI",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "indices",
+    "symbol": "hang_seng",
+    "timeframe": "4h",
+    "source": "twelvedata",
+    "source_symbol": "HSI",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "indices",
+    "symbol": "hang_seng",
+    "timeframe": "1d",
+    "source": "twelvedata",
+    "source_symbol": "HSI",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "indices",
+    "symbol": "shanghai",
+    "timeframe": "1h",
+    "source": "twelvedata",
+    "source_symbol": "SSEC",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "indices",
+    "symbol": "shanghai",
+    "timeframe": "4h",
+    "source": "twelvedata",
+    "source_symbol": "SSEC",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "indices",
+    "symbol": "shanghai",
+    "timeframe": "1d",
+    "source": "twelvedata",
+    "source_symbol": "SSEC",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "indices",
+    "symbol": "kospi",
+    "timeframe": "1h",
+    "source": "twelvedata",
+    "source_symbol": "KS11",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "indices",
+    "symbol": "kospi",
+    "timeframe": "4h",
+    "source": "twelvedata",
+    "source_symbol": "KS11",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "indices",
+    "symbol": "kospi",
+    "timeframe": "1d",
+    "source": "twelvedata",
+    "source_symbol": "KS11",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "indices",
+    "symbol": "asx200",
+    "timeframe": "1h",
+    "source": "twelvedata",
+    "source_symbol": "AXJO",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "indices",
+    "symbol": "asx200",
+    "timeframe": "4h",
+    "source": "twelvedata",
+    "source_symbol": "AXJO",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "indices",
+    "symbol": "asx200",
+    "timeframe": "1d",
+    "source": "twelvedata",
+    "source_symbol": "AXJO",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "indices",
+    "symbol": "cac40",
+    "timeframe": "1h",
+    "source": "twelvedata",
+    "source_symbol": "FCHI",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "indices",
+    "symbol": "cac40",
+    "timeframe": "4h",
+    "source": "twelvedata",
+    "source_symbol": "FCHI",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "indices",
+    "symbol": "cac40",
+    "timeframe": "1d",
+    "source": "twelvedata",
+    "source_symbol": "FCHI",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "indices",
+    "symbol": "stoxx50",
+    "timeframe": "1h",
+    "source": "twelvedata",
+    "source_symbol": "STOXX50E",
+    "lookback_days": 730,
+    "enabled": true
+  },
+  {
+    "asset_class": "indices",
+    "symbol": "stoxx50",
+    "timeframe": "4h",
+    "source": "twelvedata",
+    "source_symbol": "STOXX50E",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "indices",
+    "symbol": "stoxx50",
+    "timeframe": "1d",
+    "source": "twelvedata",
+    "source_symbol": "STOXX50E",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "rates",
+    "symbol": "us_10y",
+    "timeframe": "1d",
+    "source": "twelvedata",
+    "source_symbol": "US10Y",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "rates",
+    "symbol": "us_2y",
+    "timeframe": "1d",
+    "source": "twelvedata",
+    "source_symbol": "US02Y",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "rates",
+    "symbol": "us_30y",
+    "timeframe": "1d",
+    "source": "twelvedata",
+    "source_symbol": "US30Y",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "rates",
+    "symbol": "us_5y",
+    "timeframe": "1d",
+    "source": "twelvedata",
+    "source_symbol": "US05Y",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "rates",
+    "symbol": "de_10y",
+    "timeframe": "1d",
+    "source": "twelvedata",
+    "source_symbol": "DE10Y",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "rates",
+    "symbol": "uk_10y",
+    "timeframe": "1d",
+    "source": "twelvedata",
+    "source_symbol": "GB10Y",
+    "lookback_days": 3650,
+    "enabled": true
+  },
+  {
+    "asset_class": "rates",
+    "symbol": "jp_10y",
+    "timeframe": "1d",
+    "source": "twelvedata",
+    "source_symbol": "JP10Y",
     "lookback_days": 3650,
     "enabled": true
   }

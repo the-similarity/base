@@ -2,14 +2,13 @@
 
 ## Git Workflow (MANDATORY)
 1. **NEVER commit directly to `main`.** Always create a feature branch first.
-2. **ALWAYS use a git worktree** when creating a new branch. This prevents branch switching from disrupting other running instances.
+2. You are running inside a **git worktree**. Stay in your worktree directory — do NOT `cd` into other worktrees.
+3. To start a new task, create a feature branch **within your worktree**:
    ```bash
-   # Create a new worktree for your branch (from the main repo):
-   git worktree add /Users/buyantogtokh/Projects/14-<short-name> -b <branch-name>
-   # Then work ONLY inside that worktree directory.
+   git checkout -b feat/<descriptive-name>
    ```
-3. **NEVER run `git checkout` to switch branches** in a shared working directory. If you need a different branch, create a worktree for it.
-4. Commit often with clear messages as you work.
+   This is safe because each worktree is isolated — your branch switch doesn't affect other worktrees.
+4. **Commit granularly** — one logical change per commit. Don't bundle unrelated changes. A new method and its tests = one commit. A config change = separate commit. This makes PRs easy to review and `git bisect` useful.
 5. When the task is DONE:
    ```bash
    python -m pytest the_similarity/tests/ -v          # all tests must pass
@@ -22,13 +21,13 @@
 7. Do NOT add Co-Authored-By trailers to commits.
 
 ## Active Worktrees
-| Directory | Branch | Purpose |
-|-----------|--------|---------|
-| `Projects/14` | `main` | Main repo — do not switch branches here |
-| `Projects/14-forecast` | `feat/enhanced-forecast-cone` | Forecast cone work |
-| `Projects/14-terminal` | `feat/dark-terminal-css` | Terminal UI/CSS |
-| `Projects/14-jupyter` | `feat/jupyter-playground-v3` | Jupyter playground |
-| `Projects/14-todos` | `chore/update-todos-backtester` | Backtester TODOs |
+| Directory | Scope | What goes here |
+|-----------|-------|----------------|
+| `Projects/14` | main | Main repo — coordination, engine core |
+| `Projects/14-front` | frontend | `the-similarity-app/` — Next.js UI |
+| `Projects/14-backend` | backend | `the-similarity-api/`, `the_similarity/` — API + engine |
+| `Projects/14-data` | data | `the-similarity-data/` — datasets, pipelines |
+| `Projects/14-playground` | jupyter | `the-similarity-playground/` — Jupyter notebooks |
 
 ## Parallel Development Rules
 - Multiple Claude Code instances may be running at the same time.
@@ -37,16 +36,29 @@
 - If you encounter merge conflicts, stop and tell the user.
 
 ## Tests
-- 153 tests across 19 test files. All must pass before shipping.
+- 169 tests across 21 test files. All must pass before shipping.
 - Test command: `python -m pytest the_similarity/tests/ -v`
+- Slow tests: `python -m pytest the_similarity/tests/ -v -m slow` (integration backtester tests)
 
 ## Architecture
 - `the_similarity/core/matcher.py` — Full 9-method tiered pipeline (SAX+MASS prefilter → DTW+Pearson → Tier 2 enrichment)
-- `the_similarity/config.py` — All hyperparameters. Default: all 9 methods active.
+- `the_similarity/config.py` — All hyperparameters. Default: all 9 methods active. Includes confidence_decay_rate, koopman_blend_weight.
 - `the_similarity/core/scorer.py` — ScoreBreakdown (9 fields), MatchResult, dynamic weight renormalization
-- `the_similarity/api.py` — Public API: load(), search(), project(), plot()
+- `the_similarity/core/projector.py` — Weighted quantile forecast cone with confidence decay + Koopman blend
+- `the_similarity/core/backtester.py` — Walk-forward backtester with hit_rate, calibration, CRPS
+- `the_similarity/core/feature_store.py` — SQLite-backed cache for Tier 2 methods (opt-in via feature_store param)
+- `the_similarity/core/metrics.py` — Backtest evaluation metrics (hit_rate, MAE, calibration, CRPS)
+- `the_similarity/api.py` — Public API: load(), search(), project(), plot(), backtest()
 - `the_similarity/methods/` — One file per method (bempedelis, dtw, sax, matrix_profile, wavelet_leaders, koopman, emd, tda, transfer_entropy)
 - `the_similarity/core/` — Shared utilities (normalizer, windower, projector, embedding, regime)
+
+## Current State (Phase 1-4 complete, 5a done)
+- All 9 methods implemented and tested (DTW, Pearson, SAX, Matrix Profile, Bempedelis, Koopman, Wavelet, EMD, TDA, Transfer Entropy)
+- Tiered pipeline: SAX+MASS prefilter → DTW+Pearson → Tier 2 enrichment (7 methods) → final rank
+- Koopman forward evolution with eigenvalue clamping
+- Forecast cone with confidence decay + Koopman blend
+- Walk-forward backtester with CRPS, calibration, hit rate
+- SQLite FeatureStore for caching expensive Tier 2 computations
 
 # gstack
 

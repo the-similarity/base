@@ -14,14 +14,14 @@ export function MatchList() {
       {state.loading && <div className="empty-msg">Searching…</div>}
       {state.error && <div className="empty-msg" style={{ color: "var(--negative)" }}>{state.error}</div>}
       {!state.loading && !state.error && state.matches.length === 0 && (
-        <div className="empty-msg">No matches yet.<br />Load data to begin.</div>
+        <div className="empty-msg">No matches yet.<br />Open search to begin.</div>
       )}
 
       {state.matches.length > 0 && (
         <div className="match-list">
           {state.matches.map((match, idx) => (
             <MatchCard
-              key={`${match.label}-${idx}`}
+              key={`${match.startIdx}-${match.endIdx}-${idx}`}
               match={match}
               rank={idx + 1}
               idx={idx}

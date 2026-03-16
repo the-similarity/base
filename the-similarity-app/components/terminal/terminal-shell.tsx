@@ -1,7 +1,9 @@
 "use client";
 import { useEffect } from "react";
 import { useTerminal } from "../../lib/terminal-context";
+import { SplitPane } from "../ui/split-pane";
 import { TopBar } from "./top-bar";
+import { SearchSidebar } from "./search-input";
 import { ChartPanel } from "./chart-panel";
 import { MatchList } from "./match-list";
 import { DetailPanel } from "./detail-panel";
@@ -13,6 +15,7 @@ export function TerminalShell() {
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (e.target instanceof HTMLButtonElement) return;
 
       switch (e.key) {
         case "ArrowDown":
@@ -40,18 +43,42 @@ export function TerminalShell() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [dispatch, state.focusedIdx]);
 
+  const rightPane = state.selectedIdx !== null ? (
+    <SplitPane
+      direction="vertical"
+      defaultRatio={0.55}
+      minRatio={0.2}
+      maxRatio={0.8}
+      first={<MatchList />}
+      second={<DetailPanel />}
+    />
+  ) : (
+    <MatchList />
+  );
+
+  const mainContent = (
+    <SplitPane
+      direction="horizontal"
+      defaultRatio={0.6}
+      minRatio={0.25}
+      maxRatio={0.8}
+      first={<ChartPanel />}
+      second={rightPane}
+    />
+  );
+
   return (
     <div className="terminal">
       <TopBar />
-      <div className="terminal-body">
-        <div className="terminal-left">
-          <ChartPanel />
-        </div>
-        <div className="terminal-right">
-          <MatchList />
-          {state.selectedIdx !== null && <DetailPanel />}
-        </div>
-      </div>
+      <SplitPane
+        direction="horizontal"
+        defaultRatio={0.15}
+        minRatio={0.1}
+        maxRatio={0.3}
+        first={<SearchSidebar />}
+        second={<div className="terminal-main">{mainContent}</div>}
+        className="terminal-body"
+      />
     </div>
   );
 }

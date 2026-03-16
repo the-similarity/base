@@ -24,8 +24,28 @@ jobs:
           pip install -e .
           pip install pytest pytest-cov
 
-      - name: Run tests
+      - name: Run engine tests
         run: python -m pytest the_similarity/tests/ -v
+
+  data-tests:
+    name: Data Package Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          pip install poetry-core
+          pip install -e the-similarity-data/
+          pip install pytest
+
+      - name: Run tests
+        run: python -m pytest the-similarity-data/tests/ -v
 
   frontend-tests:
     name: Frontend Tests

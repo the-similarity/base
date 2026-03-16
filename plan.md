@@ -209,60 +209,147 @@ All 9 methods implemented, wired into `_enrich_tier2()`, and tested (115 tests p
 
 ## Phase 4 — Prediction Engine
 
-### 4a. Koopman forward evolution
-- [ ] Use matched Koopman operator K to evolve query forward: x(t+dt) = K·x(t)
-- [ ] **Clamp eigenvalues to unit disk before evolution** (project |λ| → min(|λ|, 1.0), preserve phase) — prevents divergent forecasts from unstable modes
-- [ ] Uncertainty from eigenvalue matching residuals
-- [ ] Return as separate forecast alongside weighted projection
-- [ ] `forecast.koopman_forecast` field
+### 4a. ~~Koopman forward evolution~~ → DONE
+- [x] `koopman_evolve()` in `methods/koopman.py` — fits Koopman operator, evolves query forward
+- [x] `clamp_eigenvalues()` — projects eigenvalues to unit disk, preserves phase
+- [x] Uncertainty from reconstruction residuals (σ × √t)
+- [x] Returns `KoopmanForecast` with trajectory + uncertainty
+- [x] `Forecast.koopman_forecast` field populated in `api.py:project()`
 
-### 4b. Enhanced forecast cone
-- [x] Percentile bands: 10th, 25th, 50th, 75th, 90th (DONE)
-- [ ] Confidence decay: confidence_score × decay_factor(forward_bars)
-- [ ] Per-match trajectory overlay in visualization
-- [ ] Combine Koopman forecast + weighted historical projection
+### 4b. ~~Enhanced forecast cone~~ → DONE
+- [x] Percentile bands: 10th, 25th, 50th, 75th, 90th
+- [x] Confidence decay: `Config.confidence_decay_rate` scales cone width over forward bars (default 0.0 = no decay)
+- [x] Combine Koopman forecast + weighted historical projection: `Config.koopman_blend_weight` blends Koopman trajectory into P50 (default 0.0 = historical only)
+- [ ] Per-match trajectory overlay in visualization (frontend concern)
 
-### 4c. Backtester / validation framework
-- [ ] Implement `the_similarity.backtest(history, window_size, forward_bars, n_trials)`
-- [ ] **Data leakage guard**: `backtest()` slices `history[:query_start]` before calling `search()` — temporal boundary enforced at the backtester level, not in the engine
-- [ ] **Parallel trials**: `concurrent.futures.ProcessPoolExecutor` with `n_workers` param — trials are independent, 4-8× speedup
-- [ ] For each trial:
-  - Pick random query window
-  - Run search() on `history[:query_start]` (no look-ahead)
-  - Get top-k matches and forward windows
-  - Compute forecast cone
-  - Compare to actual outcome
-- [ ] Output: hit_rate, mean_error, calibration_curve, CRPS
-- [ ] **Deterministic tests per metric**: synthetic data with known outcomes (perfect predictor, always-wrong predictor) → assert exact metric values
-- [ ] Calibration = P90 band contains actual 90% of the time (if not, overconfident)
-- [ ] This is the ground truth for tuning weights and validating the system
+### 4c. ~~Backtester / validation framework~~ → DONE
+- [x] `the_similarity.backtest(history, window_size, forward_bars, n_trials)`
+- [x] Data leakage guard: `history[:query_start]` enforced
+- [x] Parallel trials: `ProcessPoolExecutor` with `n_workers` param, fallback to sequential
+- [x] Walk-forward trials with random query positions, min lookback = 3×window_size
+- [x] Output: `BacktestReport` with hit_rate, mean_error, calibration, CRPS
+- [x] Deterministic tests with synthetic data + integration tests
+- [x] `TrialResult` per trial with skip handling and error reporting
+- [x] 26 tests (23 unit + 3 slow integration)
 
 ---
 
 ## Phase 5 — Production Ready
 
-### 5a. FeatureStore caching
-- [ ] Implement `FeatureStore` class
-- [ ] Key: (dataset_hash, window_start, window_length, method, **params_hash**) — params_hash includes method-specific config (sax segments, alphabet size, etc.) so config changes auto-invalidate
-- [ ] **Backend: SQLite** (not shelve — shelve is not process-safe, and backtester uses ProcessPoolExecutor)
-- [ ] Interface ready for Redis swap
-- [ ] Precompute Tier 1 features on dataset load
-- [ ] search() becomes O(N×lookup + K×compute)
+### 5a. ~~FeatureStore caching~~ → DONE
+- [x] `FeatureStore` class in `core/feature_store.py` — SQLite WAL-mode backend
+- [x] Key: `(dataset_hash, window_start, window_length, method, params_hash)`
+- [x] `dataset_hash()` — sparse O(n/100) SHA-256 hash
+- [x] `params_hash()` — method+config parameter hashing
+- [x] Wired into `_enrich_tier2()` for 5 cached methods: Bempedelis, Koopman, Wavelet, EMD, TDA
+- [x] Opt-in via `search(feature_store=store)` and `backtest(feature_store=store)`
+- [x] Graceful degradation: corrupt DB warns and falls through to compute
+- [x] 14 tests (13 unit + 1 integration)
 
-### 5b. Performance
-- [ ] Profile bottlenecks (DTW loop, Bempedelis optimization)
-- [ ] Parallelize Tier 2 methods across candidates (multiprocessing or joblib)
-- [ ] Vectorize where possible (batch DTW via dtaidistance)
-- [ ] Consider numba for inner loops if needed
+### 5b. ~~Performance~~ → DONE
+- [x] Batch DTW via `dtaidistance.distance_matrix_fast` with `block` parameter — eliminates per-candidate Python loop in Tier 1
+- [x] ThreadPoolExecutor for Tier 2 enrichment — parallel candidate processing (numpy/scipy release GIL)
+- [x] Regression tests verifying batch == sequential to 1e-10
+- [x] Benchmark: DTW+Pearson 0.32s, all 9 methods 1.03s (2000-bar history, stride=3)
 
-### 5c. Cross-timeframe search
-- [ ] Implement `cross_timeframes` parameter in search()
-- [ ] Resample history to each target timeframe
-- [ ] Search each independently, merge results
-- [ ] Deduplicate overlapping matches across timeframes
+### 5c. ~~Cross-timeframe search~~ → DONE
+- [x] `cross_timeframe_search()` in `api.py` — standalone function searching across multiple timeframes
+- [x] `_resample_timeseries()` — resamples TimeSeries to coarser frequencies via pandas `.resample().last()`
+- [x] Query window scaled proportionally (linear interpolation in [0,1] space)
+- [x] `_deduplicate_matches()` — temporal overlap detection with configurable threshold, keeps highest-scoring
+- [x] `MatchResult.source_timeframe` field tracks origin timeframe per match
+- [x] `min_window` guard skips timeframes where scaled query < 10 bars
+- [x] 10 tests (unit + slow integration) in `test_cross_timeframe.py`
 
-### 5d. Documentation & release
-- [ ] Full API reference
-- [ ] Theory document with paper references
-- [ ] Tutorial notebooks
-- [ ] PyPI package
+### 5d. ~~Documentation & release~~ → DONE
+- [x] Full API reference — `docs/API_REFERENCE.md` (all functions, params, examples, data classes)
+- [x] Theory document with paper references — `docs/THEORY.md` (9 methods, scoring, forecasting, backtesting, 16 references)
+- [x] Tutorial notebooks — `docs/tutorials/` (01_quickstart, 02_configuration, 03_backtesting)
+- [x] PyPI package — `pyproject.toml` with classifiers, keywords, extras, test exclusion, MIT LICENSE
+
+---
+
+## Phase 6 — Live Product
+
+### 6a. Real-time streaming pipeline
+- [ ] WebSocket feed ingesting candles from exchanges/brokers (Binance, Polygon, etc.)
+- [ ] Incremental SAX+MASS update as new bars arrive (avoid full recomputation)
+- [ ] Streaming search: re-score top candidates on each new bar, emit events on confidence change
+- [ ] Backpressure handling for multiple concurrent subscriptions
+
+### 6b. Alert system
+- [ ] User-defined watchlists: "notify me when a pattern similar to X appears on Y"
+- [ ] Confidence threshold triggers (e.g., fire when composite > 80)
+- [ ] Notification channels: webhook, email, push
+- [ ] Alert persistence + deduplication (don't fire same pattern repeatedly)
+- [ ] Depends on: 6a (streaming pipeline)
+
+### 6c. Auth & multi-tenancy
+- [ ] JWT authentication with refresh tokens
+- [ ] User accounts in Postgres (watchlists, saved searches, alert configs)
+- [ ] API key management for programmatic access
+- [ ] Rate limiting per tier (free/pro/enterprise)
+- [ ] FeatureStore isolation per user for custom datasets
+
+### 6d. Hosted data pipeline
+- [ ] Ingestion service pulling from market data providers (Polygon, Tiingo, Binance)
+- [ ] Normalize to parquet schema, append-only updates on schedule
+- [ ] Asset coverage target: 500+ assets × 5 timeframes × 10yr history
+- [ ] Data catalog API: available assets, date ranges, freshness metadata
+- [ ] Replace in-repo parquet files with cloud storage (S3/GCS)
+
+---
+
+## Phase 7 — Intelligence Layer
+
+### 7a. Strategy builder
+- [ ] Rule engine: chain pattern match + forecast cone into entry/exit signals
+- [ ] Expose backtester as strategy validation: user-defined rules → walk-forward metrics
+- [ ] Strategy templates (momentum, mean-reversion, breakout) as starting points
+- [ ] No-code strategy editor in frontend
+
+### 7b. Ensemble forecasting
+- [ ] Monte Carlo simulation from match distribution
+- [ ] Regime-conditional projections (trending vs. mean-reverting matches weighted differently)
+- [ ] Conformal prediction intervals for calibrated coverage guarantees
+- [ ] Forecast combination: Koopman + historical quantiles + Monte Carlo → blended cone
+
+### 7c. Portfolio-level analysis
+- [ ] Cross-asset pattern correlation: "last time BTC looked like this, what did ETH do?"
+- [ ] Portfolio regime detection: which assets are in similar regimes right now?
+- [ ] Divergence scanner: find assets whose patterns are decoupling from historical correlations
+- [ ] Leverage existing transfer entropy for cross-asset information flow
+
+### 7d. Explainability layer
+- [ ] Natural language match explanations: which methods drove the score, why this match matters
+- [ ] Per-method contribution breakdown in human-readable form
+- [ ] Historical context: what happened after previous occurrences of this pattern
+- [ ] Confidence calibration commentary: "this confidence level has been accurate X% of the time"
+
+---
+
+## Phase 8 — Platform
+
+### 8a. API-as-a-service
+- [ ] Tiered pricing: free (limited searches, delayed data), pro (real-time, alerts, full methods), enterprise (dedicated compute, SLA)
+- [ ] Usage metering and billing integration
+- [ ] Developer portal with API docs, SDKs (Python, JS), and playground
+- [ ] Compute isolation for enterprise tenants
+
+### 8b. Custom datasets
+- [ ] User-uploaded time series (CSV, API push)
+- [ ] Domain-agnostic: IoT sensors, medical, climate, web traffic — not just financial
+- [ ] Private dataset storage with access controls
+- [ ] Auto-detection of appropriate normalization and method weights per domain
+
+### 8c. Method marketplace
+- [ ] Public method interface specification for community contributions
+- [ ] Plugin registry: researchers submit new Tier 2 scoring methods
+- [ ] Review + benchmarking pipeline: new methods tested against backtester before approval
+- [ ] Revenue share for method contributors
+
+### 8d. Embeddable widget
+- [ ] `<script>` tag drops pattern search + forecast chart into any website
+- [ ] Configurable: asset selector, timeframe picker, chart theme
+- [ ] Partnership integrations with charting platforms (TradingView, etc.)
+- [ ] White-label option for enterprise

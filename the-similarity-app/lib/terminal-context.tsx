@@ -1,10 +1,15 @@
 "use client";
 import { createContext, useContext, useReducer, useEffect, type ReactNode } from "react";
-import type { MatchCard, DashboardData } from "./types";
+import type { MatchResult, DashboardData, SearchResponse, OhlcData } from "./types";
+
+export type ChartMode = "line" | "candle";
 
 export interface TerminalState {
-  matches: MatchCard[];
+  matches: MatchResult[];
+  searchResponse: SearchResponse | null;
   dashboardData: DashboardData | null;
+  ohlcData: OhlcData | null;
+  chartMode: ChartMode;
   loading: boolean;
   error: string | null;
   selectedIdx: number | null;
@@ -15,7 +20,8 @@ export interface TerminalState {
 }
 
 export type Action =
-  | { type: "SET_MATCHES"; matches: MatchCard[] }
+  | { type: "SET_MATCHES"; matches: MatchResult[] }
+  | { type: "SET_SEARCH_RESPONSE"; response: SearchResponse }
   | { type: "SET_DASHBOARD"; data: DashboardData }
   | { type: "SET_LOADING"; loading: boolean }
   | { type: "SET_ERROR"; error: string | null }
@@ -25,11 +31,16 @@ export type Action =
   | { type: "FOCUS_NEXT" }
   | { type: "FOCUS_PREV" }
   | { type: "TOGGLE_METHOD"; method: string }
-  | { type: "TOGGLE_THEME" };
+  | { type: "TOGGLE_THEME" }
+  | { type: "SET_OHLC"; data: OhlcData }
+  | { type: "SET_CHART_MODE"; mode: ChartMode };
 
 const initialState: TerminalState = {
   matches: [],
+  searchResponse: null,
   dashboardData: null,
+  ohlcData: null,
+  chartMode: "candle",
   loading: false,
   error: null,
   selectedIdx: null,
@@ -42,10 +53,21 @@ const initialState: TerminalState = {
   theme: "dark",
 };
 
-function reducer(state: TerminalState, action: Action): TerminalState {
+export function reducer(state: TerminalState, action: Action): TerminalState {
   switch (action.type) {
     case "SET_MATCHES":
       return { ...state, matches: action.matches, loading: false, error: null };
+    case "SET_SEARCH_RESPONSE":
+      return {
+        ...state,
+        searchResponse: action.response,
+        matches: action.response.matches,
+        loading: false,
+        error: null,
+        selectedIdx: null,
+        hoveredIdx: null,
+        focusedIdx: 0,
+      };
     case "SET_DASHBOARD":
       return { ...state, dashboardData: action.data };
     case "SET_LOADING":
@@ -73,6 +95,10 @@ function reducer(state: TerminalState, action: Action): TerminalState {
     }
     case "TOGGLE_THEME":
       return { ...state, theme: state.theme === "dark" ? "light" : "dark" };
+    case "SET_OHLC":
+      return { ...state, ohlcData: action.data };
+    case "SET_CHART_MODE":
+      return { ...state, chartMode: action.mode };
     default:
       return state;
   }

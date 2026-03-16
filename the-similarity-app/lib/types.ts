@@ -97,6 +97,35 @@ export type SearchResponse = {
   forecast: ForecastResult | null;
 };
 
+export type CatalogItem = {
+  assetClass: string;
+  symbol: string;
+  timeframe: string;
+  source: string;
+  rowCount: number;
+  startTimestamp: string | null;
+  endTimestamp: string | null;
+};
+
+export type DatasetSeries = {
+  datasetId: string;
+  column: string;
+  values: number[];
+  dates: string[];
+  rowCount: number;
+};
+
+export type OhlcData = {
+  datasetId: string;
+  open: number[];
+  high: number[];
+  low: number[];
+  close: number[];
+  volume: number[];
+  dates: string[];
+  rowCount: number;
+};
+
 export type SearchRequest = {
   queryValues: number[];
   historyValues: number[];
