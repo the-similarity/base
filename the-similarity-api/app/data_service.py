@@ -108,9 +108,21 @@ def load_series(
         if end_date:
             df = df[df["timestamp"] <= pd.Timestamp(end_date, tz="UTC")]
 
-    # Drop flat bars (market closed / no movement: O=H=L=C)
+    # Drop dead bars: market closed, weekends, or near-zero range
     if all(c in df.columns for c in ("open", "high", "low", "close")):
-        df = df[~((df["open"] == df["high"]) & (df["high"] == df["low"]) & (df["low"] == df["close"]))]
+        price_range = df["high"] - df["low"]
+        mid = df["close"].clip(lower=0.01)
+        pct_range = price_range / mid
+        # Filter: O=H=L=C (exactly flat) OR range < 0.01% of price (effectively dead)
+        dead = ((df["open"] == df["high"]) & (df["high"] == df["low"]) & (df["low"] == df["close"])) | (pct_range < 0.0001)
+        if "timestamp" in df.columns:
+            # Also filter weekend bars for non-24/7 markets
+            weekday = df["timestamp"].dt.dayofweek
+            dead = dead | (weekday >= 5)  # Saturday=5, Sunday=6
+        n_dropped = dead.sum()
+        if n_dropped > 0:
+            logger.info("Dropped %d dead bars from %s", n_dropped, dataset_id)
+        df = df[~dead]
 
     if len(df) > max_points:
         logger.info(
