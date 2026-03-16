@@ -1,10 +1,19 @@
 "use client";
-import { useEffect, useRef } from "react";
-import { createChart, LineSeries, AreaSeries, type IChartApi, type ISeriesApi, type LineData, type AreaData } from "lightweight-charts";
-import { useTerminal } from "../../lib/terminal-context";
+import { useEffect, useRef, useCallback } from "react";
+import {
+  createChart,
+  LineSeries,
+  CandlestickSeries,
+  type IChartApi,
+  type ISeriesApi,
+  type LineData,
+  type CandlestickData,
+} from "lightweight-charts";
+import { useTerminal, type ChartMode } from "../../lib/terminal-context";
 
-/** Normalize `src` into the value range of `target` (preserving shape). */
-function normalizeToRange(src: number[], target: number[]): number[] {
+/** Normalize `src` into the value range of `target` (preserving shape).
+ *  Offset shifts the result down by a fraction of the range (e.g. 0.08 = 8% below). */
+function normalizeToRange(src: number[], target: number[], offset = 0): number[] {
   if (src.length === 0 || target.length === 0) return [];
   const sMin = Math.min(...src);
   const sMax = Math.max(...src);
@@ -12,120 +21,152 @@ function normalizeToRange(src: number[], target: number[]): number[] {
   const tMax = Math.max(...target);
   const sRange = sMax - sMin || 1;
   const tRange = tMax - tMin || 1;
-  return src.map((v) => tMin + ((v - sMin) / sRange) * tRange);
+  const shift = tRange * offset;
+  return src.map((v) => tMin + ((v - sMin) / sRange) * tRange - shift);
 }
 
-/**
- * Convert an index to a synthetic business-day string (YYYY-MM-DD).
- * Lightweight-charts needs real-looking dates, not raw numbers.
- */
-function indexToDate(idx: number): string {
-  const base = new Date(2020, 0, 1); // Jan 1, 2020
-  const d = new Date(base.getTime() + idx * 86400000);
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
+/** Convert ISO timestamp to UTC seconds for lightweight-charts. */
+function isoToUtc(iso: string): number {
+  return Math.floor(new Date(iso).getTime() / 1000);
 }
 
-function toLineData(values: number[], offset = 0): LineData[] {
+/** Fallback: generate synthetic UTC timestamp from index (86400s = 1 day). */
+function indexToUtc(idx: number): number {
+  const base = new Date(2020, 0, 1).getTime() / 1000;
+  return base + idx * 86400;
+}
+
+function timeVal(dates: string[], i: number): LineData["time"] {
+  return (dates[i] ? isoToUtc(dates[i]) : indexToUtc(i)) as unknown as LineData["time"];
+}
+
+function toLineDataWithDates(values: number[], dates: string[]): LineData[] {
   return values.map((value, i) => ({
-    time: indexToDate(offset + i) as unknown as LineData["time"],
+    time: timeVal(dates, i),
     value,
   }));
 }
 
-function toAreaData(values: number[], offset = 0): AreaData[] {
-  return values.map((value, i) => ({
-    time: indexToDate(offset + i) as unknown as AreaData["time"],
-    value,
-  }));
+function toCandleDataWithDates(
+  open: number[], high: number[], low: number[], close: number[], dates: string[],
+): CandlestickData[] {
+  const result: CandlestickData[] = [];
+  for (let i = 0; i < close.length; i++) {
+    // Skip flat bars (market closed: O=H=L=C)
+    if (open[i] === high[i] && high[i] === low[i] && low[i] === close[i]) continue;
+    result.push({
+      time: timeVal(dates, i) as unknown as CandlestickData["time"],
+      open: open[i], high: high[i], low: low[i], close: close[i],
+    });
+  }
+  return result;
+}
+
+/** Generate continuation timestamps by incrementing from the last date. */
+function continuationTimestamps(lastIso: string, count: number, intervalSec: number): number[] {
+  const base = isoToUtc(lastIso);
+  return Array.from({ length: count }, (_, i) => base + (i + 1) * intervalSec);
+}
+
+/** Guess interval in seconds from dates array. */
+function guessInterval(dates: string[]): number {
+  if (dates.length < 2) return 86400;
+  const a = isoToUtc(dates[dates.length - 2]);
+  const b = isoToUtc(dates[dates.length - 1]);
+  return Math.max(b - a, 60); // at least 1 minute
 }
 
 const COLORS = {
   query: "#e8e9ed",
   match: "#818cf8",
-  forecast: "#34d399",
-  forecastFill: "rgba(52, 211, 153, 0.08)",
-  trajectory: "#fbbf24",
+  matchContinuation: "#a78bfa",
   bg: "#08090d",
+  bgLight: "#f8f9fa",
   grid: "rgba(255, 255, 255, 0.04)",
+  gridLight: "rgba(0, 0, 0, 0.06)",
   border: "rgba(255, 255, 255, 0.06)",
+  borderLight: "rgba(0, 0, 0, 0.1)",
   text: "#454857",
+  textLight: "#6b7280",
+  candleUp: "#34d399",
+  candleDown: "#f87171",
 };
 
 export function ChartPanel() {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRefs = useRef<{
-    query?: ISeriesApi<"Line">;
+    queryLine?: ISeriesApi<"Line">;
+    queryCandle?: ISeriesApi<"Candlestick">;
     match?: ISeriesApi<"Line">;
-    forecastP50?: ISeriesApi<"Line">;
-    forecastP90?: ISeriesApi<"Area">;
-    forecastP10?: ISeriesApi<"Area">;
-    trajectory?: ISeriesApi<"Line">;
+    continuation?: ISeriesApi<"Line">;
   }>({});
 
-  const { state } = useTerminal();
+  const { state, dispatch } = useTerminal();
   const sr = state.searchResponse;
   const data = state.dashboardData;
+  const ohlc = state.ohlcData;
+  const chartMode = state.chartMode;
+  const isDark = state.theme === "dark";
+  const isSearching = state.loading;
 
   // ── Resolve data ──
   let query: number[] = [];
   let bestMatch: number[] = [];
-  let fP10: number[] = [];
-  let fP50: number[] = [];
-  let fP90: number[] = [];
   let chartTitle = "Price History";
 
   if (sr) {
     query = sr.queryValues;
     const topMatch = sr.matches[0];
     bestMatch = topMatch?.matchedSeries ?? [];
-    if (sr.forecast) {
-      const curves = sr.forecast.curves;
-      const p50Raw = curves["50"] ?? [];
-      const p10Raw = curves["10"] ?? [];
-      const p90Raw = curves["90"] ?? [];
-      const anchor = query.length > 0 ? query[query.length - 1] : 0;
-      const toPrice = (ret: number) => anchor * (1 + ret);
-      fP10 = p10Raw.length > 0 ? [anchor, ...p10Raw.map(toPrice)] : [];
-      fP50 = p50Raw.length > 0 ? [anchor, ...p50Raw.map(toPrice)] : [];
-      fP90 = p90Raw.length > 0 ? [anchor, ...p90Raw.map(toPrice)] : [];
-    }
     chartTitle = `Search Results · ${sr.matches.length} matches`;
   } else if (data) {
     const range = data.defaultRange;
     const view = data.views[range];
     query = view?.query || [];
     bestMatch = view?.bestMatch || [];
-    const forecast = view?.forecast;
-    if (forecast && query.length > 0) {
-      const anchor = query[query.length - 1];
-      fP10 = [anchor, ...forecast.p10];
-      fP50 = [anchor, ...forecast.p50];
-      fP90 = [anchor, ...forecast.p90];
-    }
     chartTitle = `Price History · ${range}`;
   }
 
   // ── Selected match overlay ──
   const highlightIdx = state.hoveredIdx ?? state.selectedIdx;
   const selectedMatch = highlightIdx !== null ? state.matches[highlightIdx] : null;
-  const trajectory = selectedMatch?.forwardWindow ?? null;
-  const anchor = query.length > 0 ? query[query.length - 1] : 0;
-  const trajSeries = trajectory ? [anchor, ...trajectory.map((r) => anchor * (1 + r))] : [];
-
-  // Selected match's matchedSeries (search mode)
   const selMatchSeries = sr && selectedMatch?.matchedSeries ? selectedMatch.matchedSeries : null;
   const matchToDisplay = selMatchSeries ?? bestMatch;
+  // Offset match 25% below query so it's clearly separated from candles
+  const normalizedMatch = matchToDisplay.length > 1 ? normalizeToRange(matchToDisplay, query, 0.25) : [];
 
-  // Normalize match to query range for shape comparison
-  const normalizedMatch = matchToDisplay.length > 1 ? normalizeToRange(matchToDisplay, query) : [];
+  // Continuation: what happened after the matched pattern
+  // Anchor from the END of the normalized match (so continuation extends the purple line, not the query)
+  const forwardWindow = selectedMatch?.forwardWindow ?? (sr?.matches[0]?.forwardWindow ?? null);
+  const matchAnchor = normalizedMatch.length > 0 ? normalizedMatch[normalizedMatch.length - 1] : 0;
+  const continuationSeries = forwardWindow && matchAnchor !== 0
+    ? [matchAnchor, ...forwardWindow.map((r) => matchAnchor * (1 + r))]
+    : [];
 
-  const fStart = query.length - 1;
+  // ── Full OHLC data for scrollable chart (show history + query + continuation) ──
+  // Show the entire dataset so user can scroll back/forward
+  const hasOhlcData = ohlc && ohlc.close.length > 0 && ohlc.dates.length > 0;
+  const queryLen = query.length;
 
-  // ── Create chart once ──
+  // Dates for the query window (from full OHLC dates, last N entries)
+  const queryDates = hasOhlcData ? ohlc!.dates.slice(-queryLen) : [];
+
+  // Continuation timestamps (extend from last query date)
+  const lastQueryIso = queryDates.length > 0 ? queryDates[queryDates.length - 1] : "";
+  const interval = hasOhlcData ? guessInterval(ohlc!.dates) : 86400;
+  const contTimestamps = lastQueryIso && continuationSeries.length > 1
+    ? [isoToUtc(lastQueryIso), ...continuationTimestamps(lastQueryIso, continuationSeries.length - 1, interval)]
+    : [];
+
+  // Match dates = same as query dates (overlay)
+  const matchDates = queryDates;
+
+  const toggleMode = useCallback(() => {
+    dispatch({ type: "SET_CHART_MODE", mode: chartMode === "line" ? "candle" : "line" });
+  }, [chartMode, dispatch]);
+
+  // ── Create chart ──
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -133,69 +174,55 @@ export function ChartPanel() {
     const chart = createChart(el, {
       autoSize: true,
       layout: {
-        background: { color: COLORS.bg },
-        textColor: COLORS.text,
+        background: { color: isDark ? COLORS.bg : COLORS.bgLight },
+        textColor: isDark ? COLORS.text : COLORS.textLight,
         fontFamily: "'SF Mono', 'Fira Code', monospace",
         fontSize: 10,
       },
       grid: {
-        vertLines: { color: COLORS.grid },
-        horzLines: { color: COLORS.grid },
+        vertLines: { color: isDark ? COLORS.grid : COLORS.gridLight },
+        horzLines: { color: isDark ? COLORS.grid : COLORS.gridLight },
       },
       crosshair: {
-        vertLine: { color: "rgba(255,255,255,0.1)", width: 1, style: 2 },
-        horzLine: { color: "rgba(255,255,255,0.1)", width: 1, style: 2 },
+        vertLine: { color: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)", width: 1, style: 2 },
+        horzLine: { color: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)", width: 1, style: 2 },
       },
       rightPriceScale: {
-        borderColor: COLORS.border,
-        textColor: COLORS.text,
+        borderColor: isDark ? COLORS.border : COLORS.borderLight,
+        textColor: isDark ? COLORS.text : COLORS.textLight,
       },
       timeScale: {
-        borderColor: COLORS.border,
-        timeVisible: false,
-        tickMarkFormatter: () => "",
-        fixLeftEdge: true,
-        fixRightEdge: true,
+        borderColor: isDark ? COLORS.border : COLORS.borderLight,
       },
       handleScroll: true,
       handleScale: true,
     });
     chartRef.current = chart;
 
-    // Forecast p90 area (upper bound)
-    const p90Area = chart.addSeries(AreaSeries, {
-      lineColor: "transparent",
-      topColor: COLORS.forecastFill,
-      bottomColor: "transparent",
-      lineWidth: 1 as const,
-      priceLineVisible: false,
-      crosshairMarkerVisible: false,
-      lastValueVisible: false,
-    });
-
-    // Forecast p10 area (erase below lower bound)
-    const p10Area = chart.addSeries(AreaSeries, {
-      lineColor: "transparent",
-      topColor: COLORS.bg,
-      bottomColor: COLORS.bg,
-      lineWidth: 1 as const,
-      priceLineVisible: false,
-      crosshairMarkerVisible: false,
-      lastValueVisible: false,
-    });
-
-    // Match line (normalized to overlay query)
+    // Match line (normalized, dashed)
     const matchLine = chart.addSeries(LineSeries, {
       color: COLORS.match,
       lineWidth: 1,
-      lineStyle: 2, // dashed
+      lineStyle: 2,
       priceLineVisible: false,
       crosshairMarkerVisible: true,
       crosshairMarkerRadius: 3,
       lastValueVisible: false,
     });
 
-    // Query line
+    // Candlestick series (full dataset)
+    const candleSeries = chart.addSeries(CandlestickSeries, {
+      upColor: COLORS.candleUp,
+      downColor: COLORS.candleDown,
+      borderUpColor: COLORS.candleUp,
+      borderDownColor: COLORS.candleDown,
+      wickUpColor: COLORS.candleUp,
+      wickDownColor: COLORS.candleDown,
+      priceLineVisible: false,
+      lastValueVisible: false,
+    });
+
+    // Query line (used when not in candle mode)
     const queryLine = chart.addSeries(LineSeries, {
       color: COLORS.query,
       lineWidth: 2,
@@ -205,82 +232,92 @@ export function ChartPanel() {
       lastValueVisible: false,
     });
 
-    // Forecast p50 (median)
-    const p50Line = chart.addSeries(LineSeries, {
-      color: COLORS.forecast,
+    // Continuation line
+    const contLine = chart.addSeries(LineSeries, {
+      color: COLORS.matchContinuation,
       lineWidth: 2,
+      lineStyle: 0,
       priceLineVisible: false,
       crosshairMarkerVisible: true,
       crosshairMarkerRadius: 3,
       lastValueVisible: true,
     });
 
-    // Trajectory overlay
-    const trajLine = chart.addSeries(LineSeries, {
-      color: COLORS.trajectory,
-      lineWidth: 2,
-      priceLineVisible: false,
-      crosshairMarkerVisible: true,
-      crosshairMarkerRadius: 3,
-      lastValueVisible: false,
-    });
-
     seriesRefs.current = {
-      query: queryLine,
+      queryLine,
+      queryCandle: candleSeries,
       match: matchLine,
-      forecastP50: p50Line,
-      forecastP90: p90Area,
-      forecastP10: p10Area,
-      trajectory: trajLine,
+      continuation: contLine,
     };
 
     return () => {
       chart.remove();
       chartRef.current = null;
     };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isDark]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Update data ──
   useEffect(() => {
     const s = seriesRefs.current;
-    if (!s.query || query.length < 2) return;
+    if (!s.queryLine || query.length < 2) return;
 
-    s.query.setData(toLineData(query));
+    const useCandles = chartMode === "candle" && hasOhlcData;
 
-    if (normalizedMatch.length > 1) {
-      s.match?.setData(toLineData(normalizedMatch));
+    if (useCandles) {
+      // Show FULL dataset as candles (scrollable history)
+      s.queryCandle?.setData(
+        toCandleDataWithDates(ohlc!.open, ohlc!.high, ohlc!.low, ohlc!.close, ohlc!.dates)
+      );
+      s.queryLine?.setData([]);
+    } else if (hasOhlcData) {
+      // Line mode but with real dates — show full close series
+      s.queryLine?.setData(toLineDataWithDates(ohlc!.close, ohlc!.dates));
+      s.queryCandle?.setData([]);
+    } else {
+      // Fallback: query-only with synthetic dates
+      s.queryLine?.setData(toLineDataWithDates(query, queryDates));
+      s.queryCandle?.setData([]);
+    }
+
+    // Match overlay (aligned to query window dates)
+    if (normalizedMatch.length > 1 && matchDates.length > 0) {
+      s.match?.setData(toLineDataWithDates(normalizedMatch, matchDates));
+    } else if (normalizedMatch.length > 1) {
+      s.match?.setData(toLineDataWithDates(normalizedMatch, []));
     } else {
       s.match?.setData([]);
     }
 
-    if (fP50.length > 1) {
-      s.forecastP50?.setData(toLineData(fP50, fStart));
+    // Continuation (extends past query with generated timestamps)
+    if (continuationSeries.length > 1 && contTimestamps.length > 0) {
+      s.continuation?.setData(continuationSeries.map((value, i) => ({
+        time: contTimestamps[i] as unknown as LineData["time"],
+        value,
+      })));
     } else {
-      s.forecastP50?.setData([]);
+      s.continuation?.setData([]);
     }
 
-    if (fP90.length > 1) {
-      s.forecastP90?.setData(toAreaData(fP90, fStart));
+    // Scroll to show the query window (last N bars + continuation)
+    if (hasOhlcData && queryDates.length > 0) {
+      const ts = chartRef.current?.timeScale();
+      if (ts) {
+        const visibleBarsBack = Math.min(queryLen + 20, ohlc!.close.length);
+        const fromIdx = ohlc!.close.length - visibleBarsBack;
+        const fromUtc = isoToUtc(ohlc!.dates[fromIdx]);
+        const toUtc = contTimestamps.length > 0
+          ? contTimestamps[contTimestamps.length - 1]
+          : isoToUtc(queryDates[queryDates.length - 1]);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (ts as any).setVisibleRange({ from: fromUtc, to: toUtc });
+      }
     } else {
-      s.forecastP90?.setData([]);
+      chartRef.current?.timeScale().fitContent();
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sr, data, ohlc, chartMode, highlightIdx]);
 
-    if (fP10.length > 1) {
-      s.forecastP10?.setData(toAreaData(fP10, fStart));
-    } else {
-      s.forecastP10?.setData([]);
-    }
-
-    if (trajSeries.length > 1) {
-      s.trajectory?.setData(toLineData(trajSeries, fStart));
-    } else {
-      s.trajectory?.setData([]);
-    }
-
-    chartRef.current?.timeScale().fitContent();
-  }, [query, normalizedMatch, fP50, fP10, fP90, trajSeries, fStart]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // ── Legend items ──
+  // ── Legend ──
   const legendItems: { color: string; label: string }[] = [
     { color: COLORS.query, label: "Query" },
   ];
@@ -288,14 +325,11 @@ export function ChartPanel() {
     const matchLabel = sr && highlightIdx !== null ? `Match #${highlightIdx + 1}` : "Best Match";
     legendItems.push({ color: COLORS.match, label: matchLabel });
   }
-  if (fP50.length > 0) {
-    legendItems.push({ color: COLORS.forecast, label: "Forecast" });
-  }
-  if (trajSeries.length > 0) {
-    legendItems.push({ color: COLORS.trajectory, label: "Trajectory" });
+  if (continuationSeries.length > 0) {
+    legendItems.push({ color: COLORS.matchContinuation, label: "Continuation" });
   }
 
-  const isLoading = query.length < 2;
+  const isLoading = query.length < 2 && !isSearching;
 
   return (
     <div className="chart-container">
@@ -305,6 +339,16 @@ export function ChartPanel() {
         <div className="chart-header">
           <span className="chart-title">{chartTitle}</span>
           <div className="chart-legend">
+            {hasOhlcData && (
+              <button
+                type="button"
+                className="chart-mode-toggle"
+                onClick={toggleMode}
+                title={chartMode === "candle" ? "Switch to line" : "Switch to candles"}
+              >
+                {chartMode === "candle" ? "⊞" : "⊟"}
+              </button>
+            )}
             {legendItems.map((item) => (
               <span key={item.label} className="chart-legend-item">
                 <span className="chart-legend-dot" style={{ background: item.color }} />
@@ -314,7 +358,16 @@ export function ChartPanel() {
           </div>
         </div>
       )}
-      <div ref={containerRef} style={{ flex: 1, minHeight: 0, position: "relative", display: isLoading ? "none" : "block" }} />
+      <div
+        ref={containerRef}
+        style={{ flex: 1, minHeight: 0, position: "relative", display: isLoading ? "none" : "block" }}
+      />
+      {isSearching && (
+        <div className="chart-loading-overlay">
+          <div className="chart-loading-spinner" />
+          <span>Searching…</span>
+        </div>
+      )}
     </div>
   );
 }

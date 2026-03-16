@@ -108,6 +108,10 @@ def load_series(
         if end_date:
             df = df[df["timestamp"] <= pd.Timestamp(end_date, tz="UTC")]
 
+    # Drop flat bars (market closed / no movement: O=H=L=C)
+    if all(c in df.columns for c in ("open", "high", "low", "close")):
+        df = df[~((df["open"] == df["high"]) & (df["high"] == df["low"]) & (df["low"] == df["close"]))]
+
     if len(df) > max_points:
         logger.info(
             "Truncating %s from %d to %d points (keeping most recent)",
@@ -123,3 +127,51 @@ def load_series(
         dates = [ts.isoformat() for ts in df["timestamp"]]
 
     return values, dates
+
+
+def load_ohlc(
+    dataset_id: str,
+    start_date: str | None = None,
+    end_date: str | None = None,
+    max_points: int = MAX_HISTORY_POINTS,
+) -> dict[str, list]:
+    """Load OHLC + volume data from a dataset.
+
+    Returns dict with keys: open, high, low, close, volume, dates.
+    """
+    parquet_path = validate_dataset_id(dataset_id)
+
+    try:
+        df = pd.read_parquet(parquet_path)
+    except Exception as exc:
+        raise ValueError(f"Failed to read parquet for {dataset_id}: {exc}") from exc
+
+    required = {"open", "high", "low", "close"}
+    missing = required - set(df.columns)
+    if missing:
+        raise ValueError(f"Missing OHLC columns in {dataset_id}: {missing}")
+
+    if "timestamp" in df.columns:
+        df = df.sort_values("timestamp")
+        if start_date:
+            df = df[df["timestamp"] >= pd.Timestamp(start_date, tz="UTC")]
+        if end_date:
+            df = df[df["timestamp"] <= pd.Timestamp(end_date, tz="UTC")]
+
+    # Drop flat bars (market closed / no movement: O=H=L=C)
+    df = df[~((df["open"] == df["high"]) & (df["high"] == df["low"]) & (df["low"] == df["close"]))]
+
+    if len(df) > max_points:
+        df = df.tail(max_points)
+
+    result: dict[str, list] = {
+        col: df[col].astype(np.float64).tolist() for col in ["open", "high", "low", "close"]
+    }
+    if "volume" in df.columns:
+        result["volume"] = df["volume"].astype(np.float64).tolist()
+    else:
+        result["volume"] = []
+    result["dates"] = (
+        [ts.isoformat() for ts in df["timestamp"]] if "timestamp" in df.columns else []
+    )
+    return result
