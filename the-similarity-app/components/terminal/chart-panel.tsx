@@ -291,34 +291,19 @@ export function ChartPanel() {
       s.match?.setData([]);
     }
 
-    // Continuation (extends past query with generated timestamps)
+    // Continuation (extends past candle data into the future)
     if (continuationSeries.length > 1 && contTimestamps.length > 0) {
-      s.continuation?.setData(continuationSeries.map((value, i) => ({
+      const contData = continuationSeries.map((value, i) => ({
         time: contTimestamps[i] as unknown as LineData["time"],
         value,
-      })));
+      }));
+      s.continuation?.setData(contData);
     } else {
       s.continuation?.setData([]);
     }
 
-    // Scroll to show the query window + continuation with padding
-    if (hasOhlcData && queryDates.length > 0) {
-      const ts = chartRef.current?.timeScale();
-      if (ts) {
-        const visibleBarsBack = Math.min(queryLen + 20, ohlc!.close.length);
-        const fromIdx = ohlc!.close.length - visibleBarsBack;
-        const fromUtc = isoToUtc(ohlc!.dates[fromIdx]);
-        // Add padding past continuation so it's clearly visible
-        const contEnd = contTimestamps.length > 0
-          ? contTimestamps[contTimestamps.length - 1]
-          : isoToUtc(queryDates[queryDates.length - 1]);
-        const toUtc = contEnd + interval * 5; // 5 extra bars of padding
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (ts as any).setVisibleRange({ from: fromUtc, to: toUtc });
-      }
-    } else {
-      chartRef.current?.timeScale().fitContent();
-    }
+    // Only auto-scroll when search results change (not on slider/hover)
+    chartRef.current?.timeScale().fitContent();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sr, data, ohlc, chartMode, highlightIdx, state.forwardBars]);
 
