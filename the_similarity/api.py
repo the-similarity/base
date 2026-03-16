@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from the_similarity.config import Config
 from the_similarity.io.loader import load as _load, TimeSeries
 from the_similarity.core.normalizer import normalize
-from the_similarity.core.matcher import find_matches
+from the_similarity.core.matcher import ProgressCallback, ProgressEvent, find_matches
 from the_similarity.core.scorer import MatchResult
 from the_similarity.core.projector import project as _project, Forecast
 from the_similarity.methods.koopman import koopman_evolve
@@ -61,6 +61,7 @@ def search(
     weights: dict[str, float] | None = None,
     exclude_self: bool = True,
     feature_store=None,
+    progress_fn: ProgressCallback | None = None,
     **kwargs,
 ) -> SearchResults:
     """Search history for patterns similar to query.
@@ -117,6 +118,7 @@ def search(
         exclude_query_region=exclude_region,
         feature_store=feature_store,
         ds_hash=ds_hash,
+        progress_fn=progress_fn,
     )
 
     return SearchResults(matches=matches, query=q_values)
