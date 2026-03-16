@@ -15,9 +15,15 @@ export function DetailPanel() {
   if (state.selectedIdx === null || !state.matches[state.selectedIdx]) return null;
 
   const match = state.matches[state.selectedIdx];
-  const window = match.startDate && match.endDate
-    ? `${match.startDate} → ${match.endDate}`
-    : `[${match.startIdx}–${match.endIdx}]`;
+  const ohlcDates = state.ohlcData?.dates;
+  let window: string;
+  if (match.startDate && match.endDate) {
+    window = `${match.startDate.slice(0, 10)} → ${match.endDate.slice(0, 10)}`;
+  } else if (ohlcDates && ohlcDates[match.startIdx] && ohlcDates[match.endIdx]) {
+    window = `${ohlcDates[match.startIdx].slice(0, 10)} → ${ohlcDates[match.endIdx].slice(0, 10)}`;
+  } else {
+    window = `[${match.startIdx}–${match.endIdx}]`;
+  }
 
   const breakdown = match.scoreBreakdown;
   const entries = Object.entries(breakdown)

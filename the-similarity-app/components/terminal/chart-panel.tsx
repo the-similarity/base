@@ -52,8 +52,10 @@ function toCandleDataWithDates(
 ): CandlestickData[] {
   const result: CandlestickData[] = [];
   for (let i = 0; i < close.length; i++) {
-    // Skip flat bars (market closed: O=H=L=C)
-    if (open[i] === high[i] && high[i] === low[i] && low[i] === close[i]) continue;
+    // Skip dead bars: exactly flat OR range < 0.01% of price
+    const range = high[i] - low[i];
+    const pct = close[i] > 0 ? range / close[i] : 0;
+    if ((open[i] === high[i] && high[i] === low[i] && low[i] === close[i]) || pct < 0.0001) continue;
     result.push({
       time: timeVal(dates, i) as unknown as CandlestickData["time"],
       open: open[i], high: high[i], low: low[i], close: close[i],
@@ -138,10 +140,11 @@ export function ChartPanel() {
 
   // Continuation: what happened after the matched pattern
   // Anchor from the END of the normalized match (so continuation extends the purple line, not the query)
-  const forwardWindow = selectedMatch?.forwardWindow ?? (sr?.matches[0]?.forwardWindow ?? null);
+  const fullForward = selectedMatch?.forwardWindow ?? (sr?.matches[0]?.forwardWindow ?? null);
+  const visibleForward = fullForward ? fullForward.slice(0, state.forwardBars) : null;
   const matchAnchor = normalizedMatch.length > 0 ? normalizedMatch[normalizedMatch.length - 1] : 0;
-  const continuationSeries = forwardWindow && matchAnchor !== 0
-    ? [matchAnchor, ...forwardWindow.map((r) => matchAnchor * (1 + r))]
+  const continuationSeries = visibleForward && matchAnchor !== 0
+    ? [matchAnchor, ...visibleForward.map((r) => matchAnchor * (1 + r))]
     : [];
 
   // ── Full OHLC data for scrollable chart (show history + query + continuation) ──

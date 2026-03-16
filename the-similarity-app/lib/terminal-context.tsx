@@ -10,6 +10,7 @@ export interface TerminalState {
   dashboardData: DashboardData | null;
   ohlcData: OhlcData | null;
   chartMode: ChartMode;
+  forwardBars: number;
   loading: boolean;
   error: string | null;
   selectedIdx: number | null;
@@ -33,7 +34,8 @@ export type Action =
   | { type: "TOGGLE_METHOD"; method: string }
   | { type: "TOGGLE_THEME" }
   | { type: "SET_OHLC"; data: OhlcData }
-  | { type: "SET_CHART_MODE"; mode: ChartMode };
+  | { type: "SET_CHART_MODE"; mode: ChartMode }
+  | { type: "SET_FORWARD_BARS"; bars: number };
 
 const initialState: TerminalState = {
   matches: [],
@@ -41,6 +43,7 @@ const initialState: TerminalState = {
   dashboardData: null,
   ohlcData: null,
   chartMode: "candle",
+  forwardBars: 30,
   loading: false,
   error: null,
   selectedIdx: null,
@@ -99,6 +102,8 @@ export function reducer(state: TerminalState, action: Action): TerminalState {
       return { ...state, ohlcData: action.data };
     case "SET_CHART_MODE":
       return { ...state, chartMode: action.mode };
+    case "SET_FORWARD_BARS":
+      return { ...state, forwardBars: action.bars };
     default:
       return state;
   }

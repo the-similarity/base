@@ -10,6 +10,7 @@ function makeState(overrides?: Partial<TerminalState>): TerminalState {
     dashboardData: null,
     ohlcData: null,
     chartMode: "candle",
+    forwardBars: 30,
     loading: false,
     error: null,
     selectedIdx: null,

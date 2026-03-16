@@ -112,7 +112,7 @@ export function SearchSidebar() {
           historyValues,
           activeMethods: state.activeMethods,
           topK: 20,
-          forwardBars: 50,
+          forwardBars: 200, // fetch max, slider controls display
         },
         controller.signal,
       );
@@ -210,6 +210,7 @@ export function SearchSidebar() {
             onChange={(e) => setQuerySize(Number(e.target.value))}
           />
         </div>
+
 
         {!state.loading ? (
           <button
