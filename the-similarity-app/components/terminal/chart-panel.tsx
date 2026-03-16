@@ -301,16 +301,18 @@ export function ChartPanel() {
       s.continuation?.setData([]);
     }
 
-    // Scroll to show the query window (last N bars + continuation)
+    // Scroll to show the query window + continuation with padding
     if (hasOhlcData && queryDates.length > 0) {
       const ts = chartRef.current?.timeScale();
       if (ts) {
         const visibleBarsBack = Math.min(queryLen + 20, ohlc!.close.length);
         const fromIdx = ohlc!.close.length - visibleBarsBack;
         const fromUtc = isoToUtc(ohlc!.dates[fromIdx]);
-        const toUtc = contTimestamps.length > 0
+        // Add padding past continuation so it's clearly visible
+        const contEnd = contTimestamps.length > 0
           ? contTimestamps[contTimestamps.length - 1]
           : isoToUtc(queryDates[queryDates.length - 1]);
+        const toUtc = contEnd + interval * 5; // 5 extra bars of padding
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (ts as any).setVisibleRange({ from: fromUtc, to: toUtc });
       }
@@ -318,7 +320,7 @@ export function ChartPanel() {
       chartRef.current?.timeScale().fitContent();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sr, data, ohlc, chartMode, highlightIdx]);
+  }, [sr, data, ohlc, chartMode, highlightIdx, state.forwardBars]);
 
   // ── Legend ──
   const legendItems: { color: string; label: string }[] = [
