@@ -311,6 +311,17 @@
     {
       "asset_class": "forex",
       "symbol": "eurusd",
+      "timeframe": "15m",
+      "source": "twelvedata",
+      "path": "data/forex/eurusd/15m.parquet",
+      "start_timestamp": "2025-11-11T23:45:00+00:00",
+      "end_timestamp": "2026-03-15T01:45:00+00:00",
+      "row_count": 10000,
+      "last_updated_at": "2026-03-15T01:56:24.401579+00:00"
+    },
+    {
+      "asset_class": "forex",
+      "symbol": "eurusd",
       "timeframe": "1d",
       "source": "twelvedata",
       "path": "data/forex/eurusd/1d.parquet",

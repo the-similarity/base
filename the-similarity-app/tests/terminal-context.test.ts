@@ -8,6 +8,8 @@ function makeState(overrides?: Partial<TerminalState>): TerminalState {
     matches: [],
     searchResponse: null,
     dashboardData: null,
+    ohlcData: null,
+    chartMode: "candle",
     loading: false,
     error: null,
     selectedIdx: null,

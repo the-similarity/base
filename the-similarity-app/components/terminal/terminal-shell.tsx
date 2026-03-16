@@ -3,7 +3,7 @@ import { useEffect } from "react";
 import { useTerminal } from "../../lib/terminal-context";
 import { SplitPane } from "../ui/split-pane";
 import { TopBar } from "./top-bar";
-import { SearchInput } from "./search-input";
+import { SearchSidebar } from "./search-input";
 import { ChartPanel } from "./chart-panel";
 import { MatchList } from "./match-list";
 import { DetailPanel } from "./detail-panel";
@@ -15,6 +15,7 @@ export function TerminalShell() {
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (e.target instanceof HTMLButtonElement) return;
 
       switch (e.key) {
         case "ArrowDown":
@@ -55,17 +56,27 @@ export function TerminalShell() {
     <MatchList />
   );
 
+  const mainContent = (
+    <SplitPane
+      direction="horizontal"
+      defaultRatio={0.6}
+      minRatio={0.25}
+      maxRatio={0.8}
+      first={<ChartPanel />}
+      second={rightPane}
+    />
+  );
+
   return (
     <div className="terminal">
       <TopBar />
-      <SearchInput />
       <SplitPane
         direction="horizontal"
-        defaultRatio={0.6}
-        minRatio={0.25}
-        maxRatio={0.8}
-        first={<ChartPanel />}
-        second={rightPane}
+        defaultRatio={0.15}
+        minRatio={0.1}
+        maxRatio={0.3}
+        first={<SearchSidebar />}
+        second={<div className="terminal-main">{mainContent}</div>}
         className="terminal-body"
       />
     </div>
