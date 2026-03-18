@@ -302,11 +302,14 @@ All 9 methods implemented, wired into `_enrich_tier2()`, and tested (115 tests p
 
 ## Phase 7 — Intelligence Layer
 
-### 7a. Strategy builder
-- [ ] Rule engine: chain pattern match + forecast cone into entry/exit signals
-- [ ] Expose backtester as strategy validation: user-defined rules → walk-forward metrics
-- [ ] Strategy templates (momentum, mean-reversion, breakout) as starting points
-- [ ] No-code strategy editor in frontend
+### 7a. ~~Strategy builder~~ → DONE
+- [x] `Signal` / `SignalType` / `Rule` / `Strategy` dataclasses for composable trading rules
+- [x] `evaluate_strategy()` — filters matches by confidence, evaluates rules in priority order
+- [x] `validate_strategy_backtest()` — walk-forward strategy validation with win_rate, avg_return, Sharpe
+- [x] 3 built-in templates: `momentum_strategy()`, `mean_reversion_strategy()`, `breakout_strategy()`
+- [x] Stop-loss at P10/P90, take-profit at P75/P25 from forecast cone
+- [x] 11 tests across 3 classes (signal generation, evaluation, backtest)
+- [ ] No-code strategy editor in frontend (deferred to frontend phase)
 
 ### 7b. ~~Ensemble forecasting~~ → DONE
 - [x] `monte_carlo_forecast()` — samples from match distribution with confidence-weighted path selection + volatility-scaled noise
@@ -317,17 +320,21 @@ All 9 methods implemented, wired into `_enrich_tier2()`, and tested (115 tests p
 - [x] `EnsembleForecast` dataclass with component results (MonteCarloResult, RegimeConditionalResult, ConformalResult)
 - [x] 30 tests across 4 test classes (Monte Carlo, Regime, Conformal, Ensemble) — all passing
 
-### 7c. Portfolio-level analysis
-- [ ] Cross-asset pattern correlation: "last time BTC looked like this, what did ETH do?"
-- [ ] Portfolio regime detection: which assets are in similar regimes right now?
-- [ ] Divergence scanner: find assets whose patterns are decoupling from historical correlations
-- [ ] Leverage existing transfer entropy for cross-asset information flow
+### 7c. ~~Portfolio-level analysis~~ → DONE
+- [x] `cross_asset_scan()` — "last time BTC looked like this, what did ETH do?" with correlation + TE + optimal lag
+- [x] `portfolio_regime_scan()` — detect regimes across all assets (Hurst, vol, slope)
+- [x] `divergence_scanner()` — find decorrelating/recorrelating asset pairs
+- [x] `information_flow_network()` — pairwise transfer entropy with net flow direction
+- [x] 15 tests across 4 classes (cross-asset, regime, divergence, information flow)
 
-### 7d. Explainability layer
-- [ ] Natural language match explanations: which methods drove the score, why this match matters
-- [ ] Per-method contribution breakdown in human-readable form
-- [ ] Historical context: what happened after previous occurrences of this pattern
-- [ ] Confidence calibration commentary: "this confidence level has been accurate X% of the time"
+### 7d. ~~Explainability layer~~ → DONE
+- [x] `explain_match()` — per-method contribution breakdown, natural language summary, strengths/weaknesses
+- [x] `explain_forecast()` — direction/magnitude/confidence narrative, risk factors
+- [x] `calibration_commentary()` — maps confidence scores to historical accuracy context
+- [x] `explain_full()` — convenience wrapper combining match + forecast + calibration
+- [x] `MethodContribution` with verdict ("strong"/"moderate"/"weak"/"negligible")
+- [x] 18 tests across 4 classes (match explanation, forecast, calibration, full)
+- [ ] Historical context overlay (deferred — needs persistent match history DB)
 
 ---
 

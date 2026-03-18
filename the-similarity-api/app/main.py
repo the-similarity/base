@@ -178,6 +178,52 @@ def warehouse_freshness() -> list[dict]:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
+@app.post("/warehouse/refresh")
+def warehouse_refresh(
+    asset_class: str | None = Query(None),
+    symbol: str | None = Query(None),
+    timeframe: str | None = Query(None),
+) -> dict:
+    """Trigger a data refresh for matching datasets.
+
+    Refreshes parquet files from external sources and updates the catalog.
+    Filter by asset_class, symbol, and/or timeframe. With no filters,
+    refreshes all enabled datasets.
+    """
+    try:
+        import sys
+        from pathlib import Path
+
+        data_root = _data_root()
+        sys.path.insert(0, str(data_root))
+
+        from the_similarity_data.config import load_dataset_specs
+        from the_similarity_data.refresh import refresh_all_datasets
+
+        specs = load_dataset_specs()
+        results = refresh_all_datasets(
+            specs,
+            asset_class=asset_class,
+            symbol=symbol,
+            timeframe=timeframe,
+        )
+        return {
+            "refreshed": len(results),
+            "datasets": [
+                {
+                    "datasetId": f"{r.asset_class}/{r.symbol}/{r.timeframe}",
+                    "rows": r.row_count,
+                    "start": r.start_timestamp,
+                    "end": r.end_timestamp,
+                }
+                for r in results
+            ],
+        }
+    except Exception as exc:
+        logger.exception("warehouse refresh error")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
 @app.get("/warehouse/search")
 def warehouse_search(
     asset_class: str | None = Query(None),
