@@ -308,11 +308,14 @@ All 9 methods implemented, wired into `_enrich_tier2()`, and tested (115 tests p
 - [ ] Strategy templates (momentum, mean-reversion, breakout) as starting points
 - [ ] No-code strategy editor in frontend
 
-### 7b. Ensemble forecasting
-- [ ] Monte Carlo simulation from match distribution
-- [ ] Regime-conditional projections (trending vs. mean-reverting matches weighted differently)
-- [ ] Conformal prediction intervals for calibrated coverage guarantees
-- [ ] Forecast combination: Koopman + historical quantiles + Monte Carlo → blended cone
+### 7b. ~~Ensemble forecasting~~ → DONE
+- [x] `monte_carlo_forecast()` — samples from match distribution with confidence-weighted path selection + volatility-scaled noise
+- [x] `regime_conditional_forecast()` — detects query regime via DFA/slope/vol, soft-weights incompatible matches (configurable 0-1)
+- [x] `conformal_prediction_intervals()` — split conformal prediction with finite-sample coverage guarantee, per-bar adaptive scaling
+- [x] `ensemble_forecast()` — blends historical + Monte Carlo + regime-conditional with configurable weights, applies conformal intervals
+- [x] Public API: `ensemble_project()` in `api.py`, exported from `__init__.py`
+- [x] `EnsembleForecast` dataclass with component results (MonteCarloResult, RegimeConditionalResult, ConformalResult)
+- [x] 30 tests across 4 test classes (Monte Carlo, Regime, Conformal, Ensemble) — all passing
 
 ### 7c. Portfolio-level analysis
 - [ ] Cross-asset pattern correlation: "last time BTC looked like this, what did ETH do?"
