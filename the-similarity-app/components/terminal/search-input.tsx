@@ -19,6 +19,19 @@ const ASSET_ICONS: Record<string, string> = {
   commodities: "G",
 };
 
+type SearchProgress = {
+  stage: string;
+  completed: number;
+  total: number;
+  topScore: number;
+};
+
+const PROGRESS_STAGES = [
+  { label: "Prefiltering...", duration: 1000 },
+  { label: "Scoring Tier 1...", duration: 2000 },
+  { label: "Enriching Tier 2...", duration: 0 }, // runs until results arrive
+];
+
 export function SearchSidebar() {
   const { state, dispatch } = useTerminal();
   const [catalog, setCatalog] = useState<CatalogItem[]>([]);
@@ -26,7 +39,9 @@ export function SearchSidebar() {
   const [querySize, setQuerySize] = useState(60);
   const [filterText, setFilterText] = useState("");
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(["crypto", "stocks"]));
+  const [progress, setProgress] = useState<SearchProgress | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const progressTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   // Load catalog on mount
   useEffect(() => {
@@ -36,7 +51,10 @@ export function SearchSidebar() {
   }, []);
 
   useEffect(() => {
-    return () => { abortRef.current?.abort(); };
+    return () => {
+      abortRef.current?.abort();
+      progressTimers.current.forEach(clearTimeout);
+    };
   }, []);
 
   // Group catalog by asset class
@@ -73,6 +91,45 @@ export function SearchSidebar() {
     });
   };
 
+  const startProgressSimulation = useCallback(() => {
+    progressTimers.current.forEach(clearTimeout);
+    progressTimers.current = [];
+
+    // Stage 0: Prefiltering
+    setProgress({ stage: PROGRESS_STAGES[0].label, completed: 0, total: 100, topScore: 0 });
+
+    let elapsed = 0;
+    for (let i = 0; i < PROGRESS_STAGES.length; i++) {
+      const stage = PROGRESS_STAGES[i];
+      const timer = setTimeout(() => {
+        const pct = i === 0 ? 25 : i === 1 ? 60 : 85;
+        setProgress((prev) => ({
+          stage: stage.label,
+          completed: pct,
+          total: 100,
+          topScore: prev?.topScore ?? 0,
+        }));
+      }, elapsed);
+      progressTimers.current.push(timer);
+      elapsed += stage.duration;
+      if (stage.duration === 0) break; // tier 2 runs until done
+    }
+  }, []);
+
+  const finishProgress = useCallback((topScore: number) => {
+    progressTimers.current.forEach(clearTimeout);
+    progressTimers.current = [];
+    setProgress({ stage: "Done", completed: 100, total: 100, topScore });
+    const timer = setTimeout(() => setProgress(null), 1500);
+    progressTimers.current.push(timer);
+  }, []);
+
+  const clearProgress = useCallback(() => {
+    progressTimers.current.forEach(clearTimeout);
+    progressTimers.current = [];
+    setProgress(null);
+  }, []);
+
   const handleSearch = useCallback(async () => {
     if (!selectedDataset) {
       dispatch({ type: "SET_ERROR", error: "Select a dataset first." });
@@ -87,12 +144,14 @@ export function SearchSidebar() {
 
     dispatch({ type: "SET_LOADING", loading: true });
     dispatch({ type: "SET_ERROR", error: null });
+    startProgressSimulation();
 
     try {
       const series = await fetchSeries(assetClass, symbol, timeframe);
 
       if (series.values.length < querySize + 10) {
         dispatch({ type: "SET_ERROR", error: `Not enough data (${series.values.length} points, need ${querySize + 10}).` });
+        clearProgress();
         return;
       }
 
@@ -109,17 +168,24 @@ export function SearchSidebar() {
         },
         controller.signal,
       );
+
+      const topScore = response.matches.length > 0
+        ? response.matches[0].confidenceScore
+        : 0;
+      finishProgress(topScore);
       dispatch({ type: "SET_SEARCH_RESPONSE", response });
     } catch (err: unknown) {
+      clearProgress();
       if (err instanceof Error && err.name === "AbortError") return;
       dispatch({ type: "SET_ERROR", error: err instanceof Error ? err.message : "Search failed." });
     }
-  }, [selectedDataset, querySize, state.activeMethods, dispatch]);
+  }, [selectedDataset, querySize, state.activeMethods, dispatch, startProgressSimulation, finishProgress, clearProgress]);
 
   const handleCancel = useCallback(() => {
     abortRef.current?.abort();
+    clearProgress();
     dispatch({ type: "SET_LOADING", loading: false });
-  }, [dispatch]);
+  }, [dispatch, clearProgress]);
 
   return (
     <div className="search-sidebar">
@@ -128,7 +194,7 @@ export function SearchSidebar() {
         <input
           type="text"
           className="search-sidebar__filter-input"
-          placeholder="Filter datasets…"
+          placeholder="Filter datasets\u2026"
           value={filterText}
           onChange={(e) => setFilterText(e.target.value)}
         />
@@ -149,7 +215,7 @@ export function SearchSidebar() {
               </span>
               <span className="search-sidebar__group-count">{items.length}</span>
               <span className={`search-sidebar__chevron ${expandedGroups.has(ac) ? "open" : ""}`}>
-                ›
+                &#x203A;
               </span>
             </button>
             {expandedGroups.has(ac) && (
@@ -203,6 +269,28 @@ export function SearchSidebar() {
             onChange={(e) => setQuerySize(Number(e.target.value))}
           />
         </div>
+
+        {/* Search Progress */}
+        {progress && (
+          <div className="search-progress">
+            <div className="search-progress-stage">
+              <span className={progress.stage !== "Done" ? "search-progress-pulse" : ""}>
+                {progress.stage}
+              </span>
+              {progress.topScore > 0 && (
+                <span className="search-progress-score">
+                  Top: {progress.topScore.toFixed(1)}
+                </span>
+              )}
+            </div>
+            <div className="search-progress-bar">
+              <div
+                className="search-progress-fill"
+                style={{ width: `${(progress.completed / progress.total) * 100}%` }}
+              />
+            </div>
+          </div>
+        )}
 
         {!state.loading ? (
           <button
