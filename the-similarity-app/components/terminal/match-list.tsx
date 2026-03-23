@@ -59,7 +59,7 @@ export function MatchList() {
             <input
               type="range"
               className="search-bar-range"
-              style={{ width: 60 }}
+              style={{ width: 140 }}
               min={5}
               max={200}
               step={5}

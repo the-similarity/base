@@ -890,7 +890,7 @@ button { cursor: pointer; }
 
 .search-bar-range {
   width: 100%;
-  height: 4px;
+  height: 6px;
   border-radius: var(--radius-pill);
   background: var(--bg-inset);
   appearance: none;
@@ -899,12 +899,12 @@ button { cursor: pointer; }
 
 .search-bar-range::-webkit-slider-thumb {
   appearance: none;
-  width: 14px;
-  height: 14px;
+  width: 18px;
+  height: 18px;
   border-radius: 50%;
   background: var(--accent);
   border: 2px solid var(--bg-elevated);
-  box-shadow: 0 0 6px var(--accent-glow);
+  box-shadow: 0 0 8px var(--accent-glow);
   cursor: pointer;
 }
 

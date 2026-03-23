@@ -175,25 +175,25 @@ export function ChartPanel() {
     const chart = createChart(el, {
       autoSize: true,
       layout: {
-        background: { color: isDark ? COLORS.bg : COLORS.bgLight },
-        textColor: isDark ? COLORS.text : COLORS.textLight,
+        background: { color: COLORS.bg },
+        textColor: COLORS.text,
         fontFamily: "'SF Mono', 'Fira Code', monospace",
         fontSize: 10,
       },
       grid: {
-        vertLines: { color: isDark ? COLORS.grid : COLORS.gridLight },
-        horzLines: { color: isDark ? COLORS.grid : COLORS.gridLight },
+        vertLines: { color: COLORS.grid },
+        horzLines: { color: COLORS.grid },
       },
       crosshair: {
-        vertLine: { color: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)", width: 1, style: 2 },
-        horzLine: { color: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)", width: 1, style: 2 },
+        vertLine: { color: "rgba(255,255,255,0.1)", width: 1, style: 2 },
+        horzLine: { color: "rgba(255,255,255,0.1)", width: 1, style: 2 },
       },
       rightPriceScale: {
-        borderColor: isDark ? COLORS.border : COLORS.borderLight,
-        textColor: isDark ? COLORS.text : COLORS.textLight,
+        borderColor: COLORS.border,
+        textColor: COLORS.text,
       },
       timeScale: {
-        borderColor: isDark ? COLORS.border : COLORS.borderLight,
+        borderColor: COLORS.border,
       },
       handleScroll: true,
       handleScale: true,
@@ -255,7 +255,14 @@ export function ChartPanel() {
       chart.remove();
       chartRef.current = null;
     };
-  }, [isDark]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Update chart background on theme change ──
+  useEffect(() => {
+    chartRef.current?.applyOptions({
+      layout: { background: { color: isDark ? COLORS.bg : COLORS.bgLight } },
+    });
+  }, [isDark]);
 
   // ── Update query/OHLC data + auto-fit (only on real data changes) ──
   useEffect(() => {
