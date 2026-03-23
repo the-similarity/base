@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import FastAPI, HTTPException, Query, WebSocket
+from fastapi import Depends, FastAPI, HTTPException, Query, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 
 from the_similarity.contracts.api import DashboardDataResponse, SearchRequest, SearchResponse
@@ -14,6 +14,7 @@ from app.settings import settings
 from app.streaming import handle_search_stream, handle_watch_stream
 from app.auth_routes import router as auth_router
 from app.alert_routes import router as alert_router
+from app.auth_deps import get_current_user
 
 logger = logging.getLogger(__name__)
 
@@ -183,6 +184,7 @@ def warehouse_refresh(
     asset_class: str | None = Query(None),
     symbol: str | None = Query(None),
     timeframe: str | None = Query(None),
+    _user=Depends(get_current_user),
 ) -> dict:
     """Trigger a data refresh for matching datasets.
 

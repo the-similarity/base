@@ -36,7 +36,7 @@
 - If you encounter merge conflicts, stop and tell the user.
 
 ## Tests
-- 169 tests across 21 test files. All must pass before shipping.
+- 315 tests across 28 test files. All must pass before shipping.
 - Test command: `python -m pytest the_similarity/tests/ -v`
 - Slow tests: `python -m pytest the_similarity/tests/ -v -m slow` (integration backtester tests)
 

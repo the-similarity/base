@@ -15,7 +15,7 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 class RegisterRequest(BaseModel):
     email: str = Field(..., min_length=3)
-    password: str = Field(..., min_length=8)
+    password: str = Field(..., min_length=8, max_length=1024)
 
 class LoginRequest(BaseModel):
     email: str
