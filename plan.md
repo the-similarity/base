@@ -363,3 +363,38 @@ All 9 methods implemented, wired into `_enrich_tier2()`, and tested (115 tests p
 - [ ] Configurable: asset selector, timeframe picker, chart theme
 - [ ] Partnership integrations with charting platforms (TradingView, etc.)
 - [ ] White-label option for enterprise
+
+---
+
+## GSTACK REVIEW REPORT
+
+| Review | Trigger | Why | Runs | Status | Findings |
+|--------|---------|-----|------|--------|----------|
+| CEO Review | `/plan-ceo-review` | Scope & strategy | 1 | clean | 1 critical gap (no user validation), 10 auto-decisions |
+| Eng Review | `/plan-eng-review` | Architecture & tests | 1 | clean | 7 edge case test gaps, DRY violation noted |
+| Codex Review | `/codex review` | Independent 2nd opinion | 0 | skipped | No OPENAI_API_KEY |
+| Design Review | `/plan-design-review` | UI/UX gaps | 0 | skipped | "Ship what exists" = no new UI |
+
+**VERDICT:** APPROVED via `/autoplan` — 16 auto-decisions, 1 taste decision (edge case tests, approved). Design doc: "Ship What You Have" at `~/.gstack/projects/the-similarity-base/`. Next: `/ship` when ready.
+
+<!-- AUTONOMOUS DECISION LOG -->
+## Decision Audit Trail
+
+| # | Phase | Decision | Principle | Rationale | Rejected |
+|---|-------|----------|-----------|-----------|----------|
+| 1 | CEO | Mode: SELECTIVE EXPANSION | P1+P2 | Complete review with cherry-picked expansions | SCOPE EXPANSION, HOLD SCOPE |
+| 2 | CEO | Plan sequencing wrong — ship first | P6 | No users means infrastructure is premature | Following Phase 6→8 as-is |
+| 3 | CEO | Accept 9 methods | P3 | Methods exist, work, tested. Ablation validates later | Reducing methods |
+| 4 | CEO | Phase 6-8 gated behind validation | P6 | Pre-product startup needs user feedback | Building Phase 6 immediately |
+| 5 | CEO | Expand: Dockerfile + docker-compose | P2 | In blast radius, <1 day CC, required for shipping | Deferring deployment |
+| 6 | CEO | Expand: Method ablation framework | P2 | In blast radius, validates core premise | Deferring validation |
+| 7 | CEO | Expand: Plan hygiene (stale numbers) | P5 | Plan says 115 tests, actual 315+ | Leaving stale data |
+| 8 | CEO | Add backtester results to plan | P1 | Core premise needs empirical evidence | Leaving unvalidated |
+| 9 | CEO | Add financial disclaimers note | P5 | Regulatory risk for prediction tools | Ignoring compliance |
+| 10 | CEO | Add success criteria to plan | P1 | No metrics = no way to know if product works | Shipping without metrics |
+| 11 | CEO | Skip Design Review phase | P3 | "Ship what exists" = no new UI | Running full design review |
+| 12 | Eng | Architecture: coupling is clean | P5 | Phase 7 modules import from primitives, no circular deps | N/A |
+| 13 | Eng | _enrich_tier2() DRY stays in TODOS | P4 | 7 repetitive blocks, working and tested. Refactor after ship | Refactoring now |
+| 14 | Eng | Bare except:pass needs logging for prod | P5 | Silent failures lose observability | Ignoring silent failures |
+| 15 | Eng | 7 edge case tests identified | P1 | Coverage gaps in strategy/ensemble/portfolio/explainer | Skipping edge case tests |
+| 16 | Eng | Performance: PASS for batch mode | P3 | 1.03s all 9 methods is fast enough | Optimizing before validation |
