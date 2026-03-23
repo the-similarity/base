@@ -260,6 +260,7 @@ class AuthManager:
         Raises:
             ValueError: If email already exists.
         """
+        email = email.strip().lower()
         salt = secrets.token_hex(16)
         pw_hash = _hash_password(password, salt)
         now = time.time()
@@ -282,6 +283,7 @@ class AuthManager:
 
     def authenticate(self, email: str, password: str) -> User | None:
         """Authenticate by email + password. Returns User or None."""
+        email = email.strip().lower()
         conn = self._connect()
         try:
             row = conn.execute(

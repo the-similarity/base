@@ -200,12 +200,9 @@ def acknowledge_alert(
     user: User = Depends(get_current_user),
     mgr: AlertManager = Depends(get_alert_manager),
 ) -> Response:
-    """Acknowledge an alert."""
-    # Verify alert belongs to user
-    alerts = mgr.list_alerts(user.id, limit=1000)
-    if not any(a.id == alert_id for a in alerts):
+    """Acknowledge an alert (atomic ownership check + update)."""
+    if not mgr.acknowledge_alert(alert_id, user_id=user.id):
         raise HTTPException(status_code=404, detail="Alert not found")
-    mgr.acknowledge_alert(alert_id)
     return Response(status_code=204)
 
 

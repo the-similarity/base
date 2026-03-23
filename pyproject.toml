@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "the-similarity"
-version = "0.1.0"
+version = "0.2.0"
 description = "Research-grade time series pattern matching and prediction using 9 mathematical methods"
 authors = ["Buyantogtokh"]
 license = "MIT"

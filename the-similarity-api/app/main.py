@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import FastAPI, HTTPException, Query, WebSocket
+from fastapi import Depends, FastAPI, HTTPException, Query, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 
 from the_similarity.contracts.api import DashboardDataResponse, SearchRequest, SearchResponse
@@ -14,6 +14,7 @@ from app.settings import settings
 from app.streaming import handle_search_stream, handle_watch_stream
 from app.auth_routes import router as auth_router
 from app.alert_routes import router as alert_router
+from app.auth_deps import get_current_user
 
 logger = logging.getLogger(__name__)
 
@@ -204,6 +205,53 @@ def warehouse_freshness() -> list[dict]:
         return wh.freshness_report()
     except Exception as exc:
         logger.exception("warehouse freshness error")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@app.post("/warehouse/refresh")
+def warehouse_refresh(
+    asset_class: str | None = Query(None),
+    symbol: str | None = Query(None),
+    timeframe: str | None = Query(None),
+    _user=Depends(get_current_user),
+) -> dict:
+    """Trigger a data refresh for matching datasets.
+
+    Refreshes parquet files from external sources and updates the catalog.
+    Filter by asset_class, symbol, and/or timeframe. With no filters,
+    refreshes all enabled datasets.
+    """
+    try:
+        import sys
+        from pathlib import Path
+
+        data_root = _data_root()
+        sys.path.insert(0, str(data_root))
+
+        from the_similarity_data.config import load_dataset_specs
+        from the_similarity_data.refresh import refresh_all_datasets
+
+        specs = load_dataset_specs()
+        results = refresh_all_datasets(
+            specs,
+            asset_class=asset_class,
+            symbol=symbol,
+            timeframe=timeframe,
+        )
+        return {
+            "refreshed": len(results),
+            "datasets": [
+                {
+                    "datasetId": f"{r.asset_class}/{r.symbol}/{r.timeframe}",
+                    "rows": r.row_count,
+                    "start": r.start_timestamp,
+                    "end": r.end_timestamp,
+                }
+                for r in results
+            ],
+        }
+    except Exception as exc:
+        logger.exception("warehouse refresh error")
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
