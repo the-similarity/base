@@ -18,6 +18,7 @@ export interface TerminalState {
   focusedIdx: number;
   activeMethods: string[];
   theme: "dark" | "light";
+  activeDataset: string | null; // "assetClass/symbol/timeframe"
 }
 
 export type Action =
@@ -35,7 +36,8 @@ export type Action =
   | { type: "TOGGLE_THEME" }
   | { type: "SET_OHLC"; data: OhlcData }
   | { type: "SET_CHART_MODE"; mode: ChartMode }
-  | { type: "SET_FORWARD_BARS"; bars: number };
+  | { type: "SET_FORWARD_BARS"; bars: number }
+  | { type: "SET_ACTIVE_DATASET"; dataset: string | null };
 
 const initialState: TerminalState = {
   matches: [],
@@ -54,6 +56,7 @@ const initialState: TerminalState = {
     "koopman", "wavelet_spectrum", "emd", "tda", "transfer_entropy",
   ],
   theme: "dark",
+  activeDataset: null,
 };
 
 export function reducer(state: TerminalState, action: Action): TerminalState {
@@ -104,6 +107,8 @@ export function reducer(state: TerminalState, action: Action): TerminalState {
       return { ...state, chartMode: action.mode };
     case "SET_FORWARD_BARS":
       return { ...state, forwardBars: action.bars };
+    case "SET_ACTIVE_DATASET":
+      return { ...state, activeDataset: action.dataset };
     default:
       return state;
   }

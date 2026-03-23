@@ -138,8 +138,7 @@ export function ChartPanel() {
   // Offset match 25% below query so it's clearly separated from candles
   const normalizedMatch = matchToDisplay.length > 1 ? normalizeToRange(matchToDisplay, query, 0.25) : [];
 
-  // Continuation: what happened after the matched pattern
-  // Anchor from the END of the normalized match (so continuation extends the purple line, not the query)
+  // Forward window: what happened after the matched pattern
   const fullForward = selectedMatch?.forwardWindow ?? (sr?.matches[0]?.forwardWindow ?? null);
   const visibleForward = fullForward ? fullForward.slice(0, state.forwardBars) : null;
   const matchAnchor = normalizedMatch.length > 0 ? normalizedMatch[normalizedMatch.length - 1] : 0;
@@ -147,15 +146,14 @@ export function ChartPanel() {
     ? [matchAnchor, ...visibleForward.map((r) => matchAnchor * (1 + r))]
     : [];
 
-  // ── Full OHLC data for scrollable chart (show history + query + continuation) ──
-  // Show the entire dataset so user can scroll back/forward
+  // ── Full OHLC data for scrollable chart ──
   const hasOhlcData = ohlc && ohlc.close.length > 0 && ohlc.dates.length > 0;
   const queryLen = query.length;
 
   // Dates for the query window (from full OHLC dates, last N entries)
   const queryDates = hasOhlcData ? ohlc!.dates.slice(-queryLen) : [];
 
-  // Continuation timestamps (extend from last query date)
+  // Timestamps for continuation (extend past the last candle)
   const lastQueryIso = queryDates.length > 0 ? queryDates[queryDates.length - 1] : "";
   const interval = hasOhlcData ? guessInterval(ohlc!.dates) : 86400;
   const contTimestamps = lastQueryIso && continuationSeries.length > 1
@@ -259,7 +257,7 @@ export function ChartPanel() {
     };
   }, [isDark]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Update data ──
+  // ── Update query/OHLC data + auto-fit (only on real data changes) ──
   useEffect(() => {
     const s = seriesRefs.current;
     if (!s.queryLine || query.length < 2) return;
@@ -267,45 +265,52 @@ export function ChartPanel() {
     const useCandles = chartMode === "candle" && hasOhlcData;
 
     if (useCandles) {
-      // Show FULL dataset as candles (scrollable history)
       s.queryCandle?.setData(
         toCandleDataWithDates(ohlc!.open, ohlc!.high, ohlc!.low, ohlc!.close, ohlc!.dates)
       );
       s.queryLine?.setData([]);
     } else if (hasOhlcData) {
-      // Line mode but with real dates — show full close series
       s.queryLine?.setData(toLineDataWithDates(ohlc!.close, ohlc!.dates));
       s.queryCandle?.setData([]);
     } else {
-      // Fallback: query-only with synthetic dates
       s.queryLine?.setData(toLineDataWithDates(query, queryDates));
       s.queryCandle?.setData([]);
     }
 
-    // Match overlay (aligned to query window dates)
-    if (normalizedMatch.length > 1 && matchDates.length > 0) {
-      s.match?.setData(toLineDataWithDates(normalizedMatch, matchDates));
-    } else if (normalizedMatch.length > 1) {
-      s.match?.setData(toLineDataWithDates(normalizedMatch, []));
-    } else {
-      s.match?.setData([]);
-    }
-
-    // Continuation (extends past candle data into the future)
-    if (continuationSeries.length > 1 && contTimestamps.length > 0) {
-      const contData = continuationSeries.map((value, i) => ({
-        time: contTimestamps[i] as unknown as LineData["time"],
-        value,
-      }));
-      s.continuation?.setData(contData);
-    } else {
-      s.continuation?.setData([]);
-    }
-
-    // Only auto-scroll when search results change (not on slider/hover)
+    // Auto-fit ONLY when search results or OHLC data change
     chartRef.current?.timeScale().fitContent();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sr, data, ohlc, chartMode, highlightIdx, state.forwardBars]);
+  }, [sr, data, ohlc, chartMode]);
+
+  // ── Update match overlay + continuation (no zoom reset) ──
+  useEffect(() => {
+    const s = seriesRefs.current;
+
+    // Match overlay (purple dashed line over query window)
+    if (s.match) {
+      if (normalizedMatch.length > 1 && matchDates.length > 0) {
+        s.match.setData(toLineDataWithDates(normalizedMatch, matchDates));
+      } else if (normalizedMatch.length > 1) {
+        s.match.setData(toLineDataWithDates(normalizedMatch, []));
+      } else {
+        s.match.setData([]);
+      }
+    }
+
+    // Continuation line (extends past the last candle into the future)
+    if (s.continuation) {
+      if (continuationSeries.length > 1 && contTimestamps.length > 0) {
+        const contData = continuationSeries.map((value, i) => ({
+          time: contTimestamps[i] as unknown as LineData["time"],
+          value,
+        }));
+        s.continuation.setData(contData);
+      } else {
+        s.continuation.setData([]);
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [highlightIdx, state.forwardBars]);
 
   // ── Legend ──
   const legendItems: { color: string; label: string }[] = [
@@ -316,7 +321,7 @@ export function ChartPanel() {
     legendItems.push({ color: COLORS.match, label: matchLabel });
   }
   if (continuationSeries.length > 0) {
-    legendItems.push({ color: COLORS.matchContinuation, label: "Continuation" });
+    legendItems.push({ color: COLORS.matchContinuation, label: `FWD ${continuationSeries.length - 1}` });
   }
 
   const isLoading = query.length < 2 && !isSearching;

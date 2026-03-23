@@ -18,6 +18,7 @@ function makeState(overrides?: Partial<TerminalState>): TerminalState {
     focusedIdx: 0,
     activeMethods: ["dtw", "pearson_warped"],
     theme: "dark",
+    activeDataset: null,
     ...overrides,
   };
 }

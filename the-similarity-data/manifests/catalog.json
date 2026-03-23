@@ -4,12 +4,12 @@
       "asset_class": "commodities",
       "symbol": "gold",
       "timeframe": "1d",
-      "source": "stooq",
+      "source": "twelvedata",
       "path": "data/commodities/gold/1d.parquet",
-      "start_timestamp": "2016-03-21T00:00:00+00:00",
-      "end_timestamp": "2026-03-18T00:00:00+00:00",
-      "row_count": 2579,
-      "last_updated_at": "2026-03-18T19:11:20.018275+00:00"
+      "start_timestamp": "2005-02-25T00:00:00+00:00",
+      "end_timestamp": "2026-03-23T00:00:00+00:00",
+      "row_count": 5573,
+      "last_updated_at": "2026-03-23T19:28:21.542854+00:00"
     },
     {
       "asset_class": "commodities",
@@ -17,10 +17,10 @@
       "timeframe": "1h",
       "source": "twelvedata",
       "path": "data/commodities/gold/1h.parquet",
-      "start_timestamp": "2024-03-18T19:11:17.704671+00:00",
-      "end_timestamp": "2026-03-18T18:11:17.704671+00:00",
-      "row_count": 17520,
-      "last_updated_at": "2026-03-18T19:11:20.708582+00:00"
+      "start_timestamp": "2023-11-24T03:00:00+00:00",
+      "end_timestamp": "2026-03-23T19:00:00+00:00",
+      "row_count": 15210,
+      "last_updated_at": "2026-03-23T19:28:15.804475+00:00"
     },
     {
       "asset_class": "commodities",
@@ -28,10 +28,10 @@
       "timeframe": "4h",
       "source": "twelvedata",
       "path": "data/commodities/gold/4h.parquet",
-      "start_timestamp": "2020-03-19T19:11:17.704671+00:00",
-      "end_timestamp": "2026-03-18T15:11:17.704671+00:00",
-      "row_count": 13140,
-      "last_updated_at": "2026-03-18T19:11:20.296563+00:00"
+      "start_timestamp": "2020-01-24T00:00:00+00:00",
+      "end_timestamp": "2026-03-23T16:00:00+00:00",
+      "row_count": 10000,
+      "last_updated_at": "2026-03-23T19:28:20.757894+00:00"
     },
     {
       "asset_class": "commodities",
@@ -296,17 +296,6 @@
       "end_timestamp": "2026-03-16T04:00:00+00:00",
       "row_count": 8721,
       "last_updated_at": "2026-03-16T06:08:27.474117+00:00"
-    },
-    {
-      "asset_class": "forex",
-      "symbol": "eurusd",
-      "timeframe": "15m",
-      "source": "twelvedata",
-      "path": "data/forex/eurusd/15m.parquet",
-      "start_timestamp": "2025-11-11T23:45:00+00:00",
-      "end_timestamp": "2026-03-15T01:45:00+00:00",
-      "row_count": 10000,
-      "last_updated_at": "2026-03-15T01:56:24.401579+00:00"
     },
     {
       "asset_class": "forex",
