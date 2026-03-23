@@ -1,11 +1,16 @@
 "use client";
 import { createContext, useContext, useReducer, useEffect, type ReactNode } from "react";
-import type { MatchResult, DashboardData, SearchResponse } from "./types";
+import type { MatchResult, DashboardData, SearchResponse, OhlcData } from "./types";
+
+export type ChartMode = "line" | "candle";
 
 export interface TerminalState {
   matches: MatchResult[];
   searchResponse: SearchResponse | null;
   dashboardData: DashboardData | null;
+  ohlcData: OhlcData | null;
+  chartMode: ChartMode;
+  forwardBars: number;
   loading: boolean;
   error: string | null;
   selectedIdx: number | null;
@@ -27,12 +32,18 @@ export type Action =
   | { type: "FOCUS_NEXT" }
   | { type: "FOCUS_PREV" }
   | { type: "TOGGLE_METHOD"; method: string }
-  | { type: "TOGGLE_THEME" };
+  | { type: "TOGGLE_THEME" }
+  | { type: "SET_OHLC"; data: OhlcData }
+  | { type: "SET_CHART_MODE"; mode: ChartMode }
+  | { type: "SET_FORWARD_BARS"; bars: number };
 
 const initialState: TerminalState = {
   matches: [],
   searchResponse: null,
   dashboardData: null,
+  ohlcData: null,
+  chartMode: "candle",
+  forwardBars: 30,
   loading: false,
   error: null,
   selectedIdx: null,
@@ -87,6 +98,12 @@ export function reducer(state: TerminalState, action: Action): TerminalState {
     }
     case "TOGGLE_THEME":
       return { ...state, theme: state.theme === "dark" ? "light" : "dark" };
+    case "SET_OHLC":
+      return { ...state, ohlcData: action.data };
+    case "SET_CHART_MODE":
+      return { ...state, chartMode: action.mode };
+    case "SET_FORWARD_BARS":
+      return { ...state, forwardBars: action.bars };
     default:
       return state;
   }

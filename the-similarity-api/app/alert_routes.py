@@ -4,7 +4,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel, Field
 
 from the_similarity.core.alerts import AlertManager, Watchlist
@@ -155,17 +155,18 @@ def update_watchlist(
     return _watchlist_to_response(updated)
 
 
-@router.delete("/watchlists/{watchlist_id}", status_code=204)
+@router.delete("/watchlists/{watchlist_id}", status_code=204, response_class=Response)
 def delete_watchlist(
     watchlist_id: str,
     user: User = Depends(get_current_user),
     mgr: AlertManager = Depends(get_alert_manager),
-) -> None:
+) -> Response:
     """Delete a watchlist and all its alerts."""
     wl = mgr.get_watchlist(watchlist_id)
     if wl is None or wl.user_id != user.id:
         raise HTTPException(status_code=404, detail="Watchlist not found")
     mgr.delete_watchlist(watchlist_id)
+    return Response(status_code=204)
 
 
 # ---- Alert endpoints ----
@@ -193,15 +194,16 @@ def alert_count(
     return AlertCountResponse(total=total, unacknowledged=unack)
 
 
-@router.post("/{alert_id}/ack", status_code=204)
+@router.post("/{alert_id}/ack", status_code=204, response_class=Response)
 def acknowledge_alert(
     alert_id: str,
     user: User = Depends(get_current_user),
     mgr: AlertManager = Depends(get_alert_manager),
-) -> None:
+) -> Response:
     """Acknowledge an alert (atomic ownership check + update)."""
     if not mgr.acknowledge_alert(alert_id, user_id=user.id):
         raise HTTPException(status_code=404, detail="Alert not found")
+    return Response(status_code=204)
 
 
 # ---- Helpers ----

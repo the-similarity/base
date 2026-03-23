@@ -12,6 +12,28 @@ logger = logging.getLogger(__name__)
 
 MAX_HISTORY_POINTS = 10_000
 
+
+def _drop_dead_bars(df: pd.DataFrame, dataset_id: str) -> pd.DataFrame:
+    """Remove bars with no meaningful price movement (weekends, stale fills)."""
+    if not all(c in df.columns for c in ("open", "high", "low", "close")):
+        return df
+    price_range = df["high"] - df["low"]
+    mid = df["close"].clip(lower=0.01)
+    pct_range = price_range / mid
+    # Exact flat (O=H=L=C) or near-zero range (<0.01% of price)
+    dead = (
+        ((df["open"] == df["high"]) & (df["high"] == df["low"]) & (df["low"] == df["close"]))
+        | (pct_range < 0.0001)
+    )
+    # Weekend filter for non-crypto (crypto trades 24/7)
+    is_crypto = "crypto" in dataset_id.lower()
+    if "timestamp" in df.columns and not is_crypto:
+        dead = dead | (df["timestamp"].dt.dayofweek >= 5)
+    n_dropped = dead.sum()
+    if n_dropped > 0:
+        logger.info("Dropped %d dead bars from %s", n_dropped, dataset_id)
+    return df[~dead]
+
 _DATA_ROOT = Path(__file__).resolve().parents[2] / "the-similarity-data"
 
 
@@ -108,6 +130,8 @@ def load_series(
         if end_date:
             df = df[df["timestamp"] <= pd.Timestamp(end_date, tz="UTC")]
 
+    df = _drop_dead_bars(df, dataset_id)
+
     if len(df) > max_points:
         logger.info(
             "Truncating %s from %d to %d points (keeping most recent)",
@@ -123,3 +147,50 @@ def load_series(
         dates = [ts.isoformat() for ts in df["timestamp"]]
 
     return values, dates
+
+
+def load_ohlc(
+    dataset_id: str,
+    start_date: str | None = None,
+    end_date: str | None = None,
+    max_points: int = MAX_HISTORY_POINTS,
+) -> dict[str, list]:
+    """Load OHLC + volume data from a dataset.
+
+    Returns dict with keys: open, high, low, close, volume, dates.
+    """
+    parquet_path = validate_dataset_id(dataset_id)
+
+    try:
+        df = pd.read_parquet(parquet_path)
+    except Exception as exc:
+        raise ValueError(f"Failed to read parquet for {dataset_id}: {exc}") from exc
+
+    required = {"open", "high", "low", "close"}
+    missing = required - set(df.columns)
+    if missing:
+        raise ValueError(f"Missing OHLC columns in {dataset_id}: {missing}")
+
+    if "timestamp" in df.columns:
+        df = df.sort_values("timestamp")
+        if start_date:
+            df = df[df["timestamp"] >= pd.Timestamp(start_date, tz="UTC")]
+        if end_date:
+            df = df[df["timestamp"] <= pd.Timestamp(end_date, tz="UTC")]
+
+    df = _drop_dead_bars(df, dataset_id)
+
+    if len(df) > max_points:
+        df = df.tail(max_points)
+
+    result: dict[str, list] = {
+        col: df[col].astype(np.float64).tolist() for col in ["open", "high", "low", "close"]
+    }
+    if "volume" in df.columns:
+        result["volume"] = df["volume"].astype(np.float64).tolist()
+    else:
+        result["volume"] = []
+    result["dates"] = (
+        [ts.isoformat() for ts in df["timestamp"]] if "timestamp" in df.columns else []
+    )
+    return result
