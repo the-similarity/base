@@ -4,12 +4,12 @@
       "asset_class": "commodities",
       "symbol": "gold",
       "timeframe": "1d",
-      "source": "twelvedata",
+      "source": "stooq",
       "path": "data/commodities/gold/1d.parquet",
       "start_timestamp": "2005-02-25T00:00:00+00:00",
-      "end_timestamp": "2026-03-24T00:00:00+00:00",
-      "row_count": 5574,
-      "last_updated_at": "2026-03-23T22:13:22.312220+00:00"
+      "end_timestamp": "2026-03-20T00:00:00+00:00",
+      "row_count": 5299,
+      "last_updated_at": "2026-03-23T06:43:08.913493+00:00"
     },
     {
       "asset_class": "commodities",
@@ -18,9 +18,9 @@
       "source": "twelvedata",
       "path": "data/commodities/gold/1h.parquet",
       "start_timestamp": "2023-11-24T03:00:00+00:00",
-      "end_timestamp": "2026-03-23T22:00:00+00:00",
-      "row_count": 15213,
-      "last_updated_at": "2026-03-23T22:13:16.514408+00:00"
+      "end_timestamp": "2026-03-23T19:00:00+00:00",
+      "row_count": 15210,
+      "last_updated_at": "2026-03-23T19:30:43.425541+00:00"
     },
     {
       "asset_class": "commodities",
@@ -29,9 +29,20 @@
       "source": "twelvedata",
       "path": "data/commodities/gold/4h.parquet",
       "start_timestamp": "2020-01-24T00:00:00+00:00",
-      "end_timestamp": "2026-03-23T20:00:00+00:00",
-      "row_count": 10001,
-      "last_updated_at": "2026-03-23T22:13:21.521859+00:00"
+      "end_timestamp": "2026-03-23T16:00:00+00:00",
+      "row_count": 10000,
+      "last_updated_at": "2026-03-23T19:31:54.689536+00:00"
+    },
+    {
+      "asset_class": "commodities",
+      "symbol": "gold",
+      "timeframe": "5m",
+      "source": "twelvedata",
+      "path": "data/commodities/gold/5m.parquet",
+      "start_timestamp": "2026-01-13T16:30:00+00:00",
+      "end_timestamp": "2026-03-24T03:30:00+00:00",
+      "row_count": 20000,
+      "last_updated_at": "2026-03-24T03:34:38.301298+00:00"
     },
     {
       "asset_class": "commodities",
@@ -40,9 +51,9 @@
       "source": "stooq",
       "path": "data/commodities/oil/1d.parquet",
       "start_timestamp": "2006-04-10T00:00:00+00:00",
-      "end_timestamp": "2026-03-13T00:00:00+00:00",
-      "row_count": 5012,
-      "last_updated_at": "2026-03-15T01:14:37.901720+00:00"
+      "end_timestamp": "2026-03-20T00:00:00+00:00",
+      "row_count": 5017,
+      "last_updated_at": "2026-03-23T06:43:14.040515+00:00"
     },
     {
       "asset_class": "commodities",
@@ -51,9 +62,9 @@
       "source": "twelvedata",
       "path": "data/commodities/oil/1h.parquet",
       "start_timestamp": "2023-05-04T13:30:00+00:00",
-      "end_timestamp": "2026-03-13T19:30:00+00:00",
-      "row_count": 5000,
-      "last_updated_at": "2026-03-15T02:01:00.630722+00:00"
+      "end_timestamp": "2026-03-23T19:30:00+00:00",
+      "row_count": 5042,
+      "last_updated_at": "2026-03-23T19:36:42.156551+00:00"
     },
     {
       "asset_class": "commodities",
@@ -62,9 +73,9 @@
       "source": "twelvedata",
       "path": "data/commodities/oil/4h.parquet",
       "start_timestamp": "2019-06-20T12:00:00+00:00",
-      "end_timestamp": "2026-03-13T17:30:00+00:00",
-      "row_count": 3528,
-      "last_updated_at": "2026-03-15T02:02:06.482188+00:00"
+      "end_timestamp": "2026-03-23T17:30:00+00:00",
+      "row_count": 3540,
+      "last_updated_at": "2026-03-23T19:37:51.013234+00:00"
     },
     {
       "asset_class": "commodities",
@@ -73,9 +84,9 @@
       "source": "stooq",
       "path": "data/commodities/silver/1d.parquet",
       "start_timestamp": "2006-04-28T00:00:00+00:00",
-      "end_timestamp": "2026-03-13T00:00:00+00:00",
-      "row_count": 4999,
-      "last_updated_at": "2026-03-15T01:14:36.372342+00:00"
+      "end_timestamp": "2026-03-20T00:00:00+00:00",
+      "row_count": 5004,
+      "last_updated_at": "2026-03-23T06:43:11.434236+00:00"
     },
     {
       "asset_class": "crypto",
@@ -84,9 +95,9 @@
       "source": "ccxt",
       "path": "data/crypto/btc_usdt/15m.parquet",
       "start_timestamp": "2025-03-16T06:15:00+00:00",
-      "end_timestamp": "2026-03-16T06:00:00+00:00",
-      "row_count": 35040,
-      "last_updated_at": "2026-03-16T06:06:04.177100+00:00"
+      "end_timestamp": "2026-03-23T06:30:00+00:00",
+      "row_count": 35714,
+      "last_updated_at": "2026-03-23T06:44:09.876404+00:00"
     },
     {
       "asset_class": "crypto",
@@ -95,9 +106,9 @@
       "source": "ccxt",
       "path": "data/crypto/btc_usdt/1d.parquet",
       "start_timestamp": "2019-09-23T00:00:00+00:00",
-      "end_timestamp": "2026-03-16T00:00:00+00:00",
-      "row_count": 2367,
-      "last_updated_at": "2026-03-16T06:06:17.842869+00:00"
+      "end_timestamp": "2026-03-23T00:00:00+00:00",
+      "row_count": 2374,
+      "last_updated_at": "2026-03-23T06:44:23.419365+00:00"
     },
     {
       "asset_class": "crypto",
@@ -106,9 +117,9 @@
       "source": "ccxt",
       "path": "data/crypto/btc_usdt/1h.parquet",
       "start_timestamp": "2021-03-17T07:00:00+00:00",
-      "end_timestamp": "2026-03-16T06:00:00+00:00",
-      "row_count": 43786,
-      "last_updated_at": "2026-03-16T06:06:13.283933+00:00"
+      "end_timestamp": "2026-03-23T06:00:00+00:00",
+      "row_count": 43954,
+      "last_updated_at": "2026-03-23T06:44:19.514867+00:00"
     },
     {
       "asset_class": "crypto",
@@ -117,9 +128,9 @@
       "source": "ccxt",
       "path": "data/crypto/btc_usdt/1m.parquet",
       "start_timestamp": "2025-12-16T06:06:00+00:00",
-      "end_timestamp": "2026-03-16T06:05:00+00:00",
-      "row_count": 129600,
-      "last_updated_at": "2026-03-16T06:05:56.807930+00:00"
+      "end_timestamp": "2026-03-23T06:44:00+00:00",
+      "row_count": 139719,
+      "last_updated_at": "2026-03-23T06:44:02.828694+00:00"
     },
     {
       "asset_class": "crypto",
@@ -128,9 +139,9 @@
       "source": "ccxt",
       "path": "data/crypto/btc_usdt/4h.parquet",
       "start_timestamp": "2019-09-23T08:00:00+00:00",
-      "end_timestamp": "2026-03-16T04:00:00+00:00",
-      "row_count": 14190,
-      "last_updated_at": "2026-03-16T06:06:16.618107+00:00"
+      "end_timestamp": "2026-03-23T04:00:00+00:00",
+      "row_count": 14232,
+      "last_updated_at": "2026-03-23T06:44:22.607396+00:00"
     },
     {
       "asset_class": "crypto",
@@ -139,9 +150,9 @@
       "source": "ccxt",
       "path": "data/crypto/eth_usdt/15m.parquet",
       "start_timestamp": "2025-03-16T06:15:00+00:00",
-      "end_timestamp": "2026-03-16T06:00:00+00:00",
-      "row_count": 35040,
-      "last_updated_at": "2026-03-16T06:06:50.157725+00:00"
+      "end_timestamp": "2026-03-23T06:30:00+00:00",
+      "row_count": 35714,
+      "last_updated_at": "2026-03-23T06:44:53.576843+00:00"
     },
     {
       "asset_class": "crypto",
@@ -150,9 +161,9 @@
       "source": "ccxt",
       "path": "data/crypto/eth_usdt/1d.parquet",
       "start_timestamp": "2019-09-23T00:00:00+00:00",
-      "end_timestamp": "2026-03-16T00:00:00+00:00",
-      "row_count": 2367,
-      "last_updated_at": "2026-03-16T06:07:04.107920+00:00"
+      "end_timestamp": "2026-03-23T00:00:00+00:00",
+      "row_count": 2374,
+      "last_updated_at": "2026-03-23T06:45:05.937120+00:00"
     },
     {
       "asset_class": "crypto",
@@ -161,9 +172,9 @@
       "source": "ccxt",
       "path": "data/crypto/eth_usdt/1h.parquet",
       "start_timestamp": "2021-03-17T07:00:00+00:00",
-      "end_timestamp": "2026-03-16T06:00:00+00:00",
-      "row_count": 43786,
-      "last_updated_at": "2026-03-16T06:06:59.090292+00:00"
+      "end_timestamp": "2026-03-23T06:00:00+00:00",
+      "row_count": 43954,
+      "last_updated_at": "2026-03-23T06:45:01.751553+00:00"
     },
     {
       "asset_class": "crypto",
@@ -172,9 +183,9 @@
       "source": "ccxt",
       "path": "data/crypto/eth_usdt/1m.parquet",
       "start_timestamp": "2025-12-16T06:07:00+00:00",
-      "end_timestamp": "2026-03-16T06:06:00+00:00",
-      "row_count": 129600,
-      "last_updated_at": "2026-03-16T06:06:43.292127+00:00"
+      "end_timestamp": "2026-03-23T06:44:00+00:00",
+      "row_count": 139718,
+      "last_updated_at": "2026-03-23T06:44:46.619231+00:00"
     },
     {
       "asset_class": "crypto",
@@ -183,9 +194,9 @@
       "source": "ccxt",
       "path": "data/crypto/eth_usdt/4h.parquet",
       "start_timestamp": "2019-09-23T08:00:00+00:00",
-      "end_timestamp": "2026-03-16T04:00:00+00:00",
-      "row_count": 14190,
-      "last_updated_at": "2026-03-16T06:07:03.124295+00:00"
+      "end_timestamp": "2026-03-23T04:00:00+00:00",
+      "row_count": 14232,
+      "last_updated_at": "2026-03-23T06:45:05.068154+00:00"
     },
     {
       "asset_class": "crypto",
@@ -194,9 +205,9 @@
       "source": "ccxt",
       "path": "data/crypto/sol_usdt/15m.parquet",
       "start_timestamp": "2025-03-16T06:15:00+00:00",
-      "end_timestamp": "2026-03-16T06:00:00+00:00",
-      "row_count": 35040,
-      "last_updated_at": "2026-03-16T06:07:36.268036+00:00"
+      "end_timestamp": "2026-03-23T06:45:00+00:00",
+      "row_count": 35715,
+      "last_updated_at": "2026-03-23T06:45:36.406420+00:00"
     },
     {
       "asset_class": "crypto",
@@ -205,9 +216,9 @@
       "source": "ccxt",
       "path": "data/crypto/sol_usdt/1d.parquet",
       "start_timestamp": "2020-09-18T00:00:00+00:00",
-      "end_timestamp": "2026-03-16T00:00:00+00:00",
-      "row_count": 2006,
-      "last_updated_at": "2026-03-16T06:07:50.012853+00:00"
+      "end_timestamp": "2026-03-23T00:00:00+00:00",
+      "row_count": 2013,
+      "last_updated_at": "2026-03-23T06:45:48.853960+00:00"
     },
     {
       "asset_class": "crypto",
@@ -216,9 +227,9 @@
       "source": "ccxt",
       "path": "data/crypto/sol_usdt/1h.parquet",
       "start_timestamp": "2021-03-17T07:00:00+00:00",
-      "end_timestamp": "2026-03-16T06:00:00+00:00",
-      "row_count": 43786,
-      "last_updated_at": "2026-03-16T06:07:45.371892+00:00"
+      "end_timestamp": "2026-03-23T06:00:00+00:00",
+      "row_count": 43954,
+      "last_updated_at": "2026-03-23T06:45:44.965151+00:00"
     },
     {
       "asset_class": "crypto",
@@ -227,9 +238,9 @@
       "source": "ccxt",
       "path": "data/crypto/sol_usdt/1m.parquet",
       "start_timestamp": "2025-12-16T06:08:00+00:00",
-      "end_timestamp": "2026-03-16T06:07:00+00:00",
-      "row_count": 129600,
-      "last_updated_at": "2026-03-16T06:07:28.638651+00:00"
+      "end_timestamp": "2026-03-23T06:45:00+00:00",
+      "row_count": 139718,
+      "last_updated_at": "2026-03-23T06:45:29.465147+00:00"
     },
     {
       "asset_class": "crypto",
@@ -238,9 +249,9 @@
       "source": "ccxt",
       "path": "data/crypto/sol_usdt/4h.parquet",
       "start_timestamp": "2020-09-18T12:00:00+00:00",
-      "end_timestamp": "2026-03-16T04:00:00+00:00",
-      "row_count": 12027,
-      "last_updated_at": "2026-03-16T06:07:48.832523+00:00"
+      "end_timestamp": "2026-03-23T04:00:00+00:00",
+      "row_count": 12069,
+      "last_updated_at": "2026-03-23T06:45:47.863550+00:00"
     },
     {
       "asset_class": "crypto",
@@ -249,9 +260,9 @@
       "source": "ccxt",
       "path": "data/crypto/xrp_usdt/15m.parquet",
       "start_timestamp": "2025-03-16T06:15:00+00:00",
-      "end_timestamp": "2026-03-16T06:00:00+00:00",
-      "row_count": 35040,
-      "last_updated_at": "2026-03-16T06:08:20.162444+00:00"
+      "end_timestamp": "2026-03-23T06:45:00+00:00",
+      "row_count": 35715,
+      "last_updated_at": "2026-03-23T06:46:19.538454+00:00"
     },
     {
       "asset_class": "crypto",
@@ -260,9 +271,9 @@
       "source": "ccxt",
       "path": "data/crypto/xrp_usdt/1d.parquet",
       "start_timestamp": "2019-09-23T00:00:00+00:00",
-      "end_timestamp": "2026-03-16T00:00:00+00:00",
-      "row_count": 1456,
-      "last_updated_at": "2026-03-16T06:08:28.909513+00:00"
+      "end_timestamp": "2026-03-23T00:00:00+00:00",
+      "row_count": 1463,
+      "last_updated_at": "2026-03-23T06:46:28.003694+00:00"
     },
     {
       "asset_class": "crypto",
@@ -271,9 +282,9 @@
       "source": "ccxt",
       "path": "data/crypto/xrp_usdt/1h.parquet",
       "start_timestamp": "2023-07-14T13:00:00+00:00",
-      "end_timestamp": "2026-03-16T06:00:00+00:00",
-      "row_count": 23418,
-      "last_updated_at": "2026-03-16T06:08:25.338885+00:00"
+      "end_timestamp": "2026-03-23T06:00:00+00:00",
+      "row_count": 23586,
+      "last_updated_at": "2026-03-23T06:46:24.248507+00:00"
     },
     {
       "asset_class": "crypto",
@@ -282,9 +293,9 @@
       "source": "ccxt",
       "path": "data/crypto/xrp_usdt/1m.parquet",
       "start_timestamp": "2025-12-16T06:08:00+00:00",
-      "end_timestamp": "2026-03-16T06:08:00+00:00",
-      "row_count": 129601,
-      "last_updated_at": "2026-03-16T06:08:13.320154+00:00"
+      "end_timestamp": "2026-03-23T06:46:00+00:00",
+      "row_count": 139719,
+      "last_updated_at": "2026-03-23T06:46:12.477539+00:00"
     },
     {
       "asset_class": "crypto",
@@ -293,9 +304,9 @@
       "source": "ccxt",
       "path": "data/crypto/xrp_usdt/4h.parquet",
       "start_timestamp": "2019-09-23T08:00:00+00:00",
-      "end_timestamp": "2026-03-16T04:00:00+00:00",
-      "row_count": 8721,
-      "last_updated_at": "2026-03-16T06:08:27.474117+00:00"
+      "end_timestamp": "2026-03-23T04:00:00+00:00",
+      "row_count": 8763,
+      "last_updated_at": "2026-03-23T06:46:27.029710+00:00"
     },
     {
       "asset_class": "forex",
@@ -303,10 +314,10 @@
       "timeframe": "15m",
       "source": "twelvedata",
       "path": "data/forex/eurusd/15m.parquet",
-      "start_timestamp": "2025-11-11T23:45:00+00:00",
-      "end_timestamp": "2026-03-15T01:45:00+00:00",
-      "row_count": 10000,
-      "last_updated_at": "2026-03-15T01:56:24.401579+00:00"
+      "start_timestamp": "2025-09-11T10:00:00+00:00",
+      "end_timestamp": "2026-03-23T17:15:00+00:00",
+      "row_count": 15000,
+      "last_updated_at": "2026-03-23T17:22:29.700220+00:00"
     },
     {
       "asset_class": "forex",
@@ -315,9 +326,9 @@
       "source": "twelvedata",
       "path": "data/forex/eurusd/1d.parquet",
       "start_timestamp": "2007-02-06T00:00:00+00:00",
-      "end_timestamp": "2026-03-15T00:00:00+00:00",
-      "row_count": 5000,
-      "last_updated_at": "2026-03-15T01:15:58.720850+00:00"
+      "end_timestamp": "2026-03-23T00:00:00+00:00",
+      "row_count": 5008,
+      "last_updated_at": "2026-03-23T19:19:12.409125+00:00"
     },
     {
       "asset_class": "forex",
@@ -326,9 +337,9 @@
       "source": "twelvedata",
       "path": "data/forex/eurusd/1h.parquet",
       "start_timestamp": "2023-11-01T05:00:00+00:00",
-      "end_timestamp": "2026-03-15T01:00:00+00:00",
-      "row_count": 15000,
-      "last_updated_at": "2026-03-15T01:15:53.856806+00:00"
+      "end_timestamp": "2026-03-23T17:00:00+00:00",
+      "row_count": 15208,
+      "last_updated_at": "2026-03-23T17:22:20.019771+00:00"
     },
     {
       "asset_class": "forex",
@@ -337,9 +348,9 @@
       "source": "twelvedata",
       "path": "data/forex/eurusd/4h.parquet",
       "start_timestamp": "2020-01-30T04:00:00+00:00",
-      "end_timestamp": "2026-03-15T00:00:00+00:00",
-      "row_count": 9894,
-      "last_updated_at": "2026-03-15T01:15:58.161259+00:00"
+      "end_timestamp": "2026-03-23T16:00:00+00:00",
+      "row_count": 9946,
+      "last_updated_at": "2026-03-23T17:22:24.219374+00:00"
     },
     {
       "asset_class": "forex",
@@ -348,9 +359,9 @@
       "source": "twelvedata",
       "path": "data/forex/gbpjpy/1d.parquet",
       "start_timestamp": "2007-05-25T00:00:00+00:00",
-      "end_timestamp": "2026-03-15T00:00:00+00:00",
-      "row_count": 5000,
-      "last_updated_at": "2026-03-15T01:49:09.158947+00:00"
+      "end_timestamp": "2026-03-23T00:00:00+00:00",
+      "row_count": 5008,
+      "last_updated_at": "2026-03-23T19:25:35.872523+00:00"
     },
     {
       "asset_class": "forex",
@@ -359,9 +370,9 @@
       "source": "twelvedata",
       "path": "data/forex/gbpjpy/1h.parquet",
       "start_timestamp": "2023-10-31T21:00:00+00:00",
-      "end_timestamp": "2026-03-15T01:00:00+00:00",
-      "row_count": 15000,
-      "last_updated_at": "2026-03-15T01:49:04.513797+00:00"
+      "end_timestamp": "2026-03-23T19:00:00+00:00",
+      "row_count": 15210,
+      "last_updated_at": "2026-03-23T19:25:29.755624+00:00"
     },
     {
       "asset_class": "forex",
@@ -370,9 +381,9 @@
       "source": "twelvedata",
       "path": "data/forex/gbpjpy/4h.parquet",
       "start_timestamp": "2020-01-29T00:00:00+00:00",
-      "end_timestamp": "2026-03-15T00:00:00+00:00",
-      "row_count": 9905,
-      "last_updated_at": "2026-03-15T01:49:08.529229+00:00"
+      "end_timestamp": "2026-03-23T16:00:00+00:00",
+      "row_count": 9957,
+      "last_updated_at": "2026-03-23T19:25:34.721469+00:00"
     },
     {
       "asset_class": "forex",
@@ -380,10 +391,10 @@
       "timeframe": "15m",
       "source": "twelvedata",
       "path": "data/forex/gbpusd/15m.parquet",
-      "start_timestamp": "2025-11-11T20:00:00+00:00",
-      "end_timestamp": "2026-03-15T01:45:00+00:00",
-      "row_count": 10000,
-      "last_updated_at": "2026-03-15T01:57:35.123509+00:00"
+      "start_timestamp": "2025-09-11T04:45:00+00:00",
+      "end_timestamp": "2026-03-23T19:15:00+00:00",
+      "row_count": 15000,
+      "last_updated_at": "2026-03-23T19:19:26.573106+00:00"
     },
     {
       "asset_class": "forex",
@@ -392,9 +403,9 @@
       "source": "twelvedata",
       "path": "data/forex/gbpusd/1d.parquet",
       "start_timestamp": "2007-03-09T00:00:00+00:00",
-      "end_timestamp": "2026-03-15T00:00:00+00:00",
-      "row_count": 5000,
-      "last_updated_at": "2026-03-15T01:47:33.683034+00:00"
+      "end_timestamp": "2026-03-23T00:00:00+00:00",
+      "row_count": 5008,
+      "last_updated_at": "2026-03-23T19:25:12.224103+00:00"
     },
     {
       "asset_class": "forex",
@@ -403,9 +414,9 @@
       "source": "twelvedata",
       "path": "data/forex/gbpusd/1h.parquet",
       "start_timestamp": "2023-11-02T11:00:00+00:00",
-      "end_timestamp": "2026-03-15T01:00:00+00:00",
-      "row_count": 15000,
-      "last_updated_at": "2026-03-15T01:47:30.626607+00:00"
+      "end_timestamp": "2026-03-23T19:00:00+00:00",
+      "row_count": 15210,
+      "last_updated_at": "2026-03-23T19:19:30.233518+00:00"
     },
     {
       "asset_class": "forex",
@@ -414,9 +425,9 @@
       "source": "twelvedata",
       "path": "data/forex/gbpusd/4h.parquet",
       "start_timestamp": "2020-01-30T12:00:00+00:00",
-      "end_timestamp": "2026-03-15T00:00:00+00:00",
-      "row_count": 9905,
-      "last_updated_at": "2026-03-15T01:47:32.977454+00:00"
+      "end_timestamp": "2026-03-23T16:00:00+00:00",
+      "row_count": 9957,
+      "last_updated_at": "2026-03-23T19:19:31.830241+00:00"
     },
     {
       "asset_class": "forex",
@@ -425,9 +436,9 @@
       "source": "twelvedata",
       "path": "data/forex/usdjpy/1d.parquet",
       "start_timestamp": "2007-04-25T00:00:00+00:00",
-      "end_timestamp": "2026-03-15T00:00:00+00:00",
-      "row_count": 5000,
-      "last_updated_at": "2026-03-15T01:16:04.761625+00:00"
+      "end_timestamp": "2026-03-23T00:00:00+00:00",
+      "row_count": 5008,
+      "last_updated_at": "2026-03-23T19:29:32.953918+00:00"
     },
     {
       "asset_class": "forex",
@@ -436,9 +447,9 @@
       "source": "twelvedata",
       "path": "data/forex/usdjpy/1h.parquet",
       "start_timestamp": "2023-10-30T23:00:00+00:00",
-      "end_timestamp": "2026-03-15T01:00:00+00:00",
-      "row_count": 15000,
-      "last_updated_at": "2026-03-15T01:16:00.641210+00:00"
+      "end_timestamp": "2026-03-23T19:00:00+00:00",
+      "row_count": 15210,
+      "last_updated_at": "2026-03-23T19:29:27.946079+00:00"
     },
     {
       "asset_class": "forex",
@@ -447,9 +458,9 @@
       "source": "twelvedata",
       "path": "data/forex/usdjpy/4h.parquet",
       "start_timestamp": "2020-01-29T00:00:00+00:00",
-      "end_timestamp": "2026-03-15T00:00:00+00:00",
-      "row_count": 9869,
-      "last_updated_at": "2026-03-15T01:16:03.771966+00:00"
+      "end_timestamp": "2026-03-23T16:00:00+00:00",
+      "row_count": 9921,
+      "last_updated_at": "2026-03-23T19:29:32.051501+00:00"
     },
     {
       "asset_class": "stocks",
@@ -458,9 +469,9 @@
       "source": "stooq",
       "path": "data/stocks/aapl/1d.parquet",
       "start_timestamp": "1984-09-07T00:00:00+00:00",
-      "end_timestamp": "2026-03-13T00:00:00+00:00",
-      "row_count": 10459,
-      "last_updated_at": "2026-03-15T01:14:18.743055+00:00"
+      "end_timestamp": "2026-03-20T00:00:00+00:00",
+      "row_count": 10464,
+      "last_updated_at": "2026-03-23T06:42:49.636657+00:00"
     },
     {
       "asset_class": "stocks",
@@ -469,9 +480,9 @@
       "source": "stooq",
       "path": "data/stocks/amzn/1d.parquet",
       "start_timestamp": "1997-05-16T00:00:00+00:00",
-      "end_timestamp": "2026-03-13T00:00:00+00:00",
-      "row_count": 7246,
-      "last_updated_at": "2026-03-15T01:49:18.724187+00:00"
+      "end_timestamp": "2026-03-20T00:00:00+00:00",
+      "row_count": 7251,
+      "last_updated_at": "2026-03-23T06:42:52.984439+00:00"
     },
     {
       "asset_class": "stocks",
@@ -480,9 +491,9 @@
       "source": "stooq",
       "path": "data/stocks/dia/1d.parquet",
       "start_timestamp": "2005-02-25T00:00:00+00:00",
-      "end_timestamp": "2026-03-13T00:00:00+00:00",
-      "row_count": 5294,
-      "last_updated_at": "2026-03-15T01:14:28.894051+00:00"
+      "end_timestamp": "2026-03-20T00:00:00+00:00",
+      "row_count": 5299,
+      "last_updated_at": "2026-03-23T06:43:06.315626+00:00"
     },
     {
       "asset_class": "stocks",
@@ -491,9 +502,9 @@
       "source": "stooq",
       "path": "data/stocks/goog/1d.parquet",
       "start_timestamp": "2014-03-27T00:00:00+00:00",
-      "end_timestamp": "2026-03-13T00:00:00+00:00",
-      "row_count": 3009,
-      "last_updated_at": "2026-03-15T01:49:21.646917+00:00"
+      "end_timestamp": "2026-03-20T00:00:00+00:00",
+      "row_count": 3014,
+      "last_updated_at": "2026-03-23T06:42:54.349228+00:00"
     },
     {
       "asset_class": "stocks",
@@ -502,9 +513,9 @@
       "source": "stooq",
       "path": "data/stocks/iwm/1d.parquet",
       "start_timestamp": "2005-02-25T00:00:00+00:00",
-      "end_timestamp": "2026-03-13T00:00:00+00:00",
-      "row_count": 5294,
-      "last_updated_at": "2026-03-15T01:14:27.232308+00:00"
+      "end_timestamp": "2026-03-20T00:00:00+00:00",
+      "row_count": 5299,
+      "last_updated_at": "2026-03-23T06:43:04.696222+00:00"
     },
     {
       "asset_class": "stocks",
@@ -513,9 +524,9 @@
       "source": "stooq",
       "path": "data/stocks/meta/1d.parquet",
       "start_timestamp": "2012-05-18T00:00:00+00:00",
-      "end_timestamp": "2026-03-13T00:00:00+00:00",
-      "row_count": 3474,
-      "last_updated_at": "2026-03-15T01:49:24.299984+00:00"
+      "end_timestamp": "2026-03-20T00:00:00+00:00",
+      "row_count": 3479,
+      "last_updated_at": "2026-03-23T06:42:55.798308+00:00"
     },
     {
       "asset_class": "stocks",
@@ -524,9 +535,9 @@
       "source": "stooq",
       "path": "data/stocks/msft/1d.parquet",
       "start_timestamp": "1986-03-13T00:00:00+00:00",
-      "end_timestamp": "2026-03-13T00:00:00+00:00",
-      "row_count": 10076,
-      "last_updated_at": "2026-03-15T01:14:20.506818+00:00"
+      "end_timestamp": "2026-03-20T00:00:00+00:00",
+      "row_count": 10081,
+      "last_updated_at": "2026-03-23T06:42:57.720684+00:00"
     },
     {
       "asset_class": "stocks",
@@ -535,9 +546,9 @@
       "source": "stooq",
       "path": "data/stocks/nvda/1d.parquet",
       "start_timestamp": "1999-01-22T00:00:00+00:00",
-      "end_timestamp": "2026-03-13T00:00:00+00:00",
-      "row_count": 6826,
-      "last_updated_at": "2026-03-15T01:14:22.352590+00:00"
+      "end_timestamp": "2026-03-20T00:00:00+00:00",
+      "row_count": 6831,
+      "last_updated_at": "2026-03-23T06:42:59.504848+00:00"
     },
     {
       "asset_class": "stocks",
@@ -546,9 +557,9 @@
       "source": "stooq",
       "path": "data/stocks/qqq/1d.parquet",
       "start_timestamp": "1999-03-10T00:00:00+00:00",
-      "end_timestamp": "2026-03-13T00:00:00+00:00",
-      "row_count": 6794,
-      "last_updated_at": "2026-03-15T01:14:24.084592+00:00"
+      "end_timestamp": "2026-03-20T00:00:00+00:00",
+      "row_count": 6799,
+      "last_updated_at": "2026-03-23T06:43:01.320616+00:00"
     },
     {
       "asset_class": "stocks",
@@ -557,9 +568,9 @@
       "source": "stooq",
       "path": "data/stocks/spy/1d.parquet",
       "start_timestamp": "2005-02-25T00:00:00+00:00",
-      "end_timestamp": "2026-03-13T00:00:00+00:00",
-      "row_count": 5294,
-      "last_updated_at": "2026-03-15T01:14:25.546139+00:00"
+      "end_timestamp": "2026-03-20T00:00:00+00:00",
+      "row_count": 5299,
+      "last_updated_at": "2026-03-23T06:43:03.139366+00:00"
     },
     {
       "asset_class": "stocks",
@@ -568,9 +579,9 @@
       "source": "stooq",
       "path": "data/stocks/tsla/1d.parquet",
       "start_timestamp": "2010-06-28T00:00:00+00:00",
-      "end_timestamp": "2026-03-13T00:00:00+00:00",
-      "row_count": 3951,
-      "last_updated_at": "2026-03-15T01:49:16.113561+00:00"
+      "end_timestamp": "2026-03-20T00:00:00+00:00",
+      "row_count": 3956,
+      "last_updated_at": "2026-03-23T06:42:51.207483+00:00"
     }
   ]
 }
