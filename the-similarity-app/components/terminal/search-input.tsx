@@ -188,6 +188,61 @@ export function SearchSidebar() {
     }
   }, [selectedDataset, querySize, state.activeMethods, dispatch, startProgressSimulation, finishProgress, clearProgress]);
 
+  // ── Custom query range search (triggered by chart selection) ──
+  const handleCustomSearch = useCallback(async () => {
+    const range = state.customQueryRange;
+    const ohlc = state.ohlcData;
+    if (!range || !ohlc || ohlc.close.length === 0) return;
+
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+
+    dispatch({ type: "SET_LOADING", loading: true });
+    dispatch({ type: "SET_ERROR", error: null });
+    startProgressSimulation();
+
+    try {
+      const queryValues = ohlc.close.slice(range.startIdx, range.endIdx);
+      const historyValues = ohlc.close.slice(0, range.startIdx);
+
+      if (historyValues.length < 10) {
+        dispatch({ type: "SET_ERROR", error: "Not enough history before selection." });
+        clearProgress();
+        return;
+      }
+
+      const response = await searchApi(
+        {
+          queryValues,
+          historyValues,
+          activeMethods: state.activeMethods,
+          topK: 20,
+          forwardBars: 200,
+        },
+        controller.signal,
+      );
+
+      const topScore = response.matches.length > 0
+        ? response.matches[0].confidenceScore
+        : 0;
+      finishProgress(topScore);
+      dispatch({ type: "SET_SEARCH_RESPONSE", response });
+    } catch (err: unknown) {
+      clearProgress();
+      if (err instanceof Error && err.name === "AbortError") return;
+      dispatch({ type: "SET_ERROR", error: err instanceof Error ? err.message : "Search failed." });
+    }
+  }, [state.customQueryRange, state.ohlcData, state.activeMethods, dispatch, startProgressSimulation, finishProgress, clearProgress]);
+
+  // Auto-trigger search when custom query range is set
+  useEffect(() => {
+    if (state.customQueryRange) {
+      handleCustomSearch();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.customQueryRange]);
+
   const handleCancel = useCallback(() => {
     abortRef.current?.abort();
     clearProgress();

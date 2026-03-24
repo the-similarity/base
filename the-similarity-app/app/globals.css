@@ -292,6 +292,14 @@ button { cursor: pointer; }
   color: var(--accent);
 }
 
+.config-pill-sep {
+  width: 1px;
+  height: 16px;
+  background: var(--border);
+  align-self: center;
+  margin: 0 2px;
+}
+
 /* ═══════════════════════════════════════════════════════════════════
    Match List & Cards — the sidebar
    ═══════════════════════════════════════════════════════════════════ */
@@ -906,6 +914,31 @@ button { cursor: pointer; }
   border: 2px solid var(--bg-elevated);
   box-shadow: 0 0 8px var(--accent-glow);
   cursor: pointer;
+}
+
+.fwd-number-input {
+  width: 36px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-secondary);
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 1px 4px;
+  text-align: right;
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+.fwd-number-input::-webkit-inner-spin-button,
+.fwd-number-input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.fwd-number-input:focus {
+  outline: 1px solid var(--accent);
+  border-color: var(--accent);
 }
 
 .search-sidebar__run-btn {

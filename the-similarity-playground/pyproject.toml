@@ -8,6 +8,8 @@ packages = []
 
 [tool.poetry.dependencies]
 python = "^3.11"
+# Same as the_similarity (imported via path); explicit so notebook kernels get PyEMD.
+EMD-signal = "^1.6"
 ipykernel = "*"
 ipywidgets = ">=8.0"
 jupyter = "*"

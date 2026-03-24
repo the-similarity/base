@@ -61,12 +61,22 @@ export function MatchList() {
               className="search-bar-range"
               style={{ width: 140 }}
               min={5}
-              max={200}
+              max={500}
               step={5}
-              value={state.forwardBars}
+              value={Math.min(state.forwardBars, 500)}
               onChange={(e) => dispatch({ type: "SET_FORWARD_BARS", bars: Number(e.target.value) })}
             />
-            <span style={{ minWidth: 20, textAlign: "right" }}>{state.forwardBars}</span>
+            <input
+              type="number"
+              className="fwd-number-input"
+              min={5}
+              step={5}
+              value={state.forwardBars}
+              onChange={(e) => {
+                const v = Math.max(5, Number(e.target.value) || 5);
+                dispatch({ type: "SET_FORWARD_BARS", bars: v });
+              }}
+            />
           </label>
         )}
       </div>

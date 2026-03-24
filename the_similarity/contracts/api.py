@@ -7,9 +7,12 @@ These models are the canonical boundary types for a split-repo setup:
 
 from __future__ import annotations
 
+import warnings
 from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
+
+warnings.filterwarnings("ignore", category=UserWarning, module="pydantic")
 
 
 def to_camel(value: str) -> str:

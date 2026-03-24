@@ -20,6 +20,23 @@ export function TopBar() {
       <div className="terminal-topbar-sep" />
 
       <div className="config-pills">
+        <button
+          className="config-pill"
+          data-active={state.queryPicking || state.customQueryRange !== null}
+          onClick={() => {
+            if (state.queryPicking) {
+              dispatch({ type: "CANCEL_QUERY_PICK" });
+            } else if (state.customQueryRange) {
+              dispatch({ type: "CLEAR_CUSTOM_QUERY" });
+            } else {
+              dispatch({ type: "START_QUERY_PICK" });
+            }
+          }}
+          title={state.queryPicking ? "Cancel selection" : state.customQueryRange ? "Clear custom query" : "Select query range on chart"}
+        >
+          {state.queryPicking ? "Picking…" : state.customQueryRange ? `Custom ${state.customQueryRange.endIdx - state.customQueryRange.startIdx} bars` : "Select"}
+        </button>
+        <span className="config-pill-sep" />
         {METHODS.map((method) => (
           <button
             key={method}
