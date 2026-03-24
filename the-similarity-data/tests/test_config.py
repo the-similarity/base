@@ -23,7 +23,7 @@ def test_load_dataset_specs_all_have_required_fields():
     for spec in specs:
         assert spec.asset_class in ("crypto", "stocks", "forex", "commodities")
         assert len(spec.symbol) > 0
-        assert spec.timeframe in ("1m", "15m", "1h", "4h", "1d")
+        assert spec.timeframe in ("1m", "5m", "15m", "1h", "4h", "1d")
         assert spec.source in ("ccxt", "stooq", "twelvedata", "yfinance")
         assert len(spec.source_symbol) > 0
 
