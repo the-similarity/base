@@ -68,19 +68,6 @@ function toCandleDataWithDates(
   return result;
 }
 
-/** Generate continuation timestamps by incrementing from the last date. */
-function continuationTimestamps(lastIso: string, count: number, intervalSec: number): number[] {
-  const base = isoToUtc(lastIso);
-  return Array.from({ length: count }, (_, i) => base + (i + 1) * intervalSec);
-}
-
-/** Guess interval in seconds from dates array. */
-function guessInterval(dates: string[]): number {
-  if (dates.length < 2) return 86400;
-  const a = isoToUtc(dates[dates.length - 2]);
-  const b = isoToUtc(dates[dates.length - 1]);
-  return Math.max(b - a, 60); // at least 1 minute
-}
 
 const COLORS = {
   query: "#e8e9ed",
@@ -105,8 +92,8 @@ export function ChartPanel() {
     queryLine?: ISeriesApi<"Line">;
     queryCandle?: ISeriesApi<"Candlestick">;
     match?: ISeriesApi<"Line">;
-    continuation?: ISeriesApi<"Line">;
   }>({});
+  const contCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const markersRef = useRef<ISeriesMarkersPluginApi<Time> | null>(null);
 
   const pickStartRef = useRef<number | null>(null); // first click OHLC index during picking
@@ -171,13 +158,6 @@ export function ChartPanel() {
     ? (customRange
         ? ohlc!.dates.slice(customRange.startIdx, customRange.endIdx)
         : ohlc!.dates.slice(-queryLen))
-    : [];
-
-  // Timestamps for continuation (extend past the last candle)
-  const lastQueryIso = queryDates.length > 0 ? queryDates[queryDates.length - 1] : "";
-  const interval = hasOhlcData ? guessInterval(ohlc!.dates) : 86400;
-  const contTimestamps = lastQueryIso && continuationSeries.length > 1
-    ? [isoToUtc(lastQueryIso), ...continuationTimestamps(lastQueryIso, continuationSeries.length - 1, interval)]
     : [];
 
   // Match dates = same as query dates (overlay)
@@ -253,22 +233,10 @@ export function ChartPanel() {
       lastValueVisible: false,
     });
 
-    // Continuation line
-    const contLine = chart.addSeries(LineSeries, {
-      color: COLORS.matchContinuation,
-      lineWidth: 2,
-      lineStyle: 0,
-      priceLineVisible: false,
-      crosshairMarkerVisible: true,
-      crosshairMarkerRadius: 3,
-      lastValueVisible: true,
-    });
-
     seriesRefs.current = {
       queryLine,
       queryCandle: candleSeries,
       match: matchLine,
-      continuation: contLine,
     };
 
     // Markers plugin for query selection indicators
@@ -359,37 +327,48 @@ export function ChartPanel() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.queryPicking, ohlc]);
 
-  // ── Show markers for custom query range ──
+  // ── Show vertical lines + markers for custom query range ──
+  const [pickLines, setPickLines] = useState<{ xA: number | null; xB: number | null }>({ xA: null, xB: null });
+
   useEffect(() => {
     const m = markersRef.current;
-    if (!m || !ohlc || ohlc.dates.length === 0) return;
+    const chart = chartRef.current;
+    if (!ohlc || ohlc.dates.length === 0) return;
 
-    if (state.customQueryRange) {
+    if (state.customQueryRange && chart) {
       const { startIdx, endIdx } = state.customQueryRange;
-      const markers: SeriesMarker<Time>[] = [
-        {
-          time: timeVal(ohlc.dates, startIdx) as unknown as Time,
-          position: "aboveBar",
-          color: "#22d3ee",
-          shape: "arrowDown",
-          text: "A",
-        },
-        {
-          time: timeVal(ohlc.dates, endIdx) as unknown as Time,
-          position: "aboveBar",
-          color: "#22d3ee",
-          shape: "arrowDown",
-          text: "B",
-        },
-      ];
-      // Markers must be sorted by time
-      markers.sort((a, b) => (a.time as number) - (b.time as number));
-      m.setMarkers(markers);
+      const tA = timeVal(ohlc.dates, startIdx) as unknown as Time;
+      const tB = timeVal(ohlc.dates, endIdx) as unknown as Time;
+
+      // Markers (A / B labels)
+      if (m) {
+        const markers: SeriesMarker<Time>[] = [
+          { time: tA, position: "aboveBar", color: "#22d3ee", shape: "arrowDown", text: "A" },
+          { time: tB, position: "aboveBar", color: "#22d3ee", shape: "arrowDown", text: "B" },
+        ];
+        markers.sort((a, b) => (a.time as number) - (b.time as number));
+        m.setMarkers(markers);
+      }
+
+      // Get pixel positions for vertical line overlays
+      const xA = chart.timeScale().timeToCoordinate(tA);
+      const xB = chart.timeScale().timeToCoordinate(tB);
+      setPickLines({ xA, xB });
+
+      // Update positions when user scrolls/zooms
+      const updatePositions = () => {
+        const a = chart.timeScale().timeToCoordinate(tA);
+        const b = chart.timeScale().timeToCoordinate(tB);
+        setPickLines({ xA: a, xB: b });
+      };
+      chart.timeScale().subscribeVisibleLogicalRangeChange(updatePositions);
+      return () => chart.timeScale().unsubscribeVisibleLogicalRangeChange(updatePositions);
     } else if (!state.queryPicking) {
-      m.setMarkers([]);
+      m?.setMarkers([]);
+      setPickLines({ xA: null, xB: null });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.customQueryRange, state.queryPicking, ohlc]);
+  }, [state.customQueryRange, state.queryPicking, ohlc, sr]);
 
   // ── Update query/OHLC data + auto-fit (only on real data changes) ──
   useEffect(() => {
@@ -431,20 +410,89 @@ export function ChartPanel() {
       }
     }
 
-    // Continuation line (extends past the last candle into the future)
-    if (s.continuation) {
-      if (continuationSeries.length > 1 && contTimestamps.length > 0) {
-        const contData = continuationSeries.map((value, i) => ({
-          time: contTimestamps[i] as unknown as LineData["time"],
-          value,
-        }));
-        s.continuation.setData(contData);
-      } else {
-        s.continuation.setData([]);
-      }
-    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [highlightIdx, state.forwardBars]);
+
+  // ── Draw continuation as canvas overlay (never touches chart time axis) ──
+  useEffect(() => {
+    const chart = chartRef.current;
+    const canvas = contCanvasRef.current;
+    if (!canvas || !chart) return;
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    // Size canvas to container
+    const container = canvas.parentElement;
+    if (container) {
+      canvas.width = container.clientWidth;
+      canvas.height = container.clientHeight;
+    }
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    if (continuationSeries.length < 2 || !hasOhlcData || matchDates.length === 0) return;
+
+    // Get the last match point's pixel position as the anchor
+    const lastMatchTime = timeVal(matchDates, matchDates.length - 1) as unknown as Time;
+    const anchorX = chart.timeScale().timeToCoordinate(lastMatchTime);
+    if (anchorX === null) return;
+
+    // Get bar spacing to calculate forward positions
+    const barSpacing = chart.timeScale().options().barSpacing ?? 6;
+
+    // Map continuation values to Y using the match series' price scale
+    const matchSeries = seriesRefs.current.match;
+    if (!matchSeries) return;
+
+    const points: { x: number; y: number }[] = [];
+    for (let i = 0; i < continuationSeries.length; i++) {
+      const x = anchorX + i * barSpacing;
+      const y = matchSeries.priceToCoordinate(continuationSeries[i]);
+      if (y === null) continue;
+      points.push({ x, y });
+    }
+
+    if (points.length < 2) return;
+
+    ctx.strokeStyle = COLORS.matchContinuation;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(points[0].x, points[0].y);
+    for (let i = 1; i < points.length; i++) {
+      ctx.lineTo(points[i].x, points[i].y);
+    }
+    ctx.stroke();
+
+    // Redraw on scroll/zoom
+    const redraw = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const newAnchorX = chart.timeScale().timeToCoordinate(lastMatchTime);
+      if (newAnchorX === null) return;
+      const newBarSpacing = chart.timeScale().options().barSpacing ?? 6;
+
+      const pts: { x: number; y: number }[] = [];
+      for (let i = 0; i < continuationSeries.length; i++) {
+        const x = newAnchorX + i * newBarSpacing;
+        const y = matchSeries.priceToCoordinate(continuationSeries[i]);
+        if (y === null) continue;
+        pts.push({ x, y });
+      }
+      if (pts.length < 2) return;
+
+      ctx.strokeStyle = COLORS.matchContinuation;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(pts[0].x, pts[0].y);
+      for (let i = 1; i < pts.length; i++) {
+        ctx.lineTo(pts[i].x, pts[i].y);
+      }
+      ctx.stroke();
+    };
+
+    chart.timeScale().subscribeVisibleLogicalRangeChange(redraw);
+    return () => chart.timeScale().unsubscribeVisibleLogicalRangeChange(redraw);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [highlightIdx, state.forwardBars, sr, ohlc]);
 
   // ── Legend ──
   const legendItems: { color: string; label: string }[] = [
@@ -491,10 +539,22 @@ export function ChartPanel() {
           </div>
         </div>
       )}
-      <div
-        ref={containerRef}
-        style={{ flex: 1, minHeight: 0, position: "relative", display: isLoading ? "none" : "block" }}
-      />
+      <div style={{ flex: 1, minHeight: 0, position: "relative", display: isLoading ? "none" : "block" }}>
+        <div
+          ref={containerRef}
+          style={{ position: "absolute", inset: 0 }}
+        />
+        <canvas
+          ref={contCanvasRef}
+          style={{ position: "absolute", inset: 0, pointerEvents: "none", zIndex: 5 }}
+        />
+        {pickLines.xA !== null && (
+          <div style={{ position: "absolute", left: pickLines.xA, top: 0, bottom: 0, width: 1, background: "#22d3ee", pointerEvents: "none", zIndex: 10, opacity: 0.7 }} />
+        )}
+        {pickLines.xB !== null && (
+          <div style={{ position: "absolute", left: pickLines.xB, top: 0, bottom: 0, width: 1, background: "#22d3ee", pointerEvents: "none", zIndex: 10, opacity: 0.7 }} />
+        )}
+      </div>
       {isSearching && (
         <div className="chart-loading-overlay">
           <div className="chart-loading-spinner" />
