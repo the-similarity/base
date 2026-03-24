@@ -10,6 +10,7 @@ from the_similarity_data.models import DatasetSpec
 from the_similarity_data.normalize import canonicalize_ohlcv_frame
 
 INTERVAL_MAP = {
+    "5m": "5min",
     "15m": "15min",
     "1h": "1h",
     "4h": "4h",
