@@ -52,8 +52,10 @@ function toCandleDataWithDates(
 ): CandlestickData[] {
   const result: CandlestickData[] = [];
   for (let i = 0; i < close.length; i++) {
-    // Skip flat bars (market closed: O=H=L=C)
-    if (open[i] === high[i] && high[i] === low[i] && low[i] === close[i]) continue;
+    // Skip dead bars: exactly flat OR range < 0.01% of price
+    const range = high[i] - low[i];
+    const pct = close[i] > 0 ? range / close[i] : 0;
+    if ((open[i] === high[i] && high[i] === low[i] && low[i] === close[i]) || pct < 0.0001) continue;
     result.push({
       time: timeVal(dates, i) as unknown as CandlestickData["time"],
       open: open[i], high: high[i], low: low[i], close: close[i],
@@ -136,23 +138,22 @@ export function ChartPanel() {
   // Offset match 25% below query so it's clearly separated from candles
   const normalizedMatch = matchToDisplay.length > 1 ? normalizeToRange(matchToDisplay, query, 0.25) : [];
 
-  // Continuation: what happened after the matched pattern
-  // Anchor from the END of the normalized match (so continuation extends the purple line, not the query)
-  const forwardWindow = selectedMatch?.forwardWindow ?? (sr?.matches[0]?.forwardWindow ?? null);
+  // Forward window: what happened after the matched pattern
+  const fullForward = selectedMatch?.forwardWindow ?? (sr?.matches[0]?.forwardWindow ?? null);
+  const visibleForward = fullForward ? fullForward.slice(0, state.forwardBars) : null;
   const matchAnchor = normalizedMatch.length > 0 ? normalizedMatch[normalizedMatch.length - 1] : 0;
-  const continuationSeries = forwardWindow && matchAnchor !== 0
-    ? [matchAnchor, ...forwardWindow.map((r) => matchAnchor * (1 + r))]
+  const continuationSeries = visibleForward && matchAnchor !== 0
+    ? [matchAnchor, ...visibleForward.map((r) => matchAnchor * (1 + r))]
     : [];
 
-  // ── Full OHLC data for scrollable chart (show history + query + continuation) ──
-  // Show the entire dataset so user can scroll back/forward
+  // ── Full OHLC data for scrollable chart ──
   const hasOhlcData = ohlc && ohlc.close.length > 0 && ohlc.dates.length > 0;
   const queryLen = query.length;
 
   // Dates for the query window (from full OHLC dates, last N entries)
   const queryDates = hasOhlcData ? ohlc!.dates.slice(-queryLen) : [];
 
-  // Continuation timestamps (extend from last query date)
+  // Timestamps for continuation (extend past the last candle)
   const lastQueryIso = queryDates.length > 0 ? queryDates[queryDates.length - 1] : "";
   const interval = hasOhlcData ? guessInterval(ohlc!.dates) : 86400;
   const contTimestamps = lastQueryIso && continuationSeries.length > 1
@@ -174,25 +175,25 @@ export function ChartPanel() {
     const chart = createChart(el, {
       autoSize: true,
       layout: {
-        background: { color: isDark ? COLORS.bg : COLORS.bgLight },
-        textColor: isDark ? COLORS.text : COLORS.textLight,
+        background: { color: COLORS.bg },
+        textColor: COLORS.text,
         fontFamily: "'SF Mono', 'Fira Code', monospace",
         fontSize: 10,
       },
       grid: {
-        vertLines: { color: isDark ? COLORS.grid : COLORS.gridLight },
-        horzLines: { color: isDark ? COLORS.grid : COLORS.gridLight },
+        vertLines: { color: COLORS.grid },
+        horzLines: { color: COLORS.grid },
       },
       crosshair: {
-        vertLine: { color: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)", width: 1, style: 2 },
-        horzLine: { color: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)", width: 1, style: 2 },
+        vertLine: { color: "rgba(255,255,255,0.1)", width: 1, style: 2 },
+        horzLine: { color: "rgba(255,255,255,0.1)", width: 1, style: 2 },
       },
       rightPriceScale: {
-        borderColor: isDark ? COLORS.border : COLORS.borderLight,
-        textColor: isDark ? COLORS.text : COLORS.textLight,
+        borderColor: COLORS.border,
+        textColor: COLORS.text,
       },
       timeScale: {
-        borderColor: isDark ? COLORS.border : COLORS.borderLight,
+        borderColor: COLORS.border,
       },
       handleScroll: true,
       handleScale: true,
@@ -254,9 +255,16 @@ export function ChartPanel() {
       chart.remove();
       chartRef.current = null;
     };
-  }, [isDark]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Update data ──
+  // ── Update chart background on theme change ──
+  useEffect(() => {
+    chartRef.current?.applyOptions({
+      layout: { background: { color: isDark ? COLORS.bg : COLORS.bgLight } },
+    });
+  }, [isDark]);
+
+  // ── Update query/OHLC data + auto-fit (only on real data changes) ──
   useEffect(() => {
     const s = seriesRefs.current;
     if (!s.queryLine || query.length < 2) return;
@@ -264,58 +272,52 @@ export function ChartPanel() {
     const useCandles = chartMode === "candle" && hasOhlcData;
 
     if (useCandles) {
-      // Show FULL dataset as candles (scrollable history)
       s.queryCandle?.setData(
         toCandleDataWithDates(ohlc!.open, ohlc!.high, ohlc!.low, ohlc!.close, ohlc!.dates)
       );
       s.queryLine?.setData([]);
     } else if (hasOhlcData) {
-      // Line mode but with real dates — show full close series
       s.queryLine?.setData(toLineDataWithDates(ohlc!.close, ohlc!.dates));
       s.queryCandle?.setData([]);
     } else {
-      // Fallback: query-only with synthetic dates
       s.queryLine?.setData(toLineDataWithDates(query, queryDates));
       s.queryCandle?.setData([]);
     }
 
-    // Match overlay (aligned to query window dates)
-    if (normalizedMatch.length > 1 && matchDates.length > 0) {
-      s.match?.setData(toLineDataWithDates(normalizedMatch, matchDates));
-    } else if (normalizedMatch.length > 1) {
-      s.match?.setData(toLineDataWithDates(normalizedMatch, []));
-    } else {
-      s.match?.setData([]);
-    }
+    // Auto-fit ONLY when search results or OHLC data change
+    chartRef.current?.timeScale().fitContent();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sr, data, ohlc, chartMode]);
 
-    // Continuation (extends past query with generated timestamps)
-    if (continuationSeries.length > 1 && contTimestamps.length > 0) {
-      s.continuation?.setData(continuationSeries.map((value, i) => ({
-        time: contTimestamps[i] as unknown as LineData["time"],
-        value,
-      })));
-    } else {
-      s.continuation?.setData([]);
-    }
+  // ── Update match overlay + continuation (no zoom reset) ──
+  useEffect(() => {
+    const s = seriesRefs.current;
 
-    // Scroll to show the query window (last N bars + continuation)
-    if (hasOhlcData && queryDates.length > 0) {
-      const ts = chartRef.current?.timeScale();
-      if (ts) {
-        const visibleBarsBack = Math.min(queryLen + 20, ohlc!.close.length);
-        const fromIdx = ohlc!.close.length - visibleBarsBack;
-        const fromUtc = isoToUtc(ohlc!.dates[fromIdx]);
-        const toUtc = contTimestamps.length > 0
-          ? contTimestamps[contTimestamps.length - 1]
-          : isoToUtc(queryDates[queryDates.length - 1]);
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (ts as any).setVisibleRange({ from: fromUtc, to: toUtc });
+    // Match overlay (purple dashed line over query window)
+    if (s.match) {
+      if (normalizedMatch.length > 1 && matchDates.length > 0) {
+        s.match.setData(toLineDataWithDates(normalizedMatch, matchDates));
+      } else if (normalizedMatch.length > 1) {
+        s.match.setData(toLineDataWithDates(normalizedMatch, []));
+      } else {
+        s.match.setData([]);
       }
-    } else {
-      chartRef.current?.timeScale().fitContent();
+    }
+
+    // Continuation line (extends past the last candle into the future)
+    if (s.continuation) {
+      if (continuationSeries.length > 1 && contTimestamps.length > 0) {
+        const contData = continuationSeries.map((value, i) => ({
+          time: contTimestamps[i] as unknown as LineData["time"],
+          value,
+        }));
+        s.continuation.setData(contData);
+      } else {
+        s.continuation.setData([]);
+      }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sr, data, ohlc, chartMode, highlightIdx]);
+  }, [highlightIdx, state.forwardBars]);
 
   // ── Legend ──
   const legendItems: { color: string; label: string }[] = [
@@ -326,7 +328,7 @@ export function ChartPanel() {
     legendItems.push({ color: COLORS.match, label: matchLabel });
   }
   if (continuationSeries.length > 0) {
-    legendItems.push({ color: COLORS.matchContinuation, label: "Continuation" });
+    legendItems.push({ color: COLORS.matchContinuation, label: `FWD ${continuationSeries.length - 1}` });
   }
 
   const isLoading = query.length < 2 && !isSearching;

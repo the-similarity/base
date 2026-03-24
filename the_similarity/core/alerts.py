@@ -95,9 +95,31 @@ def _default_log_notify(alert: Alert, watchlist: Watchlist) -> None:
     )
 
 
+def _validate_webhook_url(url: str) -> bool:
+    """Validate webhook URL to prevent SSRF. Only allows https:// to public IPs."""
+    from urllib.parse import urlparse
+    import ipaddress
+    import socket
+
+    parsed = urlparse(url)
+    if parsed.scheme not in ("https", "http"):
+        return False
+    hostname = parsed.hostname
+    if not hostname:
+        return False
+    try:
+        addr = ipaddress.ip_address(socket.gethostbyname(hostname))
+    except (socket.gaierror, ValueError):
+        return False
+    return addr.is_global
+
+
 def _webhook_notify(alert: Alert, watchlist: Watchlist) -> None:
     """Send alert to a webhook URL."""
     if not watchlist.webhook_url:
+        return
+    if not _validate_webhook_url(watchlist.webhook_url):
+        logger.warning("Webhook URL rejected (SSRF check): %s", watchlist.webhook_url[:50])
         return
     import urllib.request
     payload = json.dumps({
@@ -256,6 +278,13 @@ class AlertManager:
         finally:
             conn.close()
 
+    # Explicit allowlist of fields that can be updated via kwargs.
+    _UPDATABLE_FIELDS = frozenset({
+        "name", "dataset_id", "symbol", "timeframe", "threshold",
+        "cooldown_seconds", "webhook_url", "top_k", "stride",
+        "query_values", "channels", "active_methods", "enabled",
+    })
+
     def update_watchlist(self, watchlist_id: str, **kwargs) -> Watchlist | None:
         wl = self.get_watchlist(watchlist_id)
         if wl is None:
@@ -265,13 +294,15 @@ class AlertManager:
             updates = []
             params = []
             for key, val in kwargs.items():
+                if key not in self._UPDATABLE_FIELDS:
+                    continue
                 if key in ("query_values", "channels", "active_methods"):
                     updates.append(f"{key} = ?")
                     params.append(json.dumps(val))
                 elif key == "enabled":
                     updates.append(f"{key} = ?")
                     params.append(int(val))
-                elif hasattr(wl, key):
+                else:
                     updates.append(f"{key} = ?")
                     params.append(val)
             if not updates:
@@ -411,12 +442,22 @@ class AlertManager:
         finally:
             conn.close()
 
-    def acknowledge_alert(self, alert_id: str) -> bool:
+    def acknowledge_alert(self, alert_id: str, user_id: str | None = None) -> bool:
+        """Acknowledge an alert. If user_id is provided, also verify ownership."""
         conn = self._connect()
         try:
-            cursor = conn.execute(
-                "UPDATE alerts SET acknowledged = 1 WHERE id = ?", (alert_id,)
-            )
+            if user_id is not None:
+                cursor = conn.execute(
+                    """UPDATE alerts SET acknowledged = 1
+                       WHERE id = ? AND watchlist_id IN (
+                           SELECT id FROM watchlists WHERE user_id = ?
+                       )""",
+                    (alert_id, user_id),
+                )
+            else:
+                cursor = conn.execute(
+                    "UPDATE alerts SET acknowledged = 1 WHERE id = ?", (alert_id,)
+                )
             conn.commit()
             return cursor.rowcount > 0
         finally:

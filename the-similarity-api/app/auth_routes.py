@@ -1,7 +1,7 @@
 """Auth API routes: register, login, refresh, API keys."""
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel, EmailStr, Field
 
 from the_similarity.core.auth import AuthManager, Tier, User
@@ -15,7 +15,7 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 class RegisterRequest(BaseModel):
     email: str = Field(..., min_length=3)
-    password: str = Field(..., min_length=8)
+    password: str = Field(..., min_length=8, max_length=1024)
 
 class LoginRequest(BaseModel):
     email: str
@@ -147,15 +147,16 @@ def list_api_keys(
     ]
 
 
-@router.delete("/api-keys/{key_id}", status_code=204)
+@router.delete("/api-keys/{key_id}", status_code=204, response_class=Response)
 def revoke_api_key(
     key_id: str,
     user: User = Depends(get_current_user),
     auth: AuthManager = Depends(get_auth_manager),
-) -> None:
+) -> Response:
     """Revoke an API key."""
     # Verify the key belongs to the user
     keys = auth.list_api_keys(user.id)
     if not any(k.id == key_id for k in keys):
         raise HTTPException(status_code=404, detail="API key not found")
     auth.revoke_api_key(key_id)
+    return Response(status_code=204)

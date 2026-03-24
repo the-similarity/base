@@ -10,6 +10,7 @@ function makeState(overrides?: Partial<TerminalState>): TerminalState {
     dashboardData: null,
     ohlcData: null,
     chartMode: "candle",
+    forwardBars: 30,
     loading: false,
     error: null,
     selectedIdx: null,
@@ -17,6 +18,7 @@ function makeState(overrides?: Partial<TerminalState>): TerminalState {
     focusedIdx: 0,
     activeMethods: ["dtw", "pearson_warped"],
     theme: "dark",
+    activeDataset: null,
     ...overrides,
   };
 }

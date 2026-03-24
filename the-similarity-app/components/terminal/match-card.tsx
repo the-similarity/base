@@ -23,9 +23,16 @@ export function MatchCard({ match, rank, idx }: Props) {
     }
   }, [state.focusedIdx, idx]);
 
-  const window = match.startDate && match.endDate
-    ? `${match.startDate} → ${match.endDate}`
-    : `[${match.startIdx}–${match.endIdx}]`;
+  // Resolve dates from OHLC data using indices, fall back to raw indices
+  const ohlcDates = state.ohlcData?.dates;
+  let window: string;
+  if (match.startDate && match.endDate) {
+    window = `${match.startDate.slice(0, 10)} → ${match.endDate.slice(0, 10)}`;
+  } else if (ohlcDates && ohlcDates[match.startIdx] && ohlcDates[match.endIdx]) {
+    window = `${ohlcDates[match.startIdx].slice(0, 10)} → ${ohlcDates[match.endIdx].slice(0, 10)}`;
+  } else {
+    window = `[${match.startIdx}–${match.endIdx}]`;
+  }
 
   return (
     <div

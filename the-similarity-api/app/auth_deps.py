@@ -26,7 +26,16 @@ def get_auth_manager() -> AuthManager:
     global _auth_manager
     if _auth_manager is None:
         db_path = _get_data_dir() / "auth.db"
-        jwt_secret = os.getenv("THE_SIMILARITY_JWT_SECRET", "dev-secret-change-in-prod")
+        jwt_secret = os.getenv("THE_SIMILARITY_JWT_SECRET", "")
+        if not jwt_secret or jwt_secret == "dev-secret-change-in-prod":
+            import warnings
+            warnings.warn(
+                "THE_SIMILARITY_JWT_SECRET is not set or using default. "
+                "Set a secure secret in production via environment variable.",
+                stacklevel=2,
+            )
+            if not jwt_secret:
+                jwt_secret = "dev-secret-change-in-prod"
         _auth_manager = AuthManager(db_path=db_path, jwt_secret=jwt_secret)
     return _auth_manager
 

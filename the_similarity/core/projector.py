@@ -63,6 +63,7 @@ def project(
         if anchor == 0:
             continue
         returns = (future - anchor) / anchor
+        match.forward_window = returns
         paths.append(returns)
         weights.append(match.confidence_score)
 

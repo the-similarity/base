@@ -10,6 +10,13 @@ from the_similarity.core.normalizer import normalize
 from the_similarity.core.matcher import ProgressCallback, ProgressEvent, find_matches
 from the_similarity.core.scorer import MatchResult
 from the_similarity.core.projector import project as _project, Forecast
+from the_similarity.core.ensemble import (
+    ensemble_forecast as _ensemble_forecast,
+    EnsembleForecast,
+    MonteCarloResult,
+    RegimeConditionalResult,
+    ConformalResult,
+)
 from the_similarity.methods.koopman import koopman_evolve
 from the_similarity.viz.plotter import plot_matches, plot_forecast
 
@@ -188,6 +195,75 @@ def project(
             forecast.curves[50] = blended
 
     return forecast
+
+
+def ensemble_project(
+    matches: list[MatchResult] | SearchResults,
+    history: TimeSeries | np.ndarray,
+    forward_bars: int = 50,
+    percentiles: list[int] | None = None,
+    query: TimeSeries | np.ndarray | None = None,
+    config: Config | None = None,
+    n_simulations: int = 1000,
+    conformal_coverage: float = 0.9,
+    regime_soft_weight: float = 0.5,
+    mc_weight: float = 0.3,
+    regime_weight: float = 0.3,
+    historical_weight: float = 0.4,
+    seed: int | None = 42,
+) -> EnsembleForecast:
+    """Generate an ensemble forecast combining multiple projection methods.
+
+    Blends three signals:
+    1. Historical weighted quantiles (standard projector)
+    2. Monte Carlo simulation from match distribution
+    3. Regime-conditional projection (filtered by query regime)
+
+    Then applies conformal prediction for calibrated intervals.
+
+    Args:
+        matches: Match results or SearchResults object.
+        history: Full historical data.
+        forward_bars: How many bars to project forward.
+        percentiles: Percentile levels for uncertainty bands.
+        query: Query series for regime detection. Extracted from
+            SearchResults automatically if available.
+        config: Pipeline config.
+        n_simulations: Number of Monte Carlo paths.
+        conformal_coverage: Coverage level for conformal intervals (0-1).
+        regime_soft_weight: How aggressively to filter incompatible regimes.
+        mc_weight: Weight for Monte Carlo component.
+        regime_weight: Weight for regime-conditional component.
+        historical_weight: Weight for standard historical projection.
+        seed: Random seed for reproducibility.
+
+    Returns:
+        EnsembleForecast with blended curves and component results.
+    """
+    q_values = None
+    if isinstance(matches, SearchResults):
+        q_values = matches.query
+        matches = matches.matches
+    if query is not None:
+        q_values = query.values if isinstance(query, TimeSeries) else np.asarray(query, dtype=np.float64)
+
+    h_values = history.values if isinstance(history, TimeSeries) else np.asarray(history, dtype=np.float64)
+
+    return _ensemble_forecast(
+        matches=matches,
+        history=h_values,
+        query=q_values,
+        forward_bars=forward_bars,
+        percentiles=percentiles,
+        config=config,
+        n_simulations=n_simulations,
+        conformal_coverage=conformal_coverage,
+        regime_soft_weight=regime_soft_weight,
+        mc_weight=mc_weight,
+        regime_weight=regime_weight,
+        historical_weight=historical_weight,
+        seed=seed,
+    )
 
 
 def plot(

@@ -22,6 +22,8 @@ def get_fetcher(spec: DatasetSpec):
     if spec.source == "twelvedata":
         return ForexTwelveDataFetcher()
     if spec.source == "yfinance":
+        if MarketYFinanceFetcher is None:
+            raise ValueError("yfinance is not installed — pip install yfinance")
         return MarketYFinanceFetcher()
     raise ValueError(f"Unsupported data source: {spec.source}")
 

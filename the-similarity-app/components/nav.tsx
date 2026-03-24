@@ -4,8 +4,10 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const links = [
-  { href: "/", label: "Dashboard" },
+  { href: "/", label: "Terminal" },
+  { href: "/portfolio", label: "Portfolio" },
   { href: "/search", label: "Search" },
+  { href: "/strategy", label: "Strategy" },
 ];
 
 export function Nav() {
@@ -13,6 +15,8 @@ export function Nav() {
 
   return (
     <nav className="nav-bar" aria-label="Main navigation">
+      <span className="nav-bar__logo">THE SIMILARITY</span>
+      <span className="nav-bar__sep" />
       {links.map((link) => {
         const isActive =
           link.href === "/"
