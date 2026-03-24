@@ -19,6 +19,8 @@ function makeState(overrides?: Partial<TerminalState>): TerminalState {
     activeMethods: ["dtw", "pearson_warped"],
     theme: "dark",
     activeDataset: null,
+    queryPicking: false,
+    customQueryRange: null,
     ...overrides,
   };
 }

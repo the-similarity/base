@@ -1,13 +1,17 @@
 "use client";
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef, useCallback, useState } from "react";
 import {
   createChart,
+  createSeriesMarkers,
   LineSeries,
   CandlestickSeries,
   type IChartApi,
   type ISeriesApi,
+  type ISeriesMarkersPluginApi,
   type LineData,
   type CandlestickData,
+  type SeriesMarker,
+  type Time,
 } from "lightweight-charts";
 import { useTerminal, type ChartMode } from "../../lib/terminal-context";
 
@@ -103,6 +107,9 @@ export function ChartPanel() {
     match?: ISeriesApi<"Line">;
     continuation?: ISeriesApi<"Line">;
   }>({});
+  const markersRef = useRef<ISeriesMarkersPluginApi<Time> | null>(null);
+
+  const pickStartRef = useRef<number | null>(null); // first click OHLC index during picking
 
   const { state, dispatch } = useTerminal();
   const sr = state.searchResponse;
@@ -135,23 +142,36 @@ export function ChartPanel() {
   const selectedMatch = highlightIdx !== null ? state.matches[highlightIdx] : null;
   const selMatchSeries = sr && selectedMatch?.matchedSeries ? selectedMatch.matchedSeries : null;
   const matchToDisplay = selMatchSeries ?? bestMatch;
-  // Offset match 25% below query so it's clearly separated from candles
-  const normalizedMatch = matchToDisplay.length > 1 ? normalizeToRange(matchToDisplay, query, 0.25) : [];
 
   // Forward window: what happened after the matched pattern
   const fullForward = selectedMatch?.forwardWindow ?? (sr?.matches[0]?.forwardWindow ?? null);
   const visibleForward = fullForward ? fullForward.slice(0, state.forwardBars) : null;
-  const matchAnchor = normalizedMatch.length > 0 ? normalizedMatch[normalizedMatch.length - 1] : 0;
-  const continuationSeries = visibleForward && matchAnchor !== 0
-    ? [matchAnchor, ...visibleForward.map((r) => matchAnchor * (1 + r))]
+
+  // Build raw match + forward as one series, then normalize together so scales match
+  const rawMatchEnd = matchToDisplay.length > 0 ? matchToDisplay[matchToDisplay.length - 1] : 0;
+  const rawForwardValues = visibleForward && rawMatchEnd !== 0
+    ? visibleForward.map((r) => rawMatchEnd * (1 + r))
+    : [];
+  const rawCombined = [...matchToDisplay, ...rawForwardValues];
+  const normalizedCombined = rawCombined.length > 1 ? normalizeToRange(rawCombined, query, 0.25) : [];
+
+  // Split back into match overlay and continuation
+  const normalizedMatch = normalizedCombined.slice(0, matchToDisplay.length);
+  const continuationSeries = rawForwardValues.length > 0
+    ? [normalizedCombined[matchToDisplay.length - 1], ...normalizedCombined.slice(matchToDisplay.length)]
     : [];
 
   // ── Full OHLC data for scrollable chart ──
   const hasOhlcData = ohlc && ohlc.close.length > 0 && ohlc.dates.length > 0;
   const queryLen = query.length;
 
-  // Dates for the query window (from full OHLC dates, last N entries)
-  const queryDates = hasOhlcData ? ohlc!.dates.slice(-queryLen) : [];
+  // Dates for the query window
+  const customRange = state.customQueryRange;
+  const queryDates = hasOhlcData
+    ? (customRange
+        ? ohlc!.dates.slice(customRange.startIdx, customRange.endIdx)
+        : ohlc!.dates.slice(-queryLen))
+    : [];
 
   // Timestamps for continuation (extend past the last candle)
   const lastQueryIso = queryDates.length > 0 ? queryDates[queryDates.length - 1] : "";
@@ -251,9 +271,13 @@ export function ChartPanel() {
       continuation: contLine,
     };
 
+    // Markers plugin for query selection indicators
+    markersRef.current = createSeriesMarkers(candleSeries as unknown as ISeriesApi<"Candlestick", Time>, []);
+
     return () => {
       chart.remove();
       chartRef.current = null;
+      markersRef.current = null;
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -263,6 +287,109 @@ export function ChartPanel() {
       layout: { background: { color: isDark ? COLORS.bg : COLORS.bgLight } },
     });
   }, [isDark]);
+
+  // ── Crosshair style: prominent vertical line when picking ──
+  useEffect(() => {
+    const chart = chartRef.current;
+    if (!chart) return;
+
+    if (state.queryPicking) {
+      chart.applyOptions({
+        crosshair: {
+          vertLine: { color: "#22d3ee", width: 1, style: 0, labelVisible: true },
+          horzLine: { color: "rgba(255,255,255,0.1)", width: 1, style: 2 },
+        },
+      });
+    } else {
+      chart.applyOptions({
+        crosshair: {
+          vertLine: { color: "rgba(255,255,255,0.1)", width: 1, style: 2, labelVisible: true },
+          horzLine: { color: "rgba(255,255,255,0.1)", width: 1, style: 2 },
+        },
+      });
+    }
+  }, [state.queryPicking]);
+
+  // ── Query picking: handle chart clicks ──
+  useEffect(() => {
+    const chart = chartRef.current;
+    if (!chart || !ohlc || ohlc.dates.length === 0) return;
+
+    if (!state.queryPicking) {
+      pickStartRef.current = null;
+      return;
+    }
+
+    const handler = (param: { time?: unknown }) => {
+      if (!param.time) return;
+
+      // Find the OHLC index closest to the clicked time
+      const clickedUtc = typeof param.time === "number"
+        ? param.time
+        : isoToUtc(String(param.time));
+
+      let bestIdx = 0;
+      let bestDist = Infinity;
+      for (let i = 0; i < ohlc!.dates.length; i++) {
+        const d = Math.abs(isoToUtc(ohlc!.dates[i]) - clickedUtc);
+        if (d < bestDist) { bestDist = d; bestIdx = i; }
+      }
+
+      if (pickStartRef.current === null) {
+        // First click — store it
+        pickStartRef.current = bestIdx;
+        // Show marker at first click
+        markersRef.current?.setMarkers([{
+          time: timeVal(ohlc!.dates, bestIdx) as unknown as Time,
+          position: "aboveBar",
+          color: "#22d3ee",
+          shape: "arrowDown",
+          text: "A",
+        }]);
+      } else {
+        // Second click — dispatch the range and auto-search
+        const startIdx = pickStartRef.current;
+        pickStartRef.current = null;
+        dispatch({ type: "SET_CUSTOM_QUERY_RANGE", startIdx, endIdx: bestIdx });
+      }
+    };
+
+    chart.subscribeClick(handler);
+    return () => chart.unsubscribeClick(handler);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.queryPicking, ohlc]);
+
+  // ── Show markers for custom query range ──
+  useEffect(() => {
+    const m = markersRef.current;
+    if (!m || !ohlc || ohlc.dates.length === 0) return;
+
+    if (state.customQueryRange) {
+      const { startIdx, endIdx } = state.customQueryRange;
+      const markers: SeriesMarker<Time>[] = [
+        {
+          time: timeVal(ohlc.dates, startIdx) as unknown as Time,
+          position: "aboveBar",
+          color: "#22d3ee",
+          shape: "arrowDown",
+          text: "A",
+        },
+        {
+          time: timeVal(ohlc.dates, endIdx) as unknown as Time,
+          position: "aboveBar",
+          color: "#22d3ee",
+          shape: "arrowDown",
+          text: "B",
+        },
+      ];
+      // Markers must be sorted by time
+      markers.sort((a, b) => (a.time as number) - (b.time as number));
+      m.setMarkers(markers);
+    } else if (!state.queryPicking) {
+      m.setMarkers([]);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.customQueryRange, state.queryPicking, ohlc]);
 
   // ── Update query/OHLC data + auto-fit (only on real data changes) ──
   useEffect(() => {
@@ -334,12 +461,16 @@ export function ChartPanel() {
   const isLoading = query.length < 2 && !isSearching;
 
   return (
-    <div className="chart-container">
+    <div className="chart-container" style={state.queryPicking ? { cursor: "crosshair" } : undefined}>
       {isLoading ? (
         <div className="empty-msg">Loading chart data…</div>
       ) : (
         <div className="chart-header">
-          <span className="chart-title">{chartTitle}</span>
+          <span className="chart-title">
+            {state.queryPicking
+              ? (pickStartRef.current !== null ? "Click second point (B)" : "Click first point (A)")
+              : chartTitle}
+          </span>
           <div className="chart-legend">
             {hasOhlcData && (
               <button

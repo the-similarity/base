@@ -19,6 +19,8 @@ export interface TerminalState {
   activeMethods: string[];
   theme: "dark" | "light";
   activeDataset: string | null; // "assetClass/symbol/timeframe"
+  queryPicking: boolean;
+  customQueryRange: { startIdx: number; endIdx: number } | null;
 }
 
 export type Action =
@@ -37,7 +39,11 @@ export type Action =
   | { type: "SET_OHLC"; data: OhlcData }
   | { type: "SET_CHART_MODE"; mode: ChartMode }
   | { type: "SET_FORWARD_BARS"; bars: number }
-  | { type: "SET_ACTIVE_DATASET"; dataset: string | null };
+  | { type: "SET_ACTIVE_DATASET"; dataset: string | null }
+  | { type: "START_QUERY_PICK" }
+  | { type: "CANCEL_QUERY_PICK" }
+  | { type: "SET_CUSTOM_QUERY_RANGE"; startIdx: number; endIdx: number }
+  | { type: "CLEAR_CUSTOM_QUERY" };
 
 const initialState: TerminalState = {
   matches: [],
@@ -57,6 +63,8 @@ const initialState: TerminalState = {
   ],
   theme: "dark",
   activeDataset: null,
+  queryPicking: false,
+  customQueryRange: null,
 };
 
 export function reducer(state: TerminalState, action: Action): TerminalState {
@@ -109,6 +117,17 @@ export function reducer(state: TerminalState, action: Action): TerminalState {
       return { ...state, forwardBars: action.bars };
     case "SET_ACTIVE_DATASET":
       return { ...state, activeDataset: action.dataset };
+    case "START_QUERY_PICK":
+      return { ...state, queryPicking: true, customQueryRange: null };
+    case "CANCEL_QUERY_PICK":
+      return { ...state, queryPicking: false };
+    case "SET_CUSTOM_QUERY_RANGE": {
+      const lo = Math.min(action.startIdx, action.endIdx);
+      const hi = Math.max(action.startIdx, action.endIdx);
+      return { ...state, queryPicking: false, customQueryRange: { startIdx: lo, endIdx: hi } };
+    }
+    case "CLEAR_CUSTOM_QUERY":
+      return { ...state, queryPicking: false, customQueryRange: null };
     default:
       return state;
   }

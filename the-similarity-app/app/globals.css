@@ -292,6 +292,14 @@ button { cursor: pointer; }
   color: var(--accent);
 }
 
+.config-pill-sep {
+  width: 1px;
+  height: 16px;
+  background: var(--border);
+  align-self: center;
+  margin: 0 2px;
+}
+
 /* ═══════════════════════════════════════════════════════════════════
    Match List & Cards — the sidebar
    ═══════════════════════════════════════════════════════════════════ */

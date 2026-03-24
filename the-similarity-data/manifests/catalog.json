@@ -9,7 +9,7 @@
       "start_timestamp": "2005-02-25T00:00:00+00:00",
       "end_timestamp": "2026-03-24T00:00:00+00:00",
       "row_count": 5574,
-      "last_updated_at": "2026-03-23T22:13:22.312220+00:00"
+      "last_updated_at": "2026-03-24T03:38:10.993857+00:00"
     },
     {
       "asset_class": "commodities",
@@ -18,9 +18,9 @@
       "source": "twelvedata",
       "path": "data/commodities/gold/1h.parquet",
       "start_timestamp": "2023-11-24T03:00:00+00:00",
-      "end_timestamp": "2026-03-23T22:00:00+00:00",
-      "row_count": 15213,
-      "last_updated_at": "2026-03-23T22:13:16.514408+00:00"
+      "end_timestamp": "2026-03-24T03:00:00+00:00",
+      "row_count": 15218,
+      "last_updated_at": "2026-03-24T03:38:06.360303+00:00"
     },
     {
       "asset_class": "commodities",
@@ -29,9 +29,9 @@
       "source": "twelvedata",
       "path": "data/commodities/gold/4h.parquet",
       "start_timestamp": "2020-01-24T00:00:00+00:00",
-      "end_timestamp": "2026-03-23T20:00:00+00:00",
-      "row_count": 10001,
-      "last_updated_at": "2026-03-23T22:13:21.521859+00:00"
+      "end_timestamp": "2026-03-24T00:00:00+00:00",
+      "row_count": 10002,
+      "last_updated_at": "2026-03-24T03:38:10.168500+00:00"
     },
     {
       "asset_class": "commodities",
