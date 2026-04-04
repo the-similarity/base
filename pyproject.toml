@@ -4,7 +4,7 @@ version = "0.2.0"
 description = "Research-grade time series pattern matching and prediction using 9 mathematical methods"
 authors = ["Buyantogtokh"]
 license = "MIT"
-readme = "docs/API_REFERENCE.md"
+readme = "README.md"
 homepage = "https://github.com/the-similarity/base"
 repository = "https://github.com/the-similarity/base"
 keywords = ["time-series", "pattern-matching", "dtw", "koopman", "forecasting", "similarity-search"]
@@ -20,7 +20,7 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
 ]
 packages = [{include = "the_similarity"}]
-exclude = ["the_similarity/tests/**"]
+exclude = ["the_similarity/tests/**", "**/*.swp"]
 
 [tool.poetry.dependencies]
 python = "^3.11"
@@ -28,15 +28,16 @@ numpy = "^1.26"
 pandas = "^2.1"
 scipy = "^1.11"
 dtaidistance = "^2.3"
-stumpy = "^1.12"
 EMD-signal = "^1.6"
 PyWavelets = "^1.5"
 matplotlib = "^3.8"
-plotly = "^5.18"
 pydantic = "^2.11"
+ripser = {version = "^0.6", optional = true}
+persim = {version = "^0.3", optional = true}
 
 [tool.poetry.extras]
 api = ["fastapi", "uvicorn"]
+tda = ["ripser", "persim"]
 
 [tool.poetry.group.api.dependencies]
 fastapi = "^0.115"
