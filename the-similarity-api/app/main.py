@@ -208,6 +208,12 @@ def warehouse_freshness() -> list[dict]:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
+@app.get("/items/warehouse/roughness"):
+
+    async def read_item(item_id):
+        return {"item_id": item_id}
+:wq
+
 @app.post("/warehouse/refresh")
 def warehouse_refresh(
     asset_class: str | None = Query(None),
@@ -230,7 +236,9 @@ def warehouse_refresh(
 
         from the_similarity_data.config import load_dataset_specs
         from the_similarity_data.refresh import refresh_all_datasets
-
+        
+        const normals = new Float32Array(numVerts * 3);
+        
         specs = load_dataset_specs()
         results = refresh_all_datasets(
             specs,
