@@ -192,6 +192,15 @@ let currentMode = 'classic';  // 'classic' or 'engine'
 
 const API_URL = 'http://127.0.0.1:8000';
 
+// FPS traversal scale constants.
+// The terrain world is tiny relative to default first-person controller values,
+// so the camera eye height and all movement forces need to stay very small.
+const FPS_EYE_HEIGHT = 0.0005;
+const FPS_JUMP_VELOCITY = 0.005;
+const FPS_GRAVITY = 0.015;
+const FPS_WALK_SPEED = 0.003;
+const FPS_RUN_SPEED = 0.008;
+
 /**
  * Dispose and detach the currently rendered terrain-related objects.
  *
@@ -458,7 +467,7 @@ fpsControls.addEventListener('lock', () => {
 
   // If the user was orbiting far away, snap them into a sensible spawn point.
   if (camera.position.y > 10) {
-    camera.position.set(0, 5, 0);
+    camera.position.set(0, FPS_EYE_HEIGHT, 0);
   }
 });
 
@@ -478,7 +487,7 @@ document.addEventListener('keydown', (event) => {
     case 'KeyD': moveState.right = true; break;
     case 'ShiftLeft': moveState.run = true; break;
     case 'Space':
-      if (canJump === true) velocity.y += 0.5;
+      if (canJump === true) velocity.y += FPS_JUMP_VELOCITY;
       canJump = false;
       break;
   }
@@ -505,7 +514,7 @@ renderer.domElement.addEventListener('dblclick', (e) => {
   const intersects = raycaster.intersectObject(terrainMesh);
   if (intersects.length > 0) {
     const pt = intersects[0].point;
-    camera.position.set(pt.x, pt.y + 0.05, pt.z);
+    camera.position.set(pt.x, pt.y + FPS_EYE_HEIGHT, pt.z);
     fpsControls.lock();
   }
 });
@@ -593,13 +602,13 @@ function animate() {
     // Damp horizontal motion so movement feels responsive rather than slippery.
     velocity.x -= velocity.x * 10.0 * delta;
     velocity.z -= velocity.z * 10.0 * delta;
-    velocity.y -= 1.5 * delta; // standard gravity scaled down
+    velocity.y -= FPS_GRAVITY * delta;
 
     direction.z = Number(moveState.forward) - Number(moveState.backward);
     direction.x = Number(moveState.right) - Number(moveState.left);
     direction.normalize(); // prevents diagonal movement from being faster
 
-    const speed = moveState.run ? 0.8 : 0.3; // speed scaled down
+    const speed = moveState.run ? FPS_RUN_SPEED : FPS_WALK_SPEED;
 
     if (moveState.forward || moveState.backward) velocity.z -= direction.z * speed * delta;
     if (moveState.left || moveState.right) velocity.x -= direction.x * speed * delta;
@@ -617,9 +626,9 @@ function animate() {
       const intersects = raycaster.intersectObject(terrainMesh);
       if (intersects.length > 0) {
         const groundHeight = intersects[0].point.y;
-        if (pos.y < groundHeight + 0.05) { // offset scaled down
+        if (pos.y < groundHeight + FPS_EYE_HEIGHT) {
           velocity.y = Math.max(0, velocity.y);
-          pos.y = groundHeight + 0.05;
+          pos.y = groundHeight + FPS_EYE_HEIGHT;
           canJump = true;
         }
       }
