@@ -234,6 +234,14 @@
       margin-bottom: 10px;
       margin-top: 4px;
     }
+
+    #world-history {
+      margin-top: 12px;
+    }
+
+    #history-select {
+      margin-top: 6px;
+    }
   </style>
 </head>
 <body>
@@ -322,6 +330,24 @@
       <button id="btn-animate">Animate</button>
       <button id="btn-explore">FPS Explore</button>
       <button id="btn-regenerate">New Seed</button>
+    </div>
+
+    <hr class="separator">
+
+    <div id="world-history">
+      <div class="section-label">World History</div>
+
+      <div class="btn-row">
+        <button id="btn-save-world">Save World</button>
+        <button id="btn-load-world">Load Selected</button>
+      </div>
+
+      <div class="control-group">
+        <label>Saved Worlds</label>
+        <select id="history-select">
+          <option value="">No saved worlds yet</option>
+        </select>
+      </div>
     </div>
 
     <div id="seed-display">seed: 0</div>

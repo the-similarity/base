@@ -189,6 +189,7 @@ let flatShading = true;
 let animating = false;
 let animTime = 0;
 let currentMode = 'classic';  // 'classic' or 'engine'
+let suppressHistoryRecording = false;
 
 const API_URL = 'http://127.0.0.1:8000';
 
@@ -201,6 +202,9 @@ const FPS_JUMP_VELOCITY = 0.08;
 const FPS_GRAVITY = 0.5;
 const FPS_WALK_SPEED = 0.3;
 const FPS_RUN_SPEED = 0.8;
+const WORLD_HISTORY_STORAGE_KEY = 'the-similarity:fractal-world-history';
+const WORLD_CURRENT_STORAGE_KEY = 'the-similarity:fractal-current-world';
+const MAX_WORLD_HISTORY = 20;
 
 /**
  * Dispose and detach the currently rendered terrain-related objects.
@@ -235,6 +239,148 @@ function clearScene() {
       if (child.material) child.material.dispose();
     });
     featureGroup = null;
+  }
+}
+
+/**
+ * Capture the current control state as a deterministic world snapshot.
+ *
+ * We persist parameters and seed instead of generated geometry buffers so the
+ * app can rebuild worlds cheaply and keep the saved format stable.
+ */
+function captureWorldState() {
+  return {
+    id: `${currentMode}-${currentSeed}`,
+    mode: currentMode,
+    seed: currentSeed,
+    createdAt: new Date().toISOString(),
+    classic: {
+      iterations: parseInt(document.getElementById('iterations').value),
+      roughness: parseFloat(document.getElementById('roughness').value),
+      displacement: parseFloat(document.getElementById('displacement').value),
+      scale: parseFloat(document.getElementById('scale').value),
+      colormap: document.getElementById('colormap').value,
+    },
+    engine: {
+      preset: document.getElementById('preset').value,
+      size: parseInt(document.getElementById('engine-size').value),
+    },
+  };
+}
+
+function worldLabel(snapshot) {
+  if (snapshot.mode === 'engine') {
+    return `Engine · ${snapshot.engine.preset} · ${snapshot.engine.size} · seed ${snapshot.seed}`;
+  }
+  return `Classic · iter ${snapshot.classic.iterations} · seed ${snapshot.seed}`;
+}
+
+function readWorldHistory() {
+  try {
+    const raw = localStorage.getItem(WORLD_HISTORY_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeWorldHistory(history) {
+  localStorage.setItem(WORLD_HISTORY_STORAGE_KEY, JSON.stringify(history.slice(0, MAX_WORLD_HISTORY)));
+}
+
+function persistCurrentWorld() {
+  localStorage.setItem(WORLD_CURRENT_STORAGE_KEY, JSON.stringify(captureWorldState()));
+}
+
+function refreshHistoryOptions(selectedId = '') {
+  const select = document.getElementById('history-select');
+  const history = readWorldHistory();
+
+  select.innerHTML = '';
+  if (history.length === 0) {
+    const option = document.createElement('option');
+    option.value = '';
+    option.textContent = 'No saved worlds yet';
+    select.appendChild(option);
+    return;
+  }
+
+  for (const snapshot of history) {
+    const option = document.createElement('option');
+    option.value = snapshot.id;
+    option.textContent = worldLabel(snapshot);
+    if (snapshot.id === selectedId) option.selected = true;
+    select.appendChild(option);
+  }
+}
+
+function recordWorldInHistory() {
+  const snapshot = captureWorldState();
+  const history = readWorldHistory().filter((item) => item.id !== snapshot.id);
+  history.unshift(snapshot);
+  writeWorldHistory(history);
+  refreshHistoryOptions(snapshot.id);
+}
+
+/**
+ * Restore a saved world snapshot into the controls and rebuild from it.
+ *
+ * History recording is temporarily suppressed during restore so loading a
+ * snapshot does not create an immediate duplicate history entry.
+ */
+function applyWorldState(snapshot) {
+  suppressHistoryRecording = true;
+
+  currentSeed = snapshot.seed;
+  currentMode = snapshot.mode === 'engine' ? 'engine' : 'classic';
+
+  document.getElementById('iterations').value = String(snapshot.classic.iterations);
+  document.getElementById('roughness').value = String(snapshot.classic.roughness);
+  document.getElementById('displacement').value = String(snapshot.classic.displacement);
+  document.getElementById('scale').value = String(snapshot.classic.scale);
+  document.getElementById('colormap').value = snapshot.classic.colormap;
+  document.getElementById('val-iterations').textContent = String(snapshot.classic.iterations);
+  document.getElementById('val-roughness').textContent = Number(snapshot.classic.roughness).toFixed(2);
+  document.getElementById('val-displacement').textContent = Number(snapshot.classic.displacement).toFixed(2);
+  document.getElementById('val-scale').textContent = Number(snapshot.classic.scale).toFixed(2);
+
+  document.getElementById('preset').value = snapshot.engine.preset;
+  document.getElementById('engine-size').value = String(snapshot.engine.size);
+  document.getElementById('val-engine-size').textContent = String(snapshot.engine.size);
+
+  if (currentMode === 'engine') {
+    document.getElementById('btn-engine').classList.add('active');
+    document.getElementById('btn-classic').classList.remove('active');
+    document.getElementById('classic-controls').style.display = 'none';
+    document.getElementById('engine-controls').style.display = '';
+    buildEngineTerrain();
+  } else {
+    document.getElementById('btn-classic').classList.add('active');
+    document.getElementById('btn-engine').classList.remove('active');
+    document.getElementById('classic-controls').style.display = '';
+    document.getElementById('engine-controls').style.display = 'none';
+    buildClassicTerrain();
+  }
+
+  suppressHistoryRecording = false;
+  persistCurrentWorld();
+  refreshHistoryOptions(snapshot.id);
+}
+
+function restoreInitialWorld() {
+  try {
+    const raw = localStorage.getItem(WORLD_CURRENT_STORAGE_KEY);
+    if (!raw) return false;
+    const snapshot = JSON.parse(raw);
+    if (!snapshot || !snapshot.mode || !snapshot.classic || !snapshot.engine) {
+      return false;
+    }
+    applyWorldState(snapshot);
+    return true;
+  } catch {
+    return false;
   }
 }
 
@@ -324,6 +470,8 @@ function buildClassicTerrain() {
   document.getElementById('stats').textContent =
     `Classic · ${terrain.vertexCount.toLocaleString()} verts · ${terrain.faceCount.toLocaleString()} faces · ${genTime}ms`;
   document.getElementById('seed-display').textContent = `seed: ${currentSeed}`;
+  persistCurrentWorld();
+  if (!suppressHistoryRecording) refreshHistoryOptions();
 }
 
 /**
@@ -380,6 +528,8 @@ async function buildEngineTerrain() {
     document.getElementById('stats').textContent =
       `Engine · ${preset} · ${data.size}×${data.size} · ${featureCount} features`;
     document.getElementById('seed-display').textContent = `seed: ${currentSeed}`;
+    persistCurrentWorld();
+    if (!suppressHistoryRecording) refreshHistoryOptions();
 
   } catch (e) {
     document.getElementById('stats').textContent = `Error: ${e.message}. Is the API running?`;
@@ -444,6 +594,7 @@ document.getElementById('btn-animate').addEventListener('click', (e) => {
 document.getElementById('btn-regenerate').addEventListener('click', () => {
   currentSeed = Math.floor(Math.random() * 100000);
   buildTerrain();
+  recordWorldInHistory();
 });
 
 // Explore mode swaps the input model from orbit-inspection to first-person walking.
@@ -554,6 +705,19 @@ document.getElementById('engine-size').addEventListener('input', () => {
 document.getElementById('btn-generate').addEventListener('click', () => {
   currentSeed = Math.floor(Math.random() * 100000);
   buildEngineTerrain();
+  recordWorldInHistory();
+});
+
+document.getElementById('btn-save-world').addEventListener('click', () => {
+  recordWorldInHistory();
+});
+
+document.getElementById('btn-load-world').addEventListener('click', () => {
+  const selectedId = document.getElementById('history-select').value;
+  if (!selectedId) return;
+  const snapshot = readWorldHistory().find((item) => item.id === selectedId);
+  if (!snapshot) return;
+  applyWorldState(snapshot);
 });
 
 // Keep camera projection and renderer output in sync with the browser viewport.
@@ -651,6 +815,12 @@ function animate() {
   renderer.render(scene, camera);
 }
 
-// Boot into classic mode because it works without any backend dependency.
-buildClassicTerrain();
+refreshHistoryOptions();
+
+// Restore the most recent world when available so refresh does not discard the
+// current session. Fall back to the classic generator only on first launch.
+if (!restoreInitialWorld()) {
+  buildClassicTerrain();
+  persistCurrentWorld();
+}
 animate();
