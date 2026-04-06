@@ -17,6 +17,19 @@ Architecture:
     │  Backend: SQLite (process-safe)               │
     │  Serialization: pickle                        │
     └─────────────────────────────────────────────┘
+
+Caching Lifecycle and Strict Invariants:
+- Advisory Fallback: The cache is ADVISORY. It strictly fails-open on SQlite 
+  locks or corruption, falling through to recompute `compute_fn()` and raising a 
+  `RuntimeWarning`.
+- Invalidation Strategy: Keys are composite `(dataset_hash:start:len:method:params_hash)`. 
+  Mutating dataset contents (captured via sparse hash), configuration, or the target 
+  window length naturally orphans old records.
+- Concurrency: Uses SQLite WAL (`PRAGMA journal_mode=WAL`). This guarantees 
+  non-blocking safe reads for concurrent processes (via `ProcessPoolExecutor`).
+- Serialization: Pickling is mandatory because tier-2 methods yield arbitrary 
+  object graphs (e.g. `numpy` structural spectra or custom dataclasses). JSON 
+  would permanently strip shape and class metadata.
 """
 from __future__ import annotations
 
@@ -39,13 +52,23 @@ def dataset_hash(history: NDArray[np.float64]) -> str:
 
     Uses O(n/100) sampling: length + first + last + every 100th value.
     Catches real data changes with negligible false positives.
+
+    Why sparse sampling instead of full hash:
+    - A 10,000-element float64 array is 80KB. SHA-256 over that for every
+      cache lookup would dominate the cost of cheap Tier 2 methods.
+    - Sampling every 100th element covers ~100 points, which is enough to
+      detect: dataset swaps, data refreshes, truncation, and corruption.
+    - The 16-hex-char truncation gives 64 bits of collision resistance,
+      which is more than sufficient for cache keys.
     """
     h = hashlib.sha256()
+    # Include array length — catches truncation and padding
     h.update(str(len(history)).encode())
     if len(history) > 0:
+        # First and last values catch most common data mutations
         h.update(history[0].tobytes())
         h.update(history[-1].tobytes())
-        # Sample every 100th value
+        # Sparse interior sampling catches mid-series changes
         for i in range(0, len(history), 100):
             h.update(history[i].tobytes())
     return h.hexdigest()[:16]
@@ -87,9 +110,19 @@ class FeatureStore:
         self._ensure_schema()
 
     def _connect(self) -> sqlite3.Connection:
-        """Create a new connection (safe for multi-process use)."""
+        """Create a new connection per call (safe for multi-process use).
+
+        Why a new connection each time (not pooled):
+        - SQLite connections are NOT safely shareable across processes.
+        - ProcessPoolExecutor workers each need their own connection.
+        - A 10ms connection overhead is negligible vs. Tier 2 compute time.
+        """
         conn = sqlite3.connect(self._db_path, timeout=10)
+        # WAL (Write-Ahead Logging) mode allows concurrent readers and a
+        # single writer, which is critical for multi-process backtesting.
         conn.execute("PRAGMA journal_mode=WAL")
+        # NORMAL synchronous mode trades a tiny crash-safety margin for
+        # ~2× write speed. Cache data is non-critical and can be rebuilt.
         conn.execute("PRAGMA synchronous=NORMAL")
         return conn
 

@@ -15,6 +15,16 @@ is the self-similarity quality score.
 For pattern matching: given query Q and candidate C, we split each
 into sub-windows and optimize alpha/beta to collapse them. If both
 achieve high R^2, the same dynamical process generated both.
+
+Mathematical Formulations & Optimizations:
+- Core Intuition: Measures pure self-similarity structure. Evaluates if the time 
+  scaling function `alpha(t)` and amplitude scaling function `beta(t)` adhere to 
+  clean power laws (scoring via R^2 fit).
+- Optimization Bounds: We attempt to collapse N subwindows onto a strict common 
+  coordinate plane. This uses `scipy.optimize.minimize` (L-BFGS-B).
+- Random Restarts Constraint: The objective function here is highly non-convex 
+  and exceptionally prone to local minima when encountering noisy signal variants. 
+  Random restarts with variable `x0` initial parameters are algorithmically mandatory.
 """
 from __future__ import annotations
 
@@ -140,7 +150,8 @@ def self_similarity_transform(
     alpha[1:] = best_result.x[:n_free]
     beta[1:] = best_result.x[n_free:]
 
-    # Score the transform quality
+    # Evaluate how well alpha and beta profiles follow an exponential power law.
+    # We fit a log-log regression to (time, scaling factor)
     t = np.arange(1, n_subwindows + 1, dtype=np.float64)
     alpha_r2 = _power_law_r2(t, np.abs(alpha))
     beta_r2 = _power_law_r2(t, np.abs(beta))
@@ -236,8 +247,8 @@ def _rescale_subwindows(
 def _pairwise_collapse_error(rescaled: NDArray[np.float64]) -> float:
     """Sum of squared pairwise differences between rescaled sub-windows.
 
-    This is the objective function: if all sub-windows collapse to the
-    same curve, this is zero.
+    This is the objective function for L-BFGS-B: if all sub-windows collapse to the
+    same curve, this is exactly zero. It measures the quality of the collapse.
     """
     n = rescaled.shape[0]
     total = 0.0

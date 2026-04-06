@@ -1,3 +1,18 @@
+"""Empirical Mode Decomposition (EMD) matcher.
+
+Decomposes a time series into Intrinsic Mode Functions (IMFs).
+Used as a Tier 2 enrichment method to compare multi-scale characteristics.
+
+Spectral Decomposition & Matching Architecture:
+- Data-driven Basis: Unlike Fourier or Wavelet transforms relying on fixed 
+  rigid mathematical dictionaries, EMD empirically derives basis functions 
+  (Intrinsic Mode Functions, IMFs) strictly from the target data via sifting.
+- Dimensionality Alignment: `n_q` and `n_c` are not guaranteed to match due to 
+  the empirical generation process. The shorter spectrum is padded with zero arrays.
+- Distance Metric: Final score computes the energy-weighted L2 distance mapped 
+  exponentially. High energy components in the query firmly dictate distance penalties.
+"""
+
 import numpy as np
 from numpy.typing import NDArray
 from PyEMD import EMD

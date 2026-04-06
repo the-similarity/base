@@ -3,7 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>The Similarity — Fractal Terrain</title>
+  <title>The Similarity — Fractal Terrain Engine</title>
+  <meta name="description" content="Multi-scale fractal terrain generation driven by wavelet leaders, EMD, and self-similarity analysis.">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
@@ -18,14 +19,22 @@
       position: fixed;
       top: 20px;
       left: 20px;
-      background: rgba(10, 10, 15, 0.85);
-      backdrop-filter: blur(12px);
+      background: rgba(10, 10, 15, 0.88);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
       border: 1px solid rgba(255, 255, 255, 0.08);
-      border-radius: 12px;
+      border-radius: 14px;
       padding: 20px;
-      width: 280px;
+      width: 290px;
       z-index: 10;
+      max-height: calc(100vh - 40px);
+      overflow-y: auto;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(79,195,247,0.3) transparent;
     }
+    #controls::-webkit-scrollbar { width: 4px; }
+    #controls::-webkit-scrollbar-thumb { background: rgba(79,195,247,0.3); border-radius: 2px; }
+
     #controls h1 {
       font-size: 14px;
       font-weight: 600;
@@ -68,32 +77,60 @@
       background: #4fc3f7;
       border-radius: 50%;
       cursor: pointer;
+      box-shadow: 0 0 8px rgba(79, 195, 247, 0.4);
     }
 
     .btn-row {
       display: flex;
       gap: 8px;
-      margin-top: 16px;
+      margin-top: 10px;
     }
     button {
       flex: 1;
       padding: 8px 12px;
-      background: rgba(79, 195, 247, 0.1);
-      border: 1px solid rgba(79, 195, 247, 0.3);
+      background: rgba(79, 195, 247, 0.08);
+      border: 1px solid rgba(79, 195, 247, 0.25);
       border-radius: 6px;
       color: #4fc3f7;
       font-family: inherit;
       font-size: 11px;
       cursor: pointer;
-      transition: all 0.2s;
+      transition: all 0.2s ease;
     }
     button:hover {
-      background: rgba(79, 195, 247, 0.2);
+      background: rgba(79, 195, 247, 0.18);
       border-color: rgba(79, 195, 247, 0.5);
+      box-shadow: 0 0 12px rgba(79, 195, 247, 0.15);
     }
     button.active {
-      background: rgba(79, 195, 247, 0.25);
+      background: rgba(79, 195, 247, 0.22);
       border-color: #4fc3f7;
+      box-shadow: 0 0 16px rgba(79, 195, 247, 0.2);
+    }
+
+    /* Mode toggle */
+    .mode-toggle {
+      display: flex;
+      gap: 0;
+      margin-bottom: 16px;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid rgba(79, 195, 247, 0.2);
+    }
+    .mode-toggle button {
+      border: none;
+      border-radius: 0;
+      flex: 1;
+      padding: 10px 0;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+      transition: all 0.25s ease;
+    }
+    .mode-toggle button.active {
+      background: rgba(79, 195, 247, 0.25);
+      color: #fff;
+      box-shadow: none;
     }
 
     #stats {
@@ -111,6 +148,44 @@
       text-align: center;
     }
 
+    #crosshair {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      width: 10px;
+      height: 10px;
+      margin-top: -5px;
+      margin-left: -5px;
+      border: 1.5px solid rgba(255, 255, 255, 0.5);
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: 100;
+      display: none;
+    }
+
+    #explore-instructions {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background: rgba(10, 10, 15, 0.85);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      padding: 16px;
+      color: #aaa;
+      font-size: 11px;
+      z-index: 100;
+      display: none;
+      pointer-events: none;
+      line-height: 1.6;
+    }
+    #explore-instructions kbd {
+      background: rgba(255, 255, 255, 0.1);
+      padding: 2px 6px;
+      border-radius: 4px;
+      color: #4fc3f7;
+      font-family: inherit;
+    }
+
     .separator {
       border: none;
       border-top: 1px solid rgba(255, 255, 255, 0.06);
@@ -119,7 +194,7 @@
 
     select {
       width: 100%;
-      padding: 6px 8px;
+      padding: 8px 10px;
       background: rgba(255, 255, 255, 0.05);
       border: 1px solid rgba(255, 255, 255, 0.1);
       border-radius: 6px;
@@ -128,50 +203,116 @@
       font-size: 11px;
       outline: none;
       cursor: pointer;
+      transition: border-color 0.2s;
+    }
+    select:hover {
+      border-color: rgba(79, 195, 247, 0.3);
     }
     select option {
       background: #1a1a2e;
+    }
+
+    /* Engine badge */
+    .engine-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      background: linear-gradient(135deg, rgba(79,195,247,0.15), rgba(129,236,236,0.15));
+      border: 1px solid rgba(79,195,247,0.3);
+      border-radius: 4px;
+      font-size: 9px;
+      color: #81ecec;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      margin-left: 8px;
+    }
+
+    .section-label {
+      font-size: 10px;
+      color: #555;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 10px;
+      margin-top: 4px;
     }
   </style>
 </head>
 <body>
   <div id="controls">
-    <h1>Fractal Terrain</h1>
-    <div class="subtitle">self-similar subdivision</div>
+    <h1>Fractal Terrain <span class="engine-badge">v2</span></h1>
+    <div class="subtitle">wavelet-driven generation</div>
 
-    <div class="control-group">
-      <label>Iterations <span class="value" id="val-iterations">5</span></label>
-      <input type="range" id="iterations" min="0" max="8" value="5" step="1">
+    <!-- Mode toggle -->
+    <div class="mode-toggle">
+      <button id="btn-classic" class="active">Classic</button>
+      <button id="btn-engine">Engine</button>
     </div>
 
-    <div class="control-group">
-      <label>Roughness <span class="value" id="val-roughness">0.55</span></label>
-      <input type="range" id="roughness" min="0.1" max="1.0" value="0.55" step="0.05">
+    <!-- Classic mode controls -->
+    <div id="classic-controls">
+      <div class="section-label">Generation</div>
+
+      <div class="control-group">
+        <label>Iterations <span class="value" id="val-iterations">5</span></label>
+        <input type="range" id="iterations" min="0" max="8" value="5" step="1">
+      </div>
+
+      <div class="control-group">
+        <label>Roughness <span class="value" id="val-roughness">0.55</span></label>
+        <input type="range" id="roughness" min="0.1" max="1.0" value="0.55" step="0.05">
+      </div>
+
+      <div class="control-group">
+        <label>Displacement <span class="value" id="val-displacement">1.20</span></label>
+        <input type="range" id="displacement" min="0.1" max="3.0" value="1.2" step="0.1">
+      </div>
+
+      <div class="control-group">
+        <label>Scale <span class="value" id="val-scale">4.0</span></label>
+        <input type="range" id="scale" min="1.0" max="10.0" value="4.0" step="0.5">
+      </div>
+
+      <hr class="separator">
+
+      <div class="control-group">
+        <label>Color Map</label>
+        <select id="colormap">
+          <option value="terrain">Terrain (earth)</option>
+          <option value="snow">Snow Peak</option>
+          <option value="volcanic">Volcanic</option>
+          <option value="ocean">Ocean Floor</option>
+          <option value="alien">Alien World</option>
+          <option value="mono">Monochrome</option>
+        </select>
+      </div>
     </div>
 
-    <div class="control-group">
-      <label>Displacement <span class="value" id="val-displacement">1.20</span></label>
-      <input type="range" id="displacement" min="0.1" max="3.0" value="1.2" step="0.1">
-    </div>
+    <!-- Engine mode controls -->
+    <div id="engine-controls" style="display:none;">
+      <div class="section-label">Terrain Preset</div>
 
-    <div class="control-group">
-      <label>Scale <span class="value" id="val-scale">4.0</span></label>
-      <input type="range" id="scale" min="1.0" max="10.0" value="4.0" step="0.5">
+      <div class="control-group">
+        <label>World Type</label>
+        <select id="preset">
+          <option value="alpine">🏔️ Alpine</option>
+          <option value="rolling_hills">🌳 Rolling Hills</option>
+          <option value="desert">🏜️ Desert</option>
+          <option value="coastal">🏖️ Coastal</option>
+          <option value="volcanic">🌋 Volcanic</option>
+          <option value="canyon">🏜️ Canyon</option>
+        </select>
+      </div>
+
+      <div class="control-group">
+        <label>Grid Size (Detail) <span class="value" id="val-engine-size">128</span></label>
+        <input type="range" id="engine-size" min="32" max="256" value="128" step="32">
+      </div>
+
+      <div class="btn-row">
+        <button id="btn-generate">🌍 Generate World</button>
+      </div>
     </div>
 
     <hr class="separator">
-
-    <div class="control-group">
-      <label>Color Map</label>
-      <select id="colormap">
-        <option value="terrain">Terrain (earth)</option>
-        <option value="snow">Snow Peak</option>
-        <option value="volcanic">Volcanic</option>
-        <option value="ocean">Ocean Floor</option>
-        <option value="alien">Alien World</option>
-        <option value="mono">Monochrome</option>
-      </select>
-    </div>
 
     <div class="btn-row">
       <button id="btn-wireframe">Wireframe</button>
@@ -179,6 +320,7 @@
     </div>
     <div class="btn-row">
       <button id="btn-animate">Animate</button>
+      <button id="btn-explore">FPS Explore</button>
       <button id="btn-regenerate">New Seed</button>
     </div>
 
@@ -186,6 +328,16 @@
   </div>
 
   <div id="stats"></div>
+
+  <div id="crosshair"></div>
+  <div id="explore-instructions">
+    <strong style="color: #fff;">Explore Mode</strong><br>
+    <kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> Move<br>
+    <kbd>Space</kbd> Jump<br>
+    <kbd>Shift</kbd> Sprint<br>
+    <br>
+    Press <kbd>ESC</kbd> to exit
+  </div>
 
   <script type="importmap">
   {

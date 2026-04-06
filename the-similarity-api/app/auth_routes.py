@@ -1,4 +1,13 @@
-"""Auth API routes: register, login, refresh, API keys."""
+"""Auth API routes: register, login, refresh, API keys.
+
+Security Lifecycle & Dependency Injection:
+- Request Interception: Protected routes universally rely on FastAPI Dependency 
+  Injection (`Depends(get_current_user)`). This acts as a declarative security 
+  barrier, preempting the handler execution context if authentication is invalid.
+- Stateful Asymmetry: The API accommodates two parallel authentication lifecycles. 
+  UI sessions use short-lived sliding JWT pairs (access + refresh) for bounded TTL 
+  state, while programmed clients generate non-expiring programmatic `API Keys`.
+"""
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Response

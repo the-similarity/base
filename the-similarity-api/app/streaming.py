@@ -13,6 +13,20 @@ Two WebSocket endpoints:
 2. /ws/watch — Watch for pattern matches on a live candle stream.
    Client sends initial config, then pushes candles as they arrive.
    Server re-runs search when enough new bars accumulate.
+
+Concurrency & Async Boundary Lifecycle:
+- GIL Dynamics: `the_similarity.search()` leans heavily into compiled C extensions 
+  (NumPy, SciPy). Because these drop the Global Interpreter Lock (GIL) during tight 
+  computational segments, running concurrent UI requests through a `ThreadPoolExecutor` 
+  actually provides true structural hardware parallelization, avoiding dummy context 
+  switches.
+- Event Loop Blocking: All engine calls MUST explicitly route through `loop.run_in_executor()`. 
+  Invoking them directly in the coroutine path will structurally lock the FastAPI 
+  uvicorn asynchronous event loop, blocking all other clients.
+- Thread-safe Progress Streaming: The background search executors asynchronously emit 
+  progress updates. To bridge this back to the main thread's async WebSocket pipeline, 
+  `_progress_callback` leverages `loop.call_soon_threadsafe()` to marshal data 
+  cleanly into an `asyncio.Queue()`.
 """
 from __future__ import annotations
 

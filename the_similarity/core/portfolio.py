@@ -5,6 +5,15 @@ Phase 7c — provides tools for analyzing relationships across multiple assets:
 - Portfolio-wide regime snapshots
 - Correlation divergence detection
 - Information flow (transfer entropy) network analysis
+
+AI AGENT NOTES:
+- This module analyzes interconnectedness between different assets.
+- `cross_asset_scan()` measures how one asset (target) behaves *after* a 
+  pattern matched on a completely different asset (source).
+- Useful for modeling broad market dynamics, e.g. "When SPY prints this 
+  pattern, what does BTC do 4 hours later?"
+- Returns correlations and Information Flow (Transfer Entropy) to definitively
+  measure lead-lag relationships.
 """
 from __future__ import annotations
 
