@@ -45,7 +45,7 @@ const BIOME_COLORS = {
  * @param {number} heightScale - Vertical exaggeration
  * @returns {{ mesh: THREE.Mesh, waterMesh: THREE.Mesh|null }}
  */
-export function buildTerrainMesh(data, worldScale = 10, heightScale = 3) {
+export function buildTerrainMesh(data, worldScale = 10, heightScale = 2.1) {
   const size = data.size;
   const heightmap = data.heightmap;
   const biome = data.biome;

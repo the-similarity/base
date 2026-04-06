@@ -10,6 +10,7 @@ packages = [{include = "the_similarity_data"}]
 python = "^3.11"
 pandas = "^2.2.2"
 pyarrow = "^22.0.0"
+duckdb = "^1.2.2"
 ccxt = "^4.5.42"
 yfinance = "^0.2.50"
 requests = "^2.32.5"

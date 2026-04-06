@@ -72,18 +72,33 @@ class TerrainGenerator:
         # 1. Generate spatially-varying Hurst map
         hurst_map = self._generate_hurst_map(size, rng)
 
+        # Broad landform masks make the result feel more geologic and less like
+        # "noise at every scale". Real terrain usually has wide basins, plains,
+        # shelves, and only localized belts of strong uplift.
+        continentalness = self._generate_continentalness(size, rng)
+        uplift_mask = self._generate_uplift_mask(size, continentalness, rng)
+
         # 2. Base layer: fBm with varying roughness
         base = self._spectral_synthesis(size, hurst_map, rng)
+        base = 0.55 * base + 0.45 * continentalness
 
         # 3. Ridge overlay for mountain ridges
         ridges = self._ridged_multifractal(size, rng)
         ridge_weight = p.imf_energies[1] if len(p.imf_energies) > 1 else 0.2
+        ridge_weight *= np.clip(1.0 - 0.9 * p.h_mean, 0.15, 0.8)
+        ridge_weight *= 0.15 + 0.85 * uplift_mask
         heightmap = base + ridge_weight * ridges
 
         # 4. Detail injection
         detail = self._fractal_detail(size, rng)
-        detail_weight = p.spectrum_width * 0.3
+        detail_weight = p.spectrum_width * np.clip(1.0 - 0.75 * p.h_mean, 0.18, 0.8)
+        detail_weight *= 0.06 + 0.14 * uplift_mask
         heightmap += detail_weight * detail
+
+        # Favor broad lowlands and coast-like basins so mountains are a
+        # minority landform instead of occupying almost the whole map.
+        basin_mask = np.clip(1.0 - continentalness, 0.0, 1.0)
+        heightmap -= basin_mask * (0.08 + 0.18 * p.water_level)
 
         # 5. Normalize to [0, 1]
         hmin, hmax = heightmap.min(), heightmap.max()
@@ -91,6 +106,14 @@ class TerrainGenerator:
             heightmap = (heightmap - hmin) / (hmax - hmin)
         else:
             heightmap = np.full((size, size), 0.5)
+
+        # Hypsometric shaping:
+        # Real terrain is not evenly distributed between sea level and summit.
+        # Large areas tend to sit in lowlands or rolling uplands, while sharp
+        # relief occupies a smaller fraction of the surface.
+        lowland_bias = 1.25 + 1.2 * p.water_level
+        heightmap = heightmap ** lowland_bias
+        heightmap = 0.7 * heightmap + 0.3 * continentalness
 
         # 6. Apply elevation range scaling
         heightmap = heightmap * p.elevation_range
@@ -106,6 +129,11 @@ class TerrainGenerator:
             seed=seed,
         )
         heightmap = thermal_erosion(heightmap, iterations=max(5, int(20 * p.erosion_strength)))
+        heightmap = self._relax_heightmap(
+            heightmap,
+            passes=max(1, int(round(2 + 2 * p.erosion_strength))),
+            strength=0.18 if p.terrain_type == "alpine" else 0.24,
+        )
 
         # 8. Renormalize
         hmin, hmax = heightmap.min(), heightmap.max()
@@ -150,6 +178,35 @@ class TerrainGenerator:
         # Map noise [0,1] to Hurst range [h_min, h_max]
         hurst_map = p.h_min + noise * (p.h_max - p.h_min)
         return hurst_map
+
+    def _generate_continentalness(
+        self, size: int, rng: np.random.Generator
+    ) -> NDArray[np.float64]:
+        """Generate broad-scale land vs basin structure.
+
+        This is our cheap stand-in for plate-scale organization. A low-frequency
+        mask ensures the generator produces wide lowlands and coast-like regions
+        before it adds local ridges and fine fractal detail.
+        """
+        raw = self._smooth_noise(size, octaves=1, rng=rng)
+        continental = self._relax_heightmap(raw, passes=6, strength=0.35)
+        cmin, cmax = continental.min(), continental.max()
+        if cmax - cmin > 1e-12:
+            continental = (continental - cmin) / (cmax - cmin)
+        return continental
+
+    def _generate_uplift_mask(
+        self,
+        size: int,
+        continentalness: NDArray[np.float64],
+        rng: np.random.Generator,
+    ) -> NDArray[np.float64]:
+        """Localize where strong mountain building is allowed to happen."""
+        tectonic = self._smooth_noise(size, octaves=2, rng=rng)
+        tectonic = self._relax_heightmap(tectonic, passes=3, strength=0.25)
+        uplift = continentalness * tectonic
+        uplift = np.clip((uplift - 0.35) / 0.65, 0.0, 1.0)
+        return uplift
 
     def _spectral_synthesis(
         self,
@@ -245,6 +302,31 @@ class TerrainGenerator:
             rng = np.random.default_rng()
         # High Hurst = very smooth
         return self._fbm_spectral(size, 0.85, rng)
+
+    def _relax_heightmap(
+        self,
+        heightmap: NDArray[np.float64],
+        passes: int = 1,
+        strength: float = 0.2,
+    ) -> NDArray[np.float64]:
+        """Diffuse sharp one-cell spikes while preserving broad landforms.
+
+        This is a lightweight alternative to a full geomorphology solve. It is
+        especially useful after noise synthesis because a tiny amount of local
+        diffusion makes the result read more like eroded terrain and less like
+        raw procedural facets.
+        """
+        result = np.array(heightmap, copy=True)
+        strength = float(np.clip(strength, 0.0, 1.0))
+        for _ in range(max(0, passes)):
+            neighbor_mean = (
+                np.roll(result, 1, axis=0)
+                + np.roll(result, -1, axis=0)
+                + np.roll(result, 1, axis=1)
+                + np.roll(result, -1, axis=1)
+            ) / 4.0
+            result = result * (1.0 - strength) + neighbor_mean * strength
+        return result
 
     def _classify_biomes(
         self,

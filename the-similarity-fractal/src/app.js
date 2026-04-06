@@ -189,8 +189,23 @@ let flatShading = true;
 let animating = false;
 let animTime = 0;
 let currentMode = 'classic';  // 'classic' or 'engine'
+let suppressHistoryRecording = false;
 
 const API_URL = 'http://127.0.0.1:8000';
+
+// FPS traversal scale constants.
+// The terrain world is tiny relative to default first-person controller values,
+// so the camera eye height and all movement forces need to stay very small.
+const FPS_EYE_HEIGHT = 0.08;
+const FPS_GROUND_SNAP_DISTANCE = 0.015;
+const FPS_JUMP_VELOCITY = 0.18;
+const FPS_GRAVITY = 0.32;
+const FPS_WALK_SPEED = 0.3;
+const FPS_RUN_SPEED = 0.8;
+const WORLD_HISTORY_STORAGE_KEY = 'the-similarity:fractal-world-history';
+const WORLD_CURRENT_STORAGE_KEY = 'the-similarity:fractal-current-world';
+const MENU_COLLAPSED_STORAGE_KEY = 'the-similarity:fractal-menu-collapsed';
+const MAX_WORLD_HISTORY = 20;
 
 /**
  * Dispose and detach the currently rendered terrain-related objects.
@@ -225,6 +240,170 @@ function clearScene() {
       if (child.material) child.material.dispose();
     });
     featureGroup = null;
+  }
+}
+
+/**
+ * Capture the current control state as a deterministic world snapshot.
+ *
+ * We persist parameters and seed instead of generated geometry buffers so the
+ * app can rebuild worlds cheaply and keep the saved format stable.
+ */
+function captureWorldState() {
+  return {
+    id: `${currentMode}-${currentSeed}`,
+    mode: currentMode,
+    seed: currentSeed,
+    createdAt: new Date().toISOString(),
+    classic: {
+      iterations: parseInt(document.getElementById('iterations').value),
+      roughness: parseFloat(document.getElementById('roughness').value),
+      displacement: parseFloat(document.getElementById('displacement').value),
+      scale: parseFloat(document.getElementById('scale').value),
+      colormap: document.getElementById('colormap').value,
+    },
+    engine: {
+      preset: document.getElementById('preset').value,
+      size: parseInt(document.getElementById('engine-size').value),
+    },
+  };
+}
+
+function worldLabel(snapshot) {
+  if (snapshot.mode === 'engine') {
+    return `Engine · ${snapshot.engine.preset} · ${snapshot.engine.size} · seed ${snapshot.seed}`;
+  }
+  return `Classic · iter ${snapshot.classic.iterations} · seed ${snapshot.seed}`;
+}
+
+function readWorldHistory() {
+  try {
+    const raw = localStorage.getItem(WORLD_HISTORY_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeWorldHistory(history) {
+  localStorage.setItem(WORLD_HISTORY_STORAGE_KEY, JSON.stringify(history.slice(0, MAX_WORLD_HISTORY)));
+}
+
+function persistCurrentWorld() {
+  localStorage.setItem(WORLD_CURRENT_STORAGE_KEY, JSON.stringify(captureWorldState()));
+}
+
+function refreshHistoryOptions(selectedId = '') {
+  const select = document.getElementById('history-select');
+  if (!select) return;
+  const history = readWorldHistory();
+
+  select.innerHTML = '';
+  if (history.length === 0) {
+    const option = document.createElement('option');
+    option.value = '';
+    option.textContent = 'No saved worlds yet';
+    select.appendChild(option);
+    return;
+  }
+
+  for (const snapshot of history) {
+    const option = document.createElement('option');
+    option.value = snapshot.id;
+    option.textContent = worldLabel(snapshot);
+    if (snapshot.id === selectedId) option.selected = true;
+    select.appendChild(option);
+  }
+}
+
+function recordWorldInHistory() {
+  const snapshot = captureWorldState();
+  const history = readWorldHistory().filter((item) => item.id !== snapshot.id);
+  history.unshift(snapshot);
+  writeWorldHistory(history);
+  refreshHistoryOptions(snapshot.id);
+}
+
+function applyMenuCollapsedState(isCollapsed) {
+  const controlsPanel = document.getElementById('controls');
+  const toggleButton = document.getElementById('menu-toggle');
+  if (!controlsPanel || !toggleButton) return;
+
+  controlsPanel.classList.toggle('is-collapsed', isCollapsed);
+  toggleButton.classList.toggle('is-inline', !isCollapsed);
+  toggleButton.textContent = isCollapsed ? 'Menu' : 'Hide';
+  toggleButton.setAttribute('aria-expanded', String(!isCollapsed));
+  localStorage.setItem(MENU_COLLAPSED_STORAGE_KEY, JSON.stringify(isCollapsed));
+}
+
+function restoreMenuCollapsedState() {
+  try {
+    const raw = localStorage.getItem(MENU_COLLAPSED_STORAGE_KEY);
+    applyMenuCollapsedState(raw ? JSON.parse(raw) === true : false);
+  } catch {
+    applyMenuCollapsedState(false);
+  }
+}
+
+/**
+ * Restore a saved world snapshot into the controls and rebuild from it.
+ *
+ * History recording is temporarily suppressed during restore so loading a
+ * snapshot does not create an immediate duplicate history entry.
+ */
+function applyWorldState(snapshot) {
+  suppressHistoryRecording = true;
+
+  currentSeed = snapshot.seed;
+  currentMode = snapshot.mode === 'engine' ? 'engine' : 'classic';
+
+  document.getElementById('iterations').value = String(snapshot.classic.iterations);
+  document.getElementById('roughness').value = String(snapshot.classic.roughness);
+  document.getElementById('displacement').value = String(snapshot.classic.displacement);
+  document.getElementById('scale').value = String(snapshot.classic.scale);
+  document.getElementById('colormap').value = snapshot.classic.colormap;
+  document.getElementById('val-iterations').textContent = String(snapshot.classic.iterations);
+  document.getElementById('val-roughness').textContent = Number(snapshot.classic.roughness).toFixed(2);
+  document.getElementById('val-displacement').textContent = Number(snapshot.classic.displacement).toFixed(2);
+  document.getElementById('val-scale').textContent = Number(snapshot.classic.scale).toFixed(2);
+
+  document.getElementById('preset').value = snapshot.engine.preset;
+  document.getElementById('engine-size').value = String(snapshot.engine.size);
+  document.getElementById('val-engine-size').textContent = String(snapshot.engine.size);
+
+  if (currentMode === 'engine') {
+    document.getElementById('btn-engine').classList.add('active');
+    document.getElementById('btn-classic').classList.remove('active');
+    document.getElementById('classic-controls').style.display = 'none';
+    document.getElementById('engine-controls').style.display = '';
+    buildEngineTerrain();
+  } else {
+    document.getElementById('btn-classic').classList.add('active');
+    document.getElementById('btn-engine').classList.remove('active');
+    document.getElementById('classic-controls').style.display = '';
+    document.getElementById('engine-controls').style.display = 'none';
+    buildClassicTerrain();
+  }
+
+  suppressHistoryRecording = false;
+  persistCurrentWorld();
+  refreshHistoryOptions(snapshot.id);
+}
+
+function restoreInitialWorld() {
+  try {
+    const raw = localStorage.getItem(WORLD_CURRENT_STORAGE_KEY);
+    if (!raw) return false;
+    const snapshot = JSON.parse(raw);
+    if (!snapshot || !snapshot.mode || !snapshot.classic || !snapshot.engine) {
+      return false;
+    }
+    applyWorldState(snapshot);
+    return true;
+  } catch {
+    return false;
   }
 }
 
@@ -314,6 +493,8 @@ function buildClassicTerrain() {
   document.getElementById('stats').textContent =
     `Classic · ${terrain.vertexCount.toLocaleString()} verts · ${terrain.faceCount.toLocaleString()} faces · ${genTime}ms`;
   document.getElementById('seed-display').textContent = `seed: ${currentSeed}`;
+  persistCurrentWorld();
+  if (!suppressHistoryRecording) refreshHistoryOptions();
 }
 
 /**
@@ -348,8 +529,14 @@ async function buildEngineTerrain() {
 
     clearScene();
 
+    // We derive visible vertical exaggeration from the preset so "rolling
+    // hills" and "alpine" do not collapse into the same apparent relief after
+    // the backend normalizes the final heightmap to [0, 1].
+    const reliefScale = Math.max(0.55, Math.min(1.15, data.params?.elevation_range ?? 1.0));
+    const verticalScale = 2.1 * reliefScale;
+
     // The renderer helper owns the mapping from backend arrays to visual meshes.
-    const { mesh, waterMesh: water } = buildTerrainMesh(data, 10, 3);
+    const { mesh, waterMesh: water } = buildTerrainMesh(data, 10, verticalScale);
     terrainMesh = mesh;
     terrainMesh.castShadow = true;
     terrainMesh.receiveShadow = true;
@@ -362,7 +549,7 @@ async function buildEngineTerrain() {
 
     // Decorative / semantic features are optional and rendered as instanced meshes.
     if (data.features && data.features.length > 0) {
-      featureGroup = buildFeatures(data.features, data.size, 10, 3, data.heightmap);
+      featureGroup = buildFeatures(data.features, data.size, 10, verticalScale, data.heightmap);
       scene.add(featureGroup);
     }
 
@@ -370,6 +557,8 @@ async function buildEngineTerrain() {
     document.getElementById('stats').textContent =
       `Engine · ${preset} · ${data.size}×${data.size} · ${featureCount} features`;
     document.getElementById('seed-display').textContent = `seed: ${currentSeed}`;
+    persistCurrentWorld();
+    if (!suppressHistoryRecording) refreshHistoryOptions();
 
   } catch (e) {
     document.getElementById('stats').textContent = `Error: ${e.message}. Is the API running?`;
@@ -383,6 +572,96 @@ function buildTerrain() {
   } else {
     buildClassicTerrain();
   }
+}
+
+/**
+ * Stop the presentation-only orbit animation when we need a stable world.
+ *
+ * Explore mode assumes the terrain is stationary beneath the player. If we
+ * leave the showroom rotation enabled, the ground effectively slides under the
+ * camera and movement feels like noclip even when grounding logic is correct.
+ */
+function stopPresentationAnimation() {
+  if (!animating) return;
+  animating = false;
+  document.getElementById('btn-animate').classList.remove('active');
+}
+
+/**
+ * Reset transient FPS motion state.
+ *
+ * We clear residual velocity whenever we enter or reposition the player so old
+ * falling momentum does not carry into a new spawn point.
+ */
+function resetExploreMotion() {
+  velocity.set(0, 0, 0);
+  canJump = true;
+}
+
+/**
+ * Place the FPS camera at a safe eye-height above the terrain.
+ *
+ * The current bug is mostly a spawn problem: pointer-lock can begin while the
+ * camera is still orbiting from far away or while its eye point is already
+ * inside the terrain. This helper casts straight down at a chosen X/Z and
+ * snaps the player onto the first terrain surface hit.
+ */
+function snapPlayerToTerrain(x = fpsControls.getObject().position.x, z = fpsControls.getObject().position.z) {
+  if (!terrainMesh) return false;
+
+  raycaster.set(new THREE.Vector3(x, 100, z), downVector);
+  const intersects = raycaster.intersectObject(terrainMesh);
+  if (intersects.length === 0) return false;
+
+  const groundHeight = intersects[0].point.y;
+  const pos = fpsControls.getObject().position;
+  pos.set(x, groundHeight + FPS_EYE_HEIGHT, z);
+  resetExploreMotion();
+  return true;
+}
+
+/**
+ * Prevent the FPS camera from living underneath the terrain surface.
+ *
+ * The explore camera is effectively a point probe, not a full capsule body, so
+ * we use a stronger recovery clamp than a normal character controller would.
+ * If integration drift or a steep triangle ever leaves the eye point below the
+ * terrain, we immediately pop it back to a safe eye-height.
+ */
+function clampPlayerAboveTerrain() {
+  if (!terrainMesh) return;
+
+  const pos = fpsControls.getObject().position;
+  raycaster.set(new THREE.Vector3(pos.x, 100, pos.z), downVector);
+  const intersects = raycaster.intersectObject(terrainMesh);
+  if (intersects.length === 0) {
+    canJump = false;
+    return;
+  }
+
+  const groundHeight = intersects[0].point.y;
+  const targetY = groundHeight + FPS_EYE_HEIGHT;
+  const penetrationDepth = targetY - pos.y;
+
+  // If we are genuinely under the terrain surface, recover immediately.
+  if (penetrationDepth >= 0) {
+    pos.y = targetY;
+    velocity.y = 0;
+    canJump = true;
+    return;
+  }
+
+  // While falling, only snap at the very end of the descent. A large snap
+  // window makes jumps look like a teleport to the landing point instead of a
+  // continuous arc back to the ground.
+  if (pos.y <= targetY + FPS_GROUND_SNAP_DISTANCE && velocity.y <= 0) {
+    pos.y = targetY;
+    velocity.y = 0;
+    canJump = true;
+    return;
+  }
+
+  canJump = false;
 }
 
 /**
@@ -434,6 +713,7 @@ document.getElementById('btn-animate').addEventListener('click', (e) => {
 document.getElementById('btn-regenerate').addEventListener('click', () => {
   currentSeed = Math.floor(Math.random() * 100000);
   buildTerrain();
+  recordWorldInHistory();
 });
 
 // Explore mode swaps the input model from orbit-inspection to first-person walking.
@@ -455,10 +735,12 @@ fpsControls.addEventListener('lock', () => {
   controls.enabled = false;
   crosshair.style.display = 'block';
   instructions.style.display = 'block';
+  stopPresentationAnimation();
 
-  // If the user was orbiting far away, snap them into a sensible spawn point.
-  if (camera.position.y > 10) {
-    camera.position.set(0, 5, 0);
+  // Always re-ground the player when entering FPS. Relying on the current
+  // orbit-camera position is what caused the "inside the mountain" state.
+  if (!snapPlayerToTerrain()) {
+    snapPlayerToTerrain(0, 0);
   }
 });
 
@@ -478,7 +760,7 @@ document.addEventListener('keydown', (event) => {
     case 'KeyD': moveState.right = true; break;
     case 'ShiftLeft': moveState.run = true; break;
     case 'Space':
-      if (canJump === true) velocity.y += 0.5;
+      if (canJump === true) velocity.y += FPS_JUMP_VELOCITY;
       canJump = false;
       break;
   }
@@ -505,7 +787,8 @@ renderer.domElement.addEventListener('dblclick', (e) => {
   const intersects = raycaster.intersectObject(terrainMesh);
   if (intersects.length > 0) {
     const pt = intersects[0].point;
-    camera.position.set(pt.x, pt.y + 0.05, pt.z);
+    camera.position.set(pt.x, pt.y + FPS_EYE_HEIGHT, pt.z);
+    resetExploreMotion();
     fpsControls.lock();
   }
 });
@@ -544,7 +827,39 @@ document.getElementById('engine-size').addEventListener('input', () => {
 document.getElementById('btn-generate').addEventListener('click', () => {
   currentSeed = Math.floor(Math.random() * 100000);
   buildEngineTerrain();
+  recordWorldInHistory();
 });
+
+const saveWorldButton = document.getElementById('btn-save-world');
+if (saveWorldButton) {
+  saveWorldButton.addEventListener('click', () => {
+    recordWorldInHistory();
+  });
+}
+
+const loadWorldButton = document.getElementById('btn-load-world');
+if (loadWorldButton) {
+  loadWorldButton.addEventListener('click', () => {
+    const historySelect = document.getElementById('history-select');
+    if (!historySelect) return;
+
+    const selectedId = historySelect.value;
+    if (!selectedId) return;
+
+    const snapshot = readWorldHistory().find((item) => item.id === selectedId);
+    if (!snapshot) return;
+    applyWorldState(snapshot);
+  });
+}
+
+const menuToggleButton = document.getElementById('menu-toggle');
+if (menuToggleButton) {
+  menuToggleButton.addEventListener('click', () => {
+    const controlsPanel = document.getElementById('controls');
+    const isCollapsed = controlsPanel?.classList.contains('is-collapsed') ?? false;
+    applyMenuCollapsedState(!isCollapsed);
+  });
+}
 
 // Keep camera projection and renderer output in sync with the browser viewport.
 window.addEventListener('resize', () => {
@@ -593,13 +908,13 @@ function animate() {
     // Damp horizontal motion so movement feels responsive rather than slippery.
     velocity.x -= velocity.x * 10.0 * delta;
     velocity.z -= velocity.z * 10.0 * delta;
-    velocity.y -= 1.5 * delta; // standard gravity scaled down
+    velocity.y -= FPS_GRAVITY * delta;
 
     direction.z = Number(moveState.forward) - Number(moveState.backward);
     direction.x = Number(moveState.right) - Number(moveState.left);
     direction.normalize(); // prevents diagonal movement from being faster
 
-    const speed = moveState.run ? 0.8 : 0.3; // speed scaled down
+    const speed = moveState.run ? FPS_RUN_SPEED : FPS_WALK_SPEED;
 
     if (moveState.forward || moveState.backward) velocity.z -= direction.z * speed * delta;
     if (moveState.left || moveState.right) velocity.x -= direction.x * speed * delta;
@@ -612,17 +927,7 @@ function animate() {
     // Ground collision is handled by casting downward and clamping the player
     // to a constant eye-height above the terrain surface.
     if (terrainMesh) {
-      const pos = fpsControls.getObject().position;
-      raycaster.set(new THREE.Vector3(pos.x, 100, pos.z), downVector);
-      const intersects = raycaster.intersectObject(terrainMesh);
-      if (intersects.length > 0) {
-        const groundHeight = intersects[0].point.y;
-        if (pos.y < groundHeight + 0.05) { // offset scaled down
-          velocity.y = Math.max(0, velocity.y);
-          pos.y = groundHeight + 0.05;
-          canJump = true;
-        }
-      }
+      clampPlayerAboveTerrain();
     }
   } else {
     controls.update();
@@ -632,6 +937,13 @@ function animate() {
   renderer.render(scene, camera);
 }
 
-// Boot into classic mode because it works without any backend dependency.
-buildClassicTerrain();
+refreshHistoryOptions();
+restoreMenuCollapsedState();
+
+// Restore the most recent world when available so refresh does not discard the
+// current session. Fall back to the classic generator only on first launch.
+if (!restoreInitialWorld()) {
+  buildClassicTerrain();
+  persistCurrentWorld();
+}
 animate();
