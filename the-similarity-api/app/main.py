@@ -208,11 +208,6 @@ def warehouse_freshness() -> list[dict]:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
-@app.get("/items/warehouse/roughness"):
-
-    async def read_item(item_id):
-        return {"item_id": item_id}
-:wq
 
 @app.post("/warehouse/refresh")
 def warehouse_refresh(
@@ -237,7 +232,6 @@ def warehouse_refresh(
         from the_similarity_data.config import load_dataset_specs
         from the_similarity_data.refresh import refresh_all_datasets
         
-        const normals = new Float32Array(numVerts * 3);
         
         specs = load_dataset_specs()
         results = refresh_all_datasets(
@@ -279,4 +273,70 @@ def warehouse_search(
         )
     except Exception as exc:
         logger.exception("warehouse search error")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# ---------------------------------------------------------------------------
+# Terrain generation endpoints
+# ---------------------------------------------------------------------------
+
+
+@app.get("/terrain/presets")
+def terrain_presets() -> list[dict]:
+    """List available terrain presets."""
+    from the_similarity.core.terrain_params import list_presets, get_preset, params_to_dict
+
+    return [
+        {"name": name, **params_to_dict(get_preset(name))}
+        for name in list_presets()
+    ]
+
+
+@app.get("/terrain/presets/{name}")
+def terrain_preset(name: str) -> dict:
+    """Get a specific terrain preset."""
+    from the_similarity.core.terrain_params import get_preset, params_to_dict
+
+    try:
+        return params_to_dict(get_preset(name))
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@app.post("/terrain/generate")
+def generate_terrain_endpoint(
+    preset: str = Query("alpine"),
+    size: int = Query(256, ge=32, le=512),
+    seed: int = Query(42),
+) -> dict:
+    """Generate terrain from a preset.
+
+    Returns heightmap, moisture, flow, biome maps as flat lists,
+    plus features for object placement.
+    """
+    try:
+        from the_similarity.core.terrain_generator import TerrainGenerator
+
+        gen = TerrainGenerator(preset)
+        result = gen.generate(size=size, seed=seed)
+
+        return {
+            "size": size,
+            "seed": seed,
+            "preset": preset,
+            "heightmap": result.heightmap.ravel().tolist(),
+            "moisture": result.moisture_map.ravel().tolist(),
+            "flow": result.flow_map.ravel().tolist(),
+            "biome": result.biome_map.ravel().tolist(),
+            "features": result.features,
+            "params": {
+                "water_level": result.params.water_level if result.params else 0.2,
+                "snow_line": result.params.snow_line if result.params else 0.8,
+                "elevation_range": result.params.elevation_range if result.params else 1.0,
+            },
+        }
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.exception("terrain generation error")
         raise HTTPException(status_code=500, detail=str(exc)) from exc

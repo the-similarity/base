@@ -61,8 +61,14 @@
 - SQLite FeatureStore for caching expensive Tier 2 computations
 
 ## Coding Standards
-- COMMENT everything in code so well. (not in seperate file but inside the code)
-  BECAUSE it will be AI agents reading code not me later.
+- **Claude Code Documentation Standard (MANDATORY)**:
+  - DO NOT use informal "AI AGENT NOTES".
+  - DO use formal Python, multi-line `"""..."""` block docstrings.
+  - **Invariants and Lifecycles**: Explicitly document class/module lifecycles, state durability, and fail-closed edge cases.
+  - **Architectural Guardrails & "Why"**: Use deep inline `#` comments to explain memory impact, thread handling (e.g. GIL release), and performance constraints.
+  - **Immutability Notes**: Clearly state what is mutable, what must be idempotent, and strict boundaries.
+  - **Mathematical Formulations**: Convert abstract algorithmic descriptions into rigorous mechanistic constraints (e.g., optimization limits, array dimensionality boundaries).
+  - COMMENT everything in code so well (inside the code, not in separate files) BECAUSE it will be AI agents reading the code later.
 
 # gstack
 

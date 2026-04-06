@@ -2,6 +2,16 @@
 
 Computes persistent homology on delay-embedded time series and compares
 persistence diagrams via Wasserstein distance.
+
+Topological State Space Definitions:
+- Point Cloud Lifting: Employs Takens Delay Embedding to lift 1D temporal series 
+  into structured multi-dimensional phase-space point clouds.
+- Persistent Homology: Analyzes topological evolution (H0 connected components, 
+  H1 loops). Features robustly spaced from the Birth=Death diagonal represent 
+  structural manifold properties, while proximate features are ephemeral stochastic noise.
+- Metric Algebra: Compares multi-set Persistence Diagrams directly via Wasserstein 
+  Metric mapping, computing the optimal transport cost required to structurally 
+  align two dynamic attractors.
 """
 from __future__ import annotations
 
