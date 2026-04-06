@@ -196,10 +196,10 @@ const API_URL = 'http://127.0.0.1:8000';
 // FPS traversal scale constants.
 // The terrain world is tiny relative to default first-person controller values,
 // so the camera eye height and all movement forces need to stay very small.
-const FPS_EYE_HEIGHT = 0.005;
-const FPS_GROUND_SNAP_DISTANCE = 0.01;
-const FPS_JUMP_VELOCITY = 0.08;
-const FPS_GRAVITY = 0.5;
+const FPS_EYE_HEIGHT = 0.02;
+const FPS_GROUND_SNAP_DISTANCE = 0.03;
+const FPS_JUMP_VELOCITY = 0.14;
+const FPS_GRAVITY = 0.35;
 const FPS_WALK_SPEED = 0.3;
 const FPS_RUN_SPEED = 0.8;
 const WORLD_HISTORY_STORAGE_KEY = 'the-similarity:fractal-world-history';
@@ -546,6 +546,52 @@ function buildTerrain() {
 }
 
 /**
+ * Stop the presentation-only orbit animation when we need a stable world.
+ *
+ * Explore mode assumes the terrain is stationary beneath the player. If we
+ * leave the showroom rotation enabled, the ground effectively slides under the
+ * camera and movement feels like noclip even when grounding logic is correct.
+ */
+function stopPresentationAnimation() {
+  if (!animating) return;
+  animating = false;
+  document.getElementById('btn-animate').classList.remove('active');
+}
+
+/**
+ * Reset transient FPS motion state.
+ *
+ * We clear residual velocity whenever we enter or reposition the player so old
+ * falling momentum does not carry into a new spawn point.
+ */
+function resetExploreMotion() {
+  velocity.set(0, 0, 0);
+  canJump = true;
+}
+
+/**
+ * Place the FPS camera at a safe eye-height above the terrain.
+ *
+ * The current bug is mostly a spawn problem: pointer-lock can begin while the
+ * camera is still orbiting from far away or while its eye point is already
+ * inside the terrain. This helper casts straight down at a chosen X/Z and
+ * snaps the player onto the first terrain surface hit.
+ */
+function snapPlayerToTerrain(x = fpsControls.getObject().position.x, z = fpsControls.getObject().position.z) {
+  if (!terrainMesh) return false;
+
+  raycaster.set(new THREE.Vector3(x, 100, z), downVector);
+  const intersects = raycaster.intersectObject(terrainMesh);
+  if (intersects.length === 0) return false;
+
+  const groundHeight = intersects[0].point.y;
+  const pos = fpsControls.getObject().position;
+  pos.set(x, groundHeight + FPS_EYE_HEIGHT, z);
+  resetExploreMotion();
+  return true;
+}
+
+/**
  * Bind a slider so:
  * - its displayed numeric value stays in sync with the thumb
  * - Classic mode regenerates immediately on change
@@ -616,10 +662,12 @@ fpsControls.addEventListener('lock', () => {
   controls.enabled = false;
   crosshair.style.display = 'block';
   instructions.style.display = 'block';
+  stopPresentationAnimation();
 
-  // If the user was orbiting far away, snap them into a sensible spawn point.
-  if (camera.position.y > 10) {
-    camera.position.set(0, FPS_EYE_HEIGHT, 0);
+  // Always re-ground the player when entering FPS. Relying on the current
+  // orbit-camera position is what caused the "inside the mountain" state.
+  if (!snapPlayerToTerrain()) {
+    snapPlayerToTerrain(0, 0);
   }
 });
 
@@ -667,6 +715,7 @@ renderer.domElement.addEventListener('dblclick', (e) => {
   if (intersects.length > 0) {
     const pt = intersects[0].point;
     camera.position.set(pt.x, pt.y + FPS_EYE_HEIGHT, pt.z);
+    resetExploreMotion();
     fpsControls.lock();
   }
 });
