@@ -204,6 +204,7 @@ const FPS_WALK_SPEED = 0.3;
 const FPS_RUN_SPEED = 0.8;
 const WORLD_HISTORY_STORAGE_KEY = 'the-similarity:fractal-world-history';
 const WORLD_CURRENT_STORAGE_KEY = 'the-similarity:fractal-current-world';
+const MENU_COLLAPSED_STORAGE_KEY = 'the-similarity:fractal-menu-collapsed';
 const MAX_WORLD_HISTORY = 20;
 
 /**
@@ -323,6 +324,27 @@ function recordWorldInHistory() {
   history.unshift(snapshot);
   writeWorldHistory(history);
   refreshHistoryOptions(snapshot.id);
+}
+
+function applyMenuCollapsedState(isCollapsed) {
+  const controlsPanel = document.getElementById('controls');
+  const toggleButton = document.getElementById('menu-toggle');
+  if (!controlsPanel || !toggleButton) return;
+
+  controlsPanel.classList.toggle('is-collapsed', isCollapsed);
+  toggleButton.classList.toggle('is-inline', !isCollapsed);
+  toggleButton.textContent = isCollapsed ? 'Menu' : 'Hide';
+  toggleButton.setAttribute('aria-expanded', String(!isCollapsed));
+  localStorage.setItem(MENU_COLLAPSED_STORAGE_KEY, JSON.stringify(isCollapsed));
+}
+
+function restoreMenuCollapsedState() {
+  try {
+    const raw = localStorage.getItem(MENU_COLLAPSED_STORAGE_KEY);
+    applyMenuCollapsedState(raw ? JSON.parse(raw) === true : false);
+  } catch {
+    applyMenuCollapsedState(false);
+  }
 }
 
 /**
@@ -830,6 +852,15 @@ if (loadWorldButton) {
   });
 }
 
+const menuToggleButton = document.getElementById('menu-toggle');
+if (menuToggleButton) {
+  menuToggleButton.addEventListener('click', () => {
+    const controlsPanel = document.getElementById('controls');
+    const isCollapsed = controlsPanel?.classList.contains('is-collapsed') ?? false;
+    applyMenuCollapsedState(!isCollapsed);
+  });
+}
+
 // Keep camera projection and renderer output in sync with the browser viewport.
 window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
@@ -907,6 +938,7 @@ function animate() {
 }
 
 refreshHistoryOptions();
+restoreMenuCollapsedState();
 
 // Restore the most recent world when available so refresh does not discard the
 // current session. Fall back to the classic generator only on first launch.
