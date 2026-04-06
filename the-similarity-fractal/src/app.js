@@ -296,6 +296,7 @@ function persistCurrentWorld() {
 
 function refreshHistoryOptions(selectedId = '') {
   const select = document.getElementById('history-select');
+  if (!select) return;
   const history = readWorldHistory();
 
   select.innerHTML = '';
@@ -757,17 +758,27 @@ document.getElementById('btn-generate').addEventListener('click', () => {
   recordWorldInHistory();
 });
 
-document.getElementById('btn-save-world').addEventListener('click', () => {
-  recordWorldInHistory();
-});
+const saveWorldButton = document.getElementById('btn-save-world');
+if (saveWorldButton) {
+  saveWorldButton.addEventListener('click', () => {
+    recordWorldInHistory();
+  });
+}
 
-document.getElementById('btn-load-world').addEventListener('click', () => {
-  const selectedId = document.getElementById('history-select').value;
-  if (!selectedId) return;
-  const snapshot = readWorldHistory().find((item) => item.id === selectedId);
-  if (!snapshot) return;
-  applyWorldState(snapshot);
-});
+const loadWorldButton = document.getElementById('btn-load-world');
+if (loadWorldButton) {
+  loadWorldButton.addEventListener('click', () => {
+    const historySelect = document.getElementById('history-select');
+    if (!historySelect) return;
+
+    const selectedId = historySelect.value;
+    if (!selectedId) return;
+
+    const snapshot = readWorldHistory().find((item) => item.id === selectedId);
+    if (!snapshot) return;
+    applyWorldState(snapshot);
+  });
+}
 
 // Keep camera projection and renderer output in sync with the browser viewport.
 window.addEventListener('resize', () => {
