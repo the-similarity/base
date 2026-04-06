@@ -8,7 +8,7 @@
    git checkout -b feat/<descriptive-name>
    ```
    This is safe because each worktree is isolated — your branch switch doesn't affect other worktrees.
-4. **Commit granularly** — one logical change per commit. Don't bundle unrelated changes. A new method and its tests = one commit. A config change = separate commit. This makes PRs easy to review and `git bisect` useful.
+4. **Commit granularly and continuously** — one logical change per commit, and create a commit after every meaningful completed step. Don't bundle unrelated changes or wait until the end of a long session to checkpoint work. A new method and its tests = one commit. A config change = separate commit. A documentation/comment pass = separate commit. This makes PRs easy to review, protects progress, and keeps `git bisect` useful.
 5. When the task is DONE:
    ```bash
    python -m pytest the_similarity/tests/ -v          # all tests must pass
@@ -59,6 +59,10 @@
 - Forecast cone with confidence decay + Koopman blend
 - Walk-forward backtester with CRPS, calibration, hit rate
 - SQLite FeatureStore for caching expensive Tier 2 computations
+
+## Coding Standards
+- COMMENT everything in code so well. (not in seperate file but inside the code)
+  BECAUSE it will be AI agents reading code not me later.
 
 # gstack
 
