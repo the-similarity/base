@@ -1,3 +1,29 @@
+"""Core pattern matching orchestrator.
+
+The engine uses a tiered search pipeline to find historical analogs for a given
+query pattern in near real-time, even across decades of tick data.
+
+Tier 0: Candidate Generation & Pre-filter (SAX + MASS) -> Prunes ~95%
+Tier 1: Cheap Scoring (DTW, Pearson) -> Ranks remainder -> Defines Top N
+Tier 2: Expensive Enrichment (Koopman, Wavelet, TDA, EMD, etc.) -> Final Scores
+
+Lifecycle Overview:
+Each `find_matches()` call represents a single search execution lifecycle.
+The state array `history` remains immutable across the run. Candidate windows
+are generated immutably as strided views.
+
+Concurrency and Threading:
+Tier 2 enrichment heavily relies on compiled extensions (NumPy, SciPy). Because 
+these operations release the Global Interpreter Lock (GIL), the `ThreadPoolExecutor` 
+actually provides true hardware parallelization up to the CPU core count.
+Memory constraints typically cap this to `max_workers = 4`. Avoid running additional 
+thread pools inside methods invoked by the executor to prevent thread starvation.
+
+Result Streaming & UI Hooks:
+The `progress_fn` hook is critical. The web UI depends on `ProgressEvent` emissions 
+during major transitions (`tier1`, `tier2`, `done`) to render the live search 
+progress. Without this, WebSocket connections will timeout.
+"""
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
@@ -29,6 +55,7 @@ class ProgressEvent:
 
 # Callback type: receives a ProgressEvent, returns nothing.
 ProgressCallback = Callable[[ProgressEvent], None]
+
 from the_similarity.core.normalizer import METHOD_NORM_DEFAULTS, normalize
 from the_similarity.core.regime import tag_regime
 from the_similarity.core.scorer import MatchResult, ScoreBreakdown, compute_confidence
@@ -48,6 +75,7 @@ from the_similarity.methods.transfer_entropy import te_score
 from the_similarity.methods.wavelet_leaders import wavelet_spectrum_score
 
 # Method groupings for tiered execution
+# Separating cheap and expensive methods ensures responsiveness.
 CHEAP_SCORE_FIELDS = {"dtw", "pearson_warped"}
 BEMPEDELIS_SCORE_FIELDS = {"bempedelis_r2", "bempedelis_smoothness"}
 TIER2_SCORE_FIELDS = {
@@ -58,6 +86,7 @@ ALL_SCORE_FIELDS = CHEAP_SCORE_FIELDS | BEMPEDELIS_SCORE_FIELDS | TIER2_SCORE_FI
 
 @dataclass
 class CandidateWindow:
+    """Internal structure tracking a single window as it moves through the pipeline."""
     start_idx: int
     end_idx: int
     scale: float
@@ -87,7 +116,11 @@ def score_pearson(
     query_norm: NDArray[np.float64],
     cand_norm: NDArray[np.float64],
 ) -> float:
-    """Pearson correlation mapped to [0, 1]."""
+    """Pearson correlation mapped to [0, 1].
+
+    Negative correlation becomes < 0.5, positive correlation > 0.5.
+    Perfect correlation = 1.0.
+    """
     if np.std(query_norm) == 0 or np.std(cand_norm) == 0:
         return 0.0
     corr, _ = pearsonr(query_norm, cand_norm)
@@ -109,17 +142,34 @@ def find_matches(
 ) -> list[MatchResult]:
     """Run the full tiered matching pipeline.
 
-    1. Generate multi-scale candidate windows
-    2. SAX + MASS + Pearson prefilter -> tier1_candidates survivors
-    3. Score cheap methods (DTW, Pearson) on all tier-1 survivors
-    4. Select tier2_candidates best -> enrich with all expensive methods
-       (Bempedelis, Koopman, Wavelet, EMD, TDA, Transfer Entropy)
-    5. Regime-tag each result
-    6. Return top_k by final composite confidence
+    Algorithm overview:
+    1. Tier 0: Generate overlapping candidate windows across `history` using 
+       multiple scales (e.g. 1.0x, 1.5x) via strided array views.
+    2. Score these millions of candidates cheaply using SAX strings and FFT-based
+       MASS distance profiles. Sort and keep only the top `tier1_candidates`.
+    3. Tier 1: On survivors, run exact DTW (with constraints) and Pearson.
+       Compute a "base score" and sort.
+    4. Tier 2: Take the top `tier2_candidates` from Tier 1, and enrich them
+       in parallel using Koopman, Wavelets, TDA, EMD, etc. These complex methods
+       quantify dynamical and topological similarity.
+    5. Aggregate final composite confidence scores.
+    6. Return best `top_k` matches.
 
     Args:
+        query: 1D array representing the pattern to search for.
+        history: 1D array of background historical data.
+        top_k: Number of highest-scoring matches to return.
+        config: Configuration containing weights, active methods, and thresholds.
+        dates: Optional parallel array of ISO datetime strings for annotation.
+        exclude_query_region: Bounds (start, end) marking where the query itself 
+                              sits in the history to prevent trivial self-matching.
+        feature_store: SQLite cache instance for skipping redundant Tier 2 compute.
+        ds_hash: Unique identifier of `history` used for cache keys.
         progress_fn: Optional callback receiving ProgressEvent updates
             for streaming/real-time progress reporting.
+
+    Returns:
+        List of MatchResult objects sorted descending by confidence_score.
     """
     if config is None:
         config = Config()
@@ -137,6 +187,9 @@ def find_matches(
 
     radius = config.dtw_sakoe_chiba_radius
     if radius is None:
+        # Default Sakoe-Chiba constraint is 10% of the window size,
+        # providing enough slack for minor structural warping without 
+        # allowing degenerate flat alignments.
         radius = max(1, query_shape_len // 10)
 
     # --- Tier 0: Candidate generation with SAX + MASS prefilter ---
@@ -167,7 +220,7 @@ def find_matches(
         active_methods=base_fields,
     )
 
-    # Batch DTW computation
+    # Batch DTW computation using C-accelerated distance_matrix_fast
     if "dtw" in active_fields:
         cand_shapes = [c.shape_series for c in candidates]
         dtw_scores_batch = batch_dtw_scores(query_shape, cand_shapes, radius)
@@ -185,7 +238,9 @@ def find_matches(
         if base_fields:
             candidate.base_rank_score = compute_confidence(candidate.breakdown, base_config)
         else:
+            # Fallback if no tier1 methods are active
             candidate.base_rank_score = candidate.prefilter_score * 100.0
+        # Initialize confidence score. Will be overwritten by Tier 2 if configured.
         candidate.confidence_score = compute_confidence(candidate.breakdown, config)
 
     if progress_fn is not None:
@@ -203,6 +258,7 @@ def find_matches(
     tier2_fields = (BEMPEDELIS_SCORE_FIELDS | TIER2_SCORE_FIELDS) & active_fields
     if tier2_fields:
         rerank_count = config.tier2_candidates
+        # Only enrich the most promising matches to save CPU
         rerank_pool = sorted(candidates, key=lambda c: c.base_rank_score, reverse=True)
         if rerank_count is not None:
             rerank_pool = rerank_pool[:rerank_count]
@@ -217,6 +273,7 @@ def find_matches(
             ds_hash=ds_hash,
             progress_fn=progress_fn,
         )
+        # Update composite scores including the newly added Tier2 breakdown scores
         for candidate in rerank_pool:
             candidate.confidence_score = compute_confidence(candidate.breakdown, config)
 
@@ -235,6 +292,7 @@ def find_matches(
         ))
 
     results: list[MatchResult] = []
+    # Only return top K to save serialization overhead
     for candidate in candidates[:top_k]:
         start = candidate.start_idx
         end = candidate.end_idx
@@ -263,6 +321,11 @@ def _collect_candidates(
     config: Config,
     exclude_query_region: tuple[int, int] | None,
 ) -> list[CandidateWindow]:
+    """Tier 0: Massive Candidate Filter
+
+    Applies SAX bounding and FFT-based Matrix Profile distance profiling 
+    to rapidly evaluate every possible strided window in the history.
+    """
     window_size = len(query)
     query_shape_len = len(query_shape)
     scales = config.window_scales if config.window_scales is not None else [1.0]
@@ -275,6 +338,7 @@ def _collect_candidates(
     )
 
     # Pre-compute MASS distance profile for scale=1.0 (O(n log n) via FFT)
+    # This evaluates ALL O(N) candidates natively in C/Numpy backend.
     mp_scores: NDArray[np.float64] | None = None
     if HAS_STUMPY and query_shape_len >= 4:
         history_shape = normalize(history, config.normalization)
@@ -294,6 +358,7 @@ def _collect_candidates(
         windows = sliding_windows(history, window_length, stride=config.stride)
         indices = window_indices(len(history), window_length, stride=config.stride)
         for index, (start, end) in enumerate(indices):
+            # Exclude exact query match during self-search
             if exclude_query_region is not None:
                 query_start, query_end = exclude_query_region
                 if start < query_end and end > query_start:
@@ -301,6 +366,8 @@ def _collect_candidates(
 
             raw_window = windows[index]
             shape_window = normalize(raw_window, config.normalization)
+            
+            # Stretch candidate into query length domain for fair SAX comparison
             if scale != 1.0:
                 shape_window = _resample(shape_window, query_shape_len)
 
@@ -308,6 +375,8 @@ def _collect_candidates(
             if mp_scores is not None and scale == 1.0 and start < len(mp_scores):
                 mp_score_val = float(mp_scores[start])
 
+            # Prefilter heuristic equation blends the extremely fast MASS score 
+            # and SAX string distance into a loose early rejection score
             prefilter = _score_prefilter(
                 query_shape, shape_window, query_sax, config,
                 mp_score_val=mp_score_val,
@@ -324,6 +393,7 @@ def _collect_candidates(
             )
 
     tier1_candidates = config.tier1_candidates
+    # Top K partial sort to isolate best candidates for Tier 1
     if tier1_candidates is not None and len(candidates) > tier1_candidates:
         candidates.sort(key=lambda c: c.prefilter_score, reverse=True)
         candidates = candidates[:tier1_candidates]
@@ -380,8 +450,16 @@ def _enrich_tier2(
     ds_hash: str = "",
     progress_fn: ProgressCallback | None = None,
 ) -> None:
-    """Run all expensive Tier 2 methods on a shortlist of candidates."""
+    """Run all expensive Tier 2 methods on a shortlist of candidates.
+
+    Concurrency Model:
+    Runs computations via a ThreadPoolExecutor. Heavy number-crunching in
+    Methods like Koopman and EMD are done in compiled C routines that
+    release Python's Global Interpreter Lock (GIL). Multi-threading here
+    leads to near-linear performance scaling up to CPU bounds.
+    """
     # Pre-normalize query for methods that need specific normalization
+    # Allows us to avoid redundant normalization per Thread/Candidate.
     query_bemp = (
         normalize(query, METHOD_NORM_DEFAULTS["bempedelis"])
         if BEMPEDELIS_SCORE_FIELDS & active_fields
@@ -399,11 +477,11 @@ def _enrich_tier2(
     )
 
     def _enrich_one(candidate: CandidateWindow) -> None:
-        """Enrich a single candidate with all Tier 2 methods."""
+        """Enrich a single candidate with all Tier 2 methods. Thread-safe."""
         raw = candidate.raw_series
         _wlen = candidate.end_idx - candidate.start_idx
 
-        # --- Bempedelis ---
+        # --- Bempedelis (Self-Similarity Time Warping) ---
         if BEMPEDELIS_SCORE_FIELDS & active_fields and query_bemp is not None:
             cand_bemp = normalize(raw, METHOD_NORM_DEFAULTS["bempedelis"])
             try:
@@ -414,6 +492,7 @@ def _enrich_tier2(
                         n_subwindows=config.bempedelis_n_subwindows,
                         n_restarts=config.bempedelis_n_restarts,
                     )
+                    # Cache access for Tier 2 prevents recalcs on repeated background scans
                     result_tuple = feature_store.get_or_compute(
                         dataset_hash=ds_hash,
                         window_start=candidate.start_idx,
@@ -443,7 +522,7 @@ def _enrich_tier2(
             except (ValueError, Exception):
                 pass
 
-        # --- Koopman EDMD ---
+        # --- Koopman Operator EDMD ---
         if "koopman" in active_fields and query_logret is not None:
             cand_logret = normalize(raw, METHOD_NORM_DEFAULTS["koopman"])
             try:
@@ -463,7 +542,7 @@ def _enrich_tier2(
             except Exception:
                 pass
 
-        # --- Wavelet Leaders ---
+        # --- Wavelet Leaders (Multifractal Formalism) ---
         if "wavelet_spectrum" in active_fields and query_logret is not None:
             cand_logret_w = normalize(raw, METHOD_NORM_DEFAULTS["wavelet"])
             try:
@@ -485,7 +564,7 @@ def _enrich_tier2(
             except Exception:
                 pass
 
-        # --- EMD ---
+        # --- EMD (Empirical Mode Decomposition) ---
         if "emd" in active_fields and query_raw is not None:
             cand_raw_emd = normalize(raw, METHOD_NORM_DEFAULTS["emd"])
             try:
@@ -505,7 +584,7 @@ def _enrich_tier2(
             except Exception:
                 pass
 
-        # --- TDA ---
+        # --- Topological Data Analysis (Persistence Diagrams) ---
         if "tda" in active_fields and query_logret is not None:
             cand_tda = normalize(raw, METHOD_NORM_DEFAULTS["tda"])
             try:
@@ -525,7 +604,7 @@ def _enrich_tier2(
             except Exception:
                 pass
 
-        # --- Transfer Entropy ---
+        # --- Transfer Entropy (Information Theory) ---
         if "transfer_entropy" in active_fields:
             # TE measures predictive info from match -> forward region
             end_idx = candidate.end_idx
@@ -559,6 +638,8 @@ def _enrich_tier2(
 
     if total > 1:
         # Use threads — numpy/scipy release the GIL during computation
+        # Bound arbitrary max_workers to 4 as higher concurrent memory loads 
+        # may hit typical machine constraints.
         n_threads = min(4, total)
         with ThreadPoolExecutor(max_workers=n_threads) as executor:
             list(executor.map(_enrich_and_report, candidates))

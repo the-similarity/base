@@ -2,6 +2,19 @@
 
 Phase 7a — chains pattern matches + forecast cones into entry/exit
 trading signals using configurable rule-based strategies.
+
+AI AGENT NOTES:
+- This is the execution tier bridging the gap between raw pattern recognition
+  and actionable trading signals.
+- Architecture: A `Strategy` is a named collection of `Rule` objects evaluated
+  in priority order.
+- The `evaluate_strategy()` loop runs through matched analogs. The first Rule
+  that fires generates a `Signal` (Long/Short/Flat) tagged with dynamic Stops
+  and Take Profits derived from the Forecast percentiles (e.g., P10 for Long
+  Stop, P75 for Long Target).
+- The module includes a mini backtesting engine (`validate_strategy_backtest`)
+  that evaluates the historical performance of these logical rules directly over
+  the matched instances, returning Win Rates and average returns.
 """
 from __future__ import annotations
 

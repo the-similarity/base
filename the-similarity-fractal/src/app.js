@@ -478,7 +478,7 @@ document.addEventListener('keydown', (event) => {
     case 'KeyD': moveState.right = true; break;
     case 'ShiftLeft': moveState.run = true; break;
     case 'Space':
-      if (canJump === true) velocity.y += 10;
+      if (canJump === true) velocity.y += 0.5;
       canJump = false;
       break;
   }
@@ -505,7 +505,7 @@ renderer.domElement.addEventListener('dblclick', (e) => {
   const intersects = raycaster.intersectObject(terrainMesh);
   if (intersects.length > 0) {
     const pt = intersects[0].point;
-    camera.position.set(pt.x, pt.y + 1.5, pt.z);
+    camera.position.set(pt.x, pt.y + 0.05, pt.z);
     fpsControls.lock();
   }
 });
@@ -593,13 +593,13 @@ function animate() {
     // Damp horizontal motion so movement feels responsive rather than slippery.
     velocity.x -= velocity.x * 10.0 * delta;
     velocity.z -= velocity.z * 10.0 * delta;
-    velocity.y -= 30.0 * delta; // simple constant gravity
+    velocity.y -= 1.5 * delta; // standard gravity scaled down
 
     direction.z = Number(moveState.forward) - Number(moveState.backward);
     direction.x = Number(moveState.right) - Number(moveState.left);
     direction.normalize(); // prevents diagonal movement from being faster
 
-    const speed = moveState.run ? 20.0 : 8.0;
+    const speed = moveState.run ? 0.8 : 0.3; // speed scaled down
 
     if (moveState.forward || moveState.backward) velocity.z -= direction.z * speed * delta;
     if (moveState.left || moveState.right) velocity.x -= direction.x * speed * delta;
@@ -617,9 +617,9 @@ function animate() {
       const intersects = raycaster.intersectObject(terrainMesh);
       if (intersects.length > 0) {
         const groundHeight = intersects[0].point.y;
-        if (pos.y < groundHeight + 1.5) {
+        if (pos.y < groundHeight + 0.05) { // offset scaled down
           velocity.y = Math.max(0, velocity.y);
-          pos.y = groundHeight + 1.5;
+          pos.y = groundHeight + 0.05;
           canJump = true;
         }
       }

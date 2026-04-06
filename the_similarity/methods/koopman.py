@@ -10,6 +10,17 @@ data using least-squares on a dictionary of observables (here: delay
 coordinates). The eigenvalues encode the fundamental frequencies and
 growth/decay rates of the dynamics — two windows with similar eigenvalue
 spectra are governed by similar dynamical processes.
+
+Algorithmic Invariants & Dimensionality:
+- EDMD Mechanism: Transforms non-linear time series sequences into linear 
+  matrix operators via Takens' Delay Embedding. This expands the state-space 
+  observables artificially.
+- Hungarian Matching: Extracted operator eigenvalues are strictly unordered 
+  complex numbers representing frequencies and growth rates. `linear_sum_assignment` 
+  determines the optimal minimum-distance pairing between two eigenvalue spectra. 
+- Stability Constraints: `koopman_evolve` clamps unstable eigenvalues (magnitude > 1) 
+  to the unit disk radially, preserving phase frequency while hard-capping exploding 
+  geometric scale.
 """
 from __future__ import annotations
 
@@ -223,8 +234,10 @@ def clamp_eigenvalues(
     """Project eigenvalues onto the unit disk, preserving phase.
 
     Eigenvalues with |λ| > 1 represent unstable modes that would cause
-    the forecast to diverge. Clamping scales their magnitude to 1.0
-    while keeping the oscillation frequency (phase angle) intact.
+    the iterative forecast to diverge to infinity geometrically. Clamping
+    scales their magnitude to 1.0 (forcing them to be purely oscillatory, 
+    i.e., pure sine waves without exponential growth) while keeping the 
+    oscillation frequency (phase angle) intact.
 
     Args:
         eigenvalues: Complex eigenvalue array.

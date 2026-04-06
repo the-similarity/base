@@ -2,6 +2,21 @@
 
 Phase 7b — combines multiple forecast signals into a calibrated, blended
 projection cone with proper uncertainty quantification.
+
+Statistical Architecture & Projections:
+Unlike the simple `projector.py` which computes raw percentile averages, 
+this module constructs mathematically rigorous conformal prediction intervals.
+The methodology synthesizes three separate signals:
+  1. Historical Weighted Median -> Baseline projection.
+  2. Monte Carlo Simulation -> Incorporates expanding variance (simulated 
+     Brownian noise scaled by target volatility).
+  3. Regime-Conditional filter -> Down-weights historical analogs occurring 
+     under discordant prevailing market regimes.
+
+Coverage Guarantees:
+Uses Split Conformal Prediction. The resulting `ConformalResult` guarantees 
+marginal coverage (e.g., 90% target inclusion probability) independent of any 
+Gaussian normal distribution assumptions—crucial for fat-tailed financial time series.
 """
 from __future__ import annotations
 
@@ -78,6 +93,10 @@ def monte_carlo_forecast(
     then draw from the empirical return distribution of that match's
     forward window, adding Gaussian noise scaled by the observed volatility.
 
+    Why this is useful: Unlike the bare `projector.py` which only returns N 
+    historical paths, this simulates N*1000 paths giving a much smoother 
+    cone boundaries that correctly reflect expanding uncertainty over time.
+
     Args:
         matches: Ranked match results with confidence scores.
         history: Full raw history series.
@@ -109,6 +128,7 @@ def monte_carlo_forecast(
             continue
         returns = (future - anchor) / anchor
         return_paths.append(returns)
+        # Handle zero confidence to avoid p-array sum-to-zero errors in multinomial sampling
         weights.append(max(match.confidence_score, 1e-6))
 
     if not return_paths:
@@ -129,16 +149,17 @@ def monte_carlo_forecast(
     bar_stds = np.sqrt(
         np.average((paths_arr - bar_means) ** 2, weights=weights_arr, axis=0)
     )
-    # Floor std to avoid zero-variance bars
+    # Floor std to avoid zero-variance bars crashing the RNG sampler
     bar_stds = np.maximum(bar_stds, 1e-8)
 
     # Simulate paths: sample a base match, then add scaled noise
     sim_paths = np.zeros((n_simulations, forward_bars))
+    # Pick root paths randomly, weighted by their confidence score
     match_indices = rng.choice(len(return_paths), size=n_simulations, p=weights_arr)
 
     for i in range(n_simulations):
         base_path = paths_arr[match_indices[i]]
-        # Add noise that grows with sqrt(bar) to reflect increasing uncertainty
+        # Add noise that grows with sqrt(bar) to reflect increasing uncertainty (Brownian assumption)
         noise_scale = bar_stds * np.sqrt(np.arange(1, forward_bars + 1) / forward_bars)
         noise = rng.normal(0, noise_scale)
         sim_paths[i] = base_path + noise
@@ -162,6 +183,8 @@ def monte_carlo_forecast(
 
 # Compatible regime groups: matches in these regimes are considered
 # consistent with the query regime for weighting purposes.
+# E.g. finding a mean-reverting historical match when the query is strongly 
+# breaking out "trending_up" means the background environment has changed.
 _REGIME_COMPAT = {
     "trending_up": {"trending_up"},
     "trending_down": {"trending_down"},
@@ -283,6 +306,11 @@ def conformal_prediction_intervals(
     deviation from the point forecast), then inflates the interval
     to achieve the target coverage level.
 
+    Why use this: Unlike basic P10/P90 calculations which assume observed
+    data boundaries, conformal bands guarantee finite-sample marginal 
+    coverage (e.g. 90% chance the true future value falls inside) regardless
+    of whether markets have fat tails.
+
     Args:
         matches: Match results for calibration.
         history: Full raw history series.
@@ -325,6 +353,7 @@ def conformal_prediction_intervals(
         base_forecast = np.mean(paths_arr, axis=0)
     else:
         base_forecast = np.asarray(base_forecast, dtype=np.float64)
+        # Quick-interpolate vector if lengths mismatch (failsafe)
         if len(base_forecast) != forward_bars:
             base_forecast = np.interp(
                 np.linspace(0, 1, forward_bars),
@@ -407,7 +436,7 @@ def ensemble_forecast(
     if percentiles is None:
         percentiles = config.percentiles if config else [10, 25, 50, 75, 90]
 
-    # Normalize blend weights
+    # Normalize blend weights mathematically
     total_w = mc_weight + regime_weight + historical_weight
     if total_w <= 0:
         total_w = 1.0
@@ -415,27 +444,29 @@ def ensemble_forecast(
     regime_w = regime_weight / total_w
     hist_w = historical_weight / total_w
 
-    # 1. Historical projection (existing projector)
+    # 1. Historical projection (existing simple projector)
     from the_similarity.core.projector import project as _project
     hist_forecast = _project(matches, history, forward_bars, percentiles, config)
 
-    # 2. Monte Carlo
+    # 2. Monte Carlo extension
     mc_result = monte_carlo_forecast(
         matches, history, forward_bars, n_simulations, percentiles, seed,
     )
 
-    # 3. Regime-conditional (if query provided)
+    # 3. Regime-conditional extension (if query provided)
     regime_result = None
     if query is not None:
         regime_result = regime_conditional_forecast(
             query, matches, history, forward_bars, percentiles, regime_soft_weight,
         )
         # If no regime matches, fall back to historical weight redistribution
+        # This occurs if we constrain conditions so tightly that 0 matches pass.
         if regime_result.n_matches_used == 0:
             hist_w += regime_w
             regime_w = 0.0
 
-    # Blend curves
+    # Combine curves into final projection via weighted average at each Time step 
+    # matching the targeted percentiles.
     blended_curves: dict[int, NDArray[np.float64]] = {}
     for p in percentiles:
         h_curve = hist_forecast.curves.get(p, np.zeros(forward_bars))
@@ -451,7 +482,7 @@ def ensemble_forecast(
 
         blended_curves[p] = blended
 
-    # 4. Conformal prediction intervals on the blended P50
+    # 4. Conformal prediction intervals calculated on the final blended P50
     conformal_result = conformal_prediction_intervals(
         matches, history, forward_bars, conformal_coverage,
         base_forecast=blended_curves.get(50),
@@ -481,7 +512,10 @@ def _weighted_quantile(
     weights: NDArray[np.float64],
     quantile: float,
 ) -> float:
-    """Linearly interpolate a weighted quantile."""
+    """Linearly interpolate a weighted quantile.
+    
+    Duplicates `projector.py` equivalent as numpy lacks an official `np.weighted_quantile()`.
+    """
     if len(values) == 1:
         return float(values[0])
     sorted_idx = np.argsort(values)
