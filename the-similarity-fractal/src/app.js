@@ -196,10 +196,10 @@ const API_URL = 'http://127.0.0.1:8000';
 // FPS traversal scale constants.
 // The terrain world is tiny relative to default first-person controller values,
 // so the camera eye height and all movement forces need to stay very small.
-const FPS_EYE_HEIGHT = 0.02;
-const FPS_GROUND_SNAP_DISTANCE = 0.03;
-const FPS_JUMP_VELOCITY = 0.14;
-const FPS_GRAVITY = 0.35;
+const FPS_EYE_HEIGHT = 0.08;
+const FPS_GROUND_SNAP_DISTANCE = 0.1;
+const FPS_JUMP_VELOCITY = 0.18;
+const FPS_GRAVITY = 0.32;
 const FPS_WALK_SPEED = 0.3;
 const FPS_RUN_SPEED = 0.8;
 const WORLD_HISTORY_STORAGE_KEY = 'the-similarity:fractal-world-history';
@@ -507,8 +507,14 @@ async function buildEngineTerrain() {
 
     clearScene();
 
+    // We derive visible vertical exaggeration from the preset so "rolling
+    // hills" and "alpine" do not collapse into the same apparent relief after
+    // the backend normalizes the final heightmap to [0, 1].
+    const reliefScale = Math.max(0.55, Math.min(1.15, data.params?.elevation_range ?? 1.0));
+    const verticalScale = 2.1 * reliefScale;
+
     // The renderer helper owns the mapping from backend arrays to visual meshes.
-    const { mesh, waterMesh: water } = buildTerrainMesh(data, 10, 3);
+    const { mesh, waterMesh: water } = buildTerrainMesh(data, 10, verticalScale);
     terrainMesh = mesh;
     terrainMesh.castShadow = true;
     terrainMesh.receiveShadow = true;
@@ -521,7 +527,7 @@ async function buildEngineTerrain() {
 
     // Decorative / semantic features are optional and rendered as instanced meshes.
     if (data.features && data.features.length > 0) {
-      featureGroup = buildFeatures(data.features, data.size, 10, 3, data.heightmap);
+      featureGroup = buildFeatures(data.features, data.size, 10, verticalScale, data.heightmap);
       scene.add(featureGroup);
     }
 
@@ -590,6 +596,46 @@ function snapPlayerToTerrain(x = fpsControls.getObject().position.x, z = fpsCont
   pos.set(x, groundHeight + FPS_EYE_HEIGHT, z);
   resetExploreMotion();
   return true;
+}
+
+/**
+ * Prevent the FPS camera from living underneath the terrain surface.
+ *
+ * The explore camera is effectively a point probe, not a full capsule body, so
+ * we use a stronger recovery clamp than a normal character controller would.
+ * If integration drift or a steep triangle ever leaves the eye point below the
+ * terrain, we immediately pop it back to a safe eye-height.
+ */
+function clampPlayerAboveTerrain() {
+  if (!terrainMesh) return;
+
+  const pos = fpsControls.getObject().position;
+  raycaster.set(new THREE.Vector3(pos.x, 100, pos.z), downVector);
+  const intersects = raycaster.intersectObject(terrainMesh);
+  if (intersects.length === 0) {
+    canJump = false;
+    return;
+  }
+
+  const groundHeight = intersects[0].point.y;
+  const targetY = groundHeight + FPS_EYE_HEIGHT;
+  const penetrationDepth = targetY - pos.y;
+
+  if (penetrationDepth > 0.02) {
+    pos.y = targetY;
+    velocity.y = 0;
+    canJump = true;
+    return;
+  }
+
+  if (pos.y <= targetY + FPS_GROUND_SNAP_DISTANCE && velocity.y <= 0) {
+    pos.y = targetY;
+    velocity.y = 0;
+    canJump = true;
+    return;
+  }
+
+  canJump = false;
 }
 
 /**
@@ -846,26 +892,7 @@ function animate() {
     // Ground collision is handled by casting downward and clamping the player
     // to a constant eye-height above the terrain surface.
     if (terrainMesh) {
-      const pos = fpsControls.getObject().position;
-      raycaster.set(new THREE.Vector3(pos.x, 100, pos.z), downVector);
-      const intersects = raycaster.intersectObject(terrainMesh);
-      if (intersects.length > 0) {
-        const groundHeight = intersects[0].point.y;
-        const targetY = groundHeight + FPS_EYE_HEIGHT;
-
-        // Snap onto the terrain a little before we visually penetrate it.
-        // This reduces the "sinking into triangles" feeling that happens when
-        // using a point-camera against an uneven mesh instead of a full capsule.
-        if (pos.y <= targetY + FPS_GROUND_SNAP_DISTANCE && velocity.y <= 0) {
-          velocity.y = 0;
-          pos.y = targetY;
-          canJump = true;
-        } else {
-          canJump = false;
-        }
-      } else {
-        canJump = false;
-      }
+      clampPlayerAboveTerrain();
     }
   } else {
     controls.update();

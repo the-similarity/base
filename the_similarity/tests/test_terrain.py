@@ -439,3 +439,22 @@ class TestTerrainGenerator:
 
         # rolling_hills has high veg density, should get some features
         assert len(result.features) >= 0  # may be 0 for very small terrain
+
+    def test_presets_create_different_relief_profiles(self):
+        """Gentle presets should stay gentler than mountain-oriented ones."""
+        from the_similarity.core.terrain_generator import TerrainGenerator
+
+        alpine = TerrainGenerator("alpine").generate(size=64, seed=7)
+        rolling = TerrainGenerator("rolling_hills").generate(size=64, seed=7)
+
+        alpine_dy, alpine_dx = np.gradient(alpine.heightmap)
+        rolling_dy, rolling_dx = np.gradient(rolling.heightmap)
+        alpine_slope = np.sqrt(alpine_dx**2 + alpine_dy**2)
+        rolling_slope = np.sqrt(rolling_dx**2 + rolling_dy**2)
+
+        # Rolling hills should have fewer strong slopes in the upper tail.
+        assert np.quantile(rolling_slope, 0.9) < np.quantile(alpine_slope, 0.9)
+
+        # Even the alpine preset should still preserve plenty of non-mountain
+        # area so the whole map does not collapse into all spikes and ridges.
+        assert np.mean(alpine.heightmap < 0.45) > 0.25
