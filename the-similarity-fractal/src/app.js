@@ -1,17 +1,46 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
 import { generateTerrain } from './fractal.js';
+import { buildTerrainMesh, buildFeatures } from './terrain-renderer.js';
 
-// --- Color maps ---
+/**
+ * Browser entrypoint for the fractal terrain demo.
+ *
+ * This file owns:
+ * - scene setup
+ * - camera / controls
+ * - DOM wiring
+ * - switching between the two terrain sources
+ * - animation and lightweight first-person exploration
+ *
+ * It does not own:
+ * - the local fractal generation algorithm itself (`fractal.js`)
+ * - API terrain semantics / biome generation
+ * - the engine-mode terrain mesh construction details (`terrain-renderer.js`)
+ *
+ * There are two rendering modes:
+ * 1. `classic`: fully local midpoint-displacement fractal terrain
+ * 2. `engine`: terrain fetched from a backend API, then rendered locally
+ *
+ * Future-agent note:
+ * - If terrain math looks wrong, start in `fractal.js`.
+ * - If materials / feature placement look wrong, start in `terrain-renderer.js`.
+ * - If controls, mode switching, or scene lifecycle look wrong, this file owns it.
+ */
+
+// Color ramps used only by Classic mode.
+// Engine mode receives biome semantics from the backend instead of a single
+// height-to-color mapping.
 const COLOR_MAPS = {
   terrain: [
-    { t: 0.0,  r: 0.18, g: 0.32, b: 0.12 },  // deep green
-    { t: 0.25, r: 0.35, g: 0.55, b: 0.20 },  // green
-    { t: 0.45, r: 0.55, g: 0.50, b: 0.30 },  // brown-green
-    { t: 0.60, r: 0.60, g: 0.50, b: 0.35 },  // brown
-    { t: 0.75, r: 0.70, g: 0.65, b: 0.55 },  // light brown / rock
-    { t: 0.88, r: 0.82, g: 0.80, b: 0.78 },  // grey rock
-    { t: 1.0,  r: 1.00, g: 0.98, b: 0.96 },  // snow
+    { t: 0.0,  r: 0.18, g: 0.32, b: 0.12 },
+    { t: 0.25, r: 0.35, g: 0.55, b: 0.20 },
+    { t: 0.45, r: 0.55, g: 0.50, b: 0.30 },
+    { t: 0.60, r: 0.60, g: 0.50, b: 0.35 },
+    { t: 0.75, r: 0.70, g: 0.65, b: 0.55 },
+    { t: 0.88, r: 0.82, g: 0.80, b: 0.78 },
+    { t: 1.0,  r: 1.00, g: 0.98, b: 0.96 },
   ],
   snow: [
     { t: 0.0,  r: 0.20, g: 0.25, b: 0.35 },
@@ -52,9 +81,10 @@ const COLOR_MAPS = {
 };
 
 function sampleColorMap(map, t) {
+  // Piecewise-linear interpolation between neighboring color stops.
+  // Input `t` is expected in [0, 1], but we clamp defensively.
   const stops = COLOR_MAPS[map] || COLOR_MAPS.terrain;
   t = Math.max(0, Math.min(1, t));
-
   for (let i = 1; i < stops.length; i++) {
     if (t <= stops[i].t) {
       const a = stops[i - 1], b = stops[i];
@@ -70,22 +100,29 @@ function sampleColorMap(map, t) {
   return { r: last.r, g: last.g, b: last.b };
 }
 
-// --- Scene setup ---
+// Core Three.js scene graph setup.
+// The scene is intentionally small and direct: one scene, one camera, one
+// renderer, one terrain surface, plus optional overlays and feature groups.
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x0a0a0f);
-scene.fog = new THREE.FogExp2(0x0a0a0f, 0.035);
+scene.fog = new THREE.FogExp2(0x0a0a0f, 0.025);
 
+// Perspective tuned for "tabletop terrain" viewing rather than true FPS-only play.
 const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 200);
-camera.position.set(5, 4, 7);
+camera.position.set(6, 5, 8);
 camera.lookAt(0, 0, 0);
 
+// Tone mapping and shadows matter a lot for terrain readability.
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.2;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 document.body.appendChild(renderer.domElement);
 
+// Orbit controls are the default inspection mode.
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 controls.dampingFactor = 0.05;
@@ -93,29 +130,113 @@ controls.minDistance = 2;
 controls.maxDistance = 30;
 controls.maxPolarAngle = Math.PI / 2 + 0.3;
 
-// --- Lighting ---
+// Pointer-lock controls are only enabled for "explore mode".
+const fpsControls = new PointerLockControls(camera, document.body);
+scene.add(fpsControls.getObject());
+
+// Transient state for first-person movement.
+let isExploreMode = false;
+const velocity = new THREE.Vector3();
+const direction = new THREE.Vector3();
+const moveState = { forward: false, backward: false, left: false, right: false, run: false };
+let canJump = false;
+let prevTime = performance.now();
+
+// One raycaster is reused for all "what is under / in front of me?" queries.
+const raycaster = new THREE.Raycaster();
+const downVector = new THREE.Vector3(0, -1, 0);
+
+// Lighting is slightly stylized but designed to keep slopes and silhouettes legible.
 const ambientLight = new THREE.AmbientLight(0x334455, 0.6);
 scene.add(ambientLight);
 
-const dirLight = new THREE.DirectionalLight(0xffeedd, 1.5);
-dirLight.position.set(5, 8, 3);
+// Main sun-like key light.
+const dirLight = new THREE.DirectionalLight(0xffeedd, 1.8);
+dirLight.position.set(5, 10, 3);
+dirLight.castShadow = true;
+dirLight.shadow.mapSize.width = 2048;
+dirLight.shadow.mapSize.height = 2048;
+dirLight.shadow.camera.near = 0.5;
+dirLight.shadow.camera.far = 30;
+dirLight.shadow.camera.left = -8;
+dirLight.shadow.camera.right = 8;
+dirLight.shadow.camera.top = 8;
+dirLight.shadow.camera.bottom = -8;
 scene.add(dirLight);
 
+// Secondary rim/fill light to stop the back side of hills from collapsing to black.
 const backLight = new THREE.DirectionalLight(0x4488cc, 0.4);
 backLight.position.set(-3, 4, -5);
 scene.add(backLight);
 
-// --- State ---
+// Gentle sky/ground ambient split for outdoor readability.
+const hemiLight = new THREE.HemisphereLight(0x87CEEB, 0x362a1a, 0.3);
+scene.add(hemiLight);
+
+// Application-level state.
+//
+// Ownership notes:
+// - Only one terrain is "live" at a time, but classic/engine share the same
+//   scene slots (`terrainMesh`, `waterMesh`, `featureGroup`, etc.).
+// - `currentSeed` is the main reproducibility handle for both modes.
 let currentSeed = Math.floor(Math.random() * 100000);
 let terrainMesh = null;
 let wireframeMesh = null;
+let waterMesh = null;
+let featureGroup = null;
 let showWireframe = false;
 let flatShading = true;
 let animating = false;
 let animTime = 0;
+let currentMode = 'classic';  // 'classic' or 'engine'
 
-// --- Build terrain mesh ---
-function buildTerrain() {
+const API_URL = 'http://127.0.0.1:8000';
+
+/**
+ * Dispose and detach the currently rendered terrain-related objects.
+ *
+ * This is the boundary between "old terrain" and "new terrain".
+ * Any terrain rebuild should go through this cleanup step first so GPU memory
+ * does not leak across repeated generations.
+ */
+function clearScene() {
+  if (terrainMesh) {
+    scene.remove(terrainMesh);
+    terrainMesh.geometry.dispose();
+    terrainMesh.material.dispose();
+    terrainMesh = null;
+  }
+  if (wireframeMesh) {
+    scene.remove(wireframeMesh);
+    wireframeMesh.geometry.dispose();
+    wireframeMesh.material.dispose();
+    wireframeMesh = null;
+  }
+  if (waterMesh) {
+    scene.remove(waterMesh);
+    waterMesh.geometry.dispose();
+    waterMesh.material.dispose();
+    waterMesh = null;
+  }
+  if (featureGroup) {
+    scene.remove(featureGroup);
+    featureGroup.traverse((child) => {
+      if (child.geometry) child.geometry.dispose();
+      if (child.material) child.material.dispose();
+    });
+    featureGroup = null;
+  }
+}
+
+/**
+ * Build terrain entirely in the browser using the local midpoint-displacement engine.
+ *
+ * Data flow:
+ * DOM controls -> `generateTerrain(...)` -> typed arrays -> Three.js geometry
+ *
+ * This path is self-contained and does not require the backend API.
+ */
+function buildClassicTerrain() {
   const iterations = parseInt(document.getElementById('iterations').value);
   const roughness = parseFloat(document.getElementById('roughness').value);
   const displacementVal = parseFloat(document.getElementById('displacement').value);
@@ -124,34 +245,20 @@ function buildTerrain() {
 
   const t0 = performance.now();
   const terrain = generateTerrain({
-    iterations,
-    roughness,
-    displacement: displacementVal,
-    scale: scaleVal,
-    seed: currentSeed,
-    baseShape: 'diamond',
+    iterations, roughness, displacement: displacementVal,
+    scale: scaleVal, seed: currentSeed, baseShape: 'diamond',
   });
   const genTime = (performance.now() - t0).toFixed(1);
 
-  // Remove old meshes
-  if (terrainMesh) {
-    scene.remove(terrainMesh);
-    terrainMesh.geometry.dispose();
-    terrainMesh.material.dispose();
-  }
-  if (wireframeMesh) {
-    scene.remove(wireframeMesh);
-    wireframeMesh.geometry.dispose();
-    wireframeMesh.material.dispose();
-  }
+  clearScene();
 
-  // Geometry
+  // Convert raw typed arrays into a Three.js indexed triangle mesh.
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute('position', new THREE.BufferAttribute(terrain.positions, 3));
   geometry.setAttribute('normal', new THREE.BufferAttribute(terrain.normals, 3));
   geometry.setIndex(new THREE.BufferAttribute(terrain.indices, 1));
 
-  // Height-based vertex colors
+  // Derive a normalized [0, 1] height coordinate for color lookup.
   let minH = Infinity, maxH = -Infinity;
   for (let i = 0; i < terrain.heights.length; i++) {
     minH = Math.min(minH, terrain.heights[i]);
@@ -159,6 +266,7 @@ function buildTerrain() {
   }
   const range = maxH - minH || 1;
 
+  // Color every vertex by sampled colormap height.
   const colors = new Float32Array(terrain.vertexCount * 3);
   for (let i = 0; i < terrain.vertexCount; i++) {
     const t = (terrain.heights[i] - minH) / range;
@@ -170,115 +278,360 @@ function buildTerrain() {
   geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
 
   if (flatShading) {
-    // For flat shading, we need non-indexed geometry
+    // Flat shading needs a non-indexed geometry so each face has distinct
+    // vertices and therefore distinct face normals.
     const flatGeo = geometry.toNonIndexed();
     flatGeo.computeVertexNormals();
-
     const material = new THREE.MeshStandardMaterial({
-      vertexColors: true,
-      flatShading: true,
-      roughness: 0.8,
-      metalness: 0.1,
-      side: THREE.DoubleSide,
+      vertexColors: true, flatShading: true,
+      roughness: 0.8, metalness: 0.1, side: THREE.DoubleSide,
     });
-
     terrainMesh = new THREE.Mesh(flatGeo, material);
     geometry.dispose();
   } else {
     const material = new THREE.MeshStandardMaterial({
-      vertexColors: true,
-      flatShading: false,
-      roughness: 0.8,
-      metalness: 0.1,
-      side: THREE.DoubleSide,
+      vertexColors: true, flatShading: false,
+      roughness: 0.8, metalness: 0.1, side: THREE.DoubleSide,
     });
-
     terrainMesh = new THREE.Mesh(geometry, material);
   }
 
+  terrainMesh.castShadow = true;
+  terrainMesh.receiveShadow = true;
   scene.add(terrainMesh);
 
-  // Wireframe overlay
+  // Separate wireframe mesh keeps toggling cheap and avoids mutating the main material.
   const wireGeo = new THREE.BufferGeometry();
   wireGeo.setAttribute('position', new THREE.BufferAttribute(terrain.positions.slice(), 3));
   wireGeo.setIndex(new THREE.BufferAttribute(terrain.indices.slice(), 1));
   const wireMat = new THREE.MeshBasicMaterial({
-    color: 0x4fc3f7,
-    wireframe: true,
-    transparent: true,
-    opacity: 0.15,
+    color: 0x4fc3f7, wireframe: true, transparent: true, opacity: 0.15,
   });
   wireframeMesh = new THREE.Mesh(wireGeo, wireMat);
   wireframeMesh.visible = showWireframe;
   scene.add(wireframeMesh);
 
-  // Stats
   document.getElementById('stats').textContent =
-    `${terrain.vertexCount.toLocaleString()} vertices  ·  ${terrain.faceCount.toLocaleString()} faces  ·  ${genTime}ms`;
+    `Classic · ${terrain.vertexCount.toLocaleString()} verts · ${terrain.faceCount.toLocaleString()} faces · ${genTime}ms`;
   document.getElementById('seed-display').textContent = `seed: ${currentSeed}`;
 }
 
-// --- UI bindings ---
+/**
+ * Build terrain from the backend "engine" endpoint.
+ *
+ * Expected backend contract:
+ * - `heightmap`
+ * - `biome`
+ * - optional `flow`
+ * - optional feature list
+ * - terrain params such as water level
+ *
+ * Rendering details are delegated to `terrain-renderer.js`.
+ */
+async function buildEngineTerrain() {
+  const preset = document.getElementById('preset').value;
+  const engineSize = parseInt(document.getElementById('engine-size').value);
+
+  document.getElementById('stats').textContent = 'Generating terrain...';
+
+  try {
+    const url = `${API_URL}/terrain/generate?preset=${preset}&size=${engineSize}&seed=${currentSeed}`;
+    const resp = await fetch(url, { method: 'POST' });
+
+    if (!resp.ok) {
+      const err = await resp.text();
+      document.getElementById('stats').textContent = `Error: ${err}`;
+      return;
+    }
+
+    const data = await resp.json();
+
+    clearScene();
+
+    // The renderer helper owns the mapping from backend arrays to visual meshes.
+    const { mesh, waterMesh: water } = buildTerrainMesh(data, 10, 3);
+    terrainMesh = mesh;
+    terrainMesh.castShadow = true;
+    terrainMesh.receiveShadow = true;
+    scene.add(terrainMesh);
+
+    if (water) {
+      waterMesh = water;
+      scene.add(waterMesh);
+    }
+
+    // Decorative / semantic features are optional and rendered as instanced meshes.
+    if (data.features && data.features.length > 0) {
+      featureGroup = buildFeatures(data.features, data.size, 10, 3, data.heightmap);
+      scene.add(featureGroup);
+    }
+
+    const featureCount = data.features ? data.features.length : 0;
+    document.getElementById('stats').textContent =
+      `Engine · ${preset} · ${data.size}×${data.size} · ${featureCount} features`;
+    document.getElementById('seed-display').textContent = `seed: ${currentSeed}`;
+
+  } catch (e) {
+    document.getElementById('stats').textContent = `Error: ${e.message}. Is the API running?`;
+  }
+}
+
+// Small dispatcher so UI controls do not need to duplicate mode checks.
+function buildTerrain() {
+  if (currentMode === 'engine') {
+    buildEngineTerrain();
+  } else {
+    buildClassicTerrain();
+  }
+}
+
+/**
+ * Bind a slider so:
+ * - its displayed numeric value stays in sync with the thumb
+ * - Classic mode regenerates immediately on change
+ *
+ * Engine mode does not auto-regenerate for these sliders because they do not
+ * apply there.
+ */
 function bindSlider(id) {
   const el = document.getElementById(id);
   const valEl = document.getElementById(`val-${id}`);
   el.addEventListener('input', () => {
-    valEl.textContent = parseFloat(el.value).toFixed(
-      id === 'iterations' ? 0 : 2
-    );
-    buildTerrain();
+    valEl.textContent = parseFloat(el.value).toFixed(id === 'iterations' ? 0 : 2);
+    if (currentMode === 'classic') buildClassicTerrain();
   });
 }
 
 ['iterations', 'roughness', 'displacement', 'scale'].forEach(bindSlider);
 
-document.getElementById('colormap').addEventListener('change', buildTerrain);
+// Classic-mode-only aesthetic control.
+document.getElementById('colormap').addEventListener('change', () => {
+  if (currentMode === 'classic') buildClassicTerrain();
+});
 
+// Wireframe is represented as its own mesh, so toggling is just visibility state.
 document.getElementById('btn-wireframe').addEventListener('click', (e) => {
   showWireframe = !showWireframe;
   e.target.classList.toggle('active', showWireframe);
   if (wireframeMesh) wireframeMesh.visible = showWireframe;
 });
 
+// Flat shading requires a terrain rebuild because geometry representation changes.
 document.getElementById('btn-flat').addEventListener('click', (e) => {
   flatShading = !flatShading;
   e.target.classList.toggle('active', flatShading);
-  buildTerrain();
+  if (currentMode === 'classic') buildClassicTerrain();
 });
-// Start with flat shading active
 document.getElementById('btn-flat').classList.add('active');
 
+// "Animate" is a lightweight orbiting presentation effect, not a simulation.
 document.getElementById('btn-animate').addEventListener('click', (e) => {
   animating = !animating;
   e.target.classList.toggle('active', animating);
 });
 
+// Regeneration means "keep current parameters, change only the seed".
 document.getElementById('btn-regenerate').addEventListener('click', () => {
   currentSeed = Math.floor(Math.random() * 100000);
   buildTerrain();
 });
 
-// --- Resize ---
+// Explore mode swaps the input model from orbit-inspection to first-person walking.
+const btnExplore = document.getElementById('btn-explore');
+const crosshair = document.getElementById('crosshair');
+const instructions = document.getElementById('explore-instructions');
+
+btnExplore.addEventListener('click', () => {
+  if (currentMode !== 'engine' || !terrainMesh) {
+    // Explore mode is intended for the engine terrain, so we switch modes on
+    // behalf of the user rather than leaving the button inert.
+    document.getElementById('btn-engine').click();
+  }
+  fpsControls.lock();
+});
+
+fpsControls.addEventListener('lock', () => {
+  isExploreMode = true;
+  controls.enabled = false;
+  crosshair.style.display = 'block';
+  instructions.style.display = 'block';
+
+  // If the user was orbiting far away, snap them into a sensible spawn point.
+  if (camera.position.y > 10) {
+    camera.position.set(0, 5, 0);
+  }
+});
+
+fpsControls.addEventListener('unlock', () => {
+  isExploreMode = false;
+  controls.enabled = true;
+  crosshair.style.display = 'none';
+  instructions.style.display = 'none';
+});
+
+// Movement intent flags are updated from keyboard events and consumed each frame.
+document.addEventListener('keydown', (event) => {
+  switch (event.code) {
+    case 'KeyW': moveState.forward = true; break;
+    case 'KeyA': moveState.left = true; break;
+    case 'KeyS': moveState.backward = true; break;
+    case 'KeyD': moveState.right = true; break;
+    case 'ShiftLeft': moveState.run = true; break;
+    case 'Space':
+      if (canJump === true) velocity.y += 10;
+      canJump = false;
+      break;
+  }
+});
+
+document.addEventListener('keyup', (event) => {
+  switch (event.code) {
+    case 'KeyW': moveState.forward = false; break;
+    case 'KeyA': moveState.left = false; break;
+    case 'KeyS': moveState.backward = false; break;
+    case 'KeyD': moveState.right = false; break;
+    case 'ShiftLeft': moveState.run = false; break;
+  }
+});
+
+// Double-click teleport is a bridge between orbit mode and pointer-lock mode:
+// click a point on the terrain, move the camera there, then enter explore mode.
+renderer.domElement.addEventListener('dblclick', (e) => {
+  if (isExploreMode || !terrainMesh) return;
+  const mouse = new THREE.Vector2();
+  mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+  mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+  raycaster.setFromCamera(mouse, camera);
+  const intersects = raycaster.intersectObject(terrainMesh);
+  if (intersects.length > 0) {
+    const pt = intersects[0].point;
+    camera.position.set(pt.x, pt.y + 1.5, pt.z);
+    fpsControls.lock();
+  }
+});
+
+// Mode toggle wiring. Only one control panel is visible at a time.
+document.getElementById('btn-classic').addEventListener('click', (e) => {
+  currentMode = 'classic';
+  e.target.classList.add('active');
+  document.getElementById('btn-engine').classList.remove('active');
+  document.getElementById('classic-controls').style.display = '';
+  document.getElementById('engine-controls').style.display = 'none';
+  buildClassicTerrain();
+});
+
+document.getElementById('btn-engine').addEventListener('click', (e) => {
+  currentMode = 'engine';
+  e.target.classList.add('active');
+  document.getElementById('btn-classic').classList.remove('active');
+  document.getElementById('classic-controls').style.display = 'none';
+  document.getElementById('engine-controls').style.display = '';
+  buildEngineTerrain();
+});
+
+// Engine-specific controls.
+document.getElementById('preset').addEventListener('change', () => {
+  if (currentMode === 'engine') buildEngineTerrain();
+});
+
+// Size slider updates its numeric label immediately but rebuilds only when the
+// user explicitly clicks Generate. That keeps API usage predictable.
+document.getElementById('engine-size').addEventListener('input', () => {
+  const val = document.getElementById('engine-size').value;
+  document.getElementById('val-engine-size').textContent = val;
+});
+
+document.getElementById('btn-generate').addEventListener('click', () => {
+  currentSeed = Math.floor(Math.random() * 100000);
+  buildEngineTerrain();
+});
+
+// Keep camera projection and renderer output in sync with the browser viewport.
 window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
 
-// --- Animation loop ---
-function animate(time) {
+/**
+ * Main render loop.
+ *
+ * The frame loop has three jobs:
+ * 1. Apply optional presentation animation to the terrain
+ * 2. Update either orbit controls or first-person movement
+ * 3. Render the scene
+ *
+ * We keep the logic here intentionally explicit rather than abstract because
+ * the state interactions are easier for future agents to audit in one place.
+ */
+function animate() {
   requestAnimationFrame(animate);
 
-  if (animating && terrainMesh) {
+  const time = performance.now();
+
+  if (animating && terrainMesh && !isExploreMode) {
+    // Presentation-only rotation. This is disabled during exploration to avoid
+    // moving the world underneath the player.
     animTime += 0.005;
-    terrainMesh.rotation.y = Math.sin(animTime * 0.5) * 0.3;
-    if (wireframeMesh) wireframeMesh.rotation.y = terrainMesh.rotation.y;
+    const rotY = Math.sin(animTime * 0.5) * 0.3;
+    terrainMesh.rotation.y = rotY;
+    if (wireframeMesh) wireframeMesh.rotation.y = rotY;
+    if (waterMesh) waterMesh.rotation.y = rotY;
+    if (featureGroup) featureGroup.rotation.y = rotY;
   }
 
-  controls.update();
+  // A tiny vertical bob is enough to keep the water from feeling dead.
+  // This is intentionally minimal and not physically modeled.
+  if (waterMesh) {
+    waterMesh.position.y += Math.sin(time * 0.002) * 0.0002;
+  }
+
+  if (isExploreMode) {
+    // Delta time keeps movement frame-rate independent.
+    const delta = (time - prevTime) / 1000;
+
+    // Damp horizontal motion so movement feels responsive rather than slippery.
+    velocity.x -= velocity.x * 10.0 * delta;
+    velocity.z -= velocity.z * 10.0 * delta;
+    velocity.y -= 30.0 * delta; // simple constant gravity
+
+    direction.z = Number(moveState.forward) - Number(moveState.backward);
+    direction.x = Number(moveState.right) - Number(moveState.left);
+    direction.normalize(); // prevents diagonal movement from being faster
+
+    const speed = moveState.run ? 20.0 : 8.0;
+
+    if (moveState.forward || moveState.backward) velocity.z -= direction.z * speed * delta;
+    if (moveState.left || moveState.right) velocity.x -= direction.x * speed * delta;
+
+    // PointerLockControls moves in local camera space.
+    fpsControls.moveRight(-velocity.x * delta);
+    fpsControls.moveForward(-velocity.z * delta);
+    fpsControls.getObject().position.y += velocity.y * delta;
+
+    // Ground collision is handled by casting downward and clamping the player
+    // to a constant eye-height above the terrain surface.
+    if (terrainMesh) {
+      const pos = fpsControls.getObject().position;
+      raycaster.set(new THREE.Vector3(pos.x, 100, pos.z), downVector);
+      const intersects = raycaster.intersectObject(terrainMesh);
+      if (intersects.length > 0) {
+        const groundHeight = intersects[0].point.y;
+        if (pos.y < groundHeight + 1.5) {
+          velocity.y = Math.max(0, velocity.y);
+          pos.y = groundHeight + 1.5;
+          canJump = true;
+        }
+      }
+    }
+  } else {
+    controls.update();
+  }
+
+  prevTime = time;
   renderer.render(scene, camera);
 }
 
-// --- Init ---
-buildTerrain();
-animate(0);
+// Boot into classic mode because it works without any backend dependency.
+buildClassicTerrain();
+animate();
