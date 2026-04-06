@@ -195,7 +195,8 @@ const API_URL = 'http://127.0.0.1:8000';
 // FPS traversal scale constants.
 // The terrain world is tiny relative to default first-person controller values,
 // so the camera eye height and all movement forces need to stay very small.
-const FPS_EYE_HEIGHT = 0.0005;
+const FPS_EYE_HEIGHT = 0.005;
+const FPS_GROUND_SNAP_DISTANCE = 0.01;
 const FPS_JUMP_VELOCITY = 0.08;
 const FPS_GRAVITY = 0.5;
 const FPS_WALK_SPEED = 0.3;
@@ -626,11 +627,20 @@ function animate() {
       const intersects = raycaster.intersectObject(terrainMesh);
       if (intersects.length > 0) {
         const groundHeight = intersects[0].point.y;
-        if (pos.y < groundHeight + FPS_EYE_HEIGHT) {
-          velocity.y = Math.max(0, velocity.y);
-          pos.y = groundHeight + FPS_EYE_HEIGHT;
+        const targetY = groundHeight + FPS_EYE_HEIGHT;
+
+        // Snap onto the terrain a little before we visually penetrate it.
+        // This reduces the "sinking into triangles" feeling that happens when
+        // using a point-camera against an uneven mesh instead of a full capsule.
+        if (pos.y <= targetY + FPS_GROUND_SNAP_DISTANCE && velocity.y <= 0) {
+          velocity.y = 0;
+          pos.y = targetY;
           canJump = true;
+        } else {
+          canJump = false;
         }
+      } else {
+        canJump = false;
       }
     }
   } else {
