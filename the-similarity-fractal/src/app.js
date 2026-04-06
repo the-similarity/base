@@ -195,11 +195,11 @@ const API_URL = 'http://127.0.0.1:8000';
 // FPS traversal scale constants.
 // The terrain world is tiny relative to default first-person controller values,
 // so the camera eye height and all movement forces need to stay very small.
-const FPS_EYE_HEIGHT = 0.0005;
-const FPS_JUMP_VELOCITY = 0.005;
-const FPS_GRAVITY = 0.015;
-const FPS_WALK_SPEED = 0.003;
-const FPS_RUN_SPEED = 0.008;
+const FPS_EYE_HEIGHT = 0.00005;
+const FPS_JUMP_VELOCITY = 0.0005;
+const FPS_GRAVITY = 0.0015;
+const FPS_WALK_SPEED = 0.0003;
+const FPS_RUN_SPEED = 0.0008;
 
 /**
  * Dispose and detach the currently rendered terrain-related objects.
