@@ -1,0 +1,33 @@
+---
+description: Maintain and grow obsidian_thesim/ as the project research wiki (Karpathy-style LLM-maintained KB).
+alwaysApply: true
+---
+
+# Obsidian research wiki (`obsidian_thesim/`)
+
+## Role
+
+Treat `obsidian_thesim/` as the **living knowledge base** for this repo: research ingests, lessons learned while coding, design rationale, and links to sources. It should **grow with ongoing development**, not only with one-off notes.
+
+Full workflow and directory conventions: **`.claude/OBSIDIAN_KB.md`**.
+
+## When to write
+
+After **non-trivial** research, debugging conclusions, API or algorithm choices, literature digs, or user-requested synthesis:
+
+- Add or update markdown under `obsidian_thesim/` (not scattered ad-hoc docs elsewhere unless the user asked for repo docs).
+- Prefer **wikilinks** (`[[Note Title]]`) between related notes so the graph stays useful in Obsidian.
+- If new **raw** material was used (paper, article, repo), file a summary note and point to the artifact in `raw/` if present.
+
+## Style
+
+- **Agent-maintained**: you write and refactor wiki notes; the user reviews in Obsidian.
+- **Incremental**: small updates beat giant dumps; update indexes / MOCs when adding notable notes.
+- **Traceability**: link sources (path under `raw/`, URL, or citation); say what changed when updating a note.
+- **Repo code**: when a note reflects implemented behavior, reference real paths (e.g. `the_similarity/core/matcher.py`) so the wiki stays tied to the codebase.
+
+## Boundaries
+
+- Do **not** remove or rewrite the user’s personal strokes in notes unless they asked; append correction sections if needed.
+- Avoid churning `.obsidian/` config unless the user requests it.
+- Follow global repo rules: granular commits; do not commit secrets or huge binaries into `raw/` without an explicit ask.

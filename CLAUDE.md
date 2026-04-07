@@ -74,6 +74,10 @@
 
 Use the `/browse` skill from gstack for all web browsing. Never use `mcp__claude-in-chrome__*` tools.
 
+## Obsidian research wiki (`obsidian_thesim/`)
+
+The vault **`obsidian_thesim/`** is the project’s **LLM-maintained research and learning base** (ingest → compiled markdown wiki → Obsidian as viewer). Agents should **add and update notes** as research and coding produce durable insights. **Conventions and folder layout:** `.claude/OBSIDIAN_KB.md`. Cursor loads the same policy via `.cursor/rules/obsidian-knowledge-base.mdc`.
+
 ## Available skills
 
 - `/plan-ceo-review` — CEO/founder-mode plan review
