@@ -6,9 +6,15 @@ __pycache__/
 .venv/
 venv/
 node_modules/
-.cursor/
+# Local IDE/Claude artifacts — track only shared agent conventions
+.cursor/**
+!.cursor/rules/
+!.cursor/rules/**
+
 .context/
-.claude/
+
+.claude/**
+!.claude/OBSIDIAN_KB.md
 .env
 .env.*
 .gstack/
