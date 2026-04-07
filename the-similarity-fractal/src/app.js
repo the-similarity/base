@@ -196,12 +196,13 @@ const API_URL = 'http://127.0.0.1:8000';
 // FPS traversal scale constants.
 // The terrain world is tiny relative to default first-person controller values,
 // so the camera eye height and all movement forces need to stay very small.
-const FPS_EYE_HEIGHT = 0.08;
-const FPS_GROUND_SNAP_DISTANCE = 0.015;
+const FPS_EYE_HEIGHT = 0.12;
+const FPS_GROUND_SNAP_DISTANCE = 0.01;
 const FPS_JUMP_VELOCITY = 0.18;
 const FPS_GRAVITY = 0.32;
 const FPS_WALK_SPEED = 0.3;
 const FPS_RUN_SPEED = 0.8;
+const FPS_LANDING_VELOCITY_THRESHOLD = -0.06;
 const WORLD_HISTORY_STORAGE_KEY = 'the-similarity:fractal-world-history';
 const WORLD_CURRENT_STORAGE_KEY = 'the-similarity:fractal-current-world';
 const MENU_COLLAPSED_STORAGE_KEY = 'the-similarity:fractal-menu-collapsed';
@@ -654,7 +655,11 @@ function clampPlayerAboveTerrain() {
   // While falling, only snap at the very end of the descent. A large snap
   // window makes jumps look like a teleport to the landing point instead of a
   // continuous arc back to the ground.
-  if (pos.y <= targetY + FPS_GROUND_SNAP_DISTANCE && velocity.y <= 0) {
+  if (
+    pos.y <= targetY + FPS_GROUND_SNAP_DISTANCE
+    && velocity.y <= 0
+    && velocity.y >= FPS_LANDING_VELOCITY_THRESHOLD
+  ) {
     pos.y = targetY;
     velocity.y = 0;
     canJump = true;
