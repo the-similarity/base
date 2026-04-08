@@ -31,7 +31,9 @@ entryOnNewSignalOnly = input.bool(true, "Enter on new signal only", tooltip = "S
 reenterAfterExit = input.bool(true, "Re-enter bar after exit if setup still on", tooltip = "When pulse-only entries would lock out for long stretches because the sticky signal never flickers off.")
 enterOnlyAfterRecompute = input.bool(false, "Also require fresh analogue this bar", tooltip = "If ON, only take entries on bars where the full search ran. Fewer trades; can skip moves between refreshes.")
 topK = input.int(5, "Top Matches", minval = 1, maxval = 8)
-minConfidence = input.float(58.0, "Min Confidence", minval = 0.0, maxval = 100.0, step = 1.0)
+minConfidenceSearch = input.float(45.0, "Min confidence for search basket", minval = 0.0, maxval = 100.0, step = 1.0, tooltip = "Candidates ≥ this enter top-K / cone. Set LOWER than trade min so a dull stretch does not zero out persist for months (no analogues → no P50).")
+minConfidence = input.float(52.0, "Min confidence to trade", minval = 0.0, maxval = 100.0, step = 1.0, tooltip = "Rank-1 score must clear this to open trades. Can stay above search min to filter entries.")
+momentumSignalUsesWeightedP50 = input.bool(false, "Momentum: use weighted P50 for entry", tooltip = "OFF (default): entry direction uses #1 match horizon return only — weighted median often sits near 0 for months when analogues disagree. ON: strict cone P50 (closer to Python momentum_strategy). Exits always use full weighted cone.")
 
 strategyMode = input.string("momentum", "Strategy Mode", options = ["momentum", "mean_reversion", "breakout"])
 strictRegimeForMode = input.bool(false, "Require regime tag vs strategy mode", tooltip = "OFF (default): trade on score + analogue path only—best match often labels mean_reverting/high_vol so strict ON creates long flat spans. ON: legacy—momentum needs trending_up/down on the matched segment, etc.")
@@ -306,6 +308,7 @@ var float persistP25 = na
 var float persistP50 = na
 var float persistP75 = na
 var float persistP90 = na
+var float persistRank1Horizon = na
 
 // Locked at entry: cone endpoints for exits (Python momentum: long P10 stop / P75 target; short P90 / P25).
 var float posP10 = na
@@ -324,6 +327,7 @@ float bestP25 = na
 float bestP50 = na
 float bestP75 = na
 float bestP90 = na
+float bestRank1Horizon = na
 
 newTradingDay = ta.change(time("D")) != 0
 needFullSearch = enoughHistory and (na(lastSearchBarIndex) or (bar_index - lastSearchBarIndex >= recomputeEveryBars) or (alsoRecomputeNewDay and newTradingDay))
@@ -369,13 +373,19 @@ if needFullSearch
                      trendThreshold,
                      volatilityThreshold,
                      meanReversionTurnPct)
-                if candidateScore >= minConfidence
+                if candidateScore >= minConfidenceSearch
                     f_insert_top_match(topScores, topEndOffsets, topLengths, topScales, topRegimes, candidateScore, endOffset, candidateLength, scaleValue, candidateRegime, topK)
 
     if array.size(topScores) > 0
         persistBestScore := array.get(topScores, 0)
         persistBestScale := array.get(topScales, 0)
         persistRegimeCode := array.get(topRegimes, 0)
+
+        bestEndR1 = array.get(topEndOffsets, 0)
+        anchorR1 = close[bestEndR1]
+        persistRank1Horizon := float(na)
+        if anchorR1 != 0.0 and bestEndR1 >= forecastBars
+            persistRank1Horizon := (close[bestEndR1 - forecastBars] - anchorR1) / anchorR1
 
         array<float> fcP10 = array.new_float()
         array<float> fcP25 = array.new_float()
@@ -421,6 +431,7 @@ if needFullSearch
             persistP50 := na
             persistP75 := na
             persistP90 := na
+            persistRank1Horizon := na
     else
         persistBestScore := na
         persistBestScale := na
@@ -430,6 +441,7 @@ if needFullSearch
         persistP50 := na
         persistP75 := na
         persistP90 := na
+        persistRank1Horizon := na
 
 if enoughHistory
     bestScore := persistBestScore
@@ -440,6 +452,7 @@ if enoughHistory
     bestP50 := persistP50
     bestP75 := persistP75
     bestP90 := persistP90
+    bestRank1Horizon := persistRank1Horizon
 
 regimeIsUp = bestRegimeCode == 1
 regimeIsDown = bestRegimeCode == -1
@@ -451,19 +464,21 @@ coneSpread = not na(bestP90) and not na(bestP10) ? bestP90 - bestP10 : na
 longSignal = false
 shortSignal = false
 
-if enoughHistory and not na(bestScore) and not na(bestP50)
+if enoughHistory and not na(bestScore)
     if strategyMode == "momentum"
-        // Python momentum_strategy: P50 vs threshold + optional trending regime on best match.
-        momLong = bestScore >= minConfidence and bestP50 > forecastThreshold
-        momShort = bestScore >= minConfidence and bestP50 < -forecastThreshold
-        longSignal := momLong and (strictRegimeForMode ? regimeIsUp : true)
-        shortSignal := momShort and (strictRegimeForMode ? regimeIsDown : true)
+        momRef = momentumSignalUsesWeightedP50 ? bestP50 : bestRank1Horizon
+        if not na(momRef)
+            momLong = bestScore >= minConfidence and momRef > forecastThreshold
+            momShort = bestScore >= minConfidence and momRef < -forecastThreshold
+            longSignal := momLong and (strictRegimeForMode ? regimeIsUp : true)
+            shortSignal := momShort and (strictRegimeForMode ? regimeIsDown : true)
     else if strategyMode == "mean_reversion"
-        // Python mean_reversion_strategy: wide P90-P10 spread, fade P50.
-        mrLong = bestScore >= minConfidence and not na(coneSpread) and coneSpread > forecastThreshold and bestP50 < -forecastThreshold
-        mrShort = bestScore >= minConfidence and not na(coneSpread) and coneSpread > forecastThreshold and bestP50 > forecastThreshold
-        longSignal := mrLong and (strictRegimeForMode ? regimeIsMeanReverting : true)
-        shortSignal := mrShort and (strictRegimeForMode ? regimeIsMeanReverting : true)
+        if not na(bestP50)
+            // Python mean_reversion_strategy: wide P90-P10 spread, fade P50.
+            mrLong = bestScore >= minConfidence and not na(coneSpread) and coneSpread > forecastThreshold and bestP50 < -forecastThreshold
+            mrShort = bestScore >= minConfidence and not na(coneSpread) and coneSpread > forecastThreshold and bestP50 > forecastThreshold
+            longSignal := mrLong and (strictRegimeForMode ? regimeIsMeanReverting : true)
+            shortSignal := mrShort and (strictRegimeForMode ? regimeIsMeanReverting : true)
     else
         // Python breakout_strategy: high vol + bullish/bearish upper or lower quantile.
         brLong = bestScore >= minConfidence and not na(bestP75) and bestP75 > 0
@@ -569,6 +584,7 @@ if timeStopHit and strategy.position_size < 0
 
 plot(not na(bestScore) ? bestScore : na, "Confidence", color = color.new(color.lime, 0), linewidth = 2)
 plot(not na(bestP50) ? bestP50 * 100.0 : na, "Weighted P50 terminal %", color = color.new(color.aqua, 0), linewidth = 2)
+plot(not na(bestRank1Horizon) ? bestRank1Horizon * 100.0 : na, "#1 match horizon %", color = color.new(color.orange, 0), linewidth = 1, display = display.none)
 plotshape(longSignal, title = "Long setup (sticky)", style = shape.circle, location = location.bottom, color = color.new(color.lime, 85), size = size.tiny, display = display.none)
 plotshape(longEntry, title = "Long entry", style = shape.triangleup, location = location.belowbar, color = color.new(color.lime, 0), size = size.tiny, text = "SIM LONG")
 plotshape(shortEntry, title = "Short entry", style = shape.triangledown, location = location.abovebar, color = color.new(color.red, 0), size = size.tiny, text = "SIM SHORT")
@@ -577,5 +593,5 @@ var label regimeLabel = na
 if barstate.islast
     if not na(regimeLabel)
         label.delete(regimeLabel)
-    regimeText = enoughHistory and not na(bestScore) ? "Similarity " + strategyMode + "\nRegime: " + f_regime_label(bestRegimeCode) + "\nConfidence: " + str.tostring(bestScore, "#.0") + "\nScale: " + str.tostring(bestScale, "#.00") + "x\nP50 terminal: " + (na(bestP50) ? "n/a" : str.tostring(bestP50 * 100.0, "#.00") + "%") + "\nCone P10/P75 (L exit): " + (na(bestP10) or na(bestP75) ? "n/a" : str.tostring(bestP10 * 100.0, "#.00") + "% / " + str.tostring(bestP75 * 100.0, "#.00") + "%") : "Similarity strategy warming up"
+    regimeText = enoughHistory and not na(bestScore) ? "Similarity " + strategyMode + "\nRegime: " + f_regime_label(bestRegimeCode) + "\nScore (rank1): " + str.tostring(bestScore, "#.0") + " · trade≥" + str.tostring(minConfidence, "#.0") + " search≥" + str.tostring(minConfidenceSearch, "#.0") + "\nScale: " + str.tostring(bestScale, "#.00") + "x\nP50: " + (na(bestP50) ? "n/a" : str.tostring(bestP50 * 100.0, "#.00") + "%") + " · #1Δ: " + (na(bestRank1Horizon) ? "n/a" : str.tostring(bestRank1Horizon * 100.0, "#.00") + "%") + "\nCone P10/P75 (L exit): " + (na(bestP10) or na(bestP75) ? "n/a" : str.tostring(bestP10 * 100.0, "#.00") + "% / " + str.tostring(bestP75 * 100.0, "#.00") + "%") : "Similarity strategy warming up"
     regimeLabel := label.new(bar_index, high, regimeText, style = label.style_label_left, textcolor = color.white, color = color.new(color.black, 35))
