@@ -83,12 +83,14 @@ The strategy supports three rule modes inspired by `the_similarity/core/strategy
 - `mean_reversion`
 - `breakout`
 
-Entries require the confidence threshold to pass first. Exits use projected percentiles:
+Entries require the confidence threshold to pass first. Exits use **only the best (highest-confidence) analogue’s realized forward path**:
 
-- long stop ≈ `P10`
-- long target ≈ `P75`
-- short stop ≈ `P90`
-- short target ≈ `P25`
+- **Long stop** — worst cumulative return vs that match’s anchor along the path (`bestMinRet` → `close * (1 + min)`).
+- **Long take-profit** — terminal return at **Forecast bars** if that return is **positive** (`close * (1 + terminal)`); otherwise **stop-only** exit.
+- **Short stop** — most adverse path high vs anchor (`bestMaxRet`).
+- **Short take-profit** — terminal return if **negative**; otherwise stop-only.
+
+There is **no P10/P50/P90 cone** in the strategy; the indicator still draws percentile cones from **top‑K** if you want that view.
 
 ## Install in TradingView
 

@@ -228,41 +228,6 @@ f_insert_top_match(
         array.pop(scales)
         array.pop(regimes)
 
-f_sort_pairs(array<float> values, array<float> weights) =>
-    count = array.size(values)
-    if count > 1
-        for i = 0 to count - 2
-            for j = 0 to count - 2 - i
-                left = array.get(values, j)
-                right = array.get(values, j + 1)
-                if left > right
-                    leftWeight = array.get(weights, j)
-                    rightWeight = array.get(weights, j + 1)
-                    array.set(values, j, right)
-                    array.set(values, j + 1, left)
-                    array.set(weights, j, rightWeight)
-                    array.set(weights, j + 1, leftWeight)
-
-f_weighted_percentile(array<float> rawValues, array<float> rawWeights, float quantile) =>
-    sortedValues = array.new_float()
-    sortedWeights = array.new_float()
-    for i = 0 to array.size(rawValues) - 1
-        array.push(sortedValues, array.get(rawValues, i))
-        array.push(sortedWeights, array.get(rawWeights, i))
-    f_sort_pairs(sortedValues, sortedWeights)
-    totalWeight = f_sum_float_array(sortedWeights)
-    if totalWeight == 0.0
-        array.size(sortedValues) == 0 ? 0.0 : array.get(sortedValues, array.size(sortedValues) - 1)
-    else
-        cumulative = 0.0
-        chosen = array.get(sortedValues, array.size(sortedValues) - 1)
-        for i = 0 to array.size(sortedValues) - 1
-            cumulative += array.get(sortedWeights, i) / totalWeight
-            if cumulative >= quantile
-                chosen := array.get(sortedValues, i)
-                break
-        chosen
-
 searchMinEndOffset = minMatchEndOffset > 0 ? minMatchEndOffset : patternLength + 4
 enoughHistory = bar_index > searchLookback + patternLength + math.max(forecastBars, searchMinEndOffset)
 
@@ -272,30 +237,21 @@ var array<int> topLengths = array.new_int()
 var array<float> topScales = array.new_float()
 var array<int> topRegimes = array.new_int()
 
-var array<float> forecastP10 = array.new_float()
-var array<float> forecastP25 = array.new_float()
-var array<float> forecastP50 = array.new_float()
-var array<float> forecastP75 = array.new_float()
-var array<float> forecastP90 = array.new_float()
-
 var int lastSearchBarIndex = na
 var float persistBestScore = na
 var float persistBestScale = na
 var int persistRegimeCode = 0
-var float persistP10End = na
-var float persistP25End = na
-var float persistP50End = na
-var float persistP75End = na
-var float persistP90End = na
+// Forward path of the #1 (best) analogue only: cumulative returns from its match anchor.
+var float persistBestTermRet = na
+var float persistBestMinRet = na
+var float persistBestMaxRet = na
 
 float bestScore = na
 float bestScale = na
 int bestRegimeCode = 0
-float p10End = na
-float p25End = na
-float p50End = na
-float p75End = na
-float p90End = na
+float bestTermRet = na
+float bestMinRet = na
+float bestMaxRet = na
 
 newTradingDay = ta.change(time("D")) != 0
 needFullSearch = enoughHistory and (na(lastSearchBarIndex) or (bar_index - lastSearchBarIndex >= recomputeEveryBars) or (alsoRecomputeNewDay and newTradingDay))
@@ -307,11 +263,6 @@ if needFullSearch
     array.clear(topLengths)
     array.clear(topScales)
     array.clear(topRegimes)
-    array.clear(forecastP10)
-    array.clear(forecastP25)
-    array.clear(forecastP50)
-    array.clear(forecastP75)
-    array.clear(forecastP90)
 
     queryPrices = array.new_float()
     queryReturns = array.new_float()
@@ -354,81 +305,64 @@ if needFullSearch
         persistBestScale := array.get(topScales, 0)
         persistRegimeCode := array.get(topRegimes, 0)
 
+        bestEnd = array.get(topEndOffsets, 0)
+        matchAnchor = close[bestEnd]
+        pathMinRet = na
+        pathMaxRet = na
+        termRet = na
         for step = 1 to forecastBars
-            stepValues = array.new_float()
-            stepWeights = array.new_float()
-            for matchIndex = 0 to array.size(topScores) - 1
-                matchEndOffset = array.get(topEndOffsets, matchIndex)
-                if matchEndOffset >= step
-                    matchAnchor = close[matchEndOffset]
-                    futurePrice = close[matchEndOffset - step]
-                    if matchAnchor != 0.0
-                        array.push(stepValues, (futurePrice - matchAnchor) / matchAnchor)
-                        array.push(stepWeights, array.get(topScores, matchIndex))
-            if array.size(stepValues) > 0
-                array.push(forecastP10, f_weighted_percentile(stepValues, stepWeights, 0.10))
-                array.push(forecastP25, f_weighted_percentile(stepValues, stepWeights, 0.25))
-                array.push(forecastP50, f_weighted_percentile(stepValues, stepWeights, 0.50))
-                array.push(forecastP75, f_weighted_percentile(stepValues, stepWeights, 0.75))
-                array.push(forecastP90, f_weighted_percentile(stepValues, stepWeights, 0.90))
-            else
-                array.push(forecastP10, na)
-                array.push(forecastP25, na)
-                array.push(forecastP50, na)
-                array.push(forecastP75, na)
-                array.push(forecastP90, na)
+            if bestEnd >= step and matchAnchor != 0.0
+                futurePrice = close[bestEnd - step]
+                r = (futurePrice - matchAnchor) / matchAnchor
+                pathMinRet := na(pathMinRet) ? r : math.min(pathMinRet, r)
+                pathMaxRet := na(pathMaxRet) ? r : math.max(pathMaxRet, r)
+                if step == forecastBars
+                    termRet := r
 
-        if array.size(forecastP10) > 0
-            persistP10End := array.get(forecastP10, array.size(forecastP10) - 1)
-            persistP25End := array.get(forecastP25, array.size(forecastP25) - 1)
-            persistP50End := array.get(forecastP50, array.size(forecastP50) - 1)
-            persistP75End := array.get(forecastP75, array.size(forecastP75) - 1)
-            persistP90End := array.get(forecastP90, array.size(forecastP90) - 1)
+        persistBestTermRet := termRet
+        persistBestMinRet := pathMinRet
+        persistBestMaxRet := pathMaxRet
     else
         persistBestScore := na
         persistBestScale := na
         persistRegimeCode := 0
-        persistP10End := na
-        persistP25End := na
-        persistP50End := na
-        persistP75End := na
-        persistP90End := na
+        persistBestTermRet := na
+        persistBestMinRet := na
+        persistBestMaxRet := na
 
 if enoughHistory
     bestScore := persistBestScore
     bestScale := persistBestScale
     bestRegimeCode := persistRegimeCode
-    p10End := persistP10End
-    p25End := persistP25End
-    p50End := persistP50End
-    p75End := persistP75End
-    p90End := persistP90End
+    bestTermRet := persistBestTermRet
+    bestMinRet := persistBestMinRet
+    bestMaxRet := persistBestMaxRet
 
 regimeIsUp = bestRegimeCode == 1
 regimeIsDown = bestRegimeCode == -1
 regimeIsMeanReverting = bestRegimeCode == 0
 regimeIsHighVol = bestRegimeCode == 2
 
-spread = not na(p90End) and not na(p10End) ? p90End - p10End : na
+pathRange = not na(bestMaxRet) and not na(bestMinRet) ? bestMaxRet - bestMinRet : na
 
 longSignal = false
 shortSignal = false
 
-if enoughHistory and not na(bestScore) and not na(p50End)
+if enoughHistory and not na(bestScore) and not na(bestTermRet)
     if strategyMode == "momentum"
-        longSignal := bestScore >= minConfidence and regimeIsUp and p50End > forecastThreshold
-        shortSignal := bestScore >= minConfidence and regimeIsDown and p50End < -forecastThreshold
+        longSignal := bestScore >= minConfidence and regimeIsUp and bestTermRet > forecastThreshold
+        shortSignal := bestScore >= minConfidence and regimeIsDown and bestTermRet < -forecastThreshold
     else if strategyMode == "mean_reversion"
-        longSignal := bestScore >= minConfidence and regimeIsMeanReverting and not na(spread) and spread > forecastThreshold and p50End < -forecastThreshold
-        shortSignal := bestScore >= minConfidence and regimeIsMeanReverting and not na(spread) and spread > forecastThreshold and p50End > forecastThreshold
+        longSignal := bestScore >= minConfidence and regimeIsMeanReverting and not na(pathRange) and pathRange > forecastThreshold and bestTermRet < -forecastThreshold
+        shortSignal := bestScore >= minConfidence and regimeIsMeanReverting and not na(pathRange) and pathRange > forecastThreshold and bestTermRet > forecastThreshold
     else
-        longSignal := bestScore >= minConfidence and regimeIsHighVol and not na(p75End) and p75End > 0
-        shortSignal := bestScore >= minConfidence and regimeIsHighVol and not na(p25End) and p25End < 0
+        longSignal := bestScore >= minConfidence and regimeIsHighVol and not na(bestMaxRet) and bestMaxRet > forecastThreshold
+        shortSignal := bestScore >= minConfidence and regimeIsHighVol and not na(bestMinRet) and bestMinRet < -forecastThreshold
 
-longStop = not na(p10End) ? close * (1.0 + p10End) : na
-longTarget = not na(p75End) ? close * (1.0 + p75End) : na
-shortStop = not na(p90End) ? close * (1.0 + p90End) : na
-shortTarget = not na(p25End) ? close * (1.0 + p25End) : na
+longStop = not na(bestMinRet) ? close * (1.0 + bestMinRet) : na
+longTarget = not na(bestTermRet) and bestTermRet > 0 ? close * (1.0 + bestTermRet) : na
+shortStop = not na(bestMaxRet) ? close * (1.0 + bestMaxRet) : na
+shortTarget = not na(bestTermRet) and bestTermRet < 0 ? close * (1.0 + bestTermRet) : na
 
 if longSignal and strategy.position_size <= 0
     strategy.entry("Long", strategy.long)
@@ -436,14 +370,20 @@ if longSignal and strategy.position_size <= 0
 if shortSignal and strategy.position_size >= 0
     strategy.entry("Short", strategy.short)
 
-if strategy.position_size > 0 and not na(longStop) and not na(longTarget)
-    strategy.exit("Long Exit", "Long", stop = longStop, limit = longTarget)
+if strategy.position_size > 0 and not na(longStop)
+    if not na(longTarget)
+        strategy.exit("Long Exit", "Long", stop = longStop, limit = longTarget)
+    else
+        strategy.exit("Long Exit", "Long", stop = longStop)
 
-if strategy.position_size < 0 and not na(shortStop) and not na(shortTarget)
-    strategy.exit("Short Exit", "Short", stop = shortStop, limit = shortTarget)
+if strategy.position_size < 0 and not na(shortStop)
+    if not na(shortTarget)
+        strategy.exit("Short Exit", "Short", stop = shortStop, limit = shortTarget)
+    else
+        strategy.exit("Short Exit", "Short", stop = shortStop)
 
 plot(not na(bestScore) ? bestScore : na, "Confidence", color = color.new(color.lime, 0), linewidth = 2)
-plot(not na(p50End) ? p50End * 100.0 : na, "Median Forecast %", color = color.new(color.aqua, 0), linewidth = 2)
+plot(not na(bestTermRet) ? bestTermRet * 100.0 : na, "Best analogue terminal %", color = color.new(color.aqua, 0), linewidth = 2)
 plotshape(longSignal, title = "Long Signal", style = shape.triangleup, location = location.belowbar, color = color.new(color.lime, 0), size = size.tiny, text = "SIM LONG")
 plotshape(shortSignal, title = "Short Signal", style = shape.triangledown, location = location.abovebar, color = color.new(color.red, 0), size = size.tiny, text = "SIM SHORT")
 
@@ -451,5 +391,5 @@ var label regimeLabel = na
 if barstate.islast
     if not na(regimeLabel)
         label.delete(regimeLabel)
-    regimeText = enoughHistory and not na(bestScore) ? "Similarity " + strategyMode + "\nRegime: " + f_regime_label(bestRegimeCode) + "\nConfidence: " + str.tostring(bestScore, "#.0") + "\nScale: " + str.tostring(bestScale, "#.00") + "x" : "Similarity strategy warming up"
+    regimeText = enoughHistory and not na(bestScore) ? "Similarity " + strategyMode + "\nRegime: " + f_regime_label(bestRegimeCode) + "\nConfidence: " + str.tostring(bestScore, "#.0") + "\nScale: " + str.tostring(bestScale, "#.00") + "x\nBest path terminal: " + (na(bestTermRet) ? "n/a" : str.tostring(bestTermRet * 100.0, "#.00") + "%") : "Similarity strategy warming up"
     regimeLabel := label.new(bar_index, high, regimeText, style = label.style_label_left, textcolor = color.white, color = color.new(color.black, 35))
