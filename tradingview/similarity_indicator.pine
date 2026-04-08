@@ -1,0 +1,442 @@
+//@version=6
+indicator("The Similarity Pattern Engine", overlay = true, max_lines_count = 500, max_labels_count = 50, max_bars_back = 5000)
+
+patternLength = input.int(40, "Pattern Length", minval = 20, maxval = 120)
+forecastBars = input.int(20, "Forecast Bars", minval = 5, maxval = 60)
+searchLookback = input.int(900, "Search Lookback", minval = 200, maxval = 3000)
+topK = input.int(5, "Top Matches", minval = 1, maxval = 8)
+minConfidence = input.float(60.0, "Min Confidence", minval = 0.0, maxval = 100.0, step = 1.0)
+
+scale1 = input.float(0.75, "Scale 1", minval = 0.50, maxval = 2.50, step = 0.05)
+scale2 = input.float(1.00, "Scale 2", minval = 0.50, maxval = 2.50, step = 0.05)
+scale3 = input.float(1.25, "Scale 3", minval = 0.50, maxval = 2.50, step = 0.05)
+scale4 = input.float(1.50, "Scale 4", minval = 0.50, maxval = 2.50, step = 0.05)
+
+wCorrelation = input.float(0.45, "Weight · Correlation", minval = 0.0, maxval = 1.0, step = 0.05)
+wDistance = input.float(0.30, "Weight · Distance", minval = 0.0, maxval = 1.0, step = 0.05)
+wDirection = input.float(0.15, "Weight · Direction", minval = 0.0, maxval = 1.0, step = 0.05)
+wVolatility = input.float(0.10, "Weight · Volatility", minval = 0.0, maxval = 1.0, step = 0.05)
+
+trendThreshold = input.float(0.02, "Trend Threshold", minval = 0.001, maxval = 0.20, step = 0.001)
+volatilityThreshold = input.float(0.020, "High Vol Threshold", minval = 0.001, maxval = 0.10, step = 0.001)
+meanReversionTurnPct = input.float(0.55, "Mean-Reversion Turn Ratio", minval = 0.10, maxval = 0.90, step = 0.05)
+showDiagnostics = input.bool(true, "Show Diagnostics Table")
+showPercentileCone = input.bool(true, "Show P10 / P50 / P90 Cone")
+
+f_sum_float_array(array<float> values) =>
+    total = 0.0
+    for i = 0 to array.size(values) - 1
+        total += array.get(values, i)
+    total
+
+f_mean(array<float> values) =>
+    count = array.size(values)
+    count == 0 ? 0.0 : f_sum_float_array(values) / count
+
+f_std(array<float> values) =>
+    count = array.size(values)
+    if count <= 1
+        0.0
+    else
+        avg = f_mean(values)
+        variance = 0.0
+        for i = 0 to count - 1
+            diff = array.get(values, i) - avg
+            variance += diff * diff
+        math.sqrt(variance / count)
+
+f_sample_price(int endOffset, int candidateLength, int sampleCount, int sampleIndex) =>
+    denominator = math.max(sampleCount - 1, 1)
+    samplePosition = sampleCount == 1 ? 0 : int(math.round(sampleIndex * (candidateLength - 1) / denominator))
+    close[endOffset + candidateLength - 1 - samplePosition]
+
+f_fill_sampled_prices(array<float> out, int endOffset, int candidateLength, int sampleCount) =>
+    array.clear(out)
+    for i = 0 to sampleCount - 1
+        array.push(out, f_sample_price(endOffset, candidateLength, sampleCount, i))
+
+f_fill_log_returns(array<float> prices, array<float> out) =>
+    array.clear(out)
+    priceCount = array.size(prices)
+    if priceCount > 1
+        for i = 1 to priceCount - 1
+            prev = math.max(array.get(prices, i - 1), 0.0000001)
+            curr = math.max(array.get(prices, i), 0.0000001)
+            array.push(out, math.log(curr / prev))
+
+f_zscore(array<float> source) =>
+    normalized = array.new_float()
+    avg = f_mean(source)
+    stdev = f_std(source)
+    for i = 0 to array.size(source) - 1
+        value = array.get(source, i)
+        array.push(normalized, stdev == 0.0 ? 0.0 : (value - avg) / stdev)
+    normalized
+
+f_correlation(array<float> a, array<float> b) =>
+    count = math.min(array.size(a), array.size(b))
+    if count <= 1
+        0.0
+    else
+        avgA = f_mean(a)
+        avgB = f_mean(b)
+        numerator = 0.0
+        denomA = 0.0
+        denomB = 0.0
+        for i = 0 to count - 1
+            da = array.get(a, i) - avgA
+            db = array.get(b, i) - avgB
+            numerator += da * db
+            denomA += da * da
+            denomB += db * db
+        denominator = math.sqrt(denomA * denomB)
+        denominator == 0.0 ? 0.0 : math.max(-1.0, math.min(1.0, numerator / denominator))
+
+f_mae(array<float> a, array<float> b) =>
+    count = math.min(array.size(a), array.size(b))
+    if count == 0
+        10.0
+    else
+        errorSum = 0.0
+        for i = 0 to count - 1
+            errorSum += math.abs(array.get(a, i) - array.get(b, i))
+        errorSum / count
+
+f_direction_agreement(array<float> a, array<float> b) =>
+    count = math.min(array.size(a), array.size(b))
+    if count == 0
+        0.0
+    else
+        aligned = 0.0
+        for i = 0 to count - 1
+            va = array.get(a, i)
+            vb = array.get(b, i)
+            sameSide = (va >= 0 and vb >= 0) or (va < 0 and vb < 0)
+            aligned += sameSide ? 1.0 : 0.0
+        aligned / count
+
+f_regime_code(array<float> prices, array<float> returns, float localTrendThreshold, float highVolThreshold, float turnRatioThreshold) =>
+    priceCount = array.size(prices)
+    returnCount = array.size(returns)
+    if priceCount == 0 or returnCount == 0
+        0
+    else
+        firstPrice = array.get(prices, 0)
+        lastPrice = array.get(prices, priceCount - 1)
+        totalReturn = firstPrice == 0.0 ? 0.0 : (lastPrice - firstPrice) / firstPrice
+        localVol = f_std(returns)
+        turnCount = 0.0
+        if returnCount > 1
+            for i = 1 to returnCount - 1
+                prev = array.get(returns, i - 1)
+                curr = array.get(returns, i)
+                turned = (prev >= 0 and curr < 0) or (prev < 0 and curr >= 0)
+                turnCount += turned ? 1.0 : 0.0
+        turnRatio = returnCount <= 1 ? 0.0 : turnCount / (returnCount - 1)
+        regime = 0
+        if localVol >= highVolThreshold
+            regime := 2
+        else if totalReturn >= localTrendThreshold
+            regime := 1
+        else if totalReturn <= -localTrendThreshold
+            regime := -1
+        else if turnRatio >= turnRatioThreshold
+            regime := 0
+        regime
+
+f_regime_label(int regimeCode) =>
+    regimeCode == 2 ? "high_vol" : regimeCode == 1 ? "trending_up" : regimeCode == -1 ? "trending_down" : "mean_reverting"
+
+f_score_candidate(
+    array<float> queryReturns,
+    array<float> queryNorm,
+    float queryVol,
+    int endOffset,
+    int candidateLength,
+    int sampleCount,
+    float wc,
+    float wd,
+    float wdir,
+    float wvol,
+    float localTrendThreshold,
+    float highVolThreshold,
+    float turnRatioThreshold
+) =>
+    candidatePrices = array.new_float()
+    candidateReturns = array.new_float()
+    f_fill_sampled_prices(candidatePrices, endOffset, candidateLength, sampleCount)
+    f_fill_log_returns(candidatePrices, candidateReturns)
+    candidateNorm = f_zscore(candidateReturns)
+
+    corrScore = (f_correlation(queryNorm, candidateNorm) + 1.0) * 0.5
+    distScore = 1.0 / (1.0 + f_mae(queryNorm, candidateNorm))
+    dirScore = f_direction_agreement(queryReturns, candidateReturns)
+    candidateVol = f_std(candidateReturns)
+    volScore = 1.0 / (1.0 + math.abs(queryVol - candidateVol) / math.max(queryVol, 0.000001))
+
+    weightSum = math.max(wc + wd + wdir + wvol, 0.0001)
+    confidence = 100.0 * (wc * corrScore + wd * distScore + wdir * dirScore + wvol * volScore) / weightSum
+    regimeCode = f_regime_code(candidatePrices, candidateReturns, localTrendThreshold, highVolThreshold, turnRatioThreshold)
+    [confidence, regimeCode]
+
+f_insert_top_match(
+    array<float> scores,
+    array<int> endOffsets,
+    array<int> lengths,
+    array<float> scales,
+    array<int> regimes,
+    float score,
+    int endOffset,
+    int candidateLength,
+    float scaleValue,
+    int regimeCode,
+    int maxMatches
+) =>
+    inserted = false
+    currentCount = array.size(scores)
+    if currentCount == 0
+        array.push(scores, score)
+        array.push(endOffsets, endOffset)
+        array.push(lengths, candidateLength)
+        array.push(scales, scaleValue)
+        array.push(regimes, regimeCode)
+        inserted := true
+    else
+        for i = 0 to currentCount - 1
+            if not inserted and score > array.get(scores, i)
+                array.insert(scores, i, score)
+                array.insert(endOffsets, i, endOffset)
+                array.insert(lengths, i, candidateLength)
+                array.insert(scales, i, scaleValue)
+                array.insert(regimes, i, regimeCode)
+                inserted := true
+    if not inserted and currentCount < maxMatches
+        array.push(scores, score)
+        array.push(endOffsets, endOffset)
+        array.push(lengths, candidateLength)
+        array.push(scales, scaleValue)
+        array.push(regimes, regimeCode)
+    while array.size(scores) > maxMatches
+        array.pop(scores)
+        array.pop(endOffsets)
+        array.pop(lengths)
+        array.pop(scales)
+        array.pop(regimes)
+
+f_sort_pairs(array<float> values, array<float> weights) =>
+    count = array.size(values)
+    if count > 1
+        for i = 0 to count - 2
+            for j = 0 to count - 2 - i
+                left = array.get(values, j)
+                right = array.get(values, j + 1)
+                if left > right
+                    leftWeight = array.get(weights, j)
+                    rightWeight = array.get(weights, j + 1)
+                    array.set(values, j, right)
+                    array.set(values, j + 1, left)
+                    array.set(weights, j, rightWeight)
+                    array.set(weights, j + 1, leftWeight)
+
+f_weighted_percentile(array<float> rawValues, array<float> rawWeights, float quantile) =>
+    sortedValues = array.new_float()
+    sortedWeights = array.new_float()
+    for i = 0 to array.size(rawValues) - 1
+        array.push(sortedValues, array.get(rawValues, i))
+        array.push(sortedWeights, array.get(rawWeights, i))
+    f_sort_pairs(sortedValues, sortedWeights)
+    totalWeight = f_sum_float_array(sortedWeights)
+    if totalWeight == 0.0
+        array.size(sortedValues) == 0 ? 0.0 : array.get(sortedValues, array.size(sortedValues) - 1)
+    else
+        cumulative = 0.0
+        chosen = array.get(sortedValues, array.size(sortedValues) - 1)
+        for i = 0 to array.size(sortedValues) - 1
+            cumulative += array.get(sortedWeights, i) / totalWeight
+            if cumulative >= quantile
+                chosen := array.get(sortedValues, i)
+                break
+        chosen
+
+f_best_future_price(int bestEndOffset, float bestAnchor, int step, float currentAnchor) =>
+    bestAnchor == 0.0 ? na : currentAnchor * close[bestEndOffset - step] / bestAnchor
+
+f_line_color(float bestScore) =>
+    bestScore >= minConfidence ? color.new(color.teal, 0) : color.new(color.gray, 0)
+
+enoughHistory = bar_index > searchLookback + patternLength + forecastBars
+
+var array<float> topScores = array.new_float()
+var array<int> topEndOffsets = array.new_int()
+var array<int> topLengths = array.new_int()
+var array<float> topScales = array.new_float()
+var array<int> topRegimes = array.new_int()
+
+var array<float> forecastP10 = array.new_float()
+var array<float> forecastP25 = array.new_float()
+var array<float> forecastP50 = array.new_float()
+var array<float> forecastP75 = array.new_float()
+var array<float> forecastP90 = array.new_float()
+
+var array<line> matchLines = array.new_line()
+var array<line> bestFutureLines = array.new_line()
+var array<line> percentileP10Lines = array.new_line()
+var array<line> percentileP50Lines = array.new_line()
+var array<line> percentileP90Lines = array.new_line()
+var table diagnostics = table.new(position.top_right, 2, 7, frame_color = color.new(color.silver, 70), border_width = 1)
+
+float bestScore = na
+int bestEndOffset = na
+int bestLength = na
+float bestScale = na
+int bestRegimeCode = 0
+float p10End = na
+float p25End = na
+float p50End = na
+float p75End = na
+float p90End = na
+
+if enoughHistory
+    array.clear(topScores)
+    array.clear(topEndOffsets)
+    array.clear(topLengths)
+    array.clear(topScales)
+    array.clear(topRegimes)
+    array.clear(forecastP10)
+    array.clear(forecastP25)
+    array.clear(forecastP50)
+    array.clear(forecastP75)
+    array.clear(forecastP90)
+
+    queryPrices = array.new_float()
+    queryReturns = array.new_float()
+    f_fill_sampled_prices(queryPrices, 0, patternLength, patternLength)
+    f_fill_log_returns(queryPrices, queryReturns)
+    queryNorm = f_zscore(queryReturns)
+    queryVol = f_std(queryReturns)
+
+    scales = array.new_float()
+    array.push(scales, scale1)
+    array.push(scales, scale2)
+    array.push(scales, scale3)
+    array.push(scales, scale4)
+
+    for scaleIndex = 0 to array.size(scales) - 1
+        scaleValue = array.get(scales, scaleIndex)
+        candidateLength = int(math.max(2, math.round(patternLength * scaleValue)))
+        maxEndOffset = searchLookback - candidateLength + 1
+        if maxEndOffset >= forecastBars
+            for endOffset = forecastBars to maxEndOffset
+                [candidateScore, candidateRegime] = f_score_candidate(
+                     queryReturns,
+                     queryNorm,
+                     queryVol,
+                     endOffset,
+                     candidateLength,
+                     patternLength,
+                     wCorrelation,
+                     wDistance,
+                     wDirection,
+                     wVolatility,
+                     trendThreshold,
+                     volatilityThreshold,
+                     meanReversionTurnPct)
+
+                if candidateScore >= minConfidence
+                    f_insert_top_match(topScores, topEndOffsets, topLengths, topScales, topRegimes, candidateScore, endOffset, candidateLength, scaleValue, candidateRegime, topK)
+
+    if array.size(topScores) > 0
+        bestScore := array.get(topScores, 0)
+        bestEndOffset := array.get(topEndOffsets, 0)
+        bestLength := array.get(topLengths, 0)
+        bestScale := array.get(topScales, 0)
+        bestRegimeCode := array.get(topRegimes, 0)
+
+        for step = 1 to forecastBars
+            stepValues = array.new_float()
+            stepWeights = array.new_float()
+            for matchIndex = 0 to array.size(topScores) - 1
+                matchEndOffset = array.get(topEndOffsets, matchIndex)
+                if matchEndOffset >= step
+                    matchAnchor = close[matchEndOffset]
+                    futurePrice = close[matchEndOffset - step]
+                    if matchAnchor != 0.0
+                        array.push(stepValues, (futurePrice - matchAnchor) / matchAnchor)
+                        array.push(stepWeights, array.get(topScores, matchIndex))
+            if array.size(stepValues) > 0
+                array.push(forecastP10, f_weighted_percentile(stepValues, stepWeights, 0.10))
+                array.push(forecastP25, f_weighted_percentile(stepValues, stepWeights, 0.25))
+                array.push(forecastP50, f_weighted_percentile(stepValues, stepWeights, 0.50))
+                array.push(forecastP75, f_weighted_percentile(stepValues, stepWeights, 0.75))
+                array.push(forecastP90, f_weighted_percentile(stepValues, stepWeights, 0.90))
+
+        if array.size(forecastP10) > 0
+            p10End := array.get(forecastP10, array.size(forecastP10) - 1)
+            p25End := array.get(forecastP25, array.size(forecastP25) - 1)
+            p50End := array.get(forecastP50, array.size(forecastP50) - 1)
+            p75End := array.get(forecastP75, array.size(forecastP75) - 1)
+            p90End := array.get(forecastP90, array.size(forecastP90) - 1)
+
+plot(not na(p50End) ? p50End * 100.0 : na, "Median Forecast %", color = color.new(color.aqua, 0), linewidth = 2, display = display.none)
+plot(not na(bestScore) ? bestScore : na, "Best Confidence", color = color.new(color.lime, 0), linewidth = 2, display = display.none)
+
+f_delete_lines(array<line> lines) =>
+    count = array.size(lines)
+    if count > 0
+        for i = 0 to count - 1
+            line.delete(array.get(lines, i))
+    array.clear(lines)
+
+if barstate.islast
+    f_delete_lines(matchLines)
+    f_delete_lines(bestFutureLines)
+    f_delete_lines(percentileP10Lines)
+    f_delete_lines(percentileP50Lines)
+    f_delete_lines(percentileP90Lines)
+
+    if enoughHistory and not na(bestScore) and not na(bestEndOffset)
+        bestAnchor = close[bestEndOffset]
+        anchorNow = close
+        pathColor = f_line_color(bestScore)
+
+        for i = 1 to patternLength - 1
+            x1 = bar_index - patternLength + i
+            x2 = x1 + 1
+            y1 = bestAnchor == 0.0 ? na : anchorNow * f_sample_price(bestEndOffset, bestLength, patternLength, i - 1) / bestAnchor
+            y2 = bestAnchor == 0.0 ? na : anchorNow * f_sample_price(bestEndOffset, bestLength, patternLength, i) / bestAnchor
+            if not na(y1) and not na(y2)
+                array.push(matchLines, line.new(x1, y1, x2, y2, xloc = xloc.bar_index, extend = extend.none, color = color.new(pathColor, 0), width = 2))
+
+        for step = 1 to forecastBars
+            prevPrice = step == 1 ? anchorNow : f_best_future_price(bestEndOffset, bestAnchor, step - 1, anchorNow)
+            nextPrice = f_best_future_price(bestEndOffset, bestAnchor, step, anchorNow)
+            if not na(prevPrice) and not na(nextPrice)
+                array.push(bestFutureLines, line.new(bar_index + step - 1, prevPrice, bar_index + step, nextPrice, xloc = xloc.bar_index, extend = extend.none, color = color.new(color.orange, 0), width = 3))
+
+        if showPercentileCone and array.size(forecastP50) == forecastBars
+            for step = 1 to forecastBars
+                prevP10 = step == 1 ? anchorNow : anchorNow * (1.0 + array.get(forecastP10, step - 2))
+                currP10 = anchorNow * (1.0 + array.get(forecastP10, step - 1))
+                prevP50 = step == 1 ? anchorNow : anchorNow * (1.0 + array.get(forecastP50, step - 2))
+                currP50 = anchorNow * (1.0 + array.get(forecastP50, step - 1))
+                prevP90 = step == 1 ? anchorNow : anchorNow * (1.0 + array.get(forecastP90, step - 2))
+                currP90 = anchorNow * (1.0 + array.get(forecastP90, step - 1))
+                array.push(percentileP10Lines, line.new(bar_index + step - 1, prevP10, bar_index + step, currP10, xloc = xloc.bar_index, extend = extend.none, color = color.new(color.red, 25), width = 1))
+                array.push(percentileP50Lines, line.new(bar_index + step - 1, prevP50, bar_index + step, currP50, xloc = xloc.bar_index, extend = extend.none, color = color.new(color.aqua, 0), width = 2))
+                array.push(percentileP90Lines, line.new(bar_index + step - 1, prevP90, bar_index + step, currP90, xloc = xloc.bar_index, extend = extend.none, color = color.new(color.lime, 25), width = 1))
+
+    if showDiagnostics
+        table.cell(diagnostics, 0, 0, "Metric", text_color = color.white, bgcolor = color.new(color.blue, 75))
+        table.cell(diagnostics, 1, 0, "Value", text_color = color.white, bgcolor = color.new(color.blue, 75))
+        table.cell(diagnostics, 0, 1, "Confidence")
+        table.cell(diagnostics, 1, 1, na(bestScore) ? "n/a" : str.tostring(bestScore, "#.0"))
+        table.cell(diagnostics, 0, 2, "Scale")
+        table.cell(diagnostics, 1, 2, na(bestScale) ? "n/a" : str.tostring(bestScale, "#.00") + "x")
+        table.cell(diagnostics, 0, 3, "Match Offset")
+        table.cell(diagnostics, 1, 3, na(bestEndOffset) ? "n/a" : str.tostring(bestEndOffset) + " bars ago")
+        table.cell(diagnostics, 0, 4, "Regime")
+        table.cell(diagnostics, 1, 4, na(bestScore) ? "n/a" : f_regime_label(bestRegimeCode))
+        table.cell(diagnostics, 0, 5, "Median Bias")
+        table.cell(diagnostics, 1, 5, na(p50End) ? "n/a" : str.tostring(p50End * 100.0, "#.00") + "%")
+        table.cell(diagnostics, 0, 6, "Cone Width")
+        table.cell(diagnostics, 1, 6, na(p90End) or na(p10End) ? "n/a" : str.tostring((p90End - p10End) * 100.0, "#.00") + "%")

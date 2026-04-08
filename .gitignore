@@ -21,3 +21,5 @@ node_modules/
 *.parquet
 *.db
 *.sqlite
+.omx/
+claude-code-source-code/

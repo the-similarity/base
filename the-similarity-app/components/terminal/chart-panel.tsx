@@ -247,7 +247,7 @@ export function ChartPanel() {
       chartRef.current = null;
       markersRef.current = null;
     };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   // ── Update chart background on theme change ──
   useEffect(() => {
@@ -324,8 +324,7 @@ export function ChartPanel() {
 
     chart.subscribeClick(handler);
     return () => chart.unsubscribeClick(handler);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.queryPicking, ohlc]);
+  }, [dispatch, state.queryPicking, ohlc]);
 
   // ── Show vertical lines + markers for custom query range ──
   const [pickLines, setPickLines] = useState<{ xA: number | null; xB: number | null }>({ xA: null, xB: null });
@@ -367,7 +366,6 @@ export function ChartPanel() {
       m?.setMarkers([]);
       setPickLines({ xA: null, xB: null });
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.customQueryRange, state.queryPicking, ohlc, sr]);
 
   // ── Update query/OHLC data + auto-fit (only on real data changes) ──

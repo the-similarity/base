@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import Link from "next/link";
 import { RegimeCard, type AssetRegime } from "../../components/portfolio/regime-card";
 import { DivergenceTable, type DivergencePair } from "../../components/portfolio/divergence-table";
 import { FlowNetwork, type FlowEdge } from "../../components/portfolio/flow-network";
@@ -47,7 +48,7 @@ export default function PortfolioPage() {
       {/* Header */}
       <header className="portfolio-header">
         <div className="portfolio-header__breadcrumb">
-          <a href="/" className="portfolio-header__breadcrumb-link">Terminal</a>
+          <Link href="/" className="portfolio-header__breadcrumb-link">Terminal</Link>
           <span className="portfolio-header__breadcrumb-sep">/</span>
           <span className="portfolio-header__breadcrumb-current">Portfolio Scanner</span>
         </div>
