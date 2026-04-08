@@ -17,7 +17,7 @@ Vault for **The Similarity**: research ingests, what we learn while building, an
 | Folder        | Purpose |
 |---------------|---------|
 | `raw/`        | Web Clipper, papers, excerpts, images → compile into notes |
-| `research/`   | Plain-language **surveys** tied to `research/methods/*.md` |
+| `research/`   | **Surveys** + **`full-text/`** copies of repo `research/**/*.md` |
 | `topics/`     | **One idea per file** (methods + concepts) for retrieval / graph |
 | `concepts/`   | Short technical anchors linking into `topics/` |
 | `outputs/`    | Plots, Marp, exports |

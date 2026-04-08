@@ -1,8 +1,9 @@
 # Survey forecasting backtesting
 
-**Repo source:** `research/methods/05-pattern-forecasting-backtesting.md`
+**Repo source:** `research/methods/05-pattern-forecasting-backtesting.md`  
+**Full write-up in vault:** [[05-pattern-forecasting-backtesting]]
 
-## Kid-friendly summary
+## Friendly summary
 
 **Analogs** give **ensemble futures** (fan). **Walk-forward** checks if those fans **lie** or **help**. **Calibration** asks: did our 90% bracket really catch ~90%?
 

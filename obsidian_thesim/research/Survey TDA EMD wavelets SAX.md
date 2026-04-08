@@ -1,8 +1,9 @@
 # Survey TDA EMD wavelets SAX
 
-**Repo source:** `research/methods/04-tda-emd-wavelets-sax-matrix-profile.md`
+**Repo source:** `research/methods/04-tda-emd-wavelets-sax-matrix-profile.md`  
+**Full write-up in vault:** [[04-tda-emd-wavelets-sax-matrix-profile]]
 
-## Kid-friendly summary
+## Friendly summary
 
 A **toolbox note**: many ways to turn wiggly lines into **shapes**, **layers**, **symbols**, or **who-influences-whom** graphs — each sees a different kind of “likeness.”
 

@@ -1,8 +1,9 @@
 # Survey DTW
 
-**Repo source:** `research/methods/01-dtw-dynamic-time-warping.md`
+**Repo source:** `research/methods/01-dtw-dynamic-time-warping.md`  
+**Full write-up in vault:** [[01-dtw-dynamic-time-warping]]
 
-## Kid-friendly summary
+## Friendly summary
 
 Imagine lining up two songs where one band plays **slightly faster**. DTW finds the **best tempo map** so beats match — then scores **how far** you had to bend time.
 

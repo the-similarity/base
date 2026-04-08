@@ -9,6 +9,10 @@ One place to see **what we studied** for The Similarity. Each item is a **node**
 - [[How the matcher works (simple)]]
 - [[Product story and competition]] — what exists in the market vs us
 
+## Full research Markdown (in this vault)
+
+Authoritative long-form copies live under **`research/full-text/`** (same filenames as the repo). Start from **[[Full research notes from repo]]**.
+
 ## Survey notes (match repo `research/methods/`)
 
 Longer “chapter” summaries tied to our internal docs:

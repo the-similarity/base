@@ -12,6 +12,8 @@ When you summarize a paper or talk here, **link** the relevant `research/methods
 
 **Compiled vault mirror:** [[Research hub]] (plain-language nodes + surveys).
 
+**Full MD copies in vault:** `obsidian_thesim/research/full-text/` — see [[Full research notes from repo]].
+
 ## Planning and architecture
 
 - `docs/planning/plan.md`

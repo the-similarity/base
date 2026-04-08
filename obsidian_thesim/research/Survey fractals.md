@@ -1,8 +1,9 @@
 # Survey fractals
 
-**Repo source:** `research/methods/02-fractal-analysis-power-laws.md`
+**Repo source:** `research/methods/02-fractal-analysis-power-laws.md`  
+**Full write-up in vault:** [[02-fractal-analysis-power-laws]]
 
-## Kid-friendly summary
+## Friendly summary
 
 Markets **rhyme across zoom levels** and throw **bigger shocks** than bell curves predict. Fractal / **multifractal** tools measure **how** that scaling behaves.
 

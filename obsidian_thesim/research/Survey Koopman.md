@@ -1,8 +1,9 @@
 # Survey Koopman
 
-**Repo source:** `research/methods/03-koopman-operator-dmd.md`
+**Repo source:** `research/methods/03-koopman-operator-dmd.md`  
+**Full write-up in vault:** [[03-koopman-operator-dmd]]
 
-## Kid-friendly summary
+## Friendly summary
 
 Even if the world is **nonlinear**, there is often a **lifting** where evolution looks **linear** — like switching from messy circles to clean matrix math. **Eigenvalues** become a **signature** of the engine humming underneath.
 
