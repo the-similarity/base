@@ -9,6 +9,7 @@ minMatchEndOffset = input.int(0, "Min match end (bars ago)", minval = 0, maxval 
 recomputeEveryBars = input.int(15, "Recompute analogue every N bars", minval = 1, maxval = 200, tooltip = "Full search runs only this often. Same match + cone stay sticky in between (stable signals, fast backtests).")
 alsoRecomputeNewDay = input.bool(true, "Also recompute on new calendar day")
 entryOnNewSignalOnly = input.bool(true, "Enter on new signal only", tooltip = "Strongly recommended ON. Sticky thesis keeps longSignal true many bars; without this you re-enter immediately after every exit → trade clusters. OFF = legacy (enter every bar while flat + signal).")
+reenterAfterExit = input.bool(true, "Re-enter bar after exit if setup still on", tooltip = "When 'Enter on new signal only' is ON: a stop/target can clear the position while longSignal/shortSignal stays true (no off→on edge). OFF = you stay flat until the setup turns off and on again → very few trades on sticky regimes. ON = one entry on the first flat bar after closing (not every bar while flat).")
 enterOnlyAfterRecompute = input.bool(false, "Also require fresh analogue this bar", tooltip = "If ON, only take entries on bars where the full search ran. Fewer trades; can skip moves between refreshes.")
 topK = input.int(5, "Top Matches", minval = 1, maxval = 8)
 minConfidence = input.float(65.0, "Min Confidence", minval = 0.0, maxval = 100.0, step = 1.0)
@@ -369,8 +370,13 @@ shortTarget = not na(bestTermRet) and bestTermRet < 0 ? close * (1.0 + bestTermR
 // Pulse = signal just turned on (off → on). Stops firing strategy.entry on every bar while sticky setup stays valid after each stop/target exit.
 longPulse = longSignal and (bar_index == 0 or not longSignal[1])
 shortPulse = shortSignal and (bar_index == 0 or not shortSignal[1])
-longOk = entryOnNewSignalOnly ? longPulse : longSignal
-shortOk = entryOnNewSignalOnly ? shortPulse : shortSignal
+// First bar flat after closing a side: sticky signal often never flickered off → strict pulse-only would block all re-entries for months.
+justOutLong = strategy.position_size <= 0 and strategy.position_size[1] > 0
+justOutShort = strategy.position_size >= 0 and strategy.position_size[1] < 0
+longRearm = reenterAfterExit and justOutLong and longSignal
+shortRearm = reenterAfterExit and justOutShort and shortSignal
+longOk = entryOnNewSignalOnly ? (longPulse or longRearm) : longSignal
+shortOk = entryOnNewSignalOnly ? (shortPulse or shortRearm) : shortSignal
 recomputeThisBar = needFullSearch
 longEntry = longOk and strategy.position_size <= 0 and (not enterOnlyAfterRecompute or recomputeThisBar)
 shortEntry = shortOk and strategy.position_size >= 0 and (not enterOnlyAfterRecompute or recomputeThisBar)
