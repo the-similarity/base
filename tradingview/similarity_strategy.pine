@@ -40,6 +40,8 @@ minConfidenceSearch = input.float(45.0, "Min confidence for search basket", minv
 minConfidence = input.float(52.0, "Min confidence to trade", minval = 0.0, maxval = 100.0, step = 1.0, tooltip = "Rank-1 score must clear this to open trades. Can stay above search min to filter entries.")
 momentumSignalUsesWeightedP50 = input.bool(false, "Momentum: use weighted P50 for entry", tooltip = "OFF (default): entry direction uses #1 match horizon return only — weighted median often sits near 0 for months when analogues disagree. ON: strict cone P50 (closer to Python momentum_strategy). Exits always use full weighted cone.")
 
+invertTradeSignals = input.bool(false, "Invert trades (fade model)", tooltip = "Model long → open short; model short → open long. Brackets stay correct for the actual side (P10/P75 vs P90/P25). Not magic: if the system loses because forecasts are noisy, inverting can still lose.")
+
 strategyMode = input.string("momentum", "Strategy Mode", options = ["momentum", "mean_reversion", "breakout"])
 strictRegimeForMode = input.bool(false, "Require regime tag vs strategy mode", tooltip = "OFF (default): trade on score + analogue path only—best match often labels mean_reverting/high_vol so strict ON creates long flat spans. ON: legacy—momentum needs trending_up/down on the matched segment, etc.")
 forecastThreshold = input.float(0.012, "Forecast Threshold", minval = 0.001, maxval = 0.20, step = 0.001, tooltip = "Momentum: |weighted P50| at horizon vs this. Mean reversion: min spread (P90−P10) and |P50|.")
@@ -503,7 +505,10 @@ cooldownOk = minBarsBetweenTrades <= 0 or bar_index - lastEntryBarIndex >= minBa
 longEntryRaw = longOk and strategy.position_size <= 0 and (not enterOnlyAfterRecompute or recomputeThisBar) and htfAlignLong and inSession and cooldownOk
 shortEntryRaw = shortOk and strategy.position_size >= 0 and (not enterOnlyAfterRecompute or recomputeThisBar) and htfAlignShort and inSession and cooldownOk
 
-if longEntryRaw
+phyLongEntry = invertTradeSignals ? shortEntryRaw : longEntryRaw
+phyShortEntry = invertTradeSignals ? longEntryRaw : shortEntryRaw
+
+if phyLongEntry
     posP10 := bestP10
     posP25 := bestP25
     posP50 := bestP50
@@ -512,7 +517,7 @@ if longEntryRaw
     tradeEntryBar := bar_index
     lastEntryBarIndex := bar_index
 
-if shortEntryRaw
+if phyShortEntry
     posP10 := bestP10
     posP25 := bestP25
     posP50 := bestP50
@@ -521,7 +526,7 @@ if shortEntryRaw
     tradeEntryBar := bar_index
     lastEntryBarIndex := bar_index
 
-if strategy.position_size == 0 and not longEntryRaw and not shortEntryRaw
+if strategy.position_size == 0 and not phyLongEntry and not phyShortEntry
     posP10 := na
     posP25 := na
     posP50 := na
@@ -529,13 +534,13 @@ if strategy.position_size == 0 and not longEntryRaw and not shortEntryRaw
     posP90 := na
     tradeEntryBar := na
 
-longEntry = longEntryRaw
-shortEntry = shortEntryRaw
+longEntry = phyLongEntry
+shortEntry = phyShortEntry
 
-if longEntry
+if phyLongEntry
     strategy.entry("Long", strategy.long)
 
-if shortEntry
+if phyShortEntry
     strategy.entry("Short", strategy.short)
 
 avgPx = strategy.position_avg_price
@@ -582,12 +587,12 @@ plot(not na(bestScore) ? bestScore : na, "Confidence", color = color.new(color.l
 plot(not na(bestP50) ? bestP50 * 100.0 : na, "Weighted P50 terminal %", color = color.new(color.aqua, 0), linewidth = 2, display = display.data_window)
 plot(not na(bestRank1Horizon) ? bestRank1Horizon * 100.0 : na, "#1 match horizon %", color = color.new(color.orange, 0), linewidth = 1, display = display.data_window)
 plotshape(longSignal, title = "Long setup (sticky)", style = shape.circle, location = location.bottom, color = color.new(color.lime, 85), size = size.tiny, display = display.none)
-plotshape(longEntry, title = "Long entry", style = shape.triangleup, location = location.belowbar, color = color.new(color.lime, 0), size = size.tiny, text = "SIM LONG")
-plotshape(shortEntry, title = "Short entry", style = shape.triangledown, location = location.abovebar, color = color.new(color.red, 0), size = size.tiny, text = "SIM SHORT")
+plotshape(longEntry, title = "Long entry (actual)", style = shape.triangleup, location = location.belowbar, color = color.new(color.lime, 0), size = size.tiny, text = invertTradeSignals ? "INV→LONG" : "SIM LONG")
+plotshape(shortEntry, title = "Short entry (actual)", style = shape.triangledown, location = location.abovebar, color = color.new(color.red, 0), size = size.tiny, text = invertTradeSignals ? "INV→SHORT" : "SIM SHORT")
 
 var label regimeLabel = na
 if barstate.islast
     if not na(regimeLabel)
         label.delete(regimeLabel)
-    regimeText = enoughHistory and not na(bestScore) ? "Similarity " + strategyMode + "\nRegime: " + f_regime_label(bestRegimeCode) + "\nScore (rank1): " + str.tostring(bestScore, "#.0") + " · trade≥" + str.tostring(minConfidence, "#.0") + " search≥" + str.tostring(minConfidenceSearch, "#.0") + "\nScale: " + str.tostring(bestScale, "#.00") + "x\nP50: " + (na(bestP50) ? "n/a" : str.tostring(bestP50 * 100.0, "#.00") + "%") + " · #1Δ: " + (na(bestRank1Horizon) ? "n/a" : str.tostring(bestRank1Horizon * 100.0, "#.00") + "%") + "\nCone P10/P75 (L exit): " + (na(bestP10) or na(bestP75) ? "n/a" : str.tostring(bestP10 * 100.0, "#.00") + "% / " + str.tostring(bestP75 * 100.0, "#.00") + "%") : "Similarity strategy warming up"
+    regimeText = enoughHistory and not na(bestScore) ? "Similarity " + strategyMode + (invertTradeSignals ? " · INVERTED\n" : "\n") + "Regime: " + f_regime_label(bestRegimeCode) + "\nScore (rank1): " + str.tostring(bestScore, "#.0") + " · trade≥" + str.tostring(minConfidence, "#.0") + " search≥" + str.tostring(minConfidenceSearch, "#.0") + "\nScale: " + str.tostring(bestScale, "#.00") + "x\nP50: " + (na(bestP50) ? "n/a" : str.tostring(bestP50 * 100.0, "#.00") + "%") + " · #1Δ: " + (na(bestRank1Horizon) ? "n/a" : str.tostring(bestRank1Horizon * 100.0, "#.00") + "%") + "\nCone P10/P75 (L exit): " + (na(bestP10) or na(bestP75) ? "n/a" : str.tostring(bestP10 * 100.0, "#.00") + "% / " + str.tostring(bestP75 * 100.0, "#.00") + "%") : "Similarity strategy warming up"
     regimeLabel := label.new(bar_index, high, regimeText, style = label.style_label_left, textcolor = color.white, color = color.new(color.black, 35))
