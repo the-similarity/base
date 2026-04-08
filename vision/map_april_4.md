@@ -93,7 +93,7 @@
 │       ├── seed_gold.py     ← Gold dataset seeding
 │       └── generate_specs.py ← Dataset specification generation
 │
-└── vision2035/              ← Project roadmap & documentation
+└── vision/                  ← Project roadmap & documentation
 ```
 
 ---
