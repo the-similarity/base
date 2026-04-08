@@ -40,6 +40,7 @@ Because TradingView Pine runs inside a bounded chart runtime, the scripts intent
 - Pattern Length: `40`
 - Forecast Bars: `20`
 - Search Lookback: `600–1200` (default `600` in Pine sources)
+- **Min match end (bars ago)**: `0` = auto (`pattern length + 4`). This is the **earliest** bar index (as offset) where an analogue may **end**. It is **not** tied to **Forecast Bars** so changing the forecast length does not change which historical analogue wins (old builds used `forecastBars` as the loop minimum, which changed the green pattern whenever forecast changed).
 - **Search Stride**: `3` on the **indicator** (default), `4` on the **strategy** (each bar replays the scan — stride matters more there)
 - Top Matches: `3–5`
 - Scales: `0.75 / 1.00 / 1.25 / 1.50`

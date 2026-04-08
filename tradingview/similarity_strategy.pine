@@ -5,6 +5,7 @@ patternLength = input.int(40, "Pattern Length", minval = 20, maxval = 120)
 forecastBars = input.int(20, "Forecast Bars", minval = 5, maxval = 60)
 searchLookback = input.int(600, "Search Lookback", minval = 200, maxval = 3000)
 searchStride = input.int(4, "Search Stride", minval = 1, maxval = 15, tooltip = "Strategies replay every bar — use 3–6 to avoid RE10110 on long history.")
+minMatchEndOffset = input.int(0, "Min match end (bars ago)", minval = 0, maxval = 500, tooltip = "0 = auto (pattern length + 4). Decouples analogue search from Forecast Bars length.")
 topK = input.int(5, "Top Matches", minval = 1, maxval = 8)
 minConfidence = input.float(65.0, "Min Confidence", minval = 0.0, maxval = 100.0, step = 1.0)
 
@@ -260,7 +261,8 @@ f_weighted_percentile(array<float> rawValues, array<float> rawWeights, float qua
                 break
         chosen
 
-enoughHistory = bar_index > searchLookback + patternLength + forecastBars
+searchMinEndOffset = minMatchEndOffset > 0 ? minMatchEndOffset : patternLength + 4
+enoughHistory = bar_index > searchLookback + patternLength + math.max(forecastBars, searchMinEndOffset)
 
 var array<float> topScores = array.new_float()
 var array<int> topEndOffsets = array.new_int()
@@ -312,8 +314,8 @@ if enoughHistory
         scaleValue = array.get(scales, scaleIndex)
         candidateLength = int(math.max(2, math.round(patternLength * scaleValue)))
         maxEndOffset = searchLookback - candidateLength + 1
-        if maxEndOffset >= forecastBars
-            for endOffset = forecastBars to maxEndOffset by searchStride
+        if maxEndOffset >= searchMinEndOffset
+            for endOffset = searchMinEndOffset to maxEndOffset by searchStride
                 [candidateScore, candidateRegime] = f_score_candidate(
                      queryReturns,
                      queryNorm,
@@ -353,6 +355,12 @@ if enoughHistory
                 array.push(forecastP50, f_weighted_percentile(stepValues, stepWeights, 0.50))
                 array.push(forecastP75, f_weighted_percentile(stepValues, stepWeights, 0.75))
                 array.push(forecastP90, f_weighted_percentile(stepValues, stepWeights, 0.90))
+            else
+                array.push(forecastP10, na)
+                array.push(forecastP25, na)
+                array.push(forecastP50, na)
+                array.push(forecastP75, na)
+                array.push(forecastP90, na)
 
         if array.size(forecastP10) > 0
             p10End := array.get(forecastP10, array.size(forecastP10) - 1)

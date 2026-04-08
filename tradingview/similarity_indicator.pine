@@ -6,6 +6,8 @@ forecastBars = input.int(20, "Forecast Bars", minval = 5, maxval = 60)
 searchLookback = input.int(600, "Search Lookback", minval = 200, maxval = 3000)
 // Step endOffset by this many bars (1 = exhaustive; 3–5 is often fine and much faster on free plans).
 searchStride = input.int(3, "Search Stride", minval = 1, maxval = 15)
+// Lower bound for analogue END (bars before current). NOT tied to Forecast Bars — otherwise changing forecast changes which pattern wins.
+minMatchEndOffset = input.int(0, "Min match end (bars ago)", minval = 0, maxval = 500, tooltip = "0 = auto (pattern length + 4). Only historical windows whose END is at least this many bars back are scored.")
 topK = input.int(5, "Top Matches", minval = 1, maxval = 8)
 minConfidence = input.float(60.0, "Min Confidence", minval = 0.0, maxval = 100.0, step = 1.0)
 
@@ -266,7 +268,9 @@ f_best_future_price(int bestEndOffset, float bestAnchor, int step, float current
 f_line_color(float bestScore) =>
     bestScore >= minConfidence ? color.new(color.teal, 0) : color.new(color.gray, 0)
 
-enoughHistory = bar_index > searchLookback + patternLength + forecastBars
+// Need depth for lookback search and (separately) up to forecastBars of post-match path when building cone.
+searchMinEndOffset = minMatchEndOffset > 0 ? minMatchEndOffset : patternLength + 4
+enoughHistory = bar_index > searchLookback + patternLength + math.max(forecastBars, searchMinEndOffset)
 
 var array<float> topScores = array.new_float()
 var array<int> topEndOffsets = array.new_int()
@@ -329,8 +333,8 @@ if enoughHistory and barstate.islast
         scaleValue = array.get(scales, scaleIndex)
         candidateLength = int(math.max(2, math.round(patternLength * scaleValue)))
         maxEndOffset = searchLookback - candidateLength + 1
-        if maxEndOffset >= forecastBars
-            for endOffset = forecastBars to maxEndOffset by searchStride
+        if maxEndOffset >= searchMinEndOffset
+            for endOffset = searchMinEndOffset to maxEndOffset by searchStride
                 [candidateScore, candidateRegime] = f_score_candidate(
                      queryReturns,
                      queryNorm,
@@ -373,6 +377,12 @@ if enoughHistory and barstate.islast
                 array.push(forecastP50, f_weighted_percentile(stepValues, stepWeights, 0.50))
                 array.push(forecastP75, f_weighted_percentile(stepValues, stepWeights, 0.75))
                 array.push(forecastP90, f_weighted_percentile(stepValues, stepWeights, 0.90))
+            else
+                array.push(forecastP10, na)
+                array.push(forecastP25, na)
+                array.push(forecastP50, na)
+                array.push(forecastP75, na)
+                array.push(forecastP90, na)
 
         if array.size(forecastP10) > 0
             p10End := array.get(forecastP10, array.size(forecastP10) - 1)
@@ -419,15 +429,19 @@ if barstate.islast
 
         if showPercentileCone and array.size(forecastP50) == forecastBars
             for step = 1 to forecastBars
+                currP10 = array.get(forecastP10, step - 1)
+                currP50 = array.get(forecastP50, step - 1)
+                currP90 = array.get(forecastP90, step - 1)
                 prevP10 = step == 1 ? anchorNow : anchorNow * (1.0 + array.get(forecastP10, step - 2))
-                currP10 = anchorNow * (1.0 + array.get(forecastP10, step - 1))
                 prevP50 = step == 1 ? anchorNow : anchorNow * (1.0 + array.get(forecastP50, step - 2))
-                currP50 = anchorNow * (1.0 + array.get(forecastP50, step - 1))
                 prevP90 = step == 1 ? anchorNow : anchorNow * (1.0 + array.get(forecastP90, step - 2))
-                currP90 = anchorNow * (1.0 + array.get(forecastP90, step - 1))
-                array.push(percentileP10Lines, line.new(bar_index + step - 1, prevP10, bar_index + step, currP10, xloc = xloc.bar_index, extend = extend.none, color = color.new(color.red, 25), width = 1))
-                array.push(percentileP50Lines, line.new(bar_index + step - 1, prevP50, bar_index + step, currP50, xloc = xloc.bar_index, extend = extend.none, color = color.new(color.aqua, 0), width = 2))
-                array.push(percentileP90Lines, line.new(bar_index + step - 1, prevP90, bar_index + step, currP90, xloc = xloc.bar_index, extend = extend.none, color = color.new(color.lime, 25), width = 1))
+                currP10Price = anchorNow * (1.0 + currP10)
+                currP50Price = anchorNow * (1.0 + currP50)
+                currP90Price = anchorNow * (1.0 + currP90)
+                if not na(currP10) and not na(currP50) and not na(currP90) and not na(prevP10) and not na(prevP50) and not na(prevP90)
+                    array.push(percentileP10Lines, line.new(bar_index + step - 1, prevP10, bar_index + step, currP10Price, xloc = xloc.bar_index, extend = extend.none, color = color.new(color.red, 25), width = 1))
+                    array.push(percentileP50Lines, line.new(bar_index + step - 1, prevP50, bar_index + step, currP50Price, xloc = xloc.bar_index, extend = extend.none, color = color.new(color.aqua, 0), width = 2))
+                    array.push(percentileP90Lines, line.new(bar_index + step - 1, prevP90, bar_index + step, currP90Price, xloc = xloc.bar_index, extend = extend.none, color = color.new(color.lime, 25), width = 1))
 
     if showDiagnostics
         table.cell(diagnostics, 0, 0, "Metric", text_color = color.white, bgcolor = color.new(color.blue, 75))
