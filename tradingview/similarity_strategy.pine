@@ -1,20 +1,40 @@
 //@version=6
-strategy("The Similarity Strategy", overlay = true, pyramiding = 0, max_bars_back = 5000, initial_capital = 100000, default_qty_type = strategy.percent_of_equity, default_qty_value = 10)
+// Risk/realism: sized for survival, not curve-fit "alpha". No edge is guaranteed—walk-forward and paper trade before live.
+strategy("The Similarity Strategy", overlay = true, pyramiding = 0, max_bars_back = 5000, initial_capital = 100000, default_qty_type = strategy.percent_of_equity, default_qty_value = 5, commission_type = strategy.commission.percent, commission_value = 0.05, slippage = 3, process_orders_on_close = true)
+
+gBot = "Bot — risk & exits"
+gFilt = "Bot — filters"
+
+useAtrStopPad = input.bool(true, "Widen stops with ATR pad", group = gBot, tooltip = "If the path stop is tighter than ATR×multiplier from entry, use the wider (safer) stop.")
+atrLen = input.int(14, "ATR length", minval = 1, maxval = 100, group = gBot)
+atrStopMult = input.float(1.75, "ATR × for stop pad", minval = 0.25, maxval = 6.0, step = 0.05, group = gBot)
+minStopDistancePct = input.float(0.35, "Min stop distance % (widen tight path stops)", minval = 0.05, maxval = 5.0, step = 0.05, group = gBot)
+maxAdverseStopPct = input.float(12.0, "Cap max stop distance % (tighten absurdly wide path stops)", minval = 1.0, maxval = 50.0, step = 0.5, group = gBot)
+maxBarsInTrade = input.int(72, "Max bars in trade (0 = off)", minval = 0, maxval = 500, group = gBot, tooltip = "~36h on 30m; avoids aging a thesis.")
+minBarsBetweenTrades = input.int(3, "Min bars between new entries", minval = 0, maxval = 100, group = gBot)
+
+useHigherTfTrend = input.bool(true, "Higher-TF MA filter", group = gFilt)
+higherTf = input.timeframe("240", "Higher timeframe", group = gFilt)
+higherTfMALen = input.int(34, "HTF SMA length", minval = 5, maxval = 200, group = gFilt)
+
+useSessionGate = input.bool(false, "Trade only in session", group = gFilt)
+tradeSession = input.session("0000-2359", "Session (exchange tz)", group = gFilt)
 
 patternLength = input.int(40, "Pattern Length", minval = 20, maxval = 120)
 forecastBars = input.int(20, "Forecast Bars", minval = 5, maxval = 60)
 searchLookback = input.int(600, "Search Lookback", minval = 200, maxval = 3000)
-searchStride = input.int(6, "Search Stride", minval = 1, maxval = 15, tooltip = "Higher = faster. Strategy cannot full-scan every bar (TradingView 20s cap).")
+searchStride = input.int(5, "Search Stride", minval = 1, maxval = 15, tooltip = "Higher = faster. Strategy cannot full-scan every bar (TradingView 20s cap).")
 minMatchEndOffset = input.int(0, "Min match end (bars ago)", minval = 0, maxval = 500, tooltip = "0 = auto (pattern length + 4). Decouples analogue search from Forecast Bars length.")
-recomputeEveryBars = input.int(15, "Recompute analogue every N bars", minval = 1, maxval = 200, tooltip = "Full search runs only this often. Same match + cone stay sticky in between (stable signals, fast backtests).")
+recomputeEveryBars = input.int(12, "Recompute analogue every N bars", minval = 1, maxval = 200, tooltip = "Full search runs only this often. Same match + cone stay sticky in between (stable signals, fast backtests).")
 alsoRecomputeNewDay = input.bool(true, "Also recompute on new calendar day")
 entryOnNewSignalOnly = input.bool(true, "Enter on new signal only", tooltip = "Strongly recommended ON. Sticky thesis keeps longSignal true many bars; without this you re-enter immediately after every exit → trade clusters. OFF = legacy (enter every bar while flat + signal).")
+reenterAfterExit = input.bool(true, "Re-enter bar after exit if setup still on", tooltip = "When pulse-only entries would lock out for long stretches because the sticky signal never flickers off.")
 enterOnlyAfterRecompute = input.bool(false, "Also require fresh analogue this bar", tooltip = "If ON, only take entries on bars where the full search ran. Fewer trades; can skip moves between refreshes.")
 topK = input.int(5, "Top Matches", minval = 1, maxval = 8)
-minConfidence = input.float(65.0, "Min Confidence", minval = 0.0, maxval = 100.0, step = 1.0)
+minConfidence = input.float(62.0, "Min Confidence", minval = 0.0, maxval = 100.0, step = 1.0)
 
 strategyMode = input.string("momentum", "Strategy Mode", options = ["momentum", "mean_reversion", "breakout"])
-forecastThreshold = input.float(0.02, "Forecast Threshold", minval = 0.001, maxval = 0.20, step = 0.001)
+forecastThreshold = input.float(0.018, "Forecast Threshold", minval = 0.001, maxval = 0.20, step = 0.001)
 
 scale1 = input.float(0.75, "Scale 1", minval = 0.50, maxval = 2.50, step = 0.05)
 scale2 = input.float(1.00, "Scale 2", minval = 0.50, maxval = 2.50, step = 0.05)
@@ -248,6 +268,13 @@ var float persistBestTermRet = na
 var float persistBestMinRet = na
 var float persistBestMaxRet = na
 
+// Locked at entry: path stats used for exits (do not drift with live close or sticky recompute).
+var float posMinRet = na
+var float posMaxRet = na
+var float posTermRet = na
+var int tradeEntryBar = na
+var int lastEntryBarIndex = -2147483648
+
 float bestScore = na
 float bestScale = na
 int bestRegimeCode = 0
@@ -361,19 +388,50 @@ if enoughHistory and not na(bestScore) and not na(bestTermRet)
         longSignal := bestScore >= minConfidence and regimeIsHighVol and not na(bestMaxRet) and bestMaxRet > forecastThreshold
         shortSignal := bestScore >= minConfidence and regimeIsHighVol and not na(bestMinRet) and bestMinRet < -forecastThreshold
 
-longStop = not na(bestMinRet) ? close * (1.0 + bestMinRet) : na
-longTarget = not na(bestTermRet) and bestTermRet > 0 ? close * (1.0 + bestTermRet) : na
-shortStop = not na(bestMaxRet) ? close * (1.0 + bestMaxRet) : na
-shortTarget = not na(bestTermRet) and bestTermRet < 0 ? close * (1.0 + bestTermRet) : na
-
-// Pulse = signal just turned on (off → on). Stops firing strategy.entry on every bar while sticky setup stays valid after each stop/target exit.
+// Pulse = signal just turned on (off → on). reenterAfterExit = first flat bar after a fill while sticky signal stays valid.
 longPulse = longSignal and (bar_index == 0 or not longSignal[1])
 shortPulse = shortSignal and (bar_index == 0 or not shortSignal[1])
-longOk = entryOnNewSignalOnly ? longPulse : longSignal
-shortOk = entryOnNewSignalOnly ? shortPulse : shortSignal
+prevPos = nz(strategy.position_size[1], 0)
+justOutLong = strategy.position_size <= 0 and prevPos > 0
+justOutShort = strategy.position_size >= 0 and prevPos < 0
+longRearm = reenterAfterExit and justOutLong and longSignal
+shortRearm = reenterAfterExit and justOutShort and shortSignal
+longOk = entryOnNewSignalOnly ? (longPulse or longRearm) : longSignal
+shortOk = entryOnNewSignalOnly ? (shortPulse or shortRearm) : shortSignal
 recomputeThisBar = needFullSearch
-longEntry = longOk and strategy.position_size <= 0 and (not enterOnlyAfterRecompute or recomputeThisBar)
-shortEntry = shortOk and strategy.position_size >= 0 and (not enterOnlyAfterRecompute or recomputeThisBar)
+
+htfClose = request.security(syminfo.tickerid, higherTf, close, gaps = barmerge.gaps_off, lookahead = barmerge.lookahead_off)
+htfMa = request.security(syminfo.tickerid, higherTf, ta.sma(close, higherTfMALen), gaps = barmerge.gaps_off, lookahead = barmerge.lookahead_off)
+htfAlignLong = not useHigherTfTrend or htfClose > htfMa
+htfAlignShort = not useHigherTfTrend or htfClose < htfMa
+inSession = not useSessionGate or not na(time(timeframe.period, tradeSession, syminfo.timezone))
+cooldownOk = minBarsBetweenTrades <= 0 or bar_index - lastEntryBarIndex >= minBarsBetweenTrades
+
+longEntryRaw = longOk and strategy.position_size <= 0 and (not enterOnlyAfterRecompute or recomputeThisBar) and htfAlignLong and inSession and cooldownOk
+shortEntryRaw = shortOk and strategy.position_size >= 0 and (not enterOnlyAfterRecompute or recomputeThisBar) and htfAlignShort and inSession and cooldownOk
+
+if longEntryRaw
+    posMinRet := bestMinRet
+    posMaxRet := bestMaxRet
+    posTermRet := bestTermRet
+    tradeEntryBar := bar_index
+    lastEntryBarIndex := bar_index
+
+if shortEntryRaw
+    posMinRet := bestMinRet
+    posMaxRet := bestMaxRet
+    posTermRet := bestTermRet
+    tradeEntryBar := bar_index
+    lastEntryBarIndex := bar_index
+
+if strategy.position_size == 0 and not longEntryRaw and not shortEntryRaw
+    posMinRet := na
+    posMaxRet := na
+    posTermRet := na
+    tradeEntryBar := na
+
+longEntry = longEntryRaw
+shortEntry = shortEntryRaw
 
 if longEntry
     strategy.entry("Long", strategy.long)
@@ -381,17 +439,44 @@ if longEntry
 if shortEntry
     strategy.entry("Short", strategy.short)
 
-if strategy.position_size > 0 and not na(longStop)
-    if not na(longTarget)
-        strategy.exit("Long Exit", "Long", stop = longStop, limit = longTarget)
-    else
-        strategy.exit("Long Exit", "Long", stop = longStop)
+avgPx = strategy.position_avg_price
+minStopFrac = minStopDistancePct / 100.0
+maxAdvFrac = maxAdverseStopPct / 100.0
+atrRaw = ta.atr(atrLen)
+barsInPos = strategy.position_size != 0 and not na(tradeEntryBar) ? bar_index - tradeEntryBar : 0
+timeStopHit = maxBarsInTrade > 0 and barsInPos >= maxBarsInTrade and strategy.position_size != 0
 
-if strategy.position_size < 0 and not na(shortStop)
-    if not na(shortTarget)
-        strategy.exit("Short Exit", "Short", stop = shortStop, limit = shortTarget)
+// Stops/targets from frozen path @ avg entry; clamp width; optionally pad with ATR (widen stops, not nick scalp).
+longStopLvl = strategy.position_size > 0 and not na(posMinRet) and avgPx != 0 ? avgPx * (1.0 + posMinRet) : na
+longLimitLvl = strategy.position_size > 0 and not na(posTermRet) and posTermRet > 0 and avgPx != 0 ? avgPx * (1.0 + posTermRet) : na
+shortStopLvl = strategy.position_size < 0 and not na(posMaxRet) and avgPx != 0 ? avgPx * (1.0 + posMaxRet) : na
+shortLimitLvl = strategy.position_size < 0 and not na(posTermRet) and posTermRet < 0 and avgPx != 0 ? avgPx * (1.0 + posTermRet) : na
+
+longStopWide = not na(longStopLvl) ? math.min(longStopLvl, avgPx * (1.0 - minStopFrac)) : na
+longStopFinal = not na(longStopWide) ? math.max(longStopWide, avgPx * (1.0 - maxAdvFrac)) : na
+shortStopWide = not na(shortStopLvl) ? math.max(shortStopLvl, avgPx * (1.0 + minStopFrac)) : na
+shortStopFinal = not na(shortStopWide) ? math.min(shortStopWide, avgPx * (1.0 + maxAdvFrac)) : na
+
+longStopPad = useAtrStopPad and not na(longStopFinal) and not na(atrRaw) ? math.min(longStopFinal, avgPx - atrRaw * atrStopMult) : longStopFinal
+shortStopPad = useAtrStopPad and not na(shortStopFinal) and not na(atrRaw) ? math.max(shortStopFinal, avgPx + atrRaw * atrStopMult) : shortStopFinal
+
+if strategy.position_size > 0 and not timeStopHit and not na(longStopPad)
+    if not na(longLimitLvl)
+        strategy.exit("Long Exit", "Long", stop = longStopPad, limit = longLimitLvl)
     else
-        strategy.exit("Short Exit", "Short", stop = shortStop)
+        strategy.exit("Long Exit", "Long", stop = longStopPad)
+
+if strategy.position_size < 0 and not timeStopHit and not na(shortStopPad)
+    if not na(shortLimitLvl)
+        strategy.exit("Short Exit", "Short", stop = shortStopPad, limit = shortLimitLvl)
+    else
+        strategy.exit("Short Exit", "Short", stop = shortStopPad)
+
+if timeStopHit and strategy.position_size > 0
+    strategy.close("Long", comment = "Time stop")
+
+if timeStopHit and strategy.position_size < 0
+    strategy.close("Short", comment = "Time stop")
 
 plot(not na(bestScore) ? bestScore : na, "Confidence", color = color.new(color.lime, 0), linewidth = 2)
 plot(not na(bestTermRet) ? bestTermRet * 100.0 : na, "Best analogue terminal %", color = color.new(color.aqua, 0), linewidth = 2)
