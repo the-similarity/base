@@ -582,9 +582,10 @@ if timeStopHit and strategy.position_size > 0
 if timeStopHit and strategy.position_size < 0
     strategy.close("Short", comment = "Time stop")
 
-plot(not na(bestScore) ? bestScore : na, "Confidence", color = color.new(color.lime, 0), linewidth = 2)
-plot(not na(bestP50) ? bestP50 * 100.0 : na, "Weighted P50 terminal %", color = color.new(color.aqua, 0), linewidth = 2)
-plot(not na(bestRank1Horizon) ? bestRank1Horizon * 100.0 : na, "#1 match horizon %", color = color.new(color.orange, 0), linewidth = 1, display = display.none)
+// Never plot 0–100 "confidence" on the price pane — it shares the price scale and wrecks Y-axis (lines glued to bottom).
+plot(not na(bestScore) ? bestScore : na, "Confidence", color = color.new(color.lime, 0), linewidth = 2, display = display.data_window)
+plot(not na(bestP50) ? bestP50 * 100.0 : na, "Weighted P50 terminal %", color = color.new(color.aqua, 0), linewidth = 2, display = display.data_window)
+plot(not na(bestRank1Horizon) ? bestRank1Horizon * 100.0 : na, "#1 match horizon %", color = color.new(color.orange, 0), linewidth = 1, display = display.data_window)
 plotshape(longSignal, title = "Long setup (sticky)", style = shape.circle, location = location.bottom, color = color.new(color.lime, 85), size = size.tiny, display = display.none)
 plotshape(longEntry, title = "Long entry", style = shape.triangleup, location = location.belowbar, color = color.new(color.lime, 0), size = size.tiny, text = "SIM LONG")
 plotshape(shortEntry, title = "Short entry", style = shape.triangledown, location = location.abovebar, color = color.new(color.red, 0), size = size.tiny, text = "SIM SHORT")
