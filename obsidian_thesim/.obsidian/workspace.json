@@ -6,6 +6,7 @@
       {
         "id": "698a2ec977058b70",
         "type": "tabs",
+        "dimension": 29.294755877034355,
         "children": [
           {
             "id": "0a59e802b3ddd3d1",
@@ -13,12 +14,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "Welcome.md",
+                "file": "_MOC.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "Welcome"
+              "title": "_MOC"
             }
           }
         ]
@@ -26,6 +27,7 @@
       {
         "id": "2803a372a7b61386",
         "type": "tabs",
+        "dimension": 70.70524412296564,
         "children": [
           {
             "id": "649760c4a8aca0a7",
@@ -94,7 +96,7 @@
       }
     ],
     "direction": "horizontal",
-    "width": 300
+    "width": 226.5
   },
   "right": {
     "id": "76a9f3af5c3aaddf",
@@ -199,17 +201,38 @@
       "bases:Create new base": false
     }
   },
-  "active": "0a59e802b3ddd3d1",
+  "active": "649760c4a8aca0a7",
   "lastOpenFiles": [
+    "research/Long product brief in repo.md",
+    "research/Survey forecasting backtesting.md",
+    "research/Survey TDA EMD wavelets SAX.md",
+    "research/Survey Koopman.md",
+    "research/Survey fractals.md",
+    "research/Survey DTW.md",
+    "research",
+    "topics/CRPS score.md",
+    "topics/Calibration and coverage.md",
+    "topics/Backtesting and walk-forward.md",
+    "topics/Confidence decay.md",
+    "topics/Fan charts and forecast cones.md",
+    "topics/Analog forecasting.md",
+    "topics/Self-affine vs self-similar.md",
+    "topics/Multifractals MFDFA.md",
+    "topics/DFA detrended fluctuation.md",
+    "topics/Fractal Market Hypothesis.md",
+    "topics/Hurst exponent.md",
+    "topics/Power laws and fat tails.md",
+    "topics/Self-similarity.md",
+    "topics/Transfer entropy.md",
+    "topics/TDA persistence.md",
+    "topics/EMD and IMFs.md",
+    "topics/Takens embedding.md",
+    "topics/Koopman operator.md",
+    "topics/Wavelet leaders.md",
+    "topics/Bempedelis power-law match.md",
+    "topics",
     "outputs",
     "raw",
-    "concepts/Repo research and docs.md",
-    "concepts/Vision pillars.md",
-    "concepts/Nine-method pipeline.md",
-    "concepts/Engine map.md",
-    "concepts",
-    "_MOC.md",
-    "create a link.md",
-    "Welcome.md"
+    "concepts"
   ]
 }

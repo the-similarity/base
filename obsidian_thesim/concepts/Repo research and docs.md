@@ -10,6 +10,8 @@ This vault **compiles** and **connects**; the repo already holds longer docs. Us
 
 When you summarize a paper or talk here, **link** the relevant `research/methods/` file if one exists, and add backlinks in this vault so Obsidian’s graph lights up.
 
+**Compiled vault mirror:** [[Research hub]] (plain-language nodes + surveys).
+
 ## Planning and architecture
 
 - `docs/planning/plan.md`

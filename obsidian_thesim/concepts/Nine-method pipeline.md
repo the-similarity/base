@@ -10,11 +10,13 @@ End-state shape of the matcher: **fast screen → strong baseline → rich enric
 
 Koopman specifically feeds **forward dynamics** used in the projector (eigenvalue clamping). The forecast **cone** blends statistical quantiles with that evolution; decay knocks down confidence with horizon.
 
-## When you learn more
+## Topic nodes (non-technical)
 
-Add child notes (e.g. one file per method) and link them here. Mirror or extend `research/methods/` in the repo where long-form writeups already exist.
+- [[topics/Methods index]] — one page per method
+- [[Survey TDA EMD wavelets SAX]], [[Survey Koopman]], [[Survey DTW]], … via [[Research hub]]
 
 ## Related
 
 - [[Engine map]]
 - [[Repo research and docs]]
+- [[Why nine lenses]]
