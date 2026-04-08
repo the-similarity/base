@@ -8,6 +8,8 @@ searchStride = input.int(6, "Search Stride", minval = 1, maxval = 15, tooltip = 
 minMatchEndOffset = input.int(0, "Min match end (bars ago)", minval = 0, maxval = 500, tooltip = "0 = auto (pattern length + 4). Decouples analogue search from Forecast Bars length.")
 recomputeEveryBars = input.int(15, "Recompute analogue every N bars", minval = 1, maxval = 200, tooltip = "Full search runs only this often. Same match + cone stay sticky in between (stable signals, fast backtests).")
 alsoRecomputeNewDay = input.bool(true, "Also recompute on new calendar day")
+entryOnNewSignalOnly = input.bool(true, "Enter on new signal only", tooltip = "Strongly recommended ON. Sticky thesis keeps longSignal true many bars; without this you re-enter immediately after every exit → trade clusters. OFF = legacy (enter every bar while flat + signal).")
+enterOnlyAfterRecompute = input.bool(false, "Also require fresh analogue this bar", tooltip = "If ON, only take entries on bars where the full search ran. Fewer trades; can skip moves between refreshes.")
 topK = input.int(5, "Top Matches", minval = 1, maxval = 8)
 minConfidence = input.float(65.0, "Min Confidence", minval = 0.0, maxval = 100.0, step = 1.0)
 
@@ -364,10 +366,19 @@ longTarget = not na(bestTermRet) and bestTermRet > 0 ? close * (1.0 + bestTermRe
 shortStop = not na(bestMaxRet) ? close * (1.0 + bestMaxRet) : na
 shortTarget = not na(bestTermRet) and bestTermRet < 0 ? close * (1.0 + bestTermRet) : na
 
-if longSignal and strategy.position_size <= 0
+// Pulse = signal just turned on (off → on). Stops firing strategy.entry on every bar while sticky setup stays valid after each stop/target exit.
+longPulse = longSignal and (bar_index == 0 or not longSignal[1])
+shortPulse = shortSignal and (bar_index == 0 or not shortSignal[1])
+longOk = entryOnNewSignalOnly ? longPulse : longSignal
+shortOk = entryOnNewSignalOnly ? shortPulse : shortSignal
+recomputeThisBar = needFullSearch
+longEntry = longOk and strategy.position_size <= 0 and (not enterOnlyAfterRecompute or recomputeThisBar)
+shortEntry = shortOk and strategy.position_size >= 0 and (not enterOnlyAfterRecompute or recomputeThisBar)
+
+if longEntry
     strategy.entry("Long", strategy.long)
 
-if shortSignal and strategy.position_size >= 0
+if shortEntry
     strategy.entry("Short", strategy.short)
 
 if strategy.position_size > 0 and not na(longStop)
@@ -384,8 +395,9 @@ if strategy.position_size < 0 and not na(shortStop)
 
 plot(not na(bestScore) ? bestScore : na, "Confidence", color = color.new(color.lime, 0), linewidth = 2)
 plot(not na(bestTermRet) ? bestTermRet * 100.0 : na, "Best analogue terminal %", color = color.new(color.aqua, 0), linewidth = 2)
-plotshape(longSignal, title = "Long Signal", style = shape.triangleup, location = location.belowbar, color = color.new(color.lime, 0), size = size.tiny, text = "SIM LONG")
-plotshape(shortSignal, title = "Short Signal", style = shape.triangledown, location = location.abovebar, color = color.new(color.red, 0), size = size.tiny, text = "SIM SHORT")
+plotshape(longSignal, title = "Long setup (sticky)", style = shape.circle, location = location.bottom, color = color.new(color.lime, 85), size = size.tiny, display = display.none)
+plotshape(longEntry, title = "Long entry", style = shape.triangleup, location = location.belowbar, color = color.new(color.lime, 0), size = size.tiny, text = "SIM LONG")
+plotshape(shortEntry, title = "Short entry", style = shape.triangledown, location = location.abovebar, color = color.new(color.red, 0), size = size.tiny, text = "SIM SHORT")
 
 var label regimeLabel = na
 if barstate.islast

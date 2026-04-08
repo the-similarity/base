@@ -75,7 +75,9 @@ The indicator:
 
 **Why the indicator can work but the strategy times out:** the indicator runs the heavy analogue search **once** (`barstate.islast`). A **strategy** is replayed on **every historical bar**; a full scan each bar multiplies work by thousands and hits TradingView’s **~20 second** script limit.
 
-**What we do instead:** `similarity_strategy.pine` runs the **full search only every `Recompute analogue every N bars`** (default **15**), and optionally on each **new calendar day**. Between those bars it **reuses** the same stored confidence, regime, and **P10/P50/P90** endpoints so entries/exits stay **consistent** with the last analogue instead of “redrawing” the thesis every tick. Increase **N** or **Search stride** if you still see timeout warnings; decrease **Search lookback** or **Pattern length** if needed.
+**What we do instead:** `similarity_strategy.pine` runs the **full search only every `Recompute analogue every N bars`** (default **15**), and optionally on each **new calendar day**. Between those bars it **reuses** the same stored confidence, regime, and forecast endpoints so entries/exits stay **consistent** with the last analogue instead of “redrawing” the thesis every tick. Increase **N** or **Search stride** if you still see timeout warnings; decrease **Search lookback** or **Pattern length** if needed.
+
+**Bursts of trades, then long silence:** with a **sticky** thesis, `longSignal` / `shortSignal` can stay **true for many bars in a row**. The old logic called `strategy.entry` whenever you were **flat** and the signal was still true — so after each **stop/target** exit you **immediately re-entered** on the next bar until the next refresh killed the setup → **clusters** of trades. **Enter on new signal only** (default **ON**) fires an entry only on an **off → on** pulse. **Long gaps** are normal when refreshes rarely produce a passing score/regime/threshold; on **weekly** charts, “every 15 bars” is **15 weeks** between some recomputes in steady state.
 
 The strategy supports three rule modes inspired by `the_similarity/core/strategy.py`:
 
