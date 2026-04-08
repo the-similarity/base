@@ -1,6 +1,14 @@
-# The Similarity — Architecture
+# The Similarity — March Architecture Snapshot
 
-## System Overview
+This document is a historical architecture snapshot from an earlier stage of the
+project. It is useful for understanding how the system evolved, but it is not
+the canonical description of the current repository layout.
+
+For the current architecture, see:
+
+- [ARCHITECTURE_OVERVIEW.md](/Users/buyantogtokh/.codex/worktrees/b679/14/docs/architecture/ARCHITECTURE_OVERVIEW.md)
+
+## Historical System Overview
 
 A research-grade time series pattern matching platform. You give it a price pattern (e.g., last 60 bars of XAUUSD 1H), and it finds the most similar historical patterns across 9 mathematical methods, then projects what happened next.
 
@@ -82,23 +90,23 @@ User selects dataset (e.g., commodities/gold/1h)
 
 ---
 
-## Markdown Files — What's Where
+## Historical Markdown File Layout
 
 | File | Purpose |
 |------|---------|
 | **`CLAUDE.md`** (root) | Git workflow, worktree coordination, test commands, architecture summary. The "how to work in this repo" guide. |
-| **`plan.md`** (root) | Phase-by-phase roadmap. Phases 1-4 complete + 5a. Tracks what's done and what's next. |
-| **`TODOS.md`** (root) | Deferred work items with rationale for *why* they're deferred. |
-| **`docs/ARCHITECTURE.md`** | Design principles, module responsibilities, data flow, scaling path. |
-| **`docs/THEORY.md`** | Math foundations — every method's algorithm, equations, and 16 academic references. |
-| **`docs/API_REFERENCE.md`** | User-facing Python API docs: `load()`, `search()`, `project()`, `plot()`, `backtest()`. |
-| **`docs/DESIGN_LANGUAGE.md`** | UI/UX spec — colors, typography, spacing, card styles, interactions. |
-| **`research/01-dtw-*.md`** | Deep dive: DTW algorithm, constraints, library comparison. |
-| **`research/02-fractal-*.md`** | Hurst exponent, DFA, multifractal analysis, MMAR. |
-| **`research/03-koopman-*.md`** | Koopman operator theory, EDMD, eigenvalue comparison methods. |
-| **`research/04-tda-emd-*.md`** | TDA, EMD, wavelets, SAX, matrix profile, transfer entropy. |
-| **`research/05-pattern-*.md`** | Analog forecasting, forecast cones, walk-forward backtesting. |
-| **`research/presenting_idea.md`** | Competitive landscape analysis — why 9 methods, why tiered, what's the gap in the market. |
+| **`docs/planning/plan.md`** | Phase-by-phase roadmap from this earlier implementation stage. |
+| **`docs/planning/TODOS.md`** | Deferred work items with rationale for *why* they're deferred. |
+| **`docs/architecture/ARCHITECTURE.md`** | Design principles, module responsibilities, data flow, scaling path. |
+| **`docs/theory/THEORY.md`** | Math foundations and method theory notes. |
+| **`docs/reference/API_REFERENCE.md`** | User-facing Python API docs. |
+| **`docs/design/DESIGN_LANGUAGE.md`** | UI/UX spec — colors, typography, spacing, card styles, interactions. |
+| **`research/methods/01-dtw-*.md`** | Deep dive: DTW algorithm, constraints, library comparison. |
+| **`research/methods/02-fractal-*.md`** | Hurst exponent, DFA, multifractal analysis, MMAR. |
+| **`research/methods/03-koopman-*.md`** | Koopman operator theory, EDMD, eigenvalue comparison methods. |
+| **`research/methods/04-tda-emd-*.md`** | TDA, EMD, wavelets, SAX, matrix profile, transfer entropy. |
+| **`research/methods/05-pattern-*.md`** | Analog forecasting, forecast cones, walk-forward backtesting. |
+| **`research/notes/presenting_idea.md`** | Competitive landscape analysis — why 9 methods, why tiered, what's the gap in the market. |
 | **`progress/progress3_9.md`** | Sprint report from March 9 — 56 new tests in one session, phases 2c-3f completed. |
 | **`the-similarity-app/TODOS.md`** | Frontend-specific improvements: Docker, keyboard shortcuts, mock cleanup. |
 | **`.cursor/agents/boyo.md`** | Cursor agent config — a "critic" persona for code review. |

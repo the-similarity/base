@@ -1,6 +1,22 @@
 # The Similarity
 
-Research-grade time series pattern matching and prediction using 9 mathematical methods.
+Research-grade pattern matching, forecasting, and terrain/simulation experimentation built around one central Python engine.
+
+This repository is a monorepo, not just a single package.
+
+## Top-Level Components
+
+- `the_similarity/`: core Python engine
+- `the-similarity-api/`: FastAPI backend service
+- `the-similarity-data/`: ETL + parquet + DuckDB warehouse
+- `the-similarity-app/`: main Next.js frontend
+- `the-similarity-fractal/`: Three.js terrain / 3D surface
+- `the-similarity-playground/`: research workbench
+- `the-similarity-landing/`: placeholder
+
+For the current architecture map, see:
+
+- [docs/architecture/ARCHITECTURE_OVERVIEW.md](/Users/buyantogtokh/.codex/worktrees/b679/14/docs/architecture/ARCHITECTURE_OVERVIEW.md)
 
 ## Install
 
@@ -21,16 +37,17 @@ pip install "the-similarity[api] @ git+https://github.com/the-similarity/base.gi
 import the_similarity as ts
 
 # Load data
-ref, query = ts.load("gold_5m.csv", query_window=60, reference_window=500)
+history = ts.load("gold_5m.csv", column="close")
+query = history[-60:]
 
 # Find similar patterns
-matches = ts.search(ref, query)
+results = ts.search(query, history, top_k=10)
 
-# Forecast from best match
-cone = ts.project(ref, matches[0])
+# Forecast from the match set
+forecast = ts.project(results, history, forward_bars=30)
 
 # Plot results
-ts.plot(ref, query, matches, cone)
+ts.plot(results, forecast)
 ```
 
 ## Methods
@@ -50,7 +67,7 @@ ts.plot(ref, query, matches, cone)
 
 ## Pipeline
 
-SAX + MASS prefilter → DTW + Pearson core → Tier 2 enrichment (7 methods) → final rank
+SAX + MASS prefilter → DTW + Pearson core → Tier 2 enrichment → final rank → projection / forecasting
 
 ## License
 

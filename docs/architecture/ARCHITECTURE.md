@@ -1,4 +1,10 @@
-# The Similarity Architecture
+# The Similarity Architecture Principles
+
+This document captures architectural principles and module-level design rules.
+
+For the current repo layout and system map, see:
+
+- [ARCHITECTURE_OVERVIEW.md](/Users/buyantogtokh/.codex/worktrees/b679/14/docs/architecture/ARCHITECTURE_OVERVIEW.md)
 
 ## Guiding Principles
 
@@ -45,7 +51,7 @@ Stateless services are trivially horizontally scalable.
 - `TimeSeries` is a value object — safe to share across threads.
 - Future `FeatureStore` is the only stateful component, and it sits behind a clean interface.
 
-## Data Flow
+## Core Engine Data Flow
 
 ```
 load() -> TimeSeries

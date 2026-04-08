@@ -1,6 +1,20 @@
 # The Similarity Implementation Plan
 
-## Current State
+This document is a historical implementation roadmap and status log from an
+earlier stage of the project.
+
+It still contains useful rationale and phased implementation notes, but it is
+not the canonical source for the current monorepo architecture.
+
+For the current architecture, use:
+
+- [docs/architecture/ARCHITECTURE_OVERVIEW.md](/Users/buyantogtokh/.codex/worktrees/b679/14/docs/architecture/ARCHITECTURE_OVERVIEW.md)
+
+For current deferred items, use:
+
+- [docs/planning/TODOS.md](/Users/buyantogtokh/.codex/worktrees/b679/14/docs/planning/TODOS.md)
+
+## Historical Current State
 
 Phase 1 complete + Phases 2a–2e done + Phase 3 done. Working tiered pipeline with 115 tests passing (all 9 methods active):
 - Loader (CSV, parquet, DataFrame, dict, numpy)
@@ -157,7 +171,7 @@ class FeatureStore:
 - [x] Tests in `test_wavelet_leaders.py` (5 tests passing)
 
 ### 2f. Tier 1 merger → DEFERRED
-**Status**: Current 3-signal blend (0.4×SAX + 0.4×MP + 0.2×Pearson) works well. SAX provides no-false-dismissal guarantees. Nomination scoring deferred until backtester (4c) proves Tier 1 quality is the bottleneck. See TODOS.md.
+**Status**: Current 3-signal blend (0.4×SAX + 0.4×MP + 0.2×Pearson) works well. SAX provides no-false-dismissal guarantees. Nomination scoring deferred until backtester (4c) proves Tier 1 quality is the bottleneck. See `docs/planning/TODOS.md`.
 
 ### 2g. ~~Full confidence score~~ → DONE
 - [x] Default `active_methods` = all 9 methods (bempedelis_r2, bempedelis_smoothness, koopman, wavelet_spectrum, emd, tda, dtw, pearson_warped, transfer_entropy)
@@ -262,8 +276,8 @@ All 9 methods implemented, wired into `_enrich_tier2()`, and tested (115 tests p
 - [x] 10 tests (unit + slow integration) in `test_cross_timeframe.py`
 
 ### 5d. ~~Documentation & release~~ → DONE
-- [x] Full API reference — `docs/API_REFERENCE.md` (all functions, params, examples, data classes)
-- [x] Theory document with paper references — `docs/THEORY.md` (9 methods, scoring, forecasting, backtesting, 16 references)
+- [x] Full API reference — `docs/reference/API_REFERENCE.md` (all functions, params, examples, data classes)
+- [x] Theory document with paper references — `docs/theory/THEORY.md` (9 methods, scoring, forecasting, backtesting, 16 references)
 - [x] Tutorial notebooks — `docs/tutorials/` (01_quickstart, 02_configuration, 03_backtesting)
 - [x] PyPI package — `pyproject.toml` with classifiers, keywords, extras, test exclusion, MIT LICENSE
 
