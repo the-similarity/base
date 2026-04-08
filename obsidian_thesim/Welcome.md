@@ -1,5 +1,8 @@
-This is your new *vault*.
+# thesim vault
 
-Make a note of something, [[create a link]], or try [the Importer](https://help.obsidian.md/Plugins/Importer)!
+Home for **research + memory** that stays next to the codebase.
 
-When you're ready, delete this note and make the vault your own.
+- **Browse the wiki:** [[_MOC]]
+- **Repo root** (sibling to this folder): clone of `the-similarity/base`; engine code under `the_similarity/`.
+
+Tip: pin **[[_MOC]]** in Obsidian or set it as a startup tab so the graph stays useful as notes grow.
