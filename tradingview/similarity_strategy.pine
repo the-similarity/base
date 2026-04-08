@@ -3,8 +3,9 @@
 strategy("The Similarity Strategy", overlay = true, pyramiding = 0, max_bars_back = 5000, initial_capital = 100000, default_qty_type = strategy.percent_of_equity, default_qty_value = 5, commission_type = strategy.commission.percent, commission_value = 0.05, slippage = 3, process_orders_on_close = true)
 
 gPerf = "TradingView · performance"
-// Hard cap on inner-loop iterations per scale; effective stride = max(Search stride, ceil(span / this)). Main lever vs RE timeout.
-maxCandidateChecksPerScale = input.int(90, "Max candidate checks per scale (0 = off)", minval = 0, maxval = 400, group = gPerf, tooltip = "OFF = use Search stride only (can time out on long histories). ~90 caps each scale to ~90 f_score_candidate calls by widening stride automatically.")
+liteScaleSearch = input.bool(true, "Lite: 2 scales only (1.0× + 1.25×)", group = gPerf, tooltip = "OFF = all four scale inputs. ON ≈ halves candidate scoring vs 4-scale search (big for 20s limit).")
+// Hard cap on inner-loop iterations per scale; effective stride = max(Search stride, ceil(span / this)).
+maxCandidateChecksPerScale = input.int(50, "Max candidate checks per scale (0 = off)", minval = 0, maxval = 400, group = gPerf, tooltip = "Lower = faster / more coarse search. ~50 is aggressive; raise only on short chart ranges.")
 
 gBot = "Bot — risk & exits"
 gFilt = "Bot — filters"
@@ -26,15 +27,15 @@ tradeSession = input.session("0000-2359", "Session (exchange tz)", group = gFilt
 
 patternLength = input.int(40, "Pattern Length", minval = 20, maxval = 120)
 forecastBars = input.int(20, "Forecast Bars", minval = 5, maxval = 60)
-searchLookback = input.int(600, "Search Lookback", minval = 200, maxval = 3000)
-searchStride = input.int(8, "Search Stride", minval = 1, maxval = 15, tooltip = "Base step in lookback. Effective step may be larger when Max candidate checks caps are on. Lower = heavier (timeout risk on long charts).")
+searchLookback = input.int(480, "Search Lookback", minval = 200, maxval = 3000, group = gPerf, tooltip = "Shorter lookback = less work per recompute.")
+searchStride = input.int(12, "Search Stride", minval = 1, maxval = 15, tooltip = "Base step in lookback. Effective step may be larger when Max candidate checks caps are on. Lower = heavier (timeout risk on long charts).")
 minMatchEndOffset = input.int(0, "Min match end (bars ago)", minval = 0, maxval = 500, tooltip = "0 = auto (pattern length + 4). Decouples analogue search from Forecast Bars length.")
-recomputeEveryBars = input.int(12, "Recompute analogue every N bars", minval = 1, maxval = 200, tooltip = "Each recompute runs the full search. Higher = fewer heavy bars → safer vs TV 20s wall on long histories.")
+recomputeEveryBars = input.int(24, "Recompute analogue every N bars", minval = 1, maxval = 200, group = gPerf, tooltip = "Each recompute runs the full search. Higher = fewer heavy bars → main lever vs TV 20s on long histories.")
 alsoRecomputeNewDay = input.bool(false, "Also recompute on new calendar day", tooltip = "ON adds one full scan per session day (extra CPU). OFF helps avoid timeouts on 1h/30m with long history.")
 entryOnNewSignalOnly = input.bool(true, "Enter on new signal only", tooltip = "Strongly recommended ON. Sticky thesis keeps longSignal true many bars; without this you re-enter immediately after every exit → trade clusters. OFF = legacy (enter every bar while flat + signal).")
 reenterAfterExit = input.bool(true, "Re-enter bar after exit if setup still on", tooltip = "When pulse-only entries would lock out for long stretches because the sticky signal never flickers off.")
 enterOnlyAfterRecompute = input.bool(false, "Also require fresh analogue this bar", tooltip = "If ON, only take entries on bars where the full search ran. Fewer trades; can skip moves between refreshes.")
-topK = input.int(4, "Top Matches", minval = 1, maxval = 8, tooltip = "Cone cost grows with K. Lower slightly reduces work per recompute.")
+topK = input.int(3, "Top Matches", minval = 1, maxval = 8, group = gPerf, tooltip = "Cone inner loop scales with K.")
 minConfidenceSearch = input.float(45.0, "Min confidence for search basket", minval = 0.0, maxval = 100.0, step = 1.0, tooltip = "Candidates ≥ this enter top-K / cone. Set LOWER than trade min so a dull stretch does not zero out persist for months (no analogues → no P50).")
 minConfidence = input.float(52.0, "Min confidence to trade", minval = 0.0, maxval = 100.0, step = 1.0, tooltip = "Rank-1 score must clear this to open trades. Can stay above search min to filter entries.")
 momentumSignalUsesWeightedP50 = input.bool(false, "Momentum: use weighted P50 for entry", tooltip = "OFF (default): entry direction uses #1 match horizon return only — weighted median often sits near 0 for months when analogues disagree. ON: strict cone P50 (closer to Python momentum_strategy). Exits always use full weighted cone.")
@@ -352,10 +353,14 @@ if needFullSearch
     queryVol = f_std(queryReturns)
 
     scales = array.new_float()
-    array.push(scales, scale1)
-    array.push(scales, scale2)
-    array.push(scales, scale3)
-    array.push(scales, scale4)
+    if liteScaleSearch
+        array.push(scales, scale2)
+        array.push(scales, scale3)
+    else
+        array.push(scales, scale1)
+        array.push(scales, scale2)
+        array.push(scales, scale3)
+        array.push(scales, scale4)
 
     for scaleIndex = 0 to array.size(scales) - 1
         scaleValue = array.get(scales, scaleIndex)
@@ -397,44 +402,24 @@ if needFullSearch
         if anchorR1 != 0.0 and bestEndR1 >= forecastBars
             persistRank1Horizon := (close[bestEndR1 - forecastBars] - anchorR1) / anchorR1
 
-        array<float> fcP10 = array.new_float()
-        array<float> fcP25 = array.new_float()
-        array<float> fcP50 = array.new_float()
-        array<float> fcP75 = array.new_float()
-        array<float> fcP90 = array.new_float()
+        // Terminal horizon only: persist* used only the last step anyway — avoid forecastBars × cone work (~20×).
         array<float> stepValues = array.new_float()
         array<float> stepWeights = array.new_float()
-
-        for step = 1 to forecastBars
-            array.clear(stepValues)
-            array.clear(stepWeights)
-            for matchIndex = 0 to array.size(topScores) - 1
-                matchEndOffset = array.get(topEndOffsets, matchIndex)
-                if matchEndOffset >= step
-                    matchAnchor = close[matchEndOffset]
-                    futurePrice = close[matchEndOffset - step]
-                    if matchAnchor != 0.0
-                        array.push(stepValues, (futurePrice - matchAnchor) / matchAnchor)
-                        array.push(stepWeights, array.get(topScores, matchIndex))
-            if array.size(stepValues) > 0
-                array.push(fcP10, f_weighted_percentile(stepValues, stepWeights, 0.10))
-                array.push(fcP25, f_weighted_percentile(stepValues, stepWeights, 0.25))
-                array.push(fcP50, f_weighted_percentile(stepValues, stepWeights, 0.50))
-                array.push(fcP75, f_weighted_percentile(stepValues, stepWeights, 0.75))
-                array.push(fcP90, f_weighted_percentile(stepValues, stepWeights, 0.90))
-            else
-                array.push(fcP10, na)
-                array.push(fcP25, na)
-                array.push(fcP50, na)
-                array.push(fcP75, na)
-                array.push(fcP90, na)
-
-        if array.size(fcP50) > 0
-            persistP10 := array.get(fcP10, array.size(fcP10) - 1)
-            persistP25 := array.get(fcP25, array.size(fcP25) - 1)
-            persistP50 := array.get(fcP50, array.size(fcP50) - 1)
-            persistP75 := array.get(fcP75, array.size(fcP75) - 1)
-            persistP90 := array.get(fcP90, array.size(fcP90) - 1)
+        int termStep = forecastBars
+        for matchIndex = 0 to array.size(topScores) - 1
+            matchEndOffset = array.get(topEndOffsets, matchIndex)
+            if matchEndOffset >= termStep
+                matchAnchor = close[matchEndOffset]
+                futurePrice = close[matchEndOffset - termStep]
+                if matchAnchor != 0.0
+                    array.push(stepValues, (futurePrice - matchAnchor) / matchAnchor)
+                    array.push(stepWeights, array.get(topScores, matchIndex))
+        if array.size(stepValues) > 0
+            persistP10 := f_weighted_percentile(stepValues, stepWeights, 0.10)
+            persistP25 := f_weighted_percentile(stepValues, stepWeights, 0.25)
+            persistP50 := f_weighted_percentile(stepValues, stepWeights, 0.50)
+            persistP75 := f_weighted_percentile(stepValues, stepWeights, 0.75)
+            persistP90 := f_weighted_percentile(stepValues, stepWeights, 0.90)
         else
             persistP10 := na
             persistP25 := na
