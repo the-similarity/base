@@ -14,6 +14,11 @@ One file per **method** — written for non-experts; each links deeper surveys i
 - [[TDA persistence]]
 - [[Transfer entropy]]
 
+## Implementation
+
+- [[topics/Code — method modules table]]
+- [[topics/Code — matcher tiers and modules]]
+
 ## Related
 
 - [[Why nine lenses]]

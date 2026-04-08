@@ -22,5 +22,6 @@ These files are **copies** of the long-form Markdown under `research/` at the **
 
 ## Related
 
+- [[Engineers start here]] — how this ties to `the_similarity/` code
 - [[Research hub]] — friendly surveys + `topics/` atoms
 - [[Repo research and docs]] — paths in the codebase tree

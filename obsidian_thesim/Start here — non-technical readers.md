@@ -1,5 +1,7 @@
 # Start here — non-technical readers
 
+**Building the product?** Use [[Engineers start here]] instead — this page stays intentionally light on code.
+
 This vault explains **The Similarity**: software that searches history for patterns similar to today’s market window and shows **what happened next**, with **uncertainty bands** (a “cone” of possibilities).
 
 ## How to use this with an LLM

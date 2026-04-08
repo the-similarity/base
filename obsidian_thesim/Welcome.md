@@ -2,7 +2,8 @@
 
 Home for **research + memory** that stays next to the codebase.
 
-- **New here / sharing with someone non-technical?** → [[Start here — non-technical readers]]
+- **Joining the engineering team?** → [[Engineers start here]] (API, matcher, config, tests, code snippets)
+- **Non-technical / LLM Q&A style?** → [[Start here — non-technical readers]]
 - **All research as linked “nodes”:** → [[Research hub]]
 - **Maintainer map:** [[_MOC]]
 - **Repo root** (sibling to this folder): clone of `the-similarity/base`; engine under `the_similarity/`.

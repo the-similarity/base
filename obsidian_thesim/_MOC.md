@@ -5,6 +5,7 @@ Vault for **The Similarity**: research ingests, what we learn while building, an
 ## Start here
 
 - [[Welcome]]
+- [[Engineers start here]] — **hires**: API, matcher, config, tests
 - [[Research hub]] — **all repo research as Obsidian nodes** (surveys + atomic topics)
 - [[Start here — non-technical readers]] — LLM Q&A entry path
 - [[Engine map]] — where code lives and what it does

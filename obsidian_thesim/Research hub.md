@@ -2,6 +2,15 @@
 
 One place to see **what we studied** for The Similarity. Each item is a **node** you can open alone or follow via links.
 
+## Engineering onboarding (code + repo)
+
+- [[Engineers start here]]
+- [[topics/Code — public API quickstart]]
+- [[topics/Code — matcher tiers and modules]]
+- [[topics/Code — Config and ScoreBreakdown]]
+- [[topics/Code — method modules table]]
+- [[topics/Code — tests and running locally]]
+
 ## Plain-language guides
 
 - [[Start here — non-technical readers]]

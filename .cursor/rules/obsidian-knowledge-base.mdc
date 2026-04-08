@@ -24,7 +24,7 @@ After **non-trivial** research, debugging conclusions, API or algorithm choices,
 - **Agent-maintained**: you write and refactor wiki notes; the user reviews in Obsidian.
 - **Incremental**: small updates beat giant dumps; update indexes / MOCs when adding notable notes.
 - **Traceability**: link sources (path under `raw/`, URL, or citation); say what changed when updating a note.
-- **Repo code**: when a note reflects implemented behavior, reference real paths (e.g. `the_similarity/core/matcher.py`) so the wiki stays tied to the codebase.
+- **Repo code**: when a note reflects implemented behavior, reference real paths (e.g. `the_similarity/core/matcher.py`) so the wiki stays tied to the codebase. For **engineers**, add or extend notes under `obsidian_thesim/` that include **short code snippets**, API entrypoints, and test commands — anchor at **`Engineers start here.md`**.
 
 ## Boundaries
 

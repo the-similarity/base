@@ -5,6 +5,7 @@ This vault is the **personal / project knowledge base** for The Similarity. It i
 ## Goals
 
 - **Research**: papers, articles, repos, datasets — captured, summarized, and cross-linked.
+- **Engineering onboarding**: keep **code-carrying** notes (API snippets, matcher/config maps, test commands) in the vault for future hires; link to real paths under `the_similarity/`. Entry: `obsidian_thesim/Engineers start here.md`.
 - **Build memory**: decisions, invariants, and “what we learned” from implementation live next to citations, not only in code comments.
 - **Compounding**: answers and explorations should **land as new or updated `.md` (and sometimes images)** in the vault when useful for the future.
 

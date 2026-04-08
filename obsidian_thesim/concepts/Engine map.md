@@ -24,3 +24,5 @@ Implementations live in `the_similarity/methods/` (one module per method). See [
 - [[Nine-method pipeline]]
 - [[Repo research and docs]]
 - [[Research hub]] — plain-language **[[topics/Methods index|method]]** nodes
+- [[Engineers start here]] — code onboarding
+- [[topics/Code — matcher tiers and modules]] — `find_matches` wiring

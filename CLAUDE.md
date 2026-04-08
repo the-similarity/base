@@ -76,7 +76,7 @@ Use the `/browse` skill from gstack for all web browsing. Never use `mcp__claude
 
 ## Obsidian research wiki (`obsidian_thesim/`)
 
-The vault **`obsidian_thesim/`** is the project’s **LLM-maintained research and learning base** (ingest → compiled markdown wiki → Obsidian as viewer). Agents should **add and update notes** as research and coding produce durable insights. **Conventions and folder layout:** `.claude/OBSIDIAN_KB.md`. Cursor loads the same policy via `.cursor/rules/obsidian-knowledge-base.mdc`.
+The vault **`obsidian_thesim/`** is the project’s **LLM-maintained research and learning base** (ingest → compiled markdown wiki → Obsidian as viewer). It also holds **engineering onboarding** notes (API snippets, matcher/config maps, tests) — start at **`obsidian_thesim/Engineers start here.md`**. Agents should **add and update notes** as research and coding produce durable insights. **Conventions and folder layout:** `.claude/OBSIDIAN_KB.md`. Cursor loads the same policy via `.cursor/rules/obsidian-knowledge-base.mdc`.
 
 ## Available skills
 
