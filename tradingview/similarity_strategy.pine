@@ -1,6 +1,10 @@
 //@version=6
-// Risk/realism: sized for survival, not curve-fit "alpha". No edge is guaranteed—walk-forward and paper trade before live.
+// TV runs this on every bar for the full range; total work ≈ (#recompute bars) × (scales × lookback/stride × cone). Exceeds ~20s → "script takes too long".
 strategy("The Similarity Strategy", overlay = true, pyramiding = 0, max_bars_back = 5000, initial_capital = 100000, default_qty_type = strategy.percent_of_equity, default_qty_value = 5, commission_type = strategy.commission.percent, commission_value = 0.05, slippage = 3, process_orders_on_close = true)
+
+gPerf = "TradingView · performance"
+// Hard cap on inner-loop iterations per scale; effective stride = max(Search stride, ceil(span / this)). Main lever vs RE timeout.
+maxCandidateChecksPerScale = input.int(90, "Max candidate checks per scale (0 = off)", minval = 0, maxval = 400, group = gPerf, tooltip = "OFF = use Search stride only (can time out on long histories). ~90 caps each scale to ~90 f_score_candidate calls by widening stride automatically.")
 
 gBot = "Bot — risk & exits"
 gFilt = "Bot — filters"
@@ -23,14 +27,14 @@ tradeSession = input.session("0000-2359", "Session (exchange tz)", group = gFilt
 patternLength = input.int(40, "Pattern Length", minval = 20, maxval = 120)
 forecastBars = input.int(20, "Forecast Bars", minval = 5, maxval = 60)
 searchLookback = input.int(600, "Search Lookback", minval = 200, maxval = 3000)
-searchStride = input.int(3, "Search Stride", minval = 1, maxval = 15, tooltip = "Lower = denser scan, more analogue hits, slower backtest (TV 20s cap).")
+searchStride = input.int(8, "Search Stride", minval = 1, maxval = 15, tooltip = "Base step in lookback. Effective step may be larger when Max candidate checks caps are on. Lower = heavier (timeout risk on long charts).")
 minMatchEndOffset = input.int(0, "Min match end (bars ago)", minval = 0, maxval = 500, tooltip = "0 = auto (pattern length + 4). Decouples analogue search from Forecast Bars length.")
-recomputeEveryBars = input.int(6, "Recompute analogue every N bars", minval = 1, maxval = 200, tooltip = "Lower = refresh best match more often → setups can flip sooner, less dead air between narratives.")
-alsoRecomputeNewDay = input.bool(true, "Also recompute on new calendar day")
+recomputeEveryBars = input.int(12, "Recompute analogue every N bars", minval = 1, maxval = 200, tooltip = "Each recompute runs the full search. Higher = fewer heavy bars → safer vs TV 20s wall on long histories.")
+alsoRecomputeNewDay = input.bool(false, "Also recompute on new calendar day", tooltip = "ON adds one full scan per session day (extra CPU). OFF helps avoid timeouts on 1h/30m with long history.")
 entryOnNewSignalOnly = input.bool(true, "Enter on new signal only", tooltip = "Strongly recommended ON. Sticky thesis keeps longSignal true many bars; without this you re-enter immediately after every exit → trade clusters. OFF = legacy (enter every bar while flat + signal).")
 reenterAfterExit = input.bool(true, "Re-enter bar after exit if setup still on", tooltip = "When pulse-only entries would lock out for long stretches because the sticky signal never flickers off.")
 enterOnlyAfterRecompute = input.bool(false, "Also require fresh analogue this bar", tooltip = "If ON, only take entries on bars where the full search ran. Fewer trades; can skip moves between refreshes.")
-topK = input.int(5, "Top Matches", minval = 1, maxval = 8)
+topK = input.int(4, "Top Matches", minval = 1, maxval = 8, tooltip = "Cone cost grows with K. Lower slightly reduces work per recompute.")
 minConfidenceSearch = input.float(45.0, "Min confidence for search basket", minval = 0.0, maxval = 100.0, step = 1.0, tooltip = "Candidates ≥ this enter top-K / cone. Set LOWER than trade min so a dull stretch does not zero out persist for months (no analogues → no P50).")
 minConfidence = input.float(52.0, "Min confidence to trade", minval = 0.0, maxval = 100.0, step = 1.0, tooltip = "Rank-1 score must clear this to open trades. Can stay above search min to filter entries.")
 momentumSignalUsesWeightedP50 = input.bool(false, "Momentum: use weighted P50 for entry", tooltip = "OFF (default): entry direction uses #1 match horizon return only — weighted median often sits near 0 for months when analogues disagree. ON: strict cone P50 (closer to Python momentum_strategy). Exits always use full weighted cone.")
@@ -358,7 +362,13 @@ if needFullSearch
         candidateLength = int(math.max(2, math.round(patternLength * scaleValue)))
         maxEndOffset = searchLookback - candidateLength + 1
         if maxEndOffset >= searchMinEndOffset
-            for endOffset = searchMinEndOffset to maxEndOffset by searchStride
+            span = maxEndOffset - searchMinEndOffset + 1
+            effStride = searchStride
+            if maxCandidateChecksPerScale > 0
+                budgetStride = int(math.ceil(span / maxCandidateChecksPerScale))
+                effStride := math.max(searchStride, budgetStride)
+            effStride := math.max(effStride, 1)
+            for endOffset = searchMinEndOffset to maxEndOffset by effStride
                 [candidateScore, candidateRegime] = f_score_candidate(
                      queryReturns,
                      queryNorm,
