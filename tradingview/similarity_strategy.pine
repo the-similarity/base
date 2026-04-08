@@ -4,8 +4,10 @@ strategy("The Similarity Strategy", overlay = true, pyramiding = 0, max_bars_bac
 patternLength = input.int(40, "Pattern Length", minval = 20, maxval = 120)
 forecastBars = input.int(20, "Forecast Bars", minval = 5, maxval = 60)
 searchLookback = input.int(600, "Search Lookback", minval = 200, maxval = 3000)
-searchStride = input.int(4, "Search Stride", minval = 1, maxval = 15, tooltip = "Strategies replay every bar — use 3–6 to avoid RE10110 on long history.")
+searchStride = input.int(6, "Search Stride", minval = 1, maxval = 15, tooltip = "Higher = faster. Strategy cannot full-scan every bar (TradingView 20s cap).")
 minMatchEndOffset = input.int(0, "Min match end (bars ago)", minval = 0, maxval = 500, tooltip = "0 = auto (pattern length + 4). Decouples analogue search from Forecast Bars length.")
+recomputeEveryBars = input.int(15, "Recompute analogue every N bars", minval = 1, maxval = 200, tooltip = "Full search runs only this often. Same match + cone stay sticky in between (stable signals, fast backtests).")
+alsoRecomputeNewDay = input.bool(true, "Also recompute on new calendar day")
 topK = input.int(5, "Top Matches", minval = 1, maxval = 8)
 minConfidence = input.float(65.0, "Min Confidence", minval = 0.0, maxval = 100.0, step = 1.0)
 
@@ -276,6 +278,16 @@ var array<float> forecastP50 = array.new_float()
 var array<float> forecastP75 = array.new_float()
 var array<float> forecastP90 = array.new_float()
 
+var int lastSearchBarIndex = na
+var float persistBestScore = na
+var float persistBestScale = na
+var int persistRegimeCode = 0
+var float persistP10End = na
+var float persistP25End = na
+var float persistP50End = na
+var float persistP75End = na
+var float persistP90End = na
+
 float bestScore = na
 float bestScale = na
 int bestRegimeCode = 0
@@ -285,7 +297,11 @@ float p50End = na
 float p75End = na
 float p90End = na
 
-if enoughHistory
+newTradingDay = ta.change(time("D")) != 0
+needFullSearch = enoughHistory and (na(lastSearchBarIndex) or (bar_index - lastSearchBarIndex >= recomputeEveryBars) or (alsoRecomputeNewDay and newTradingDay))
+
+if needFullSearch
+    lastSearchBarIndex := bar_index
     array.clear(topScores)
     array.clear(topEndOffsets)
     array.clear(topLengths)
@@ -334,9 +350,9 @@ if enoughHistory
                     f_insert_top_match(topScores, topEndOffsets, topLengths, topScales, topRegimes, candidateScore, endOffset, candidateLength, scaleValue, candidateRegime, topK)
 
     if array.size(topScores) > 0
-        bestScore := array.get(topScores, 0)
-        bestScale := array.get(topScales, 0)
-        bestRegimeCode := array.get(topRegimes, 0)
+        persistBestScore := array.get(topScores, 0)
+        persistBestScale := array.get(topScales, 0)
+        persistRegimeCode := array.get(topRegimes, 0)
 
         for step = 1 to forecastBars
             stepValues = array.new_float()
@@ -363,11 +379,30 @@ if enoughHistory
                 array.push(forecastP90, na)
 
         if array.size(forecastP10) > 0
-            p10End := array.get(forecastP10, array.size(forecastP10) - 1)
-            p25End := array.get(forecastP25, array.size(forecastP25) - 1)
-            p50End := array.get(forecastP50, array.size(forecastP50) - 1)
-            p75End := array.get(forecastP75, array.size(forecastP75) - 1)
-            p90End := array.get(forecastP90, array.size(forecastP90) - 1)
+            persistP10End := array.get(forecastP10, array.size(forecastP10) - 1)
+            persistP25End := array.get(forecastP25, array.size(forecastP25) - 1)
+            persistP50End := array.get(forecastP50, array.size(forecastP50) - 1)
+            persistP75End := array.get(forecastP75, array.size(forecastP75) - 1)
+            persistP90End := array.get(forecastP90, array.size(forecastP90) - 1)
+    else
+        persistBestScore := na
+        persistBestScale := na
+        persistRegimeCode := 0
+        persistP10End := na
+        persistP25End := na
+        persistP50End := na
+        persistP75End := na
+        persistP90End := na
+
+if enoughHistory
+    bestScore := persistBestScore
+    bestScale := persistBestScale
+    bestRegimeCode := persistRegimeCode
+    p10End := persistP10End
+    p25End := persistP25End
+    p50End := persistP50End
+    p75End := persistP75End
+    p90End := persistP90End
 
 regimeIsUp = bestRegimeCode == 1
 regimeIsDown = bestRegimeCode == -1

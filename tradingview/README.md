@@ -73,6 +73,10 @@ The indicator:
 
 ## Strategy behavior
 
+**Why the indicator can work but the strategy times out:** the indicator runs the heavy analogue search **once** (`barstate.islast`). A **strategy** is replayed on **every historical bar**; a full scan each bar multiplies work by thousands and hits TradingView’s **~20 second** script limit.
+
+**What we do instead:** `similarity_strategy.pine` runs the **full search only every `Recompute analogue every N bars`** (default **15**), and optionally on each **new calendar day**. Between those bars it **reuses** the same stored confidence, regime, and **P10/P50/P90** endpoints so entries/exits stay **consistent** with the last analogue instead of “redrawing” the thesis every tick. Increase **N** or **Search stride** if you still see timeout warnings; decrease **Search lookback** or **Pattern length** if needed.
+
 The strategy supports three rule modes inspired by `the_similarity/core/strategy.py`:
 
 - `momentum`
