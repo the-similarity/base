@@ -11,9 +11,9 @@ atrStopMult = input.float(1.75, "ATR × for stop pad", minval = 0.25, maxval = 6
 minStopDistancePct = input.float(0.35, "Min stop distance % (widen tight path stops)", minval = 0.05, maxval = 5.0, step = 0.05, group = gBot)
 maxAdverseStopPct = input.float(12.0, "Cap max stop distance % (tighten absurdly wide path stops)", minval = 1.0, maxval = 50.0, step = 0.5, group = gBot)
 maxBarsInTrade = input.int(72, "Max bars in trade (0 = off)", minval = 0, maxval = 500, group = gBot, tooltip = "~36h on 30m; avoids aging a thesis.")
-minBarsBetweenTrades = input.int(3, "Min bars between new entries", minval = 0, maxval = 100, group = gBot)
+minBarsBetweenTrades = input.int(0, "Min bars between new entries", minval = 0, maxval = 100, group = gBot, tooltip = "Raise to throttle; 0 = no artificial gap between entries.")
 
-useHigherTfTrend = input.bool(true, "Higher-TF MA filter", group = gFilt)
+useHigherTfTrend = input.bool(false, "Higher-TF MA filter", group = gFilt, tooltip = "OFF by default: similarity vote is not blocked by HTF MA (denser trades). Turn ON to only long above / short below HTF SMA.")
 higherTf = input.timeframe("240", "Higher timeframe", group = gFilt)
 higherTfMALen = input.int(34, "HTF SMA length", minval = 5, maxval = 200, group = gFilt)
 
@@ -23,18 +23,19 @@ tradeSession = input.session("0000-2359", "Session (exchange tz)", group = gFilt
 patternLength = input.int(40, "Pattern Length", minval = 20, maxval = 120)
 forecastBars = input.int(20, "Forecast Bars", minval = 5, maxval = 60)
 searchLookback = input.int(600, "Search Lookback", minval = 200, maxval = 3000)
-searchStride = input.int(5, "Search Stride", minval = 1, maxval = 15, tooltip = "Higher = faster. Strategy cannot full-scan every bar (TradingView 20s cap).")
+searchStride = input.int(3, "Search Stride", minval = 1, maxval = 15, tooltip = "Lower = denser scan, more analogue hits, slower backtest (TV 20s cap).")
 minMatchEndOffset = input.int(0, "Min match end (bars ago)", minval = 0, maxval = 500, tooltip = "0 = auto (pattern length + 4). Decouples analogue search from Forecast Bars length.")
-recomputeEveryBars = input.int(12, "Recompute analogue every N bars", minval = 1, maxval = 200, tooltip = "Full search runs only this often. Same match + cone stay sticky in between (stable signals, fast backtests).")
+recomputeEveryBars = input.int(6, "Recompute analogue every N bars", minval = 1, maxval = 200, tooltip = "Lower = refresh best match more often → setups can flip sooner, less dead air between narratives.")
 alsoRecomputeNewDay = input.bool(true, "Also recompute on new calendar day")
 entryOnNewSignalOnly = input.bool(true, "Enter on new signal only", tooltip = "Strongly recommended ON. Sticky thesis keeps longSignal true many bars; without this you re-enter immediately after every exit → trade clusters. OFF = legacy (enter every bar while flat + signal).")
 reenterAfterExit = input.bool(true, "Re-enter bar after exit if setup still on", tooltip = "When pulse-only entries would lock out for long stretches because the sticky signal never flickers off.")
 enterOnlyAfterRecompute = input.bool(false, "Also require fresh analogue this bar", tooltip = "If ON, only take entries on bars where the full search ran. Fewer trades; can skip moves between refreshes.")
 topK = input.int(5, "Top Matches", minval = 1, maxval = 8)
-minConfidence = input.float(62.0, "Min Confidence", minval = 0.0, maxval = 100.0, step = 1.0)
+minConfidence = input.float(58.0, "Min Confidence", minval = 0.0, maxval = 100.0, step = 1.0)
 
 strategyMode = input.string("momentum", "Strategy Mode", options = ["momentum", "mean_reversion", "breakout"])
-forecastThreshold = input.float(0.018, "Forecast Threshold", minval = 0.001, maxval = 0.20, step = 0.001)
+strictRegimeForMode = input.bool(false, "Require regime tag vs strategy mode", tooltip = "OFF (default): trade on score + analogue path only—best match often labels mean_reverting/high_vol so strict ON creates long flat spans. ON: legacy—momentum needs trending_up/down on the matched segment, etc.")
+forecastThreshold = input.float(0.012, "Forecast Threshold", minval = 0.001, maxval = 0.20, step = 0.001)
 
 scale1 = input.float(0.75, "Scale 1", minval = 0.50, maxval = 2.50, step = 0.05)
 scale2 = input.float(1.00, "Scale 2", minval = 0.50, maxval = 2.50, step = 0.05)
@@ -379,14 +380,21 @@ shortSignal = false
 
 if enoughHistory and not na(bestScore) and not na(bestTermRet)
     if strategyMode == "momentum"
-        longSignal := bestScore >= minConfidence and regimeIsUp and bestTermRet > forecastThreshold
-        shortSignal := bestScore >= minConfidence and regimeIsDown and bestTermRet < -forecastThreshold
+        // Relaxed: follow strongest analogue's forward return sign; strict adds coarse regime gate on the same segment (often silent for long stretches).
+        momLong = bestScore >= minConfidence and bestTermRet > forecastThreshold
+        momShort = bestScore >= minConfidence and bestTermRet < -forecastThreshold
+        longSignal := momLong and (strictRegimeForMode ? regimeIsUp : true)
+        shortSignal := momShort and (strictRegimeForMode ? regimeIsDown : true)
     else if strategyMode == "mean_reversion"
-        longSignal := bestScore >= minConfidence and regimeIsMeanReverting and not na(pathRange) and pathRange > forecastThreshold and bestTermRet < -forecastThreshold
-        shortSignal := bestScore >= minConfidence and regimeIsMeanReverting and not na(pathRange) and pathRange > forecastThreshold and bestTermRet > forecastThreshold
+        mrLong = bestScore >= minConfidence and not na(pathRange) and pathRange > forecastThreshold and bestTermRet < -forecastThreshold
+        mrShort = bestScore >= minConfidence and not na(pathRange) and pathRange > forecastThreshold and bestTermRet > forecastThreshold
+        longSignal := mrLong and (strictRegimeForMode ? regimeIsMeanReverting : true)
+        shortSignal := mrShort and (strictRegimeForMode ? regimeIsMeanReverting : true)
     else
-        longSignal := bestScore >= minConfidence and regimeIsHighVol and not na(bestMaxRet) and bestMaxRet > forecastThreshold
-        shortSignal := bestScore >= minConfidence and regimeIsHighVol and not na(bestMinRet) and bestMinRet < -forecastThreshold
+        brLong = bestScore >= minConfidence and not na(bestMaxRet) and bestMaxRet > forecastThreshold
+        brShort = bestScore >= minConfidence and not na(bestMinRet) and bestMinRet < -forecastThreshold
+        longSignal := brLong and (strictRegimeForMode ? regimeIsHighVol : true)
+        shortSignal := brShort and (strictRegimeForMode ? regimeIsHighVol : true)
 
 // Pulse = signal just turned on (off → on). reenterAfterExit = first flat bar after a fill while sticky signal stays valid.
 longPulse = longSignal and (bar_index == 0 or not longSignal[1])
