@@ -3,7 +3,9 @@ indicator("The Similarity Pattern Engine", overlay = true, max_lines_count = 500
 
 patternLength = input.int(40, "Pattern Length", minval = 20, maxval = 120)
 forecastBars = input.int(20, "Forecast Bars", minval = 5, maxval = 60)
-searchLookback = input.int(900, "Search Lookback", minval = 200, maxval = 3000)
+searchLookback = input.int(600, "Search Lookback", minval = 200, maxval = 3000)
+// Step endOffset by this many bars (1 = exhaustive; 3–5 is often fine and much faster on free plans).
+searchStride = input.int(3, "Search Stride", minval = 1, maxval = 15)
 topK = input.int(5, "Top Matches", minval = 1, maxval = 8)
 minConfidence = input.float(60.0, "Min Confidence", minval = 0.0, maxval = 100.0, step = 1.0)
 
@@ -296,7 +298,9 @@ float p50End = na
 float p75End = na
 float p90End = na
 
-if enoughHistory
+// Heavy O(scales × lookback × pattern) work: run once on the last bar only.
+// Previously this ran on every historical bar → millions of candidate scores → RE10110 (20s limit).
+if enoughHistory and barstate.islast
     array.clear(topScores)
     array.clear(topEndOffsets)
     array.clear(topLengths)
@@ -326,7 +330,7 @@ if enoughHistory
         candidateLength = int(math.max(2, math.round(patternLength * scaleValue)))
         maxEndOffset = searchLookback - candidateLength + 1
         if maxEndOffset >= forecastBars
-            for endOffset = forecastBars to maxEndOffset
+            for endOffset = forecastBars to maxEndOffset by searchStride
                 [candidateScore, candidateRegime] = f_score_candidate(
                      queryReturns,
                      queryNorm,

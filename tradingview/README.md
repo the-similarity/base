@@ -39,9 +39,20 @@ Because TradingView Pine runs inside a bounded chart runtime, the scripts intent
 
 - Pattern Length: `40`
 - Forecast Bars: `20`
-- Search Lookback: `600–1200`
+- Search Lookback: `600–1200` (default `600` in Pine sources)
+- **Search Stride**: `3` on the **indicator** (default), `4` on the **strategy** (each bar replays the scan — stride matters more there)
 - Top Matches: `3–5`
 - Scales: `0.75 / 1.00 / 1.25 / 1.50`
+
+### Runtime error RE10110 (“script takes too long — 20 seconds”)
+
+TradingView caps script time per run (stricter on free plans). Mitigations:
+
+1. **Indicator** (`similarity_indicator.pine`): the expensive analogue scan runs **only on `barstate.islast`** (one pass when the chart finishes updating), not on every historical bar. That was the main fix for timeouts.
+2. **Raise `Search Stride`** (e.g. `4–8`) — fewer `endOffset` steps; slightly coarser search.
+3. **Lower `Search Lookback`** or **Pattern Length**.
+4. Use **fewer distinct scales** (set two scales to the same value in settings to effectively disable one, or we can add toggles later).
+5. **Strategy**: still evaluates every bar — keep stride ≥ `4`, lookback modest, or test on shorter date ranges.
 
 If the script feels slow on a low timeframe, reduce:
 

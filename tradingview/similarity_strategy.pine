@@ -3,7 +3,8 @@ strategy("The Similarity Strategy", overlay = true, pyramiding = 0, max_bars_bac
 
 patternLength = input.int(40, "Pattern Length", minval = 20, maxval = 120)
 forecastBars = input.int(20, "Forecast Bars", minval = 5, maxval = 60)
-searchLookback = input.int(900, "Search Lookback", minval = 200, maxval = 3000)
+searchLookback = input.int(600, "Search Lookback", minval = 200, maxval = 3000)
+searchStride = input.int(4, "Search Stride", minval = 1, maxval = 15, tooltip = "Strategies replay every bar — use 3–6 to avoid RE10110 on long history.")
 topK = input.int(5, "Top Matches", minval = 1, maxval = 8)
 minConfidence = input.float(65.0, "Min Confidence", minval = 0.0, maxval = 100.0, step = 1.0)
 
@@ -312,7 +313,7 @@ if enoughHistory
         candidateLength = int(math.max(2, math.round(patternLength * scaleValue)))
         maxEndOffset = searchLookback - candidateLength + 1
         if maxEndOffset >= forecastBars
-            for endOffset = forecastBars to maxEndOffset
+            for endOffset = forecastBars to maxEndOffset by searchStride
                 [candidateScore, candidateRegime] = f_score_candidate(
                      queryReturns,
                      queryNorm,
