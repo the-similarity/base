@@ -307,9 +307,9 @@ if needFullSearch
 
         bestEnd = array.get(topEndOffsets, 0)
         matchAnchor = close[bestEnd]
-        pathMinRet = na
-        pathMaxRet = na
-        termRet = na
+        pathMinRet = float(na)
+        pathMaxRet = float(na)
+        termRet = float(na)
         for step = 1 to forecastBars
             if bestEnd >= step and matchAnchor != 0.0
                 futurePrice = close[bestEnd - step]
