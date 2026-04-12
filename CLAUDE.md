@@ -154,9 +154,49 @@ Temporary worktrees are created automatically by the Agent tool and cleaned up a
 
 Use the `/browse` skill from gstack for all web browsing. Never use `mcp__claude-in-chrome__*` tools.
 
-## Obsidian research wiki (`obsidian_thesim/`)
+## Obsidian Knowledge Base — MANDATORY (`obsidian_thesim/`)
 
-The vault **`obsidian_thesim/`** is the project’s **LLM-maintained research and learning base** (ingest → compiled markdown wiki → Obsidian as viewer). It also holds **engineering onboarding** notes (API snippets, matcher/config maps, tests) — start at **`obsidian_thesim/Engineers start here.md`**. Agents should **add and update notes** as research and coding produce durable insights. **Conventions and folder layout:** `.claude/OBSIDIAN_KB.md`. Cursor loads the same policy via `.cursor/rules/obsidian-knowledge-base.mdc`.
+The vault **`obsidian_thesim/`** is the project’s **single source of truth for durable knowledge**. Every agent (interactive sessions, worktree agents, orchestrator workers) MUST update it when producing knowledge that has future reuse value. Full conventions: `.claude/OBSIDIAN_KB.md`.
+
+### When to write to the vault (MANDATORY)
+
+| Trigger | What to write | Where |
+|---------|--------------|-------|
+| **New method or module added** | Concept note explaining what it does, why, key parameters, tradeoffs | `obsidian_thesim/concepts/<method>.md` |
+| **Bug fix with non-obvious root cause** | "What broke and why" note so future agents don’t repeat it | `obsidian_thesim/topics/<topic>.md` |
+| **Architecture decision** | Decision record: what was decided, alternatives considered, why | `obsidian_thesim/topics/<decision>.md` |
+| **Research or paper ingested** | Summary + key claims + limitations in compiled note, raw in `raw/` | `obsidian_thesim/research/` |
+| **New data source or pipeline** | Data card: source, schema, refresh cadence, quirks | `obsidian_thesim/concepts/<source>.md` |
+| **Config change with non-obvious rationale** | Why this value, what was tried, what broke | Update relevant concept note |
+| **Test insight** | Edge case discovered, calibration finding, performance benchmark | Update relevant concept note or new topic |
+
+### How to write
+
+1. Use `[[wikilinks]]` to cross-link related concepts, methods, and code paths.
+2. Use real relative paths from repo root when referencing code (e.g. `the_similarity/core/matcher.py`).
+3. Update `obsidian_thesim/_MOC.md` (Map of Content) when adding new notes.
+4. Keep notes concise — aim for "what would a new agent need to know in 60 seconds."
+5. Consolidate, don’t duplicate — check if a note already exists before creating a new one.
+
+### When NOT to write
+
+- Pure mechanical changes (rename, formatting, dependency bump) — the git log covers these.
+- Information already in code docstrings — don’t duplicate, link instead.
+- Ephemeral debugging notes — these die with the session.
+
+### Vault structure
+```
+obsidian_thesim/
+├── _MOC.md                    # Master index — update this when adding notes
+├── concepts/                  # Method explainers, data cards, architecture
+├── topics/                    # Cross-cutting topics, decisions, insights
+├── research/                  # Paper summaries, literature reviews
+│   └── full-text/notes/       # Detailed paper notes
+├── raw/                       # Unprocessed clippings, PDFs, images
+├── outputs/                   # Generated artifacts (diagrams, slides)
+├── Engineers start here.md    # Onboarding entry point
+└── *.md                       # Top-level explainers for non-technical readers
+```
 
 ## Available skills
 
