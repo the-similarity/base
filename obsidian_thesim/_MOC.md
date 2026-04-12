@@ -12,6 +12,7 @@ Vault for **The Similarity**: research ingests, what we learn while building, an
 - [[Nine-method pipeline]] — tiered matcher mental model
 - [[Vision pillars]] — product thesis (from repo vision)
 - [[Repo research and docs]] — `research/` and `docs/` paths in the codebase
+- [[Projector calibration lane]] — autoresearch lane for forecast cone tuning
 
 ## Folders
 
