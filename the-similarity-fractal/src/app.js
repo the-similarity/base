@@ -4,6 +4,43 @@ import { PointerLockControls } from 'three/addons/controls/PointerLockControls.j
 import { generateTerrain } from './fractal.js';
 import { buildTerrainMesh, buildFeatures } from './terrain-renderer.js';
 
+// ── Simulation module imports ────────────────────────────────────────────────
+// These power the 3D society simulation mode ("sim"). Each module was built
+// independently and merged via separate PRs. The integration wires them into
+// the existing app lifecycle alongside classic and engine terrain modes.
+import { SimEngine } from './sim/engine.js';
+import { PRNG } from './sim/rng.js';
+import { sampleTerrain as sampleTerrainGrids } from './world/terrain-sampler.js';
+import { NavGrid } from './world/nav-grid.js';
+import { RegionMap } from './world/region-map.js';
+import { ResourceField } from './world/resource-field.js';
+import { generatePOIs } from './world/poi-generator.js';
+// Climate is managed internally by EnvironmentSystem — no direct import needed.
+// createAgent is not imported directly — agents are spawned via LifecycleSystem.
+import { LifecycleSystem } from './sim/lifecycle-system.js';
+import { MovementSystem } from './sim/movement-system.js';
+import { PerceptionSystem } from './sim/perception-system.js';
+import { LODSystem } from './sim/lod-system.js';
+import { DecisionSystem } from './sim/decision-system.js';
+import { InteractionSystem } from './sim/interaction-system.js';
+import { EconomySystem } from './sim/economy-system.js';
+import { DiseaseSystem } from './sim/disease-system.js';
+import { FactionSystem } from './sim/faction-system.js';
+import { TelemetrySystem } from './sim/telemetry-system.js';
+import { SimilaritySystem } from './sim/similarity-system.js';
+import { EnvironmentSystem } from './sim/environment-system.js';
+import { EventBus } from './sim/event-bus.js';
+import { DEFAULT_SIM_CONFIG } from './data/sim-config.js';
+import { SceneBridge } from './render/scene-bridges.js';
+import {
+  AgentRenderer,
+  COLOR_MODE_BY_FACTION,
+  COLOR_MODE_BY_HEALTH,
+  COLOR_MODE_BY_ROLE,
+} from './render/agent-renderer.js';
+import { DebugOverlays } from './render/debug-overlays.js';
+import { HeatmapRenderer } from './render/heatmap-renderer.js';
+
 /**
  * Browser entrypoint for the fractal terrain demo.
  *
@@ -19,9 +56,10 @@ import { buildTerrainMesh, buildFeatures } from './terrain-renderer.js';
  * - API terrain semantics / biome generation
  * - the engine-mode terrain mesh construction details (`terrain-renderer.js`)
  *
- * There are two rendering modes:
+ * There are three rendering modes:
  * 1. `classic`: fully local midpoint-displacement fractal terrain
  * 2. `engine`: terrain fetched from a backend API, then rendered locally
+ * 3. `sim`: 3D society simulation — agent-based model running on terrain
  *
  * Future-agent note:
  * - If terrain math looks wrong, start in `fractal.js`.
@@ -188,8 +226,51 @@ let showWireframe = false;
 let flatShading = true;
 let animating = false;
 let animTime = 0;
-let currentMode = 'classic';  // 'classic' or 'engine'
+let currentMode = 'classic';  // 'classic', 'engine', or 'sim'
 let suppressHistoryRecording = false;
+
+// ── Simulation mode state ────────────────────────────────────────────────────
+// These are populated when entering sim mode and torn down when leaving it.
+// All are null/false when sim mode is inactive, preventing accidental ticks.
+
+/** @type {SimEngine|null} The active simulation engine instance. */
+let simEngine = null;
+
+/** @type {AgentRenderer|null} Instanced mesh renderer for agent positions. */
+let simAgentRenderer = null;
+
+/** @type {DebugOverlays|null} Debug visualization layers (nav grid, regions, etc). */
+let simDebugOverlays = null;
+
+/** @type {HeatmapRenderer|null} Heatmap overlay for resource/conflict/disease fields. */
+let simHeatmapRenderer = null;
+
+/** @type {SceneBridge|null} Bridge between simulation snapshot and Three.js scene. */
+let simSceneBridge = null;
+
+/** @type {boolean} Whether the simulation tick loop is running. */
+let simPlaying = false;
+
+/** @type {number} Simulation speed multiplier (1-4). */
+let simSpeed = 1;
+
+/** @type {NavGrid|null} Cached nav grid for overlay toggling. */
+let simNavGrid = null;
+
+/** @type {RegionMap|null} Cached region map for overlay toggling. */
+let simRegionMap = null;
+
+/** @type {Array|null} Cached POI list for overlay toggling. */
+let simPOIs = null;
+
+/** @type {PerceptionSystem|null} Cached perception system ref for overlay data. */
+let simPerceptionSystem = null;
+
+/** @type {number} Timestamp of the last animation frame, for delta calculation. */
+let simLastFrameTime = 0;
+
+/** @type {boolean} Whether the heatmap overlay is currently shown. */
+let heatmapVisible = false;
 
 const API_URL = 'http://127.0.0.1:8000';
 
@@ -374,17 +455,21 @@ function applyWorldState(snapshot) {
   document.getElementById('engine-size').value = String(snapshot.engine.size);
   document.getElementById('val-engine-size').textContent = String(snapshot.engine.size);
 
+  // Deactivate all mode buttons and hide all mode panels.
+  document.getElementById('btn-classic').classList.remove('active');
+  document.getElementById('btn-engine').classList.remove('active');
+  document.getElementById('btn-sim').classList.remove('active');
+  document.getElementById('classic-controls').style.display = 'none';
+  document.getElementById('engine-controls').style.display = 'none';
+  document.getElementById('sim-controls').style.display = 'none';
+
   if (currentMode === 'engine') {
     document.getElementById('btn-engine').classList.add('active');
-    document.getElementById('btn-classic').classList.remove('active');
-    document.getElementById('classic-controls').style.display = 'none';
     document.getElementById('engine-controls').style.display = '';
     buildEngineTerrain();
   } else {
     document.getElementById('btn-classic').classList.add('active');
-    document.getElementById('btn-engine').classList.remove('active');
     document.getElementById('classic-controls').style.display = '';
-    document.getElementById('engine-controls').style.display = 'none';
     buildClassicTerrain();
   }
 
@@ -406,6 +491,64 @@ function restoreInitialWorld() {
   } catch {
     return false;
   }
+}
+
+/**
+ * Build a Three.js terrain mesh from fractal generator output.
+ *
+ * Shared between buildClassicTerrain() and buildSimulation() to avoid
+ * duplicating the geometry → color → material pipeline. The mesh is added
+ * to the scene and assigned to the module-level `terrainMesh`.
+ *
+ * @param {object} terrain - Output from generateTerrain().
+ * @param {string} colormap - Color ramp name from COLOR_MAPS.
+ * @param {boolean} useFlat - Whether to use flat shading.
+ */
+function buildTerrainMeshFromFractal(terrain, colormap, useFlat) {
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.BufferAttribute(terrain.positions, 3));
+  geometry.setAttribute('normal', new THREE.BufferAttribute(terrain.normals, 3));
+  geometry.setIndex(new THREE.BufferAttribute(terrain.indices, 1));
+
+  // Derive a normalized [0, 1] height coordinate for color lookup.
+  let minH = Infinity, maxH = -Infinity;
+  for (let i = 0; i < terrain.heights.length; i++) {
+    minH = Math.min(minH, terrain.heights[i]);
+    maxH = Math.max(maxH, terrain.heights[i]);
+  }
+  const range = maxH - minH || 1;
+
+  // Color every vertex by sampled colormap height.
+  const colors = new Float32Array(terrain.vertexCount * 3);
+  for (let i = 0; i < terrain.vertexCount; i++) {
+    const t = (terrain.heights[i] - minH) / range;
+    const c = sampleColorMap(colormap, t);
+    colors[i * 3] = c.r;
+    colors[i * 3 + 1] = c.g;
+    colors[i * 3 + 2] = c.b;
+  }
+  geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+  if (useFlat) {
+    const flatGeo = geometry.toNonIndexed();
+    flatGeo.computeVertexNormals();
+    const material = new THREE.MeshStandardMaterial({
+      vertexColors: true, flatShading: true,
+      roughness: 0.8, metalness: 0.1, side: THREE.DoubleSide,
+    });
+    terrainMesh = new THREE.Mesh(flatGeo, material);
+    geometry.dispose();
+  } else {
+    const material = new THREE.MeshStandardMaterial({
+      vertexColors: true, flatShading: false,
+      roughness: 0.8, metalness: 0.1, side: THREE.DoubleSide,
+    });
+    terrainMesh = new THREE.Mesh(geometry, material);
+  }
+
+  terrainMesh.castShadow = true;
+  terrainMesh.receiveShadow = true;
+  scene.add(terrainMesh);
 }
 
 /**
@@ -431,54 +574,7 @@ function buildClassicTerrain() {
   const genTime = (performance.now() - t0).toFixed(1);
 
   clearScene();
-
-  // Convert raw typed arrays into a Three.js indexed triangle mesh.
-  const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute('position', new THREE.BufferAttribute(terrain.positions, 3));
-  geometry.setAttribute('normal', new THREE.BufferAttribute(terrain.normals, 3));
-  geometry.setIndex(new THREE.BufferAttribute(terrain.indices, 1));
-
-  // Derive a normalized [0, 1] height coordinate for color lookup.
-  let minH = Infinity, maxH = -Infinity;
-  for (let i = 0; i < terrain.heights.length; i++) {
-    minH = Math.min(minH, terrain.heights[i]);
-    maxH = Math.max(maxH, terrain.heights[i]);
-  }
-  const range = maxH - minH || 1;
-
-  // Color every vertex by sampled colormap height.
-  const colors = new Float32Array(terrain.vertexCount * 3);
-  for (let i = 0; i < terrain.vertexCount; i++) {
-    const t = (terrain.heights[i] - minH) / range;
-    const c = sampleColorMap(colormap, t);
-    colors[i * 3] = c.r;
-    colors[i * 3 + 1] = c.g;
-    colors[i * 3 + 2] = c.b;
-  }
-  geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-
-  if (flatShading) {
-    // Flat shading needs a non-indexed geometry so each face has distinct
-    // vertices and therefore distinct face normals.
-    const flatGeo = geometry.toNonIndexed();
-    flatGeo.computeVertexNormals();
-    const material = new THREE.MeshStandardMaterial({
-      vertexColors: true, flatShading: true,
-      roughness: 0.8, metalness: 0.1, side: THREE.DoubleSide,
-    });
-    terrainMesh = new THREE.Mesh(flatGeo, material);
-    geometry.dispose();
-  } else {
-    const material = new THREE.MeshStandardMaterial({
-      vertexColors: true, flatShading: false,
-      roughness: 0.8, metalness: 0.1, side: THREE.DoubleSide,
-    });
-    terrainMesh = new THREE.Mesh(geometry, material);
-  }
-
-  terrainMesh.castShadow = true;
-  terrainMesh.receiveShadow = true;
-  scene.add(terrainMesh);
+  buildTerrainMeshFromFractal(terrain, colormap, flatShading);
 
   // Separate wireframe mesh keeps toggling cheap and avoids mutating the main material.
   const wireGeo = new THREE.BufferGeometry();
@@ -570,9 +666,272 @@ async function buildEngineTerrain() {
 function buildTerrain() {
   if (currentMode === 'engine') {
     buildEngineTerrain();
+  } else if (currentMode === 'sim') {
+    buildSimulation();
   } else {
     buildClassicTerrain();
   }
+}
+
+/**
+ * Tear down all simulation-specific objects and free GPU resources.
+ *
+ * Called when switching away from sim mode or before rebuilding the simulation.
+ * Safe to call even if sim mode was never entered (all guards check for null).
+ */
+function teardownSimulation() {
+  if (simEngine) {
+    simEngine.reset();
+    simEngine = null;
+  }
+  if (simAgentRenderer) {
+    simAgentRenderer.dispose();
+    simAgentRenderer = null;
+  }
+  if (simDebugOverlays) {
+    simDebugOverlays.dispose();
+    simDebugOverlays = null;
+  }
+  if (simHeatmapRenderer) {
+    simHeatmapRenderer.dispose();
+    simHeatmapRenderer = null;
+  }
+  if (simSceneBridge) {
+    simSceneBridge.dispose();
+    simSceneBridge = null;
+  }
+  simNavGrid = null;
+  simRegionMap = null;
+  simPOIs = null;
+  simPerceptionSystem = null;
+  simPlaying = false;
+  simSpeed = 1;
+  heatmapVisible = false;
+
+  // Hide sim-specific UI elements.
+  const telemetryEl = document.getElementById('sim-telemetry');
+  if (telemetryEl) telemetryEl.style.display = 'none';
+}
+
+/**
+ * Convert a RegionMap into the iterable-of-regions format that LifecycleSystem
+ * expects: a Map-like with .values() yielding { id, cells: [{x, y, z}] }.
+ *
+ * RegionMap stores flat cell indices internally. We convert each index to
+ * world-space {x, y, z} coordinates using the NavGrid's coordinate transform
+ * so spawned agents get proper 3D positions.
+ *
+ * @param {RegionMap} regionMap - The region map to adapt.
+ * @param {NavGrid} navGrid - Navigation grid for coordinate conversion.
+ * @returns {Map<number, {id: number, cells: Array<{x: number, y: number, z: number}>}>}
+ */
+function buildRegionMapForSpawning(regionMap, navGrid) {
+  const result = new Map();
+  const size = regionMap.size;
+
+  for (let regionId = 1; regionId <= regionMap.regionCount; regionId++) {
+    const flatIndices = regionMap.getRegionCells(regionId);
+    const cells = flatIndices.map(idx => {
+      const gx = idx % size;
+      const gz = Math.floor(idx / size);
+      const { wx, wz } = navGrid.gridToWorld(gx, gz);
+      const y = navGrid.getHeight(gx, gz);
+      return { x: wx, y: y, z: wz };
+    });
+    result.set(regionId, { id: regionId, cells });
+  }
+
+  return result;
+}
+
+/**
+ * Initialize and start the 3D society simulation.
+ *
+ * This function:
+ * 1. Generates terrain via the classic fractal generator (no backend required).
+ * 2. Samples the terrain mesh into 2D grids for navigation / biome classification.
+ * 3. Builds world infrastructure: NavGrid, RegionMap, ResourceField, POIs, Climate.
+ * 4. Creates the SimEngine and registers all systems in the correct order.
+ * 5. Spawns initial agents and sets up renderers.
+ *
+ * The simulation then ticks in the main animation loop when simPlaying is true.
+ */
+function buildSimulation() {
+  // Tear down any prior sim instance so GPU resources do not leak.
+  teardownSimulation();
+
+  // ── Step 1: Generate terrain ──────────────────────────────────────────────
+  // We reuse the classic fractal generator so sim mode works without the backend.
+  // The terrain provides the height data that all world systems depend on.
+  const iterations = parseInt(document.getElementById('iterations').value);
+  const roughness = parseFloat(document.getElementById('roughness').value);
+  const displacementVal = parseFloat(document.getElementById('displacement').value);
+  const scaleVal = parseFloat(document.getElementById('scale').value);
+
+  const terrain = generateTerrain({
+    iterations, roughness, displacement: displacementVal,
+    scale: scaleVal, seed: currentSeed, baseShape: 'diamond',
+  });
+
+  // ── Step 2: Build the visual terrain mesh ─────────────────────────────────
+  // Reuse the shared helper with flat shading and earthy "terrain" colormap.
+  clearScene();
+  buildTerrainMeshFromFractal(terrain, 'terrain', true);
+
+  // ── Step 3: Sample terrain into 2D grids ──────────────────────────────────
+  // The simulation needs regular grids (heightMap, slopeMap, waterMap, biomeMap)
+  // for pathfinding, region assignment, and resource generation.
+  const gridSize = DEFAULT_SIM_CONFIG.world.gridSize;
+  const worldScale = DEFAULT_SIM_CONFIG.world.worldScale;
+
+  const terrainMaps = sampleTerrainGrids(terrain, gridSize, worldScale);
+
+  // ── Step 4: Build world infrastructure ────────────────────────────────────
+  const rng = new PRNG(currentSeed);
+  const eventBus = new EventBus();
+
+  simNavGrid = new NavGrid(terrainMaps);
+  simRegionMap = new RegionMap(simNavGrid);
+
+  const resourceField = new ResourceField(terrainMaps, rng);
+
+  // Generate points of interest (villages, mines, shrines, etc.) from terrain.
+  // The POI array is cached for debug overlay rendering. The POIRegistry is
+  // not needed by any system currently — systems query POIs via world state.
+  simPOIs = generatePOIs(terrainMaps, simRegionMap, rng);
+
+  // ── Step 5: Create SimEngine and register systems ─────────────────────────
+  // System registration order defines simulation semantics. The order below
+  // ensures: environment updates first -> agents perceive -> decide -> move ->
+  // interact -> economic/disease/faction consequences -> telemetry records.
+  simEngine = new SimEngine({
+    ticksPerSecond: DEFAULT_SIM_CONFIG.time.ticksPerSecond,
+    seed: currentSeed,
+  });
+
+  const perceptionSystem = new PerceptionSystem();
+  simPerceptionSystem = perceptionSystem;
+
+  simEngine.registerSystem(new EnvironmentSystem(
+    {}, // use default climate config
+    resourceField,
+  ));
+  simEngine.registerSystem(new LifecycleSystem(eventBus, rng));
+  simEngine.registerSystem(perceptionSystem);
+  simEngine.registerSystem(new LODSystem());
+  simEngine.registerSystem(new DecisionSystem(rng));
+  simEngine.registerSystem(new MovementSystem(simNavGrid, eventBus));
+  simEngine.registerSystem(new InteractionSystem(eventBus, rng));
+  simEngine.registerSystem(new EconomySystem(eventBus));
+  simEngine.registerSystem(new DiseaseSystem(eventBus, rng));
+  simEngine.registerSystem(new FactionSystem(eventBus, rng));
+  simEngine.registerSystem(new TelemetrySystem(eventBus));
+  simEngine.registerSystem(new SimilaritySystem());
+
+  // ── Step 6: Initialize engine with terrain data ───────────────────────────
+  simEngine.init({
+    size: gridSize,
+    worldScale: worldScale,
+    heightMap: terrainMaps.heightMap,
+    slopeMap: terrainMaps.slopeMap,
+    waterMap: terrainMaps.waterMap,
+    biomeMap: terrainMaps.biomeMap,
+    regionMap: simRegionMap,
+    navGrid: simNavGrid,
+  }, currentSeed);
+
+  // ── Step 7: Spawn initial agents ──────────────────────────────────────────
+  // LifecycleSystem needs a Map of regions with world-space cell positions.
+  // We build an adapter from the RegionMap's flat indices to {x, y, z} coords.
+  const lifecycleSystem = simEngine._systems.find(s => s instanceof LifecycleSystem);
+  if (lifecycleSystem) {
+    const spawnMap = buildRegionMapForSpawning(simRegionMap, simNavGrid);
+    const initialAgents = lifecycleSystem.spawnInitialAgents(
+      DEFAULT_SIM_CONFIG.agents.initialCount,
+      spawnMap,
+      simNavGrid,
+    );
+    // Inject spawned agents into the engine's world state.
+    simEngine._world.agents = initialAgents;
+  }
+
+  // ── Step 8: Set up renderers ──────────────────────────────────────────────
+  const heightScale = 2.0; // vertical exaggeration for visual clarity
+
+  simSceneBridge = new SceneBridge(scene, worldScale, heightScale);
+  simAgentRenderer = new AgentRenderer(scene, DEFAULT_SIM_CONFIG.agents.maxCount);
+  simDebugOverlays = new DebugOverlays(scene, worldScale, heightScale);
+  simHeatmapRenderer = new HeatmapRenderer(scene, worldScale, heightScale, gridSize);
+
+  // ── Step 9: Update UI ─────────────────────────────────────────────────────
+  simPlaying = false;
+  simSpeed = 1;
+  simLastFrameTime = performance.now();
+
+  const playBtn = document.getElementById('btn-sim-playpause');
+  if (playBtn) playBtn.innerHTML = '&#9654; Play';
+
+  const telemetryEl = document.getElementById('sim-telemetry');
+  if (telemetryEl) telemetryEl.style.display = '';
+
+  document.getElementById('val-sim-pop').textContent = String(
+    simEngine._world.agents.length
+  );
+  document.getElementById('val-sim-tick').textContent = '0';
+
+  const agentCount = simEngine._world.agents.length;
+  document.getElementById('stats').textContent =
+    `Sim · ${gridSize}x${gridSize} · ${simRegionMap.regionCount} regions · ${agentCount} agents`;
+  document.getElementById('seed-display').textContent = `seed: ${currentSeed}`;
+}
+
+/**
+ * Update simulation telemetry readouts from the current engine snapshot.
+ *
+ * Called every frame when sim mode is active to keep the UI counters in sync.
+ * Reads directly from the snapshot to avoid coupling to telemetry system internals.
+ *
+ * @param {object} snapshot - World snapshot from SimEngine.getSnapshot().
+ */
+function updateSimTelemetry(snapshot) {
+  const agents = snapshot.agents || [];
+
+  // Single pass over agents to count alive, sum hunger — avoids allocating
+  // a filtered array every frame (hot path at 60 fps).
+  let aliveCount = 0;
+  let totalHunger = 0;
+  let hungerCount = 0;
+  for (let i = 0; i < agents.length; i++) {
+    const a = agents[i];
+    if (a.alive === false) continue;
+    aliveCount++;
+    if (a.needs && typeof a.needs.hunger === 'number') {
+      totalHunger += a.needs.hunger;
+      hungerCount++;
+    }
+  }
+  const deadCount = agents.length - aliveCount;
+
+  document.getElementById('val-sim-pop').textContent = String(aliveCount);
+  document.getElementById('val-sim-tick').textContent = String(snapshot.tick || 0);
+
+  document.getElementById('telem-pop').textContent = `pop: ${aliveCount}`;
+  document.getElementById('telem-deaths').textContent = `deaths: ${deadCount}`;
+
+  // Count conflict events from this tick's event buffer.
+  let conflicts = 0;
+  const events = snapshot.events || [];
+  for (let i = 0; i < events.length; i++) {
+    const t = events[i].type;
+    if (t === 'conflict' || t === 'interaction:fight') conflicts++;
+  }
+  document.getElementById('telem-conflicts').textContent = `conflicts: ${conflicts}`;
+
+  const avgHunger = hungerCount > 0 ? (totalHunger / hungerCount).toFixed(2) : '0.00';
+  document.getElementById('telem-hunger').textContent = `avg hunger: ${avgHunger}`;
+
+  const factionCount = (snapshot.factions || []).length;
+  document.getElementById('telem-factions').textContent = `factions: ${factionCount}`;
 }
 
 /**
@@ -798,24 +1157,51 @@ renderer.domElement.addEventListener('dblclick', (e) => {
   }
 });
 
-// Mode toggle wiring. Only one control panel is visible at a time.
-document.getElementById('btn-classic').addEventListener('click', (e) => {
-  currentMode = 'classic';
-  e.target.classList.add('active');
-  document.getElementById('btn-engine').classList.remove('active');
-  document.getElementById('classic-controls').style.display = '';
-  document.getElementById('engine-controls').style.display = 'none';
-  buildClassicTerrain();
-});
+/**
+ * Switch mode UI: hide all mode-specific control panels, deactivate all mode
+ * buttons, then activate the selected mode. This avoids duplicating the
+ * "deactivate everything" logic in each mode button handler.
+ *
+ * @param {'classic'|'engine'|'sim'} mode - The mode to switch to.
+ */
+function activateMode(mode) {
+  // Tear down sim if leaving sim mode — free GPU resources and stop the tick loop.
+  if (currentMode === 'sim' && mode !== 'sim') {
+    teardownSimulation();
+  }
 
-document.getElementById('btn-engine').addEventListener('click', (e) => {
-  currentMode = 'engine';
-  e.target.classList.add('active');
+  currentMode = mode;
+
+  // Deactivate all mode buttons.
   document.getElementById('btn-classic').classList.remove('active');
+  document.getElementById('btn-engine').classList.remove('active');
+  document.getElementById('btn-sim').classList.remove('active');
+
+  // Hide all mode-specific control panels.
   document.getElementById('classic-controls').style.display = 'none';
-  document.getElementById('engine-controls').style.display = '';
-  buildEngineTerrain();
-});
+  document.getElementById('engine-controls').style.display = 'none';
+  document.getElementById('sim-controls').style.display = 'none';
+
+  // Activate the selected mode.
+  if (mode === 'classic') {
+    document.getElementById('btn-classic').classList.add('active');
+    document.getElementById('classic-controls').style.display = '';
+    buildClassicTerrain();
+  } else if (mode === 'engine') {
+    document.getElementById('btn-engine').classList.add('active');
+    document.getElementById('engine-controls').style.display = '';
+    buildEngineTerrain();
+  } else if (mode === 'sim') {
+    document.getElementById('btn-sim').classList.add('active');
+    document.getElementById('sim-controls').style.display = '';
+    buildSimulation();
+  }
+}
+
+// Mode toggle wiring. Only one control panel is visible at a time.
+document.getElementById('btn-classic').addEventListener('click', () => activateMode('classic'));
+document.getElementById('btn-engine').addEventListener('click', () => activateMode('engine'));
+document.getElementById('btn-sim').addEventListener('click', () => activateMode('sim'));
 
 // Engine-specific controls.
 document.getElementById('preset').addEventListener('change', () => {
@@ -833,6 +1219,137 @@ document.getElementById('btn-generate').addEventListener('click', () => {
   currentSeed = Math.floor(Math.random() * 100000);
   buildEngineTerrain();
   recordWorldInHistory();
+});
+
+// ── Simulation control wiring ────────────────────────────────────────────────
+// These buttons only affect sim mode state. They are inert (but harmless) in
+// other modes because the sim-controls panel is hidden.
+
+const simPlayPauseBtn = document.getElementById('btn-sim-playpause');
+if (simPlayPauseBtn) {
+  simPlayPauseBtn.addEventListener('click', () => {
+    if (currentMode !== 'sim' || !simEngine) return;
+    simPlaying = !simPlaying;
+    simPlayPauseBtn.innerHTML = simPlaying ? '&#9646;&#9646; Pause' : '&#9654; Play';
+    // Reset frame timer so the first tick after unpause does not include
+    // the entire duration the sim was paused.
+    simLastFrameTime = performance.now();
+  });
+}
+
+const simStepBtn = document.getElementById('btn-sim-step');
+if (simStepBtn) {
+  simStepBtn.addEventListener('click', () => {
+    if (currentMode !== 'sim' || !simEngine) return;
+    // Advance exactly one tick by feeding a fake delta equal to one tick period.
+    const tickPeriodMs = 1000 / (DEFAULT_SIM_CONFIG.time.ticksPerSecond || 6);
+    simEngine.tick(tickPeriodMs);
+    const snapshot = simEngine.getSnapshot();
+    if (simSceneBridge) simSceneBridge.updateFromSnapshot(snapshot);
+    if (simAgentRenderer) simAgentRenderer.updateFromAgents(snapshot.agents);
+    updateSimTelemetry(snapshot);
+  });
+}
+
+const simSpeedSlider = document.getElementById('sim-speed');
+if (simSpeedSlider) {
+  simSpeedSlider.addEventListener('input', () => {
+    simSpeed = parseInt(simSpeedSlider.value);
+    document.getElementById('val-sim-speed').textContent = `${simSpeed}x`;
+  });
+}
+
+// Overlay toggle buttons. Each toggles a debug layer in the DebugOverlays renderer.
+// The overlays are built lazily on first toggle from cached world data.
+const overlayButtons = [
+  { btnId: 'btn-ov-navgrid', layer: 'navGrid', buildFn: () => {
+    if (simDebugOverlays && simNavGrid) {
+      simDebugOverlays.showNavGrid(simNavGrid);
+    }
+  }},
+  { btnId: 'btn-ov-regions', layer: 'regions', buildFn: () => {
+    if (simDebugOverlays && simRegionMap && simNavGrid) {
+      simDebugOverlays.showRegions(simRegionMap, simNavGrid);
+    }
+  }},
+  { btnId: 'btn-ov-pois', layer: 'pois', buildFn: () => {
+    if (simDebugOverlays && simPOIs) {
+      simDebugOverlays.showPOIs(simPOIs);
+    }
+  }},
+  { btnId: 'btn-ov-paths', layer: 'agentPaths', buildFn: () => {
+    if (simDebugOverlays && simEngine) {
+      const snapshot = simEngine.getSnapshot();
+      simDebugOverlays.showAgentPaths(snapshot.agents);
+    }
+  }},
+];
+
+for (const { btnId, layer, buildFn } of overlayButtons) {
+  const btn = document.getElementById(btnId);
+  if (!btn) continue;
+  btn.addEventListener('click', () => {
+    if (currentMode !== 'sim' || !simDebugOverlays) return;
+    // Build the overlay data on first show, then toggle visibility.
+    buildFn();
+    const visible = simDebugOverlays.toggle(layer);
+    btn.classList.toggle('active', visible);
+  });
+}
+
+// Heatmap toggle — shows a resource/food heatmap overlay.
+// heatmapVisible is module-scoped so teardownSimulation() can reset it.
+const heatmapBtn = document.getElementById('btn-ov-heatmap');
+if (heatmapBtn) {
+  heatmapBtn.addEventListener('click', () => {
+    if (currentMode !== 'sim' || !simHeatmapRenderer) return;
+    heatmapVisible = !heatmapVisible;
+    heatmapBtn.classList.toggle('active', heatmapVisible);
+    if (heatmapVisible && simEngine) {
+      // Use terrain biomeMap as a proxy heatmap — biome values [0-5] normalized.
+      const snapshot = simEngine.getSnapshot();
+      const biomeMap = snapshot.terrain?.biomeMap;
+      if (biomeMap) {
+        const maxBiome = 5;
+        const normalized = new Float32Array(biomeMap.length);
+        for (let i = 0; i < biomeMap.length; i++) {
+          normalized[i] = biomeMap[i] / maxBiome;
+        }
+        simHeatmapRenderer.showHeatmap(normalized, 'heat');
+      }
+    } else {
+      simHeatmapRenderer.hide();
+    }
+  });
+}
+
+// Agent color mode buttons.
+const colorModeButtons = [
+  { btnId: 'btn-color-faction', mode: COLOR_MODE_BY_FACTION },
+  { btnId: 'btn-color-health', mode: COLOR_MODE_BY_HEALTH },
+  { btnId: 'btn-color-role', mode: COLOR_MODE_BY_ROLE },
+];
+
+for (const { btnId, mode } of colorModeButtons) {
+  const btn = document.getElementById(btnId);
+  if (!btn) continue;
+  btn.addEventListener('click', () => {
+    if (currentMode !== 'sim' || !simAgentRenderer) return;
+    simAgentRenderer.setColorMode(mode);
+    // Update button active states — only one color mode is active at a time.
+    for (const { btnId: otherId } of colorModeButtons) {
+      document.getElementById(otherId)?.classList.remove('active');
+    }
+    btn.classList.add('active');
+  });
+}
+
+// Spacebar play/pause when sim mode is active and not in explore mode.
+document.addEventListener('keydown', (event) => {
+  if (event.code === 'Space' && currentMode === 'sim' && !isExploreMode) {
+    event.preventDefault();
+    simPlayPauseBtn?.click();
+  }
 });
 
 const saveWorldButton = document.getElementById('btn-save-world');
@@ -876,10 +1393,11 @@ window.addEventListener('resize', () => {
 /**
  * Main render loop.
  *
- * The frame loop has three jobs:
+ * The frame loop has four jobs:
  * 1. Apply optional presentation animation to the terrain
- * 2. Update either orbit controls or first-person movement
- * 3. Render the scene
+ * 2. Tick the simulation engine if sim mode is active and playing
+ * 3. Update either orbit controls or first-person movement
+ * 4. Render the scene
  *
  * We keep the logic here intentionally explicit rather than abstract because
  * the state interactions are easier for future agents to audit in one place.
@@ -905,6 +1423,28 @@ function animate() {
   if (waterMesh) {
     waterMesh.position.y += Math.sin(time * 0.002) * 0.0002;
   }
+
+  // ── Simulation tick ─────────────────────────────────────────────────────
+  // When sim mode is active and playing, advance the simulation by the
+  // real-time delta (scaled by speed multiplier). The SimEngine internally
+  // converts wall-clock time to fixed-step ticks via its TickScheduler.
+  if (currentMode === 'sim' && simEngine && simPlaying) {
+    const simDelta = (time - simLastFrameTime) * simSpeed;
+    simEngine.tick(simDelta);
+
+    // Pull a snapshot and update all renderers.
+    const snapshot = simEngine.getSnapshot();
+
+    if (simSceneBridge) simSceneBridge.updateFromSnapshot(snapshot);
+    if (simAgentRenderer) simAgentRenderer.updateFromAgents(snapshot.agents);
+
+    // Update telemetry readouts at a reasonable rate (every frame is fine
+    // because DOM writes are cheap for small text nodes).
+    updateSimTelemetry(snapshot);
+  }
+  // Track frame time for sim delta calculation regardless of play state,
+  // so resuming after pause does not cause a huge time spike.
+  simLastFrameTime = time;
 
   if (isExploreMode) {
     // Delta time keeps movement frame-rate independent.
