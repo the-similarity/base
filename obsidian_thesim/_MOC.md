@@ -14,6 +14,10 @@ Vault for **The Similarity**: research ingests, what we learn while building, an
 - [[Repo research and docs]] — `research/` and `docs/` paths in the codebase
 - [[Projector calibration lane]] — autoresearch lane for forecast cone tuning
 
+## Research experiments
+
+- [[JEPA retrieval prototype]] — JEPA latent-space retrieval vs production matcher (autoresearch lane)
+
 ## Folders
 
 | Folder        | Purpose |
