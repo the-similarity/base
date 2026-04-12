@@ -14,9 +14,9 @@ import { sampleTerrain as sampleTerrainGrids } from './world/terrain-sampler.js'
 import { NavGrid } from './world/nav-grid.js';
 import { RegionMap } from './world/region-map.js';
 import { ResourceField } from './world/resource-field.js';
-import { generatePOIs, POIRegistry } from './world/poi-generator.js';
-import { Climate } from './world/climate.js';
-import { createAgent } from './sim/agent-state.js';
+import { generatePOIs } from './world/poi-generator.js';
+// Climate is managed internally by EnvironmentSystem — no direct import needed.
+// createAgent is not imported directly — agents are spawned via LifecycleSystem.
 import { LifecycleSystem } from './sim/lifecycle-system.js';
 import { MovementSystem } from './sim/movement-system.js';
 import { PerceptionSystem } from './sim/perception-system.js';
@@ -269,6 +269,9 @@ let simPerceptionSystem = null;
 /** @type {number} Timestamp of the last animation frame, for delta calculation. */
 let simLastFrameTime = 0;
 
+/** @type {boolean} Whether the heatmap overlay is currently shown. */
+let heatmapVisible = false;
+
 const API_URL = 'http://127.0.0.1:8000';
 
 // FPS traversal scale constants.
@@ -491,30 +494,17 @@ function restoreInitialWorld() {
 }
 
 /**
- * Build terrain entirely in the browser using the local midpoint-displacement engine.
+ * Build a Three.js terrain mesh from fractal generator output.
  *
- * Data flow:
- * DOM controls -> `generateTerrain(...)` -> typed arrays -> Three.js geometry
+ * Shared between buildClassicTerrain() and buildSimulation() to avoid
+ * duplicating the geometry → color → material pipeline. The mesh is added
+ * to the scene and assigned to the module-level `terrainMesh`.
  *
- * This path is self-contained and does not require the backend API.
+ * @param {object} terrain - Output from generateTerrain().
+ * @param {string} colormap - Color ramp name from COLOR_MAPS.
+ * @param {boolean} useFlat - Whether to use flat shading.
  */
-function buildClassicTerrain() {
-  const iterations = parseInt(document.getElementById('iterations').value);
-  const roughness = parseFloat(document.getElementById('roughness').value);
-  const displacementVal = parseFloat(document.getElementById('displacement').value);
-  const scaleVal = parseFloat(document.getElementById('scale').value);
-  const colormap = document.getElementById('colormap').value;
-
-  const t0 = performance.now();
-  const terrain = generateTerrain({
-    iterations, roughness, displacement: displacementVal,
-    scale: scaleVal, seed: currentSeed, baseShape: 'diamond',
-  });
-  const genTime = (performance.now() - t0).toFixed(1);
-
-  clearScene();
-
-  // Convert raw typed arrays into a Three.js indexed triangle mesh.
+function buildTerrainMeshFromFractal(terrain, colormap, useFlat) {
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute('position', new THREE.BufferAttribute(terrain.positions, 3));
   geometry.setAttribute('normal', new THREE.BufferAttribute(terrain.normals, 3));
@@ -539,9 +529,7 @@ function buildClassicTerrain() {
   }
   geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
 
-  if (flatShading) {
-    // Flat shading needs a non-indexed geometry so each face has distinct
-    // vertices and therefore distinct face normals.
+  if (useFlat) {
     const flatGeo = geometry.toNonIndexed();
     flatGeo.computeVertexNormals();
     const material = new THREE.MeshStandardMaterial({
@@ -561,6 +549,32 @@ function buildClassicTerrain() {
   terrainMesh.castShadow = true;
   terrainMesh.receiveShadow = true;
   scene.add(terrainMesh);
+}
+
+/**
+ * Build terrain entirely in the browser using the local midpoint-displacement engine.
+ *
+ * Data flow:
+ * DOM controls -> `generateTerrain(...)` -> typed arrays -> Three.js geometry
+ *
+ * This path is self-contained and does not require the backend API.
+ */
+function buildClassicTerrain() {
+  const iterations = parseInt(document.getElementById('iterations').value);
+  const roughness = parseFloat(document.getElementById('roughness').value);
+  const displacementVal = parseFloat(document.getElementById('displacement').value);
+  const scaleVal = parseFloat(document.getElementById('scale').value);
+  const colormap = document.getElementById('colormap').value;
+
+  const t0 = performance.now();
+  const terrain = generateTerrain({
+    iterations, roughness, displacement: displacementVal,
+    scale: scaleVal, seed: currentSeed, baseShape: 'diamond',
+  });
+  const genTime = (performance.now() - t0).toFixed(1);
+
+  clearScene();
+  buildTerrainMeshFromFractal(terrain, colormap, flatShading);
 
   // Separate wireframe mesh keeps toggling cheap and avoids mutating the main material.
   const wireGeo = new THREE.BufferGeometry();
@@ -692,6 +706,7 @@ function teardownSimulation() {
   simPerceptionSystem = null;
   simPlaying = false;
   simSpeed = 1;
+  heatmapVisible = false;
 
   // Hide sim-specific UI elements.
   const telemetryEl = document.getElementById('sim-telemetry');
@@ -759,44 +774,9 @@ function buildSimulation() {
   });
 
   // ── Step 2: Build the visual terrain mesh ─────────────────────────────────
-  // We display the terrain in classic mode style so the user sees the world
-  // the agents are living in. This reuses the existing classic rendering path.
+  // Reuse the shared helper with flat shading and earthy "terrain" colormap.
   clearScene();
-
-  const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute('position', new THREE.BufferAttribute(terrain.positions, 3));
-  geometry.setAttribute('normal', new THREE.BufferAttribute(terrain.normals, 3));
-  geometry.setIndex(new THREE.BufferAttribute(terrain.indices, 1));
-
-  let minH = Infinity, maxH = -Infinity;
-  for (let i = 0; i < terrain.heights.length; i++) {
-    minH = Math.min(minH, terrain.heights[i]);
-    maxH = Math.max(maxH, terrain.heights[i]);
-  }
-  const range = maxH - minH || 1;
-
-  // Use the "terrain" colormap for sim mode — earthy tones suit the society sim.
-  const colors = new Float32Array(terrain.vertexCount * 3);
-  for (let i = 0; i < terrain.vertexCount; i++) {
-    const t = (terrain.heights[i] - minH) / range;
-    const c = sampleColorMap('terrain', t);
-    colors[i * 3] = c.r;
-    colors[i * 3 + 1] = c.g;
-    colors[i * 3 + 2] = c.b;
-  }
-  geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-
-  const flatGeo = geometry.toNonIndexed();
-  flatGeo.computeVertexNormals();
-  const material = new THREE.MeshStandardMaterial({
-    vertexColors: true, flatShading: true,
-    roughness: 0.8, metalness: 0.1, side: THREE.DoubleSide,
-  });
-  terrainMesh = new THREE.Mesh(flatGeo, material);
-  geometry.dispose();
-  terrainMesh.castShadow = true;
-  terrainMesh.receiveShadow = true;
-  scene.add(terrainMesh);
+  buildTerrainMeshFromFractal(terrain, 'terrain', true);
 
   // ── Step 3: Sample terrain into 2D grids ──────────────────────────────────
   // The simulation needs regular grids (heightMap, slopeMap, waterMap, biomeMap)
@@ -814,11 +794,11 @@ function buildSimulation() {
   simRegionMap = new RegionMap(simNavGrid);
 
   const resourceField = new ResourceField(terrainMaps, rng);
-  const climate = new Climate(rng);
 
   // Generate points of interest (villages, mines, shrines, etc.) from terrain.
+  // The POI array is cached for debug overlay rendering. The POIRegistry is
+  // not needed by any system currently — systems query POIs via world state.
   simPOIs = generatePOIs(terrainMaps, simRegionMap, rng);
-  const poiRegistry = new POIRegistry(simPOIs);
 
   // ── Step 5: Create SimEngine and register systems ─────────────────────────
   // System registration order defines simulation semantics. The order below
@@ -895,7 +875,7 @@ function buildSimulation() {
   if (telemetryEl) telemetryEl.style.display = '';
 
   document.getElementById('val-sim-pop').textContent = String(
-    simEngine._world.agents.filter(a => a.alive !== false).length
+    simEngine._world.agents.length
   );
   document.getElementById('val-sim-tick').textContent = '0';
 
@@ -915,36 +895,41 @@ function buildSimulation() {
  */
 function updateSimTelemetry(snapshot) {
   const agents = snapshot.agents || [];
-  const alive = agents.filter(a => a.alive !== false);
-  const dead = agents.length - alive.length;
 
-  document.getElementById('val-sim-pop').textContent = String(alive.length);
-  document.getElementById('val-sim-tick').textContent = String(snapshot.tick || 0);
-
-  // Telemetry readout panel.
-  document.getElementById('telem-pop').textContent = `pop: ${alive.length}`;
-  document.getElementById('telem-deaths').textContent = `deaths: ${dead}`;
-
-  // Count conflict events from this tick's event buffer.
-  const conflicts = (snapshot.events || []).filter(
-    e => e.type === 'conflict' || e.type === 'interaction:fight'
-  ).length;
-  document.getElementById('telem-conflicts').textContent = `conflicts: ${conflicts}`;
-
-  // Average hunger across alive agents. Hunger is stored in agent.needs.hunger
-  // (0 = full, 1 = starving). Guard against agents without needs data.
+  // Single pass over agents to count alive, sum hunger — avoids allocating
+  // a filtered array every frame (hot path at 60 fps).
+  let aliveCount = 0;
   let totalHunger = 0;
   let hungerCount = 0;
-  for (const a of alive) {
+  for (let i = 0; i < agents.length; i++) {
+    const a = agents[i];
+    if (a.alive === false) continue;
+    aliveCount++;
     if (a.needs && typeof a.needs.hunger === 'number') {
       totalHunger += a.needs.hunger;
       hungerCount++;
     }
   }
+  const deadCount = agents.length - aliveCount;
+
+  document.getElementById('val-sim-pop').textContent = String(aliveCount);
+  document.getElementById('val-sim-tick').textContent = String(snapshot.tick || 0);
+
+  document.getElementById('telem-pop').textContent = `pop: ${aliveCount}`;
+  document.getElementById('telem-deaths').textContent = `deaths: ${deadCount}`;
+
+  // Count conflict events from this tick's event buffer.
+  let conflicts = 0;
+  const events = snapshot.events || [];
+  for (let i = 0; i < events.length; i++) {
+    const t = events[i].type;
+    if (t === 'conflict' || t === 'interaction:fight') conflicts++;
+  }
+  document.getElementById('telem-conflicts').textContent = `conflicts: ${conflicts}`;
+
   const avgHunger = hungerCount > 0 ? (totalHunger / hungerCount).toFixed(2) : '0.00';
   document.getElementById('telem-hunger').textContent = `avg hunger: ${avgHunger}`;
 
-  // Faction count from snapshot.
   const factionCount = (snapshot.factions || []).length;
   document.getElementById('telem-factions').textContent = `factions: ${factionCount}`;
 }
@@ -1313,9 +1298,9 @@ for (const { btnId, layer, buildFn } of overlayButtons) {
 }
 
 // Heatmap toggle — shows a resource/food heatmap overlay.
+// heatmapVisible is module-scoped so teardownSimulation() can reset it.
 const heatmapBtn = document.getElementById('btn-ov-heatmap');
 if (heatmapBtn) {
-  let heatmapVisible = false;
   heatmapBtn.addEventListener('click', () => {
     if (currentMode !== 'sim' || !simHeatmapRenderer) return;
     heatmapVisible = !heatmapVisible;
