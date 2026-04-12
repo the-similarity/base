@@ -20,7 +20,7 @@ Vault for **The Similarity**: research ingests, what we learn while building, an
 | `raw/`        | Web Clipper, papers, excerpts, images → compile into notes |
 | `research/`   | **Surveys** + **`full-text/`** copies of repo `research/**/*.md` |
 | `topics/`     | **One idea per file** (methods + concepts) for retrieval / graph |
-| `concepts/`   | Short technical anchors linking into `topics/` |
+| `concepts/`   | Short technical anchors linking into `topics/` — incl. [[JEPA data representation]] |
 | `outputs/`    | Plots, Marp, exports |
 
 ## Backlog (optional)
