@@ -1,0 +1,65 @@
+# Example task file for the orchestrator.
+#
+# Usage:
+#   cp orchestrator/tasks.example.yaml orchestrator/tasks.yaml
+#   # edit tasks.yaml with your actual tasks
+#   python orchestrator/run.py
+#
+# Each task spawns an isolated claude CLI session in its own git worktree.
+# The agent commits, pushes, and opens a PR autonomously.
+# pr-gate.yml then runs tests + review-agent + auto-merge.
+#
+# Fields:
+#   id:     Unique slug — used as branch name (auto/<id>)
+#   title:  PR title (keep under 70 chars)
+#   prompt: Full task description. Be specific — the agent has no context
+#           beyond this prompt and the repo's CLAUDE.md.
+
+tasks:
+  - id: add-rsi-method
+    title: "feat: add RSI-based similarity method"
+    prompt: |
+      Add a Relative Strength Index (RSI) based similarity method to the engine.
+
+      1. Create `the_similarity/methods/rsi.py` with a function that:
+         - Computes RSI(14) for both query and candidate windows
+         - Returns a similarity score based on RSI trajectory correlation
+         - Follow the same pattern as existing methods in the_similarity/methods/
+
+      2. Add tests in `the_similarity/tests/test_rsi.py`:
+         - Test basic RSI computation on synthetic data
+         - Test similarity scoring between identical series (should be ~1.0)
+         - Test dissimilar series (should be low)
+
+      3. Run all tests: python -m pytest the_similarity/tests/ -v
+
+      4. Commit, push, and open a PR.
+
+  - id: fix-scorer-nan-handling
+    title: "fix: handle NaN scores in dynamic weight renormalization"
+    prompt: |
+      In `the_similarity/core/scorer.py`, the dynamic weight renormalization
+      may produce NaN if all method scores are zero or missing.
+
+      1. Read the_similarity/core/scorer.py and understand the renormalization logic.
+      2. Add a guard: if all scores are NaN/zero, return a zero ScoreBreakdown
+         instead of propagating NaN.
+      3. Add a test case for this edge case in the appropriate test file.
+      4. Run all tests: python -m pytest the_similarity/tests/ -v
+      5. Commit, push, and open a PR.
+
+  - id: add-config-validation
+    title: "feat: add config validation on load"
+    prompt: |
+      Add validation to `the_similarity/config.py` so that invalid
+      hyperparameter combinations are caught early.
+
+      1. Read config.py and understand the current dataclass structure.
+      2. Add a `__post_init__` method that validates:
+         - confidence_decay_rate is in [0, 1]
+         - koopman_blend_weight is in [0, 1]
+         - All method weights are non-negative
+      3. Raise ValueError with a clear message for invalid configs.
+      4. Add tests for valid and invalid configs.
+      5. Run all tests: python -m pytest the_similarity/tests/ -v
+      6. Commit, push, and open a PR.

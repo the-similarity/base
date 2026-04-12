@@ -2,14 +2,9 @@
 
 ## Git Workflow (MANDATORY)
 1. **NEVER commit directly to `main`.** Always create a feature branch first.
-2. You are running inside a **git worktree**. Stay in your worktree directory — do NOT `cd` into other worktrees.
-3. To start a new task, create a feature branch **within your worktree**:
-   ```bash
-   git checkout -b feat/<descriptive-name>
-   ```
-   This is safe because each worktree is isolated — your branch switch doesn't affect other worktrees.
-4. **Commit granularly and continuously** — one logical change per commit, and create a commit after every meaningful completed step. Don't bundle unrelated changes or wait until the end of a long session to checkpoint work. A new method and its tests = one commit. A config change = separate commit. A documentation/comment pass = separate commit. This makes PRs easy to review, protects progress, and keeps `git bisect` useful.
-5. When the task is DONE:
+2. Do NOT add Co-Authored-By trailers to commits.
+3. **Commit granularly and continuously** — one logical change per commit, and create a commit after every meaningful completed step. Don't bundle unrelated changes or wait until the end of a long session to checkpoint work. A new method and its tests = one commit. A config change = separate commit. A documentation/comment pass = separate commit. This makes PRs easy to review, protects progress, and keeps `git bisect` useful.
+4. When the task is DONE:
    ```bash
    python -m pytest the_similarity/tests/ -v          # all tests must pass
    git fetch origin main && git merge origin/main --no-edit  # catch up with main
@@ -17,23 +12,60 @@
    git push -u origin <branch-name>
    gh pr create --title "<type>: <summary>" --body "<description of changes>"
    ```
-6. Share the PR URL with the user when done.
-7. Do NOT add Co-Authored-By trailers to commits.
+5. Share the PR URL with the user when done.
 
-## Active Worktrees
+## Worktree-First Development (DEFAULT)
+**Every task MUST run in an isolated worktree.** This is the default operating mode.
+
+When the user gives you a task (or multiple tasks), spawn Agent subagents with `isolation: "worktree"`:
+```
+Agent(
+  isolation: "worktree",
+  prompt: "<full task description with context>",
+  mode: "bypassPermissions"
+)
+```
+
+Each worktree agent:
+1. Gets its own copy of the repo with an auto-created branch
+2. Does the work, writes tests, commits granularly
+3. Runs `python -m pytest the_similarity/tests/ -v`
+4. Pushes and opens a PR via `gh pr create`
+5. The PR triggers `pr-gate.yml` → tests + lint + review-agent → auto-merge
+
+**Parallel tasks = parallel worktree agents.** If the user gives you 5 tasks, spawn 5 worktree agents simultaneously. They cannot conflict because each has its own branch and working directory.
+
+**When NOT to use a worktree:** Quick read-only questions, research, code review, planning, or anything that doesn't produce commits. Only the orchestrator session (this one) skips worktrees.
+
+## Batch Orchestrator (`orchestrator/`)
+For bulk autonomous work, use the Python orchestrator:
+```bash
+cp orchestrator/tasks.example.yaml orchestrator/tasks.yaml
+# edit tasks.yaml with your tasks
+python orchestrator/run.py                    # run all tasks
+python orchestrator/run.py --max-parallel 10  # crank it up
+python orchestrator/run.py --dry-run          # preview
+```
+Each task spawns a `claude --worktree --print` process. Results saved to `orchestrator/results/`.
+Pipeline: orchestrator → worktree agents → commit + PR → pr-gate (tests + lint + review-agent) → auto-merge → branch-reaper cleanup.
+
+## Active Worktrees (persistent)
 | Directory | Scope | What goes here |
 |-----------|-------|----------------|
-| `Projects/14` | main | Main repo — coordination, engine core |
+| `Projects/14` | main | **Orchestrator** — coordination, task dispatch, planning |
 | `Projects/14-front` | frontend | `the-similarity-app/` — Next.js UI |
 | `Projects/14-backend` | backend | `the-similarity-api/`, `the_similarity/` — API + engine |
 | `Projects/14-data` | data | `the-similarity-data/` — datasets, pipelines |
 | `Projects/14-playground` | jupyter | `the-similarity-playground/` — Jupyter notebooks |
 
+Temporary worktrees are created automatically by the Agent tool and cleaned up after merge.
+
 ## Parallel Development Rules
-- Multiple Claude Code instances may be running at the same time.
+- Multiple Claude Code instances and worktree agents run at the same time.
 - Each instance works in its OWN worktree directory. Never touch another worktree.
 - Do NOT modify files outside your scope — ask the user if you need to.
 - If you encounter merge conflicts, stop and tell the user.
+- The orchestrator (Projects/14) dispatches work but does not make code changes directly — it spawns worktree agents for that.
 
 ## Tests
 - 347 tests across 30 test files. All must pass before shipping.
