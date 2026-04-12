@@ -11,10 +11,12 @@ These files are **copies** of the long-form Markdown under `research/` at the **
 - [[03-koopman-operator-dmd]]
 - [[04-tda-emd-wavelets-sax-matrix-profile]]
 - [[05-pattern-forecasting-backtesting]]
+- [[06-jepa-joint-embedding-predictive-architecture]]
 
 ## Notes (`full-text/notes/`)
 
 - [[presenting_idea]]
+- [[karpathy-autoresearch-and-research-ops]]
 
 ## Index file
 

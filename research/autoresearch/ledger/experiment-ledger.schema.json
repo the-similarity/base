@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://the-similarity.local/research/autoresearch/ledger/experiment-ledger.schema.json",
+  "title": "The Similarity autoresearch experiment ledger entry",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "run_id",
+    "timestamp",
+    "benchmark_id",
+    "lane_id",
+    "status",
+    "decision",
+    "summary",
+    "metrics_before",
+    "metrics_after"
+  ],
+  "properties": {
+    "run_id": {
+      "type": "string",
+      "description": "Unique identifier for one autonomous or semi-autonomous experiment run."
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "benchmark_id": {
+      "type": "string"
+    },
+    "lane_id": {
+      "type": "string"
+    },
+    "branch": {
+      "type": "string"
+    },
+    "commit_before": {
+      "type": ["string", "null"]
+    },
+    "commit_after": {
+      "type": ["string", "null"]
+    },
+    "status": {
+      "type": "string",
+      "enum": ["ok", "discarded", "crash", "aborted"]
+    },
+    "decision": {
+      "type": "string",
+      "enum": ["keep", "discard", "retry", "abort"]
+    },
+    "summary": {
+      "type": "string"
+    },
+    "slices": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "artifacts": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "metrics_before": {
+      "type": "object",
+      "additionalProperties": {
+        "type": ["number", "string", "null"]
+      }
+    },
+    "metrics_after": {
+      "type": "object",
+      "additionalProperties": {
+        "type": ["number", "string", "null"]
+      }
+    },
+    "regressions": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "notes": {
+      "type": "string"
+    }
+  }
+}

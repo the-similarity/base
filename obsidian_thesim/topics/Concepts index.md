@@ -21,6 +21,10 @@ Ideas that appear across surveys — each has its **own note** for LLM Q&A.
 - [[Calibration and coverage]]
 - [[CRPS score]]
 
+## Research operations
+
+- [[Karpathy autoresearch]]
+
 ## Related
 
 - [[Research hub]]

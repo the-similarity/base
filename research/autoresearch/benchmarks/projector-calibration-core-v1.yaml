@@ -1,0 +1,59 @@
+id: projector-calibration-core-v1
+title: Forecast cone calibration lane
+status: draft
+owner: research
+objective: >-
+  Evaluate bounded projector and cone-shaping changes against walk-forward calibration and CRPS,
+  without altering retrieval logic.
+
+lane_type: projector_calibration
+
+writable_scope:
+  allowed:
+    - research/autoresearch/
+    - progress/autoresearch/
+    - the_similarity/core/projector.py
+    - the_similarity/tests/
+  forbidden:
+    - the_similarity/core/backtester.py
+    - the_similarity/core/matcher.py
+    - pyproject.toml
+
+benchmark:
+  dataset_family: historical price series with walk-forward validation
+  canonical_slices:
+    - id: equities-daily-core
+      description: Daily equities slice for baseline calibration checks.
+    - id: crypto-daily-core
+      description: Higher-volatility slice for uncertainty width stress.
+  query_window: 60
+  forward_bars: 30
+  top_k: 10
+  n_trials: 100
+  seeds:
+    - 42
+  evaluation_api: the_similarity.api.backtest
+  no_lookahead_required: true
+
+scorecard:
+  primary_metrics:
+    - name: crps
+      direction: lower_is_better
+    - name: calibration_error_p10_p90
+      direction: lower_is_better
+  secondary_metrics:
+    - name: hit_rate
+      direction: higher_is_better
+    - name: runtime_seconds
+      direction: lower_is_better
+
+acceptance:
+  keep_if:
+    - condition: calibration improves with stable or better CRPS
+  discard_if:
+    - condition: cone changes look nicer but do not improve scorecard metrics
+
+logging:
+  ledger_path: progress/autoresearch/experiments.jsonl
+  schema_path: research/autoresearch/ledger/experiment-ledger.schema.json
+  benchmark_id_field: projector-calibration-core-v1

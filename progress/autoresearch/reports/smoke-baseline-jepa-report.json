@@ -1,0 +1,42 @@
+{
+  "aggregate": {
+    "calibration_error_p10_p90": 0.5,
+    "crps": 0.339,
+    "datasets_evaluated": 1,
+    "hit_rate": 0.0,
+    "mean_error": 0.018007019028468182,
+    "runtime_seconds": 3.7072769590013195
+  },
+  "benchmark_id": "jepa-retrieval-core-v1",
+  "dataset_reports": [
+    {
+      "calibration": {
+        "10": 1.0,
+        "25": 1.0,
+        "50": 1.0,
+        "75": 1.0,
+        "90": 1.0
+      },
+      "calibration_error_p10_p90": 0.5,
+      "crps": 0.339,
+      "dataset_path": "progress/autoresearch/fixtures/spy-mini-400.parquet",
+      "hit_rate": 0.0,
+      "mean_error": 0.018007019028468182,
+      "n_skipped_trials": 0,
+      "n_valid_trials": 1,
+      "runtime_seconds": 3.7072769590013195,
+      "series_name": "/Users/buyantogtokh/Projects/14/progress/autoresearch/fixtures/spy-mini-400.parquet"
+    }
+  ],
+  "generated_at": "2026-04-12T22:29:42Z",
+  "lane_id": "jepa-retrieval-lane-v1",
+  "parameters": {
+    "datasets": [
+      "progress/autoresearch/fixtures/spy-mini-400.parquet"
+    ],
+    "forward_bars": 10,
+    "n_trials": 1,
+    "seed": 42,
+    "window_size": 30
+  }
+}
