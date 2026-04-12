@@ -23,6 +23,10 @@ Vault for **The Similarity**: research ingests, what we learn while building, an
 | `concepts/`   | Short technical anchors linking into `topics/` |
 | `outputs/`    | Plots, Marp, exports |
 
+## Autoresearch
+
+- [[Keep-discard thresholds]] — numeric gates for deterministic experiment decisions
+
 ## Backlog (optional)
 
 - [ ] Add `raw/` ingest + one compiled [[topics/Concepts index|concept]] note
