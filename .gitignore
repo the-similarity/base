@@ -23,3 +23,10 @@ node_modules/
 *.sqlite
 .omx/
 claude-code-source-code/
+
+# Obsidian user-specific workspace state (causes constant dirty diffs)
+obsidian_thesim/.obsidian/workspace.json
+
+# Orchestrator runtime artifacts
+orchestrator/results/
+orchestrator/tasks.yaml
