@@ -37,17 +37,35 @@ Each worktree agent:
 
 **When NOT to use a worktree:** Quick read-only questions, research, code review, planning, or anything that doesn't produce commits. Only the orchestrator session (this one) skips worktrees.
 
-## Batch Orchestrator (`orchestrator/`)
-For bulk autonomous work, use the Python orchestrator:
+## Orchestrator (`orchestrator/`)
+Autonomous task execution pipeline. Three modes:
+
 ```bash
+# Manual: you write the tasks
 cp orchestrator/tasks.example.yaml orchestrator/tasks.yaml
-# edit tasks.yaml with your tasks
-python orchestrator/run.py                    # run all tasks
-python orchestrator/run.py --max-parallel 10  # crank it up
-python orchestrator/run.py --dry-run          # preview
+python orchestrator/run.py
+
+# Autonomous: discovers tasks from GitHub issues, codebase TODOs, and a planner agent
+python orchestrator/run.py --auto
+
+# Continuous: discover + execute in a loop every 30 minutes
+python orchestrator/run.py --auto --loop 30
 ```
-Each task spawns a `claude --worktree --print` process. Results saved to `orchestrator/results/`.
-Pipeline: orchestrator → worktree agents → commit + PR → pr-gate (tests + lint + review-agent) → auto-merge → branch-reaper cleanup.
+
+Options:
+```bash
+--max-parallel 10           # concurrent worktree agents (default: 5)
+--model opus                # use opus for complex tasks
+--sources issues,codebase   # pick discovery sources (issues, codebase, planner)
+--dry-run                   # preview without executing
+```
+
+Discovery sources (`--auto`):
+1. **GitHub Issues** — open issues labeled `auto` or `agent`
+2. **Codebase scan** — TODOs/FIXMEs, untested methods, ruff lint errors
+3. **Planner agent** — Claude analyzes the repo and proposes up to 5 tasks
+
+Pipeline: discover → worktree agents → commit + PR → pr-gate (tests + lint + review-agent) → auto-merge → branch-reaper cleanup. Results in `orchestrator/results/`.
 
 ## Active Worktrees (persistent)
 | Directory | Scope | What goes here |

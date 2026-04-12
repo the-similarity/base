@@ -394,12 +394,37 @@ def main():
     parser = argparse.ArgumentParser(
         description="Autonomous orchestrator — spawns parallel claude worktree agents"
     )
-    parser.add_argument(
+
+    # ── Task source (mutually exclusive) ──
+    source = parser.add_mutually_exclusive_group()
+    source.add_argument(
         "--tasks",
         type=Path,
-        default=TASKS_FILE,
-        help="Path to tasks YAML file",
+        default=None,
+        help="Path to tasks YAML file (default: orchestrator/tasks.yaml)",
     )
+    source.add_argument(
+        "--auto",
+        action="store_true",
+        help="Autonomous mode: discover tasks from GitHub issues, codebase, and planner",
+    )
+
+    # ── Auto-discovery options ──
+    parser.add_argument(
+        "--sources",
+        type=str,
+        default="issues,codebase,planner",
+        help="Comma-separated discovery sources for --auto (default: issues,codebase,planner)",
+    )
+    parser.add_argument(
+        "--loop",
+        type=int,
+        default=None,
+        metavar="MINUTES",
+        help="Loop mode: re-discover and execute every N minutes (use with --auto)",
+    )
+
+    # ── Execution options ──
     parser.add_argument(
         "--max-parallel",
         type=int,
@@ -442,36 +467,121 @@ def main():
     if args.retries is not None:
         cfg.max_retries = args.retries
 
-    # Load tasks
-    if not args.tasks.exists():
-        print(f"ERROR: Tasks file not found: {args.tasks}")
-        print(f"Create one at {TASKS_FILE} — see tasks.example.yaml for format.")
-        sys.exit(1)
+    if args.auto:
+        # ── Autonomous mode ──
+        _run_auto(args, cfg)
+    else:
+        # ── Manual mode (tasks.yaml) ──
+        tasks_path = args.tasks or TASKS_FILE
+        if not tasks_path.exists():
+            print(f"ERROR: Tasks file not found: {tasks_path}")
+            print(f"Create one at {TASKS_FILE} — see tasks.example.yaml for format.")
+            print(f"Or use --auto for autonomous task discovery.")
+            sys.exit(1)
 
-    tasks = load_tasks(args.tasks)
-    if not tasks:
-        print("No tasks found in file.")
-        sys.exit(0)
+        tasks = load_tasks(tasks_path)
+        if not tasks:
+            print("No tasks found in file.")
+            sys.exit(0)
 
-    print(f"Loaded {len(tasks)} tasks from {args.tasks}")
+        print(f"Loaded {len(tasks)} tasks from {tasks_path}")
+        _execute_tasks(tasks, cfg, args.dry_run)
 
-    if args.dry_run:
-        print("\n--- DRY RUN ---\n")
-        for t in tasks:
-            cmd = build_command(t, cfg)
-            print(f"  [{t.id}] {t.title}")
-            print(f"    branch: {t.branch_name}")
-            print(f"    cmd: {' '.join(cmd[:8])}...")
-            print()
+
+def _run_auto(args, cfg: OrchestratorConfig):
+    """
+    Autonomous mode: discover tasks and execute them.
+
+    With --loop, repeats every N minutes indefinitely.
+    Without --loop, runs once and exits.
+    """
+    from discover import discover_all
+
+    sources = [s.strip() for s in args.sources.split(",")]
+
+    if args.loop:
+        # ── Continuous loop mode ──
+        loop_minutes = args.loop
+        print(f"Autonomous loop mode: every {loop_minutes} minutes")
+        print(f"Sources: {', '.join(sources)}")
+        print(f"Press Ctrl+C to stop\n")
+
+        cycle = 0
+        while True:
+            cycle += 1
+            print(f"\n{'#'*60}")
+            print(f"  CYCLE {cycle} — {datetime.now(timezone.utc).isoformat()}")
+            print(f"{'#'*60}")
+
+            # Pull latest main before discovering
+            _git_pull()
+
+            task_dicts = asyncio.run(discover_all(cfg, sources))
+            if task_dicts:
+                tasks = [
+                    Task(id=t["id"], title=t["title"], prompt=t["prompt"])
+                    for t in task_dicts
+                ]
+                if args.dry_run:
+                    _print_dry_run(tasks, cfg)
+                else:
+                    results = asyncio.run(orchestrate(tasks, cfg))
+                    print_summary(results)
+            else:
+                print("  No tasks discovered. Sleeping...")
+
+            print(f"\n  Next cycle in {loop_minutes} minutes...")
+            time.sleep(loop_minutes * 60)
+    else:
+        # ── Single auto run ──
+        _git_pull()
+        task_dicts = asyncio.run(discover_all(cfg, sources))
+        if not task_dicts:
+            print("No tasks discovered.")
+            sys.exit(0)
+
+        tasks = [
+            Task(id=t["id"], title=t["title"], prompt=t["prompt"])
+            for t in task_dicts
+        ]
+        _execute_tasks(tasks, cfg, args.dry_run)
+
+
+def _execute_tasks(tasks: list[Task], cfg: OrchestratorConfig, dry_run: bool):
+    """Execute a list of tasks (shared by manual and auto modes)."""
+    if dry_run:
+        _print_dry_run(tasks, cfg)
         return
 
-    # Run
     results = asyncio.run(orchestrate(tasks, cfg))
     print_summary(results)
 
-    # Exit with error code if any tasks failed
     failed = [t for t in results if t.status == TaskStatus.FAILED]
     sys.exit(1 if failed else 0)
+
+
+def _print_dry_run(tasks: list[Task], cfg: OrchestratorConfig):
+    """Print what would execute without running anything."""
+    print("\n--- DRY RUN ---\n")
+    for t in tasks:
+        cmd = build_command(t, cfg)
+        print(f"  [{t.id}] {t.title}")
+        print(f"    branch: {t.branch_name}")
+        print(f"    cmd: {' '.join(cmd[:8])}...")
+        print()
+
+
+def _git_pull():
+    """Pull latest main before discovering tasks, to avoid stale state."""
+    try:
+        subprocess.run(
+            ["git", "fetch", "origin", "main"],
+            capture_output=True,
+            cwd=str(Path(__file__).resolve().parent.parent),
+            timeout=30,
+        )
+    except Exception:
+        pass  # Non-fatal — discovery works on whatever state we have
 
 
 if __name__ == "__main__":
