@@ -277,6 +277,35 @@
     #history-select {
       margin-top: 6px;
     }
+
+    /* Simulation telemetry readout */
+    #sim-telemetry {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background: rgba(10, 10, 15, 0.88);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      padding: 14px 18px;
+      font-size: 11px;
+      color: #888;
+      z-index: 10;
+      line-height: 1.7;
+      min-width: 160px;
+    }
+    #sim-telemetry strong {
+      font-size: 12px;
+      letter-spacing: 0.3px;
+    }
+    #sim-telemetry div {
+      color: #666;
+    }
+    #sim-telemetry .value {
+      color: #4fc3f7;
+      font-weight: 600;
+    }
   </style>
 </head>
 <body>
@@ -289,6 +318,7 @@
     <div class="mode-toggle">
       <button id="btn-classic" class="active">Classic</button>
       <button id="btn-engine">Engine</button>
+      <button id="btn-sim">Sim</button>
     </div>
 
     <!-- Classic mode controls -->
@@ -356,6 +386,49 @@
       </div>
     </div>
 
+    <!-- Simulation mode controls -->
+    <div id="sim-controls" style="display:none;">
+      <div class="section-label">Simulation</div>
+
+      <div class="btn-row">
+        <button id="btn-sim-playpause">&#9654; Play</button>
+        <button id="btn-sim-step">Step</button>
+      </div>
+
+      <div class="control-group">
+        <label>Speed <span class="value" id="val-sim-speed">1x</span></label>
+        <input type="range" id="sim-speed" min="1" max="4" value="1" step="1">
+      </div>
+
+      <div class="control-group" style="margin-top:6px;">
+        <label>Population <span class="value" id="val-sim-pop">0</span></label>
+        <label>Tick <span class="value" id="val-sim-tick">0</span></label>
+      </div>
+
+      <hr class="separator">
+      <div class="section-label">Overlays</div>
+
+      <div class="btn-row">
+        <button id="btn-ov-navgrid">Nav Grid</button>
+        <button id="btn-ov-regions">Regions</button>
+      </div>
+      <div class="btn-row">
+        <button id="btn-ov-pois">POIs</button>
+        <button id="btn-ov-paths">Paths</button>
+      </div>
+      <div class="btn-row">
+        <button id="btn-ov-heatmap">Heatmap</button>
+      </div>
+
+      <hr class="separator">
+      <div class="section-label">Agent Color</div>
+      <div class="btn-row">
+        <button id="btn-color-faction" class="active">Faction</button>
+        <button id="btn-color-health">Health</button>
+        <button id="btn-color-role">Role</button>
+      </div>
+    </div>
+
     <hr class="separator">
 
     <div class="btn-row">
@@ -399,6 +472,16 @@
     <kbd>Shift</kbd> Sprint<br>
     <br>
     Press <kbd>ESC</kbd> to exit
+  </div>
+
+  <!-- Simulation telemetry readout — bottom-right, shown only in sim mode -->
+  <div id="sim-telemetry" style="display:none;">
+    <strong style="color:#fff;">Telemetry</strong>
+    <div id="telem-pop">pop: 0</div>
+    <div id="telem-deaths">deaths: 0</div>
+    <div id="telem-conflicts">conflicts: 0</div>
+    <div id="telem-hunger">avg hunger: 0.00</div>
+    <div id="telem-factions">factions: 0</div>
   </div>
 
   <script type="importmap">
