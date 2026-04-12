@@ -13,6 +13,7 @@ One file per **method** — written for non-experts; each links deeper surveys i
 - [[EMD and IMFs]]
 - [[TDA persistence]]
 - [[Transfer entropy]]
+- [[JEPA]]
 
 ## Implementation
 
