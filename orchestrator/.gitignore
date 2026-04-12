@@ -1,0 +1,5 @@
+# Task files are user-specific, don't commit active queue
+tasks.yaml
+
+# Results are ephemeral debug output
+results/

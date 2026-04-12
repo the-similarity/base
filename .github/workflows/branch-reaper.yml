@@ -1,0 +1,36 @@
+name: Branch Reaper
+
+# Cleans up merged branches daily.
+# At 1000s of commits/day, stale branches accumulate fast.
+
+on:
+  schedule:
+    - cron: "0 6 * * *"  # 6am UTC daily
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  reap:
+    name: Delete merged branches
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Delete merged remote branches
+        run: |
+          # List remote branches merged into main, excluding main itself and HEAD
+          git branch -r --merged origin/main \
+            | grep -v 'origin/main' \
+            | grep -v 'origin/HEAD' \
+            | sed 's|origin/||' \
+            | while read branch; do
+                echo "Deleting merged branch: $branch"
+                git push origin --delete "$branch" || true
+              done
+
+      - name: Summary
+        run: echo "Branch reaper complete at $(date -u)"
