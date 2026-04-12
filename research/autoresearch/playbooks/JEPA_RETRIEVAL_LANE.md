@@ -50,13 +50,30 @@ Agents may build auxiliary retrieval analysis around this, but they may not muta
 - multi-resolution objective variants
 
 ## Keep / discard rule
-Keep a variant only if it improves the primary scorecard on at least one canonical slice **without** creating a severe regression elsewhere.
 
-Discard if any of the following happens:
-- CRPS worsens and calibration does not improve,
-- observed retrieval improvements do not survive walk-forward validation,
-- the variant depends on evaluator changes,
-- runtime cost grows beyond the lane budget without commensurate gains.
+Decisions are governed by the **numeric thresholds** in
+`research/autoresearch/benchmarks/jepa-retrieval-core-v1.yaml` under the
+`thresholds:` key.  The validation script
+`research/autoresearch/scripts/validate_decision.py` applies these gates
+automatically.  Summary of the gates:
+
+| Gate | Value | Meaning |
+|------|-------|---------|
+| `min_crps_improvement` | 0.005 abs | Aggregate CRPS must drop by at least this amount |
+| `max_calibration_regression` | 0.02 abs | No single slice may worsen calibration by more than this |
+| `max_runtime_multiplier` | 2.0x | Runtime must stay within 2x baseline |
+| `min_slices_improved` | 1 | At least one canonical slice must show strict CRPS improvement |
+| `walk_forward_required` | true | Retrieval gains must survive walk-forward backtest |
+
+**KEEP** a variant only when *all* gates pass.
+
+**DISCARD** if any of the following happens:
+- CRPS improvement is below `min_crps_improvement` (noise, not signal),
+- calibration regresses beyond `max_calibration_regression` on any slice,
+- runtime exceeds `max_runtime_multiplier` times the baseline,
+- fewer than `min_slices_improved` slices show CRPS improvement,
+- retrieval-only gains do not survive walk-forward validation,
+- the variant depends on evaluator changes rather than model changes.
 
 ## Suggested ledger summary format
 - `baseline`
