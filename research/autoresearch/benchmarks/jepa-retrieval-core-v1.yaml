@@ -75,6 +75,44 @@ logging:
   schema_path: research/autoresearch/ledger/experiment-ledger.schema.json
   benchmark_id_field: jepa-retrieval-core-v1
 
+thresholds:
+  # ── Numeric keep/discard gates ──────────────────────────────────────
+  # These thresholds turn the qualitative acceptance rules above into
+  # deterministic numeric gates.  Two agents seeing the same metrics
+  # must reach the same KEEP / DISCARD decision.
+  #
+  # Baseline reference (from full run, seed 42):
+  #   CRPS ≈ 0.1769 · calibration_error ≈ 0.0475 · hit_rate ≈ 0.49
+  #   runtime ≈ 1 792 s
+  #
+  # All improvements are measured in the "good" direction (lower CRPS
+  # is better, lower calibration_error is better, higher hit_rate is
+  # better, lower runtime is better).
+
+  min_crps_improvement: 0.005
+  # Minimum absolute CRPS reduction vs. baseline on the aggregate
+  # scorecard.  A candidate that improves CRPS by less than this is
+  # noise and must be discarded.
+
+  max_calibration_regression: 0.02
+  # Maximum allowed absolute increase in calibration_error_p10_p90 on
+  # any single canonical slice.  Exceeding this is a severe regression
+  # regardless of other gains.
+
+  max_runtime_multiplier: 2.0
+  # Maximum ratio of candidate runtime to baseline runtime (wall-clock
+  # seconds, same hardware / seed / n_trials).  A candidate that takes
+  # more than 2× the baseline runtime is too expensive for the lane.
+
+  min_slices_improved: 1
+  # Minimum number of canonical slices whose primary metric (CRPS)
+  # must strictly improve.  At least one slice must show real gains.
+
+  walk_forward_required: true
+  # Retrieval quality gains are meaningless unless they survive the
+  # walk-forward backtest.  If only retrieval overlap improves but
+  # walk-forward CRPS/calibration do not, the candidate is discarded.
+
 notes:
   - Start retrieval-only. Do not wire JEPA into production ranking until the lane wins repeatedly.
   - Prefer frozen embeddings and cached artifacts before any online training or end-to-end integration.
