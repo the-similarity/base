@@ -70,6 +70,38 @@ acceptance:
     - condition: retrieval lift is anecdotal only and walk-forward metrics do not improve
     - condition: experiment changes evaluator behavior instead of model behavior
 
+# ── Numeric decision thresholds ──────────────────────────────────────
+# Two agents reading the same before/after metrics MUST reach the same
+# keep/discard verdict using these gates.  All values are absolute
+# unless noted.  Baseline reference (smoke):
+#   CRPS ~0.339, calibration_error ~0.50, hit_rate ~0.0, runtime ~3.7s
+# Full-scale baseline target (when available):
+#   CRPS ~0.1769, calibration_error ~0.0475, hit_rate ~0.49, runtime ~1792s
+thresholds:
+  # Minimum absolute CRPS reduction (before - after) to count as an
+  # improvement.  Values below this are noise, not signal.
+  min_crps_improvement: 0.005
+
+  # Maximum absolute increase in calibration_error_p10_p90 that is
+  # tolerable.  Any regression larger than this triggers DISCARD even
+  # if CRPS improves.
+  max_calibration_regression: 0.02
+
+  # Maximum allowed ratio  (runtime_after / runtime_before).
+  # A 2x slowdown is the ceiling; beyond that the cost is not justified
+  # without an exceptional CRPS win.
+  max_runtime_multiplier: 2.0
+
+  # Minimum number of canonical slices whose CRPS must strictly improve
+  # (by at least min_crps_improvement each).  Prevents anecdotal wins
+  # on a single favourable dataset.
+  min_slices_improved: 1
+
+  # Walk-forward validation is mandatory.  If a variant shows retrieval
+  # lift but walk-forward metrics do not confirm it, the result is
+  # DISCARD regardless of other gates.
+  walk_forward_required: true
+
 logging:
   ledger_path: progress/autoresearch/experiments.jsonl
   schema_path: research/autoresearch/ledger/experiment-ledger.schema.json

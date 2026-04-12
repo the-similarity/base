@@ -50,13 +50,43 @@ Agents may build auxiliary retrieval analysis around this, but they may not muta
 - multi-resolution objective variants
 
 ## Keep / discard rule
-Keep a variant only if it improves the primary scorecard on at least one canonical slice **without** creating a severe regression elsewhere.
 
-Discard if any of the following happens:
-- CRPS worsens and calibration does not improve,
-- observed retrieval improvements do not survive walk-forward validation,
-- the variant depends on evaluator changes,
-- runtime cost grows beyond the lane budget without commensurate gains.
+Decisions are governed by **strict numeric thresholds** defined in the benchmark file
+`research/autoresearch/benchmarks/jepa-retrieval-core-v1.yaml` under the `thresholds:` key.
+Two agents reading the same before/after metrics must reach the same verdict.
+
+### Numeric gates (summary — source of truth is the YAML)
+
+| Gate | Value | Meaning |
+|------|-------|---------|
+| `min_crps_improvement` | 0.005 absolute | CRPS must drop by at least this much to count |
+| `max_calibration_regression` | 0.02 absolute | Calibration must not worsen beyond this |
+| `max_runtime_multiplier` | 2.0x | Runtime ratio ceiling |
+| `min_slices_improved` | 1 | At least one canonical slice must improve |
+| `walk_forward_required` | true | Retrieval lift must survive walk-forward |
+
+### KEEP when ALL of
+1. At least `min_slices_improved` canonical slices show CRPS improvement >= `min_crps_improvement`.
+2. No slice shows calibration regression > `max_calibration_regression`.
+3. Runtime ratio <= `max_runtime_multiplier`.
+4. Walk-forward backtest confirms the improvement.
+
+### DISCARD when ANY of
+- CRPS worsens and calibration does not compensate.
+- Retrieval improvements do not survive walk-forward validation.
+- The variant depends on evaluator changes rather than model changes.
+- Runtime exceeds the `max_runtime_multiplier` ceiling.
+- Calibration regresses beyond `max_calibration_regression` on any slice.
+
+### Automated validation
+Run the validation script to get a deterministic verdict:
+
+```bash
+python research/autoresearch/scripts/validate_decision.py \
+  --benchmark research/autoresearch/benchmarks/jepa-retrieval-core-v1.yaml \
+  --before '{"crps": 0.339, "calibration_error_p10_p90": 0.50, "runtime_seconds": 3.7}' \
+  --after  '{"crps": 0.330, "calibration_error_p10_p90": 0.49, "runtime_seconds": 4.0}'
+```
 
 ## Suggested ledger summary format
 - `baseline`
