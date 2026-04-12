@@ -1,6 +1,6 @@
 id: projector-calibration-core-v1
 title: Forecast cone calibration lane
-status: draft
+status: active
 owner: research
 objective: >-
   Evaluate bounded projector and cone-shaping changes against walk-forward calibration and CRPS,
