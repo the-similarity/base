@@ -13,6 +13,10 @@ Vault for **The Similarity**: research ingests, what we learn while building, an
 - [[Vision pillars]] — product thesis (from repo vision)
 - [[Repo research and docs]] — `research/` and `docs/` paths in the codebase
 
+## Research experiments
+
+- [[JEPA retrieval prototype]] — JEPA latent-space retrieval vs production matcher (autoresearch lane)
+
 ## Folders
 
 | Folder        | Purpose |
