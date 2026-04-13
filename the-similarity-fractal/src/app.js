@@ -4,6 +4,21 @@ import { PointerLockControls } from 'three/addons/controls/PointerLockControls.j
 import { generateTerrain } from './fractal.js';
 import { buildTerrainMesh, buildFeatures } from './terrain-renderer.js';
 
+// ── Nature engine imports ────────────────────────────────────────────────────
+// Procedural environment systems for Engine mode. Each module was built
+// independently and merged via separate PRs. They attach to the terrain mesh
+// after it is constructed and update per-frame in the animation loop.
+import { createTerrainMaterial } from './nature/terrain-material.js';
+import { Water } from './nature/water.js';
+import { TreeSystem } from './nature/trees.js';
+import { GrassSystem } from './nature/grass.js';
+import { FlowerSystem } from './nature/flowers.js';
+import { ProceduralSky } from './nature/sky.js';
+import { Atmosphere } from './nature/atmosphere.js';
+import { PostProcessing } from './nature/post-processing.js';
+import { RockSystem } from './nature/rocks.js';
+import { DebrisSystem } from './nature/debris.js';
+
 // ── Simulation module imports ────────────────────────────────────────────────
 // These power the 3D society simulation mode ("sim"). Each module was built
 // independently and merged via separate PRs. The integration wires them into
