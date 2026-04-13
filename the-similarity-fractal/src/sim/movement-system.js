@@ -457,10 +457,10 @@ export class MovementSystem {
       const prevX = agent.position.x;
       const prevZ = agent.position.z;
 
-      // navGrid.gridToWorld returns {x, z} per the nav-grid contract.
+      // navGrid.gridToWorld returns {wx, wz} — world-space coordinates.
       const worldPos = this._navGrid.gridToWorld(nextCell.gx, nextCell.gz);
-      agent.position.x = worldPos.x;
-      agent.position.z = worldPos.z;
+      agent.position.x = worldPos.wx;
+      agent.position.z = worldPos.wz;
 
       // Y is always derived from terrain height, never from movement logic.
       agent.position.y = this._navGrid.getHeight(nextCell.gx, nextCell.gz);
