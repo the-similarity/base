@@ -184,6 +184,20 @@ export class PerceptionSystem {
   }
 
   /**
+   * Convenience wrapper: accepts an agent object (or ID) and returns a flat
+   * array of nearby agent objects (no distance metadata). Used by systems
+   * like DiseaseSystem that call getNearbyAgents(agent, radius).
+   *
+   * @param {Object|string} agentOrId - Agent object or agent ID string.
+   * @param {number} radius - Search radius in world units.
+   * @returns {Array<Object>} Flat array of nearby agent objects.
+   */
+  getNearbyAgents(agentOrId, radius) {
+    const id = typeof agentOrId === 'string' ? agentOrId : agentOrId?.id;
+    return this.getNearby(id, radius).map(entry => entry.agent);
+  }
+
+  /**
    * Get a summary of a specific region's current state.
    *
    * Computed lazily on first access per tick, then cached. The summary includes:
