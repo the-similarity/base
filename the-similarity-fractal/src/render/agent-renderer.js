@@ -394,7 +394,12 @@ export class AgentRenderer {
           if (hits.length > 0) {
             groundY = hits[0].point.y;
           }
+          // One-time debug: log first agent's raycast result on first frame.
+          if (i === 0 && this._frame === 0) {
+            console.log(`[agents] Raycast: terrain=${!!this._terrainMesh}, hits=${hits.length}, groundY=${groundY.toFixed(3)}, fallbackY=${(ay * this._heightScale).toFixed(3)}, agentPos=(${ax.toFixed(2)}, ${ay.toFixed(2)}, ${az.toFixed(2)})`);
+          }
         }
+        this._frame = (this._frame || 0) + 1;
 
         // Detect movement by comparing to previous frame position.
         const dx = ax - this._prevX[i];

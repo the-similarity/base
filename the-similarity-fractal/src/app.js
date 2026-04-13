@@ -534,6 +534,9 @@ function buildTerrainMeshFromFractal(terrain, colormap, useFlat) {
   if (useFlat) {
     const flatGeo = geometry.toNonIndexed();
     flatGeo.computeVertexNormals();
+    // Raycaster needs bounding volumes for intersection testing.
+    flatGeo.computeBoundingSphere();
+    flatGeo.computeBoundingBox();
     const material = new THREE.MeshStandardMaterial({
       vertexColors: true, flatShading: true,
       roughness: 0.8, metalness: 0.1, side: THREE.DoubleSide,
