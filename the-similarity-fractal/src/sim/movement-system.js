@@ -151,25 +151,42 @@ export class MovementSystem {
     const action = agent.currentAction;
     if (!action) return MOVE_BEHAVIOR.WANDER;
 
-    // The action type maps directly to movement behaviors.
-    // Actions that do not require movement return null so the agent stays put.
-    switch (action.type) {
-      case 'wander':        return MOVE_BEHAVIOR.WANDER;
-      case 'travel_to_poi': return MOVE_BEHAVIOR.TRAVEL_TO_POI;
-      case 'flee':          return MOVE_BEHAVIOR.FLEE;
-      case 'pursue':        return MOVE_BEHAVIOR.PURSUE;
-      case 'migrate':       return MOVE_BEHAVIOR.MIGRATE;
-      case 'return_home':   return MOVE_BEHAVIOR.RETURN_HOME;
-      case 'patrol':        return MOVE_BEHAVIOR.PATROL;
-      // Non-movement actions: agent stays in place.
-      case 'rest':
+    // Normalize: action can be a string ('GATHER_FOOD') or object ({type:'gather'}).
+    // The decision system sets plain uppercase strings; we accept both formats.
+    const actionType = (typeof action === 'string' ? action : action.type || '')
+      .toLowerCase();
+
+    switch (actionType) {
+      case 'wander':
+        return MOVE_BEHAVIOR.WANDER;
+      // Gathering requires moving TO the resource location.
+      case 'gather_food':
+      case 'gather_material':
       case 'gather':
+      case 'travel_to_poi':
+      case 'drink':
+        return MOVE_BEHAVIOR.TRAVEL_TO_POI;
+      case 'flee':
+        return MOVE_BEHAVIOR.FLEE;
+      case 'fight':
+      case 'pursue':
+        return MOVE_BEHAVIOR.PURSUE;
+      case 'migrate':
+        return MOVE_BEHAVIOR.MIGRATE;
+      case 'return_home':
+        return MOVE_BEHAVIOR.RETURN_HOME;
+      case 'patrol':
+        return MOVE_BEHAVIOR.PATROL;
+      // Trade and socialize require moving toward another agent.
       case 'trade':
       case 'socialize':
+        return MOVE_BEHAVIOR.WANDER; // wander toward nearby agents
+      // Rest in place — no movement needed.
+      case 'rest':
         return null;
       default:
-        // Unknown action — default to idle (no movement).
-        return null;
+        // Unknown action — wander rather than freeze.
+        return MOVE_BEHAVIOR.WANDER;
     }
   }
 
