@@ -156,16 +156,13 @@ export class MovementSystem {
     const actionType = (typeof action === 'string' ? action : action.type || '')
       .toLowerCase();
 
+    // Every action except REST results in movement. The world is simple right
+    // now (no resource nodes, no trade posts) so sophisticated target-finding
+    // would fail. Agents WANDER toward their goals — the terrain and other
+    // agents create emergent structure through encounter, not pathfinding.
     switch (actionType) {
-      case 'wander':
-        return MOVE_BEHAVIOR.WANDER;
-      // Gathering requires moving TO the resource location.
-      case 'gather_food':
-      case 'gather_material':
-      case 'gather':
-      case 'travel_to_poi':
-      case 'drink':
-        return MOVE_BEHAVIOR.TRAVEL_TO_POI;
+      case 'rest':
+        return null; // stay in place, recover energy
       case 'flee':
         return MOVE_BEHAVIOR.FLEE;
       case 'fight':
@@ -177,15 +174,9 @@ export class MovementSystem {
         return MOVE_BEHAVIOR.RETURN_HOME;
       case 'patrol':
         return MOVE_BEHAVIOR.PATROL;
-      // Trade and socialize require moving toward another agent.
-      case 'trade':
-      case 'socialize':
-        return MOVE_BEHAVIOR.WANDER; // wander toward nearby agents
-      // Rest in place — no movement needed.
-      case 'rest':
-        return null;
       default:
-        // Unknown action — wander rather than freeze.
+        // Everything else (gather, trade, socialize, wander, drink, unknown)
+        // → wander. Agents move, encounter things, interact opportunistically.
         return MOVE_BEHAVIOR.WANDER;
     }
   }
