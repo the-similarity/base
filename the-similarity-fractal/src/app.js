@@ -825,18 +825,33 @@ function buildSimulation() {
   const factionSystem = new FactionSystem(eventBus, rng);
   const telemetrySystem = new TelemetrySystem(eventBus);
 
-  // Custom tick function that calls each system with its correct arguments.
-  // Order matters: environment → perceive → decide → move → interact →
-  // consequences → telemetry.
-  // Build a lifecycle-compatible worldState with regionMap as a Map (with .get()).
-  // LifecycleSystem._processBirth calls regionMap.get(regionId) for spawn placement.
-  const lifecycleWorldState = { regionMap: spawnMap };
+  // Custom tick function — defined here but lifecycleWorldState is set after
+  // spawnMap is created in Step 7 below.
+  let lifecycleWorldState = null;
+
+  // Needs decay rates per tick — agents gradually get hungry, tired, thirsty,
+  // lonely, and stressed. Without this, needs stay at spawn defaults forever
+  // and the decision system has no motivation signal.
+  const DECAY = DEFAULT_SIM_CONFIG.needs;
 
   simEngine._customTick = function() {
     const world = this._world;
     const agents = world.agents;
 
     try {
+      // ── Needs decay: the engine of all agent behavior ──────────────────
+      // Self-similar principle: the same pressure (scarcity → action → relief)
+      // operates at individual, group, and regional scales.
+      for (const agent of agents) {
+        if (!agent.alive) continue;
+        const n = agent.needs;
+        n.hunger    = Math.min(1, (n.hunger    || 0) + (DECAY.hungerDecayRate    || 0.003));
+        n.energy    = Math.max(0, (n.energy    || 0) - (DECAY.energyDecayRate    || 0.002));
+        n.hydration = Math.max(0, (n.hydration || 0) - (DECAY.hydrationDecayRate || 0.004));
+        n.social    = Math.min(1, (n.social    || 0) + (DECAY.socialDecayRate    || 0.001));
+        n.stress    = Math.min(1, (n.stress    || 0) + (DECAY.stressDecayRate    || 0.001));
+      }
+
       environmentSystem.tick(world);
       lifecycleSystemInst.tick(agents, lifecycleWorldState);
       perceptionSystem.tick(agents, world);
@@ -875,6 +890,8 @@ function buildSimulation() {
     simNavGrid,
   );
   simEngine._world.agents = initialAgents;
+  // Now that spawnMap exists, wire it into the lifecycle tick worldState.
+  lifecycleWorldState = { regionMap: spawnMap };
   console.log(`[sim] Spawned ${initialAgents.length} agents across ${simRegionMap.regionCount} regions`);
 
   // ── Step 8: Set up renderers ──────────────────────────────────────────────
