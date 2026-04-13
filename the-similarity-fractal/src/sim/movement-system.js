@@ -45,11 +45,12 @@ const BASE_ENERGY_COST = 0.01;
 
 // Maximum cells an agent can move in a single tick. Prevents runaway movement
 // if pathfinding returns a very long path segment.
-const MAX_STEPS_PER_TICK = 1;
+// Allow 2 steps per tick so agents visibly move rather than crawling 1 cell/tick.
+const MAX_STEPS_PER_TICK = 2;
 
-// Wander radius in grid cells — how far an agent looks when picking a random
-// walkable neighbor to wander toward.
-const WANDER_RADIUS = 3;
+// Wander radius — how far an agent looks for a random walkable target.
+// 10 cells gives agents room to find passable terrain even near coastlines.
+const WANDER_RADIUS = 10;
 
 // Flee distance in grid cells — how many cells away from threat we try to path.
 const FLEE_DISTANCE = 5;
