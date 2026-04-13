@@ -39,7 +39,9 @@ export const MOVE_BEHAVIOR = Object.freeze({
 // ── Tuning constants ─────────────────────────────────────────────────────────
 // Base energy cost multiplier. The actual cost is BASE_ENERGY_COST * cellMoveCost * climateModifier.
 // Kept low so agents can traverse several cells before resting.
-const BASE_ENERGY_COST = 0.5;
+// 0.5 was way too high — agents took 2 steps and collapsed. 0.01 lets
+// agents traverse ~100 cells before needing rest, creating natural cycles.
+const BASE_ENERGY_COST = 0.01;
 
 // Maximum cells an agent can move in a single tick. Prevents runaway movement
 // if pathfinding returns a very long path segment.

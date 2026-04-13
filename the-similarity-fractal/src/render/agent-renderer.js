@@ -316,6 +316,24 @@ export class AgentRenderer {
     /** @type {THREE.Color} */
     this._scratchColor2 = new THREE.Color();
 
+    // ── Walking animation state ────────────────────────────────────────────
+    // Track previous positions to detect movement. Moving agents get a
+    // sinusoidal bob + lean that creates a walking impression.
+    /** @type {Float32Array} Previous X positions, indexed by agent slot. */
+    this._prevX = new Float32Array(maxAgents);
+    /** @type {Float32Array} Previous Z positions. */
+    this._prevZ = new Float32Array(maxAgents);
+    /** @type {Float32Array} Walk phase per agent — accumulates over time for
+     *  continuous animation. Each agent gets a unique starting phase from
+     *  their slot index so they don't all bob in sync. */
+    this._walkPhase = new Float32Array(maxAgents);
+    for (let i = 0; i < maxAgents; i++) {
+      this._walkPhase[i] = (i * 1.7) % (Math.PI * 2); // spread phases
+    }
+
+    /** @type {number} Frame counter for time-based animation. */
+    this._frame = 0;
+
     this._scene.add(this._mesh);
   }
 
@@ -348,17 +366,41 @@ export class AgentRenderer {
         this._dummy.scale.set(0, 0, 0);
         this._dummy.position.set(0, 0, 0);
       } else {
-        // Extract position — support both { position: {x,y,z} } shape (sim engine)
-        // and flat { x, y, z } shape (legacy/test) for robustness.
         const pos = agent.position || agent;
         const ax = pos.x || 0;
         const ay = pos.y || 0;
         const az = pos.z || 0;
 
-        // Apply heightScale to the Y coordinate so agents match the terrain's
-        // vertical exaggeration. The humanoid geometry has Y=0 at the feet,
-        // so no additional radius offset is needed — agents stand on the surface.
-        this._dummy.position.set(ax, ay * this._heightScale, az);
+        // Detect movement by comparing to previous frame position.
+        const dx = ax - this._prevX[i];
+        const dz = az - this._prevZ[i];
+        const moved = (dx * dx + dz * dz) > 0.00001;
+
+        this._prevX[i] = ax;
+        this._prevZ[i] = az;
+
+        // Walking animation: bob vertically + lean forward when moving.
+        let yOffset = 0;
+        let rotZ = 0;
+        let rotY = 0;
+        if (moved) {
+          // Advance walk phase — speed proportional to distance moved.
+          this._walkPhase[i] += 0.4;
+          const phase = this._walkPhase[i];
+
+          // Vertical bob: small sinusoidal bounce (±0.01 world units).
+          yOffset = Math.abs(Math.sin(phase * 2)) * 0.015;
+
+          // Side-to-side sway: subtle lean left/right.
+          rotZ = Math.sin(phase) * 0.12;
+
+          // Face movement direction.
+          rotY = Math.atan2(dx, dz);
+        }
+
+        // Apply heightScale + walk bob to Y.
+        this._dummy.position.set(ax, ay * this._heightScale + yOffset, az);
+        this._dummy.rotation.set(0, rotY, rotZ);
         this._dummy.scale.set(1, 1, 1);
       }
 

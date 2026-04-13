@@ -895,7 +895,10 @@ function buildSimulation() {
   console.log(`[sim] Spawned ${initialAgents.length} agents across ${simRegionMap.regionCount} regions`);
 
   // ── Step 8: Set up renderers ──────────────────────────────────────────────
-  const heightScale = 2.0; // vertical exaggeration for visual clarity
+  // Classic terrain: vertex positions from generateTerrain() are already in
+  // world-space — no heightScale multiplication needed. heightScale=1.0.
+  // Engine terrain would use 2.1 * reliefScale, but we're on classic path.
+  const heightScale = 1.0;
 
   simSceneBridge = new SceneBridge(scene, worldScale, heightScale);
   simAgentRenderer = new AgentRenderer(scene, DEFAULT_SIM_CONFIG.agents.maxCount, heightScale);
