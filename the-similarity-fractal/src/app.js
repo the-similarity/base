@@ -828,21 +828,30 @@ function buildSimulation() {
   // Custom tick function that calls each system with its correct arguments.
   // Order matters: environment → perceive → decide → move → interact →
   // consequences → telemetry.
+  // Build a lifecycle-compatible worldState with regionMap as a Map (with .get()).
+  // LifecycleSystem._processBirth calls regionMap.get(regionId) for spawn placement.
+  const lifecycleWorldState = { regionMap: spawnMap };
+
   simEngine._customTick = function() {
     const world = this._world;
     const agents = world.agents;
 
-    environmentSystem.tick(world);
-    lifecycleSystemInst.tick(agents, world);
-    perceptionSystem.tick(agents, world);
-    lodSystem.tick(agents, { x: 0, y: 0, z: 0 }); // default focus point
-    decisionSystem.tick(agents, perceptionSystem, lodSystem, world);
-    movementSystem.tick(agents, world);
-    interactionSystem.tick(agents, perceptionSystem, resourceField, null);
-    economySystem.tick(agents, resourceField, simRegionMap);
-    diseaseSystem.tick(agents, perceptionSystem, environmentSystem);
-    factionSystem.tick(agents, perceptionSystem);
-    telemetrySystem.tick(agents, factionSystem.getFactions?.() || [], simRegionMap);
+    try {
+      environmentSystem.tick(world);
+      lifecycleSystemInst.tick(agents, lifecycleWorldState);
+      perceptionSystem.tick(agents, world);
+      lodSystem.tick(agents, { x: 0, y: 0, z: 0 });
+      decisionSystem.tick(agents, perceptionSystem, lodSystem, world);
+      movementSystem.tick(agents, world);
+      interactionSystem.tick(agents, perceptionSystem, resourceField, null);
+      economySystem.tick(agents, resourceField, simRegionMap);
+      diseaseSystem.tick(agents, perceptionSystem, environmentSystem);
+      factionSystem.tick(agents, perceptionSystem);
+      telemetrySystem.tick(agents, factionSystem.getFactions?.() || [], simRegionMap);
+    } catch (e) {
+      // Log but don't kill the loop — partial ticks are better than frozen sim.
+      console.warn('[sim] tick error:', e.message);
+    }
   };
 
   // ── Step 6: Initialize engine with terrain data ───────────────────────────
