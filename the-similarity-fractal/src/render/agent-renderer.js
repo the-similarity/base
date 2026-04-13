@@ -258,9 +258,21 @@ export class AgentRenderer {
    *   Agent Y positions are multiplied by this so they sit on the terrain surface.
    *   Defaults to 1.0 (no exaggeration).
    */
-  constructor(scene, maxAgents = 1024, heightScale = 1.0) {
+  constructor(scene, maxAgents = 1024, heightScale = 1.0, terrainMesh = null) {
     /** @type {THREE.Scene} */
     this._scene = scene;
+
+    /** @type {THREE.Mesh|null} Reference to terrain mesh for ground raycasting. */
+    this._terrainMesh = terrainMesh;
+
+    /** @type {THREE.Raycaster} Reusable raycaster for ground height sampling. */
+    this._raycaster = new THREE.Raycaster();
+
+    /** @type {THREE.Vector3} Scratch origin for raycasting (high above agent). */
+    this._rayOrigin = new THREE.Vector3();
+
+    /** @type {THREE.Vector3} Down direction for raycasting. */
+    this._rayDown = new THREE.Vector3(0, -1, 0);
 
     /** @type {number} Maximum agent instances. Determines GPU buffer sizes. */
     this._maxAgents = maxAgents;
@@ -371,6 +383,19 @@ export class AgentRenderer {
         const ay = pos.y || 0;
         const az = pos.z || 0;
 
+        // ── Ground height: raycast onto terrain mesh for exact Y ──────
+        // The navGrid's sampled heightMap doesn't match the irregular fractal
+        // mesh surface exactly. Raycasting gives pixel-perfect ground contact.
+        let groundY = ay * this._heightScale; // fallback
+        if (this._terrainMesh) {
+          this._rayOrigin.set(ax, 50, az); // high above
+          this._raycaster.set(this._rayOrigin, this._rayDown);
+          const hits = this._raycaster.intersectObject(this._terrainMesh, false);
+          if (hits.length > 0) {
+            groundY = hits[0].point.y;
+          }
+        }
+
         // Detect movement by comparing to previous frame position.
         const dx = ax - this._prevX[i];
         const dz = az - this._prevZ[i];
@@ -379,27 +404,19 @@ export class AgentRenderer {
         this._prevX[i] = ax;
         this._prevZ[i] = az;
 
-        // Walking animation: bob vertically + lean forward when moving.
+        // Walking animation: bob + sway when moving.
         let yOffset = 0;
         let rotZ = 0;
         let rotY = 0;
         if (moved) {
-          // Advance walk phase — speed proportional to distance moved.
           this._walkPhase[i] += 0.4;
           const phase = this._walkPhase[i];
-
-          // Vertical bob: small sinusoidal bounce (±0.01 world units).
           yOffset = Math.abs(Math.sin(phase * 2)) * 0.015;
-
-          // Side-to-side sway: subtle lean left/right.
           rotZ = Math.sin(phase) * 0.12;
-
-          // Face movement direction.
           rotY = Math.atan2(dx, dz);
         }
 
-        // Apply heightScale + walk bob to Y.
-        this._dummy.position.set(ax, ay * this._heightScale + yOffset, az);
+        this._dummy.position.set(ax, groundY + yOffset, az);
         this._dummy.rotation.set(0, rotY, rotZ);
         this._dummy.scale.set(1, 1, 1);
       }

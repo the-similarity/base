@@ -901,7 +901,7 @@ function buildSimulation() {
   const heightScale = 1.0;
 
   simSceneBridge = new SceneBridge(scene, worldScale, heightScale);
-  simAgentRenderer = new AgentRenderer(scene, DEFAULT_SIM_CONFIG.agents.maxCount, heightScale);
+  simAgentRenderer = new AgentRenderer(scene, DEFAULT_SIM_CONFIG.agents.maxCount, heightScale, terrainMesh);
   simDebugOverlays = new DebugOverlays(scene, worldScale, heightScale);
   simHeatmapRenderer = new HeatmapRenderer(scene, worldScale, heightScale, gridSize);
 
