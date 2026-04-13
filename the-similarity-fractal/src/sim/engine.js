@@ -148,12 +148,25 @@ export class SimEngine {
    * @throws {Error} If system lacks an update method.
    */
   registerSystem(system) {
-    if (!system || typeof system.update !== 'function') {
+    // Accept systems with either .update(context) or .tick(...) methods.
+    // All simulation subsystem modules expose .tick() with varying
+    // signatures, so we wrap each in a uniform .update(context) adapter
+    // at registration time rather than rewriting every module.
+    if (!system) {
+      throw new Error('SimEngine.registerSystem: system is null/undefined');
+    }
+    if (typeof system.update === 'function') {
+      this._systems.push(system);
+    } else if (typeof system.tick === 'function') {
+      const wrapper = Object.create(system);
+      wrapper._inner = system;
+      wrapper.update = function(ctx) { system.tick(ctx.world.agents, ctx.world, ctx); };
+      this._systems.push(wrapper);
+    } else {
       throw new Error(
-        'SimEngine.registerSystem: system must have an update(context) method'
+        'SimEngine.registerSystem: system must have an update(context) or tick() method'
       );
     }
-    this._systems.push(system);
   }
 
   /**
