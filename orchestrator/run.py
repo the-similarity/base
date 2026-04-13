@@ -141,9 +141,14 @@ a note in obsidian_thesim/. See .claude/OBSIDIAN_KB.md for conventions.
 - New methods/modules → obsidian_thesim/concepts/<name>.md
 - Decisions/insights → obsidian_thesim/topics/<topic>.md
 - Research → obsidian_thesim/research/<name>.md
-- Update obsidian_thesim/_MOC.md when adding new notes.
+- DO NOT edit obsidian_thesim/_MOC.md — the orchestrator updates it post-merge.
 - Use [[wikilinks]] to cross-link. Keep notes concise.
 Skip this for purely mechanical changes (renames, dep bumps, formatting).
+
+SHARED-FILE RULES:
+- DO NOT edit: _MOC.md, CHANGELOG.md, pyproject.toml, .gitignore
+  (these cause merge conflicts when multiple agents touch them in parallel).
+- If you need a .gitignore entry, note it in your PR description instead.
 
 If you cannot complete the task, explain what went wrong clearly.
 Do NOT ask for human input — you are fully autonomous.
