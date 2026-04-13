@@ -802,10 +802,10 @@ function buildSimulation() {
   // not needed by any system currently — systems query POIs via world state.
   simPOIs = generatePOIs(terrainMaps, simRegionMap, rng);
 
-  // ── Step 5: Create SimEngine and register systems ─────────────────────────
-  // System registration order defines simulation semantics. The order below
-  // ensures: environment updates first -> agents perceive -> decide -> move ->
-  // interact -> economic/disease/faction consequences -> telemetry records.
+  // ── Step 5: Create SimEngine and systems ───────────────────────────────────
+  // Each system has a unique tick() signature (different dependencies), so we
+  // wire them manually rather than using a generic registerSystem adapter.
+  // This ensures every system gets exactly the arguments it expects.
   simEngine = new SimEngine({
     ticksPerSecond: DEFAULT_SIM_CONFIG.time.ticksPerSecond,
     seed: currentSeed,
@@ -814,24 +814,36 @@ function buildSimulation() {
   const perceptionSystem = new PerceptionSystem();
   simPerceptionSystem = perceptionSystem;
 
-  simEngine.registerSystem(new EnvironmentSystem(
-    {}, // use default climate config
-    resourceField,
-  ));
-  simEngine.registerSystem(new LifecycleSystem(eventBus, rng));
-  simEngine.registerSystem(perceptionSystem);
-  simEngine.registerSystem(new LODSystem());
-  simEngine.registerSystem(new DecisionSystem(rng));
-  simEngine.registerSystem(new MovementSystem(simNavGrid, eventBus));
-  simEngine.registerSystem(new InteractionSystem(eventBus, rng));
-  simEngine.registerSystem(new EconomySystem(eventBus));
-  simEngine.registerSystem(new DiseaseSystem(eventBus, rng));
-  simEngine.registerSystem(new FactionSystem(eventBus, rng));
-  simEngine.registerSystem(new TelemetrySystem(eventBus));
-  // SimilaritySystem is a query-only API (ingest/searchMotifs/detectRegime),
-  // not a per-tick system — it has no .tick() or .update() method.
-  // Do NOT register it as a system. Keep as standalone service.
-  // const simSimilarity = new SimilaritySystem();
+  const environmentSystem = new EnvironmentSystem({}, resourceField);
+  const lifecycleSystemInst = new LifecycleSystem(eventBus, rng);
+  const lodSystem = new LODSystem();
+  const decisionSystem = new DecisionSystem(rng);
+  const movementSystem = new MovementSystem(simNavGrid, eventBus);
+  const interactionSystem = new InteractionSystem(eventBus, rng);
+  const economySystem = new EconomySystem(eventBus);
+  const diseaseSystem = new DiseaseSystem(eventBus, rng);
+  const factionSystem = new FactionSystem(eventBus, rng);
+  const telemetrySystem = new TelemetrySystem(eventBus);
+
+  // Custom tick function that calls each system with its correct arguments.
+  // Order matters: environment → perceive → decide → move → interact →
+  // consequences → telemetry.
+  simEngine._customTick = function() {
+    const world = this._world;
+    const agents = world.agents;
+
+    environmentSystem.tick(world);
+    lifecycleSystemInst.tick(agents, world);
+    perceptionSystem.tick(agents, world);
+    lodSystem.tick(agents, { x: 0, y: 0, z: 0 }); // default focus point
+    decisionSystem.tick(agents, perceptionSystem, lodSystem, world);
+    movementSystem.tick(agents, world);
+    interactionSystem.tick(agents, perceptionSystem, resourceField, null);
+    economySystem.tick(agents, resourceField, simRegionMap);
+    diseaseSystem.tick(agents, perceptionSystem, environmentSystem);
+    factionSystem.tick(agents, perceptionSystem);
+    telemetrySystem.tick(agents, factionSystem.getFactions?.() || [], simRegionMap);
+  };
 
   // ── Step 6: Initialize engine with terrain data ───────────────────────────
   simEngine.init({
@@ -846,19 +858,15 @@ function buildSimulation() {
   }, currentSeed);
 
   // ── Step 7: Spawn initial agents ──────────────────────────────────────────
-  // LifecycleSystem needs a Map of regions with world-space cell positions.
-  // We build an adapter from the RegionMap's flat indices to {x, y, z} coords.
-  const lifecycleSystem = simEngine._systems.find(s => s instanceof LifecycleSystem);
-  if (lifecycleSystem) {
-    const spawnMap = buildRegionMapForSpawning(simRegionMap, simNavGrid);
-    const initialAgents = lifecycleSystem.spawnInitialAgents(
-      DEFAULT_SIM_CONFIG.agents.initialCount,
-      spawnMap,
-      simNavGrid,
-    );
-    // Inject spawned agents into the engine's world state.
-    simEngine._world.agents = initialAgents;
-  }
+  // Use the direct lifecycle instance (no adapter/find needed).
+  const spawnMap = buildRegionMapForSpawning(simRegionMap, simNavGrid);
+  const initialAgents = lifecycleSystemInst.spawnInitialAgents(
+    DEFAULT_SIM_CONFIG.agents.initialCount,
+    spawnMap,
+    simNavGrid,
+  );
+  simEngine._world.agents = initialAgents;
+  console.log(`[sim] Spawned ${initialAgents.length} agents across ${simRegionMap.regionCount} regions`);
 
   // ── Step 8: Set up renderers ──────────────────────────────────────────────
   const heightScale = 2.0; // vertical exaggeration for visual clarity

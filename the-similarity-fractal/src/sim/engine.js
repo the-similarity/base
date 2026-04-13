@@ -201,11 +201,15 @@ export class SimEngine {
         tick: this._scheduler.getTick(),
       };
 
-      // Execute each system in registration order.
-      // Deterministic ordering is critical: if movement runs before combat,
-      // agents fight at their new positions. Changing order changes semantics.
-      for (let i = 0; i < this._systems.length; i++) {
-        this._systems[i].update(context);
+      // Execute systems. If a custom tick function is set (for systems with
+      // unique tick() signatures), use it. Otherwise fall back to the generic
+      // registered-system pipeline.
+      if (typeof this._customTick === 'function') {
+        this._customTick();
+      } else {
+        for (let i = 0; i < this._systems.length; i++) {
+          this._systems[i].update(context);
+        }
       }
 
       // Snapshot events from this tick into the world for getSnapshot().
