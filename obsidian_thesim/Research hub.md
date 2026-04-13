@@ -32,7 +32,7 @@ Longer “chapter” summaries tied to our internal docs:
 - [[Survey TDA EMD wavelets SAX]] — many tools in one place (`04-tda-…`)
 - [[Survey forecasting backtesting]] — cones, calibration, walk-forward (`05-pattern-…`)
 - [[06-jepa-joint-embedding-predictive-architecture]] — JEPA, latent predictive world models, and where they may fit the engine
-- [[karpathy-autoresearch-and-research-ops]] — research-ops pattern for agent-driven experimentation
+- [[karpathy-autoresearch-and-research-ops]] — research-ops pattern for agent-driven experimentation (topic: [[Karpathy autoresearch]])
 - [[Long product brief in repo]] — strategy / competition essay (`research/notes/presenting_idea.md`)
 
 ## Topic index
