@@ -134,6 +134,17 @@ Your job:
 7. Open a PR: gh pr create --title "<title>" --body "<description>"
 8. Print the PR URL as your final output.
 
+KNOWLEDGE BASE — MANDATORY:
+If your work produces durable knowledge (new method, architecture decision,
+non-obvious bug fix, research insight, data source), you MUST write or update
+a note in obsidian_thesim/. See .claude/OBSIDIAN_KB.md for conventions.
+- New methods/modules → obsidian_thesim/concepts/<name>.md
+- Decisions/insights → obsidian_thesim/topics/<topic>.md
+- Research → obsidian_thesim/research/<name>.md
+- Update obsidian_thesim/_MOC.md when adding new notes.
+- Use [[wikilinks]] to cross-link. Keep notes concise.
+Skip this for purely mechanical changes (renames, dep bumps, formatting).
+
 If you cannot complete the task, explain what went wrong clearly.
 Do NOT ask for human input — you are fully autonomous.
 """

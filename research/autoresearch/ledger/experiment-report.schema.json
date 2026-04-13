@@ -1,0 +1,174 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://the-similarity.local/research/autoresearch/ledger/experiment-report.schema.json",
+  "title": "The Similarity autoresearch experiment report",
+  "description": "Standardized report format for baseline-vs-experiment comparisons. Every autoresearch run must produce one report conforming to this schema so results are auditable and machine-readable.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "report_id",
+    "run_id",
+    "benchmark_id",
+    "lane_id",
+    "timestamp",
+    "datasets_used",
+    "backtest_metrics",
+    "aggregate_metrics",
+    "recommendation",
+    "rationale"
+  ],
+  "properties": {
+    "report_id": {
+      "type": "string",
+      "description": "Unique identifier for this report (UUID4 or deterministic slug)."
+    },
+    "run_id": {
+      "type": "string",
+      "description": "Links to the experiment-ledger entry that triggered this report."
+    },
+    "benchmark_id": {
+      "type": "string",
+      "description": "Identifier of the benchmark manifest used (e.g. jepa-retrieval-core-v1)."
+    },
+    "lane_id": {
+      "type": "string",
+      "description": "Identifier of the autoresearch lane (e.g. jepa-retrieval-lane-v1)."
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO-8601 timestamp when the report was generated."
+    },
+    "branch": {
+      "type": ["string", "null"],
+      "description": "Git branch the experiment ran on."
+    },
+    "commit": {
+      "type": ["string", "null"],
+      "description": "Git commit SHA at the time of the experiment."
+    },
+    "datasets_used": {
+      "type": "array",
+      "items": { "type": "string" },
+      "minItems": 1,
+      "description": "List of dataset names or paths evaluated in this experiment."
+    },
+    "retrieval_comparison": {
+      "type": ["object", "null"],
+      "description": "Optional retrieval-quality comparison between baseline and experiment.",
+      "additionalProperties": false,
+      "properties": {
+        "top_k_overlap": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0,
+          "description": "Fraction of top-K matches shared between baseline and experiment (Jaccard over top-K sets)."
+        },
+        "rank_correlation": {
+          "type": "number",
+          "minimum": -1.0,
+          "maximum": 1.0,
+          "description": "Spearman rank correlation between baseline and experiment match rankings."
+        },
+        "rank_lift_summary": {
+          "type": "string",
+          "description": "Human-readable summary of rank changes (e.g. 'top-1 match moved from rank 3 to rank 1')."
+        }
+      }
+    },
+    "backtest_metrics": {
+      "type": "object",
+      "description": "Per-dataset breakdown of backtest metrics for both baseline and experiment.",
+      "additionalProperties": false,
+      "required": ["before", "after"],
+      "properties": {
+        "before": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/dataset_metrics" },
+          "description": "Per-dataset metrics from the baseline run."
+        },
+        "after": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/dataset_metrics" },
+          "description": "Per-dataset metrics from the experiment run."
+        }
+      }
+    },
+    "aggregate_metrics": {
+      "type": "object",
+      "description": "Overall summary metrics comparing baseline and experiment.",
+      "additionalProperties": false,
+      "required": ["before", "after", "deltas"],
+      "properties": {
+        "before": { "$ref": "#/$defs/metric_summary" },
+        "after": { "$ref": "#/$defs/metric_summary" },
+        "deltas": {
+          "$ref": "#/$defs/metric_summary",
+          "description": "after - before for each metric. Negative CRPS/mean_error/calibration_error = improvement."
+        }
+      }
+    },
+    "recommendation": {
+      "type": "string",
+      "enum": ["keep", "discard", "needs_review"],
+      "description": "Automated or human decision on whether to land the experiment."
+    },
+    "rationale": {
+      "type": "string",
+      "description": "Text explanation of the recommendation."
+    },
+    "artifacts": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Repo-relative file paths to related outputs (plots, logs, model checkpoints)."
+    }
+  },
+  "$defs": {
+    "dataset_metrics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["dataset", "crps", "calibration_error", "hit_rate", "mean_error", "runtime_seconds"],
+      "properties": {
+        "dataset": {
+          "type": "string",
+          "description": "Dataset name or path."
+        },
+        "crps": {
+          "type": "number",
+          "description": "Continuous Ranked Probability Score (lower is better)."
+        },
+        "calibration_error": {
+          "type": "number",
+          "description": "Average absolute calibration error across P10-P90 (lower is better)."
+        },
+        "hit_rate": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0,
+          "description": "Fraction of trials where actual outcome fell within the forecast cone."
+        },
+        "mean_error": {
+          "type": "number",
+          "description": "Mean absolute forecast error."
+        },
+        "runtime_seconds": {
+          "type": "number",
+          "minimum": 0.0,
+          "description": "Wall-clock time for this dataset's backtest."
+        }
+      }
+    },
+    "metric_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["crps", "calibration_error", "hit_rate", "mean_error", "runtime_seconds"],
+      "properties": {
+        "crps": { "type": "number" },
+        "calibration_error": { "type": "number" },
+        "hit_rate": { "type": "number" },
+        "mean_error": { "type": "number" },
+        "runtime_seconds": { "type": "number" }
+      }
+    }
+  }
+}

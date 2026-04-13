@@ -5,7 +5,7 @@ This module defines the single `Config` dataclass that controls the entire
 matching pipeline. Every tunable knob — method weights, tier thresholds,
 normalization strategy, windowing parameters — lives here.
 
-AI AGENT NOTES:
+Integration guide for new scoring methods:
 - When adding a new scoring method, you must:
   1. Add its weight key to `weights` and `active_methods` below.
   2. Wire the computation in `core/matcher.py` (Tier 2 enrichment).
@@ -17,6 +17,8 @@ AI AGENT NOTES:
 - Backward compatibility: new fields MUST have defaults that reproduce the
   prior behavior (e.g., `koopman_blend_weight=0.0` means "off by default").
 """
+
+from __future__ import annotations
 
 from dataclasses import dataclass, field
 
@@ -174,3 +176,73 @@ class Config:
     #   with strong dynamical structure.
     confidence_decay_rate: float = 0.0
     koopman_blend_weight: float = 0.0
+
+    # -------------------------------------------------------------------------
+    # Experimental feature flags
+    # -------------------------------------------------------------------------
+    # All experimental flags default to OFF so that `Config()` produces
+    # identical behavior to the pre-flag codebase. Future integrations
+    # (JEPA embeddings, autoresearch loops) toggle these without invasive
+    # code edits.
+    #
+    # jepa_enabled: master switch for JEPA embedding similarity scoring.
+    #   When False, no JEPA code paths execute and jepa_weight is forced
+    #   to 0.0 as a fail-safe.
+    # jepa_weight: relative importance of the JEPA method in the composite
+    #   confidence score. Must be in [0.0, 1.0]. Only meaningful when
+    #   jepa_enabled is True.
+    # jepa_embedding_path: filesystem path to a pre-computed JEPA embedding
+    #   store (e.g. an HDF5 or safetensors file). Required when
+    #   jepa_enabled is True; ignored otherwise.
+    jepa_enabled: bool = False
+    jepa_weight: float = 0.0
+    jepa_embedding_path: str | None = None
+
+    # -------------------------------------------------------------------------
+    # Post-init validation
+    # -------------------------------------------------------------------------
+    def __post_init__(self) -> None:
+        """Validate configuration invariants after dataclass initialization.
+
+        Checks:
+        - jepa_weight is bounded to [0.0, 1.0].
+        - If jepa_enabled is True, jepa_embedding_path must be a non-empty
+          string (fail-fast so callers don't silently get zero JEPA scores).
+        - If jepa_enabled is False, jepa_weight is clamped to 0.0 regardless
+          of what the caller passed (fail-safe default-off semantics).
+        """
+        # --- JEPA flag validation ---
+        if not isinstance(self.jepa_weight, (int, float)):
+            raise TypeError(
+                f"jepa_weight must be a number, got {type(self.jepa_weight).__name__}"
+            )
+        if not (0.0 <= self.jepa_weight <= 1.0):
+            raise ValueError(
+                f"jepa_weight must be in [0.0, 1.0], got {self.jepa_weight}"
+            )
+        if self.jepa_enabled:
+            if not self.jepa_embedding_path:
+                raise ValueError(
+                    "jepa_embedding_path must be set when jepa_enabled is True"
+                )
+        else:
+            # Fail-safe: disabled flag forces weight to zero so stale config
+            # from a previous experiment cannot accidentally influence scoring.
+            self.jepa_weight = 0.0
+
+    # -------------------------------------------------------------------------
+    # Feature flag introspection
+    # -------------------------------------------------------------------------
+    def feature_flags(self) -> dict[str, object]:
+        """Return a dict of all experimental feature flags and their values.
+
+        Designed for structured logging, experiment ledger entries, and
+        reproducibility metadata. Keys are stable identifiers; values are
+        the post-validation state (e.g. jepa_weight will be 0.0 if
+        jepa_enabled is False, regardless of what was passed at init).
+        """
+        return {
+            "jepa_enabled": self.jepa_enabled,
+            "jepa_weight": self.jepa_weight,
+            "jepa_embedding_path": self.jepa_embedding_path,
+        }
