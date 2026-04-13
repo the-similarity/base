@@ -1,0 +1,61 @@
+{
+  "aggregate": {
+    "calibration_error_p10_p90": 0.04750000000000001,
+    "crps": 0.1769,
+    "datasets_evaluated": 2,
+    "hit_rate": 0.49,
+    "mean_error": 0.10508656371289778,
+    "runtime_seconds": 1791.9468338330043
+  },
+  "benchmark_id": "jepa-retrieval-core-v1",
+  "dataset_reports": [
+    {
+      "calibration": {
+        "10": 0.12,
+        "25": 0.26,
+        "50": 0.44,
+        "75": 0.63,
+        "90": 0.76
+      },
+      "calibration_error_p10_p90": 0.08,
+      "crps": 0.19959999999999997,
+      "dataset_path": "the-similarity-data/data/stocks/spy/1d.parquet",
+      "hit_rate": 0.49,
+      "mean_error": 0.049707126426817745,
+      "n_skipped_trials": 0,
+      "n_valid_trials": 100,
+      "runtime_seconds": 628.1029822499986,
+      "series_name": "/Users/buyantogtokh/Projects/14/the-similarity-data/data/stocks/spy/1d.parquet"
+    },
+    {
+      "calibration": {
+        "10": 0.1,
+        "25": 0.25,
+        "50": 0.56,
+        "75": 0.77,
+        "90": 0.93
+      },
+      "calibration_error_p10_p90": 0.015000000000000013,
+      "crps": 0.1542,
+      "dataset_path": "the-similarity-data/data/crypto/btc_usdt/1d.parquet",
+      "hit_rate": 0.49,
+      "mean_error": 0.16046600099897781,
+      "n_skipped_trials": 0,
+      "n_valid_trials": 100,
+      "runtime_seconds": 1163.8438515830057,
+      "series_name": "/Users/buyantogtokh/Projects/14/the-similarity-data/data/crypto/btc_usdt/1d.parquet"
+    }
+  ],
+  "generated_at": "2026-04-12T22:55:42Z",
+  "lane_id": "jepa-retrieval-lane-v1",
+  "parameters": {
+    "datasets": [
+      "the-similarity-data/data/stocks/spy/1d.parquet",
+      "the-similarity-data/data/crypto/btc_usdt/1d.parquet"
+    ],
+    "forward_bars": 30,
+    "n_trials": 100,
+    "seed": 42,
+    "window_size": 60
+  }
+}

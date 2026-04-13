@@ -1,8 +1,17 @@
 # JEPA Integration Spec — Production Surface Design
 
-> **Status**: Design spec (no production code changes)
-> **Date**: 2026-04-12
-> **Scope**: Where JEPA slots into the existing 9-method tiered pipeline
+> **Status**: Design spec (no production code changes) — **PAUSED pending world model research**
+> **Date**: 2026-04-12, updated 2026-04-12
+> **Scope**: Where JEPA slots into the production engine
+>
+> **NOTE (2026-04-12):** JEPA retrieval was tried and killed. The current
+> research direction is JEPA as a **world model** (forward dynamics prediction,
+> synthetic scenario generation). This spec was written for retrieval-as-Tier-2
+> but the production wiring (config, feature flags, lazy imports) is still
+> applicable. The ScoreBreakdown field and matcher placement will need revision
+> once world model research shows results — JEPA may enter as a **projector
+> replacement** (forecast cone via learned dynamics) rather than a 10th matching
+> method. See `research/autoresearch/playbooks/JEPA_WORLD_MODEL_LANE.md`.
 
 ---
 
