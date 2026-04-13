@@ -30,9 +30,7 @@ Vault for **The Similarity**: research ingests, what we learn while building, an
 - [[Experiment ledger]] — append-only run log and query API
 - [[Experiment report format]] — standardized comparison report schema
 - [[JEPA data representation]] — log-returns, channels, temporal splits
-- [[JEPA retrieval prototype]] — latent-space retrieval vs production matcher
-- [[JEPA training and export pipeline]] — train encoder → export embeddings → cache
-- [[JEPA integration surface]] — design spec for production engine placement
+- [[JEPA integration surface]] — production engine placement (paused pending world model research)
 - [[Experimental feature flags]] — Config toggles for JEPA and future experiments
 - [[Retrieval evaluation harness]] — top-k overlap, rank lift, walk-forward comparison
 - [[Projector calibration lane]] — autoresearch lane for forecast cone tuning
