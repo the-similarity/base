@@ -85,6 +85,16 @@ Temporary worktrees are created automatically by the Agent tool and cleaned up a
 - If you encounter merge conflicts, stop and tell the user.
 - The orchestrator (Projects/14) dispatches work but does not make code changes directly — it spawns worktree agents for that.
 
+### Shared-file conflict prevention
+When multiple agents run in parallel, they WILL conflict on files that every agent edits. Known hot files:
+- **`obsidian_thesim/_MOC.md`** — DO NOT edit from worktree agents. The orchestrator does one consolidated MOC update after all PRs merge.
+- **`.gitignore`** — only one agent per batch should touch it; others note what they need added in their PR description.
+- **`CHANGELOG.md`**, **`pyproject.toml`** — same rule: only one agent modifies, or the orchestrator does it post-merge.
+
+### Merge discipline
+- **Merge PRs as they land, not in batches.** Each merge changes main, creating cascading conflicts for later PRs. The orchestrator should merge each PR immediately when its agent finishes, not queue them all for a batch merge at the end.
+- If batch merging is unavoidable, merge in dependency order and resolve MOC/shared-file conflicts between each merge.
+
 ## Tests
 - 347 tests across 30 test files. All must pass before shipping.
 - Test command: `python -m pytest the_similarity/tests/ -v`
@@ -174,7 +184,7 @@ The vault **`obsidian_thesim/`** is the project’s **single source of truth for
 
 1. Use `[[wikilinks]]` to cross-link related concepts, methods, and code paths.
 2. Use real relative paths from repo root when referencing code (e.g. `the_similarity/core/matcher.py`).
-3. Update `obsidian_thesim/_MOC.md` (Map of Content) when adding new notes.
+3. **DO NOT update `obsidian_thesim/_MOC.md`** — the orchestrator or human will do a single consolidated MOC update after merging. Parallel agents editing the same MOC line always causes merge conflicts.
 4. Keep notes concise — aim for "what would a new agent need to know in 60 seconds."
 5. Consolidate, don’t duplicate — check if a note already exists before creating a new one.
 
