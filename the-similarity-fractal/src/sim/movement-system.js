@@ -151,25 +151,33 @@ export class MovementSystem {
     const action = agent.currentAction;
     if (!action) return MOVE_BEHAVIOR.WANDER;
 
-    // The action type maps directly to movement behaviors.
-    // Actions that do not require movement return null so the agent stays put.
-    switch (action.type) {
-      case 'wander':        return MOVE_BEHAVIOR.WANDER;
-      case 'travel_to_poi': return MOVE_BEHAVIOR.TRAVEL_TO_POI;
-      case 'flee':          return MOVE_BEHAVIOR.FLEE;
-      case 'pursue':        return MOVE_BEHAVIOR.PURSUE;
-      case 'migrate':       return MOVE_BEHAVIOR.MIGRATE;
-      case 'return_home':   return MOVE_BEHAVIOR.RETURN_HOME;
-      case 'patrol':        return MOVE_BEHAVIOR.PATROL;
-      // Non-movement actions: agent stays in place.
+    // Normalize: action can be a string ('GATHER_FOOD') or object ({type:'gather'}).
+    // The decision system sets plain uppercase strings; we accept both formats.
+    const actionType = (typeof action === 'string' ? action : action.type || '')
+      .toLowerCase();
+
+    // Every action except REST results in movement. The world is simple right
+    // now (no resource nodes, no trade posts) so sophisticated target-finding
+    // would fail. Agents WANDER toward their goals — the terrain and other
+    // agents create emergent structure through encounter, not pathfinding.
+    switch (actionType) {
       case 'rest':
-      case 'gather':
-      case 'trade':
-      case 'socialize':
-        return null;
+        return null; // stay in place, recover energy
+      case 'flee':
+        return MOVE_BEHAVIOR.FLEE;
+      case 'fight':
+      case 'pursue':
+        return MOVE_BEHAVIOR.PURSUE;
+      case 'migrate':
+        return MOVE_BEHAVIOR.MIGRATE;
+      case 'return_home':
+        return MOVE_BEHAVIOR.RETURN_HOME;
+      case 'patrol':
+        return MOVE_BEHAVIOR.PATROL;
       default:
-        // Unknown action — default to idle (no movement).
-        return null;
+        // Everything else (gather, trade, socialize, wander, drink, unknown)
+        // → wander. Agents move, encounter things, interact opportunistically.
+        return MOVE_BEHAVIOR.WANDER;
     }
   }
 

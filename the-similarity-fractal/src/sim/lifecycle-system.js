@@ -329,6 +329,17 @@ export class LifecycleSystem {
       if (agent.needs.energy < BIRTH_MIN_ENERGY) continue;
       if (agent.needs.hunger >= BIRTH_MIN_HUNGER_HEADROOM) continue;
 
+      // Relationship gate: birth requires a positive relationship with at
+      // least one other agent. No relationships = no reproduction. This
+      // ensures population growth is driven by social dynamics, not just
+      // favorable survival conditions.
+      const rels = agent.relationships;
+      let hasPartner = false;
+      if (rels && typeof rels.forEach === 'function') {
+        rels.forEach((valence) => { if (valence > 0.3) hasPartner = true; });
+      }
+      if (!hasPartner) continue;
+
       // Stochastic gate: even when all conditions are favorable, birth
       // is rare per tick to keep population growth gradual.
       if (this._rng.next() >= BIRTH_CHECK_PROBABILITY) continue;
