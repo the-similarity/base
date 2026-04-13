@@ -20,8 +20,22 @@ Vault for **The Similarity**: research ingests, what we learn while building, an
 | `raw/`        | Web Clipper, papers, excerpts, images → compile into notes |
 | `research/`   | **Surveys** + **`full-text/`** copies of repo `research/**/*.md` |
 | `topics/`     | **One idea per file** (methods + concepts) for retrieval / graph |
-| `concepts/`   | Short technical anchors linking into `topics/` — includes [[Experiment report format]] |
+| `concepts/`   | Short technical anchors linking into `topics/` |
 | `outputs/`    | Plots, Marp, exports |
+
+## Concepts
+
+- [[Benchmark slices]] — canonical dataset membership and date bounds
+- [[Keep-discard thresholds]] — numeric gates for experiment decisions
+- [[Experiment ledger]] — append-only run log and query API
+- [[Experiment report format]] — standardized comparison report schema
+- [[JEPA data representation]] — log-returns, channels, temporal splits
+- [[JEPA retrieval prototype]] — latent-space retrieval vs production matcher
+- [[JEPA training and export pipeline]] — train encoder → export embeddings → cache
+- [[JEPA integration surface]] — design spec for production engine placement
+- [[Experimental feature flags]] — Config toggles for JEPA and future experiments
+- [[Retrieval evaluation harness]] — top-k overlap, rank lift, walk-forward comparison
+- [[Projector calibration lane]] — autoresearch lane for forecast cone tuning
 
 ## Backlog (optional)
 
