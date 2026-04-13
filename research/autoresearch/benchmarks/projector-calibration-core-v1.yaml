@@ -82,6 +82,26 @@ acceptance:
   discard_if:
     - condition: cone changes look nicer but do not improve scorecard metrics
 
+# ── Numeric decision thresholds ──────────────────────────────────────
+# Projector-calibration lane focuses on cone quality.  The primary gate
+# is calibration improvement; CRPS must not regress.
+thresholds:
+  # Minimum absolute reduction in calibration_error_p10_p90 to keep.
+  min_calibration_improvement: 0.005
+
+  # Maximum absolute CRPS increase tolerated.  The projector lane must
+  # not trade calibration for worse probabilistic accuracy.
+  max_crps_regression: 0.01
+
+  # Maximum allowed runtime ratio (after / before).
+  max_runtime_multiplier: 2.0
+
+  # Minimum slices that must show calibration improvement.
+  min_slices_improved: 1
+
+  # Walk-forward is mandatory for projector changes too.
+  walk_forward_required: true
+
 logging:
   ledger_path: progress/autoresearch/experiments.jsonl
   schema_path: research/autoresearch/ledger/experiment-ledger.schema.json
