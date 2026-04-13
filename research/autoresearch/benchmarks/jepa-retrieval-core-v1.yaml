@@ -25,12 +25,113 @@ writable_scope:
 benchmark:
   dataset_family: univariate historical price series
   canonical_slices:
+
+    # ── equities-daily-core ──────────────────────────────────────────────
+    # Liquid US large-cap equities and major ETFs.  Daily closes from Stooq.
+    # Covers secular bull, correction, and sideways regimes across ~15-40 yrs.
     - id: equities-daily-core
       description: Daily closes on liquid large-cap equities with mixed trend and mean-reverting periods.
+      timeframe: 1d
+      source: stooq
+      symbols:
+        - {symbol: aapl,  path: data/stocks/aapl/1d.parquet,  start_date: "1984-09-07", end_date: "2026-03-20", rows: 10464}
+        - {symbol: amzn,  path: data/stocks/amzn/1d.parquet,  start_date: "1997-05-16", end_date: "2026-03-20", rows: 7251}
+        - {symbol: dia,   path: data/stocks/dia/1d.parquet,   start_date: "2005-02-25", end_date: "2026-03-20", rows: 5299}
+        - {symbol: goog,  path: data/stocks/goog/1d.parquet,  start_date: "2014-03-27", end_date: "2026-03-20", rows: 3014}
+        - {symbol: iwm,   path: data/stocks/iwm/1d.parquet,   start_date: "2005-02-25", end_date: "2026-03-20", rows: 5299}
+        - {symbol: meta,  path: data/stocks/meta/1d.parquet,  start_date: "2012-05-18", end_date: "2026-03-20", rows: 3479}
+        - {symbol: msft,  path: data/stocks/msft/1d.parquet,  start_date: "1986-03-13", end_date: "2026-03-20", rows: 10081}
+        - {symbol: nvda,  path: data/stocks/nvda/1d.parquet,  start_date: "1999-01-22", end_date: "2026-03-20", rows: 6831}
+        - {symbol: qqq,   path: data/stocks/qqq/1d.parquet,   start_date: "1999-03-10", end_date: "2026-03-20", rows: 6799}
+        - {symbol: spy,   path: data/stocks/spy/1d.parquet,   start_date: "2005-02-25", end_date: "2026-03-20", rows: 5299}
+        - {symbol: tsla,  path: data/stocks/tsla/1d.parquet,  start_date: "2010-06-28", end_date: "2026-03-20", rows: 3956}
+
+    # ── crypto-daily-core ────────────────────────────────────────────────
+    # Major crypto pairs (USDT-quoted) at daily resolution from CCXT.
+    # Higher volatility than equities — tests uncertainty width and
+    # calibration under fat tails.
     - id: crypto-daily-core
       description: Daily closes on major crypto assets for higher-volatility regime coverage.
+      timeframe: 1d
+      source: ccxt
+      symbols:
+        - {symbol: btc_usdt, path: data/crypto/btc_usdt/1d.parquet, start_date: "2019-09-23", end_date: "2026-03-23", rows: 2374}
+        - {symbol: eth_usdt, path: data/crypto/eth_usdt/1d.parquet, start_date: "2019-09-23", end_date: "2026-03-23", rows: 2374}
+        - {symbol: sol_usdt, path: data/crypto/sol_usdt/1d.parquet, start_date: "2020-09-18", end_date: "2026-03-23", rows: 2013}
+        - {symbol: xrp_usdt, path: data/crypto/xrp_usdt/1d.parquet, start_date: "2019-09-23", end_date: "2026-03-23", rows: 1463}
+
+    # ── stress-regimes-core ──────────────────────────────────────────────
+    # Hand-picked crisis and regime-transition windows.  Used to verify
+    # that retrieval and projection stay calibrated under tail events.
+    # Each window is a date sub-range of a symbol already in one of the
+    # slices above — the benchmark runner should filter the parquet to
+    # [stress_start, stress_end] before sampling trials.
     - id: stress-regimes-core
       description: Crisis and transition windows to test novelty handling and calibration under instability.
+      windows:
+        # COVID-19 crash: rapid ~35 % drawdown in equities, Mar 2020
+        - label: covid-crash-equities
+          symbol: spy
+          path: data/stocks/spy/1d.parquet
+          stress_start: "2020-02-19"
+          stress_end: "2020-04-30"
+          rationale: >-
+            Fastest 30 % drawdown in S&P history. Tests whether the matcher
+            retrieves meaningful analogues for an unprecedented velocity move
+            and whether the cone opens wide enough.
+
+        - label: covid-crash-tech
+          symbol: qqq
+          path: data/stocks/qqq/1d.parquet
+          stress_start: "2020-02-19"
+          stress_end: "2020-04-30"
+          rationale: Tech concentrated drawdown and V-shaped recovery.
+
+        # 2022 crypto winter: BTC lost ~75 % from Nov-2021 ATH
+        - label: crypto-winter-2022-btc
+          symbol: btc_usdt
+          path: data/crypto/btc_usdt/1d.parquet
+          stress_start: "2021-11-01"
+          stress_end: "2022-07-31"
+          rationale: >-
+            Prolonged drawdown with multiple capitulation events (LUNA, 3AC).
+            Tests calibration under sustained negative drift and vol clustering.
+
+        - label: crypto-winter-2022-eth
+          symbol: eth_usdt
+          path: data/crypto/eth_usdt/1d.parquet
+          stress_start: "2021-11-01"
+          stress_end: "2022-07-31"
+          rationale: ETH parallel to BTC crypto winter with merge-narrative divergence.
+
+        # 2022 rate-hike equity bear market
+        - label: rate-hike-bear-2022
+          symbol: spy
+          path: data/stocks/spy/1d.parquet
+          stress_start: "2022-01-03"
+          stress_end: "2022-10-14"
+          rationale: >-
+            Grinding bear driven by Fed tightening. Unlike COVID, slow and
+            persistent — tests analogues for a different volatility signature.
+
+        # Growth-stock crash 2022 (TSLA -65 % peak-to-trough)
+        - label: growth-crash-2022-tsla
+          symbol: tsla
+          path: data/stocks/tsla/1d.parquet
+          stress_start: "2021-11-01"
+          stress_end: "2022-12-31"
+          rationale: Extreme single-name drawdown in a liquid mega-cap.
+
+        # 2020 oil price war + negative WTI futures
+        - label: oil-price-war-2020
+          symbol: spy
+          path: data/stocks/spy/1d.parquet
+          stress_start: "2020-03-01"
+          stress_end: "2020-05-15"
+          rationale: >-
+            Overlaps COVID but captures the unique commodity dislocation
+            reflected in broad-market stress.
+
   query_window: 60
   forward_bars: 30
   top_k: 10

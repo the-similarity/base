@@ -22,10 +22,39 @@ writable_scope:
 benchmark:
   dataset_family: historical price series with walk-forward validation
   canonical_slices:
+
+    # ── equities-daily-core ──────────────────────────────────────────────
+    # Same symbol set as jepa-retrieval-core-v1 for cross-lane comparability.
     - id: equities-daily-core
       description: Daily equities slice for baseline calibration checks.
+      timeframe: 1d
+      source: stooq
+      symbols:
+        - {symbol: aapl,  path: data/stocks/aapl/1d.parquet,  start_date: "1984-09-07", end_date: "2026-03-20", rows: 10464}
+        - {symbol: amzn,  path: data/stocks/amzn/1d.parquet,  start_date: "1997-05-16", end_date: "2026-03-20", rows: 7251}
+        - {symbol: dia,   path: data/stocks/dia/1d.parquet,   start_date: "2005-02-25", end_date: "2026-03-20", rows: 5299}
+        - {symbol: goog,  path: data/stocks/goog/1d.parquet,  start_date: "2014-03-27", end_date: "2026-03-20", rows: 3014}
+        - {symbol: iwm,   path: data/stocks/iwm/1d.parquet,   start_date: "2005-02-25", end_date: "2026-03-20", rows: 5299}
+        - {symbol: meta,  path: data/stocks/meta/1d.parquet,  start_date: "2012-05-18", end_date: "2026-03-20", rows: 3479}
+        - {symbol: msft,  path: data/stocks/msft/1d.parquet,  start_date: "1986-03-13", end_date: "2026-03-20", rows: 10081}
+        - {symbol: nvda,  path: data/stocks/nvda/1d.parquet,  start_date: "1999-01-22", end_date: "2026-03-20", rows: 6831}
+        - {symbol: qqq,   path: data/stocks/qqq/1d.parquet,   start_date: "1999-03-10", end_date: "2026-03-20", rows: 6799}
+        - {symbol: spy,   path: data/stocks/spy/1d.parquet,   start_date: "2005-02-25", end_date: "2026-03-20", rows: 5299}
+        - {symbol: tsla,  path: data/stocks/tsla/1d.parquet,  start_date: "2010-06-28", end_date: "2026-03-20", rows: 3956}
+
+    # ── crypto-daily-core ────────────────────────────────────────────────
+    # Higher-volatility crypto pairs — tests whether the projector's cone
+    # width adapts properly to fat-tailed return distributions.
     - id: crypto-daily-core
       description: Higher-volatility slice for uncertainty width stress.
+      timeframe: 1d
+      source: ccxt
+      symbols:
+        - {symbol: btc_usdt, path: data/crypto/btc_usdt/1d.parquet, start_date: "2019-09-23", end_date: "2026-03-23", rows: 2374}
+        - {symbol: eth_usdt, path: data/crypto/eth_usdt/1d.parquet, start_date: "2019-09-23", end_date: "2026-03-23", rows: 2374}
+        - {symbol: sol_usdt, path: data/crypto/sol_usdt/1d.parquet, start_date: "2020-09-18", end_date: "2026-03-23", rows: 2013}
+        - {symbol: xrp_usdt, path: data/crypto/xrp_usdt/1d.parquet, start_date: "2019-09-23", end_date: "2026-03-23", rows: 1463}
+
   query_window: 60
   forward_bars: 30
   top_k: 10
