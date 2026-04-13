@@ -272,7 +272,9 @@ let simLastFrameTime = 0;
 /** @type {boolean} Whether the heatmap overlay is currently shown. */
 let heatmapVisible = false;
 
-const API_URL = 'http://127.0.0.1:8000';
+// Derive API origin from the current page so localhost vs 127.0.0.1 never
+// causes a CORS mismatch.  The similarity API runs on port 8001.
+const API_URL = `${window.location.protocol}//${window.location.hostname}:8001`;
 
 // FPS traversal scale constants.
 // The terrain world is tiny relative to default first-person controller values,
