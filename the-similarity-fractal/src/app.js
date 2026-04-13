@@ -828,7 +828,10 @@ function buildSimulation() {
   simEngine.registerSystem(new DiseaseSystem(eventBus, rng));
   simEngine.registerSystem(new FactionSystem(eventBus, rng));
   simEngine.registerSystem(new TelemetrySystem(eventBus));
-  simEngine.registerSystem(new SimilaritySystem());
+  // SimilaritySystem is a query-only API (ingest/searchMotifs/detectRegime),
+  // not a per-tick system — it has no .tick() or .update() method.
+  // Do NOT register it as a system. Keep as standalone service.
+  // const simSimilarity = new SimilaritySystem();
 
   // ── Step 6: Initialize engine with terrain data ───────────────────────────
   simEngine.init({
@@ -861,7 +864,7 @@ function buildSimulation() {
   const heightScale = 2.0; // vertical exaggeration for visual clarity
 
   simSceneBridge = new SceneBridge(scene, worldScale, heightScale);
-  simAgentRenderer = new AgentRenderer(scene, DEFAULT_SIM_CONFIG.agents.maxCount);
+  simAgentRenderer = new AgentRenderer(scene, DEFAULT_SIM_CONFIG.agents.maxCount, heightScale);
   simDebugOverlays = new DebugOverlays(scene, worldScale, heightScale);
   simHeatmapRenderer = new HeatmapRenderer(scene, worldScale, heightScale, gridSize);
 
