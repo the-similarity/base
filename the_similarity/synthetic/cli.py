@@ -8,9 +8,15 @@ report.md, provenance.json) under a run directory keyed by
 
 Exit code
 ---------
-- ``0`` if every present scorecard reports ``passed=True`` AND every threshold
-  flag (``--threshold-*``) is satisfied.
-- ``1`` otherwise.
+- ``0`` (default / loose mode) whenever artifacts are successfully written,
+  regardless of scorecard pass/fail. The scorecard outcome is surfaced in
+  stdout as ``passed=True|False`` for programmatic consumers.
+- ``1`` only when ``--strict`` is passed AND at least one scorecard fails
+  its threshold. Lets callers opt into treating scorecard miss as a
+  pipeline failure without making it the default.
+- ``2`` reserved for argparse/pipeline errors (argparse emits this
+  automatically on bad CLI args; pipeline exceptions surface as non-zero
+  via Python's default ``SystemExit``).
 """
 from __future__ import annotations
 
@@ -87,21 +93,38 @@ def build_parser() -> argparse.ArgumentParser:
         "--threshold-fidelity",
         type=float,
         default=None,
-        help="Optional. Minimum FidelityReport.overall_score to pass.",
+        help=(
+            "Optional. Minimum FidelityReport.overall_score; thresholds used "
+            "for the `passed` banner and for `--strict` exit gating."
+        ),
     )
     p.add_argument(
         "--threshold-privacy",
         type=float,
         default=None,
-        help="Optional. Minimum PrivacyReport.overall_score to pass.",
+        help=(
+            "Optional. Minimum PrivacyReport.overall_score; thresholds used "
+            "for the `passed` banner and for `--strict` exit gating."
+        ),
     )
     p.add_argument(
         "--threshold-utility",
         type=float,
         default=None,
         help=(
-            "Optional. Maximum UtilityReport.transfer_gap to pass "
-            "(lower gap = better utility)."
+            "Optional. Maximum UtilityReport.transfer_gap (lower = better); "
+            "thresholds used for the `passed` banner and for `--strict` "
+            "exit gating."
+        ),
+    )
+    p.add_argument(
+        "--strict",
+        action="store_true",
+        default=False,
+        help=(
+            "If set, exit 1 when any scorecard fails its threshold. "
+            "By default, exit 0 on successful artifact write regardless "
+            "of scorecard pass/fail."
         ),
     )
     return p
@@ -474,8 +497,19 @@ def run(args: argparse.Namespace) -> int:
 
     passed = evaluate_thresholds(scorecard, args)
     print(f"run_dir: {run_dir}")
-    print(f"passed:  {passed}")
-    return 0 if passed else 1
+    # Exit-semantics contract:
+    #   Default (loose): artifact write is the success criterion. The
+    #   `passed` flag is informational -- we print it but exit 0 so that
+    #   CI pipelines that chain artifact-producing steps don't treat a
+    #   soft scorecard miss as a pipeline failure.
+    #   --strict: the caller has opted into treating scorecard miss as
+    #   a failure; propagate `passed` into the exit code.
+    if args.strict:
+        exit_code = 0 if passed else 1
+        print(f"passed={passed} strict-mode exit={exit_code}")
+        return exit_code
+    print(f"passed={passed} (use --strict to gate exit code on this)")
+    return 0
 
 
 def main(argv: Optional[list[str]] = None) -> int:

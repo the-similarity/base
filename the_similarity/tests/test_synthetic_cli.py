@@ -40,13 +40,26 @@ def _write_tiny_csv(path: Path, n_rows: int = 200) -> None:
 
 def _run_cli(args: list[str], cwd: Path) -> subprocess.CompletedProcess:
     # Invoke via `python -m the_similarity.synthetic.cli` so we don't depend on
-    # an installed console script being on PATH in the test sandbox.
+    # an installed console script being on PATH in the test sandbox. We pin
+    # PYTHONPATH to the worktree's repo root so the subprocess imports the
+    # in-tree package (e.g. this branch's cli.py), not whatever copy happens
+    # to be pip-installed at the user's site-packages -- otherwise the test
+    # silently exercises stale code from a sibling worktree.
+    import os
+
+    repo_root = Path(__file__).resolve().parents[2]
+    env = os.environ.copy()
+    existing = env.get("PYTHONPATH", "")
+    env["PYTHONPATH"] = (
+        f"{repo_root}{os.pathsep}{existing}" if existing else str(repo_root)
+    )
     return subprocess.run(
         [sys.executable, "-m", "the_similarity.synthetic.cli", *args],
         cwd=cwd,
         capture_output=True,
         text=True,
         timeout=120,
+        env=env,
     )
 
 
@@ -120,4 +133,53 @@ def test_cli_runs_on_tiny_csv(tmp_path: Path):
     assert report_artifact is not None, (
         f"No report.md/eval.md in {out_dir}; "
         f"contents: {list(out_dir.rglob('*'))}"
+    )
+
+
+def test_cli_strict_mode_exits_one_on_threshold_miss(tmp_path: Path):
+    """In --strict mode, impossibly-tight thresholds must force exit 1.
+
+    Picks thresholds the scorecard cannot satisfy on a tiny random CSV
+    (min fidelity = 1.0 is effectively unreachable; max transfer_gap = 0.0
+    is unreachable too). The loose-mode test above verifies that the same
+    artifact-write path still returns 0 without --strict, so this pair
+    brackets the behaviour.
+    """
+    in_csv = tmp_path / "tiny.csv"
+    _write_tiny_csv(in_csv, n_rows=200)
+    out_dir = tmp_path / "run"
+    out_dir.mkdir()
+
+    probe = _run_cli(["--help"], cwd=tmp_path)
+    if probe.returncode not in (0, 2):
+        pytest.skip(
+            f"synthetic.cli --help returned {probe.returncode}; "
+            f"stderr={probe.stderr[:200]}"
+        )
+    # Require --strict support: if the flag is not yet wired, skip rather
+    # than fail (keeps the suite green in worktrees before this PR lands).
+    if "--strict" not in (probe.stdout or ""):
+        pytest.skip("CLI build does not expose --strict yet")
+
+    result = _run_cli(
+        [
+            "--input", str(in_csv),
+            "--n", "100",
+            "--out", str(out_dir),
+            "--strict",
+            "--threshold-fidelity", "1.0",
+            "--threshold-privacy", "1.0",
+            "--threshold-utility", "0.0",
+        ],
+        cwd=tmp_path,
+    )
+
+    assert result.returncode == 1, (
+        f"Expected strict-mode exit 1 on unreachable thresholds; "
+        f"got {result.returncode}. stdout={result.stdout[:400]} "
+        f"stderr={result.stderr[:400]}"
+    )
+    # The banner must communicate the strict-mode exit decision.
+    assert "strict-mode exit=1" in (result.stdout or ""), (
+        f"Expected strict-mode banner; stdout={result.stdout[:400]}"
     )
