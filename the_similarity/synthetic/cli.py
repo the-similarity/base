@@ -37,7 +37,7 @@ from the_similarity.synthetic.contracts import (
 # ---------------------------------------------------------------------------
 
 
-GENERATOR_CHOICES = ("block", "regime-block")
+GENERATOR_CHOICES = ("block_bootstrap", "regime_block_bootstrap")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -74,8 +74,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument(
         "--generator",
         choices=GENERATOR_CHOICES,
-        default="block",
-        help="Which generator to use (default: block).",
+        default="block_bootstrap",
+        help="Which generator to use (default: block_bootstrap).",
     )
     p.add_argument(
         "--out",
