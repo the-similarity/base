@@ -69,10 +69,22 @@ Why this matters: with a stable artifact layout, every downstream tool (CLI, das
 
 ---
 
+## Follow-ups / Not yet shipped
+
+Deliberately out of scope for MVP but planned for V1 of Copies:
+
+- **Gaussian copula** (numeric + categorical via empirical CDF) — classic i.i.d. tabular baseline for inputs without serial structure.
+- **Tabular GAN / diffusion / VAE** and **LLM-based tabular** — higher-capacity generators.
+- **Time-series copies beyond block bootstrap** (stationary bootstrap, TimeGAN-style, state-space surrogates).
+
+All plug into the same artifact contract and eval spine — only the generator module changes.
+
+---
+
 ## Roadmap sketch (post-MVP)
 
-1. **MVP (today):** one copies generator, one worlds runner, one eval scorecard, CLI + batch runner, tests. See [synthetic_copies_worlds_eval_mvp.md](synthetic_copies_worlds_eval_mvp.md).
-2. **V1:** multiple copies backends (tabular GAN, diffusion, copula), multiple worlds (finance, queueing, epi), eval leaderboard.
+1. **MVP (today):** block bootstrap (moving-block) and regime-aware block bootstrap copies generators (`BlockBootstrapGenerator`, `RegimeBlockBootstrapGenerator`), two worlds runners, one eval scorecard, CLI + batch runner, tests. See [synthetic_copies_worlds_eval_mvp.md](synthetic_copies_worlds_eval_mvp.md).
+2. **V1:** additional copies backends (Gaussian copula, tabular GAN, diffusion), multiple worlds (finance, queueing, epi), eval leaderboard.
 3. **V2:** marketplace — third-party generators plug into the eval harness and appear on a public scorecard.
 4. **V3:** hosted UI, per-seat pricing, SSO, tenanted artifact storage.
 
