@@ -292,3 +292,73 @@ def write_provenance(run_dir: Path, provenance: Provenance) -> None:
     (run_dir / "provenance.json").write_text(
         json.dumps(dataclasses.asdict(provenance), indent=2, default=str)
     )
+
+
+# ---------------------------------------------------------------------------
+# Human-readable report
+# ---------------------------------------------------------------------------
+
+
+def _render_metric_block(title: str, metrics: dict[str, float]) -> list[str]:
+    """Markdown bullet list for a single metric dict; collapses empties."""
+    if not metrics:
+        return [f"- **{title}**: _(none)_"]
+    lines = [f"- **{title}**:"]
+    for k, v in metrics.items():
+        lines.append(f"  - `{k}`: {v}")
+    return lines
+
+
+def render_report(scorecard: Scorecard, provenance: Provenance) -> str:
+    """Build the ``report.md`` body from a Scorecard + Provenance.
+
+    Pure string construction -- no filesystem side effects -- so tests can
+    assert on the rendered text directly.
+    """
+    lines: list[str] = []
+    lines.append(f"# Synthetic run report -- {provenance.generator_name}")
+    lines.append("")
+    lines.append(f"- source: `{provenance.source_id}`")
+    lines.append(
+        f"- generator: `{provenance.generator_name}` v{provenance.generator_version}"
+    )
+    lines.append(f"- seed: `{provenance.seed}`")
+    lines.append(f"- created_at: `{provenance.created_at}`")
+    lines.append(f"- **overall passed: {scorecard.passed}**")
+    lines.append("")
+
+    if scorecard.fidelity is not None:
+        f = scorecard.fidelity
+        lines.append("## Fidelity")
+        lines.append(f"- overall_score: `{f.overall_score}` -- passed: `{f.passed}`")
+        lines.extend(_render_metric_block("marginals", f.marginals))
+        lines.extend(_render_metric_block("temporal", f.temporal))
+        lines.extend(_render_metric_block("tails", f.tails))
+        if f.cross_series:
+            lines.extend(_render_metric_block("cross_series", f.cross_series))
+        lines.append("")
+
+    if scorecard.privacy is not None:
+        p = scorecard.privacy
+        lines.append("## Privacy")
+        lines.append(f"- overall_score: `{p.overall_score}` -- passed: `{p.passed}`")
+        lines.extend(_render_metric_block("nn_leakage", p.nn_leakage))
+        lines.extend(_render_metric_block("memorization", p.memorization))
+        lines.extend(_render_metric_block("membership_proxy", p.membership_proxy))
+        lines.append("")
+
+    if scorecard.utility is not None:
+        u = scorecard.utility
+        lines.append("## Utility")
+        lines.append(f"- transfer_gap: `{u.transfer_gap}` -- passed: `{u.passed}`")
+        lines.extend(_render_metric_block("trts", u.trts))
+        lines.extend(_render_metric_block("tstr", u.tstr))
+        lines.extend(_render_metric_block("real_baseline", u.real_baseline))
+        lines.append("")
+
+    return "\n".join(lines) + "\n"
+
+
+def write_report(run_dir: Path, scorecard: Scorecard, provenance: Provenance) -> None:
+    """Render and persist ``report.md``."""
+    (run_dir / "report.md").write_text(render_report(scorecard, provenance))
