@@ -158,7 +158,7 @@ def build_generator(name: str) -> "Any":
     """
     try:
         # Standard names agreed with the sibling generator agent.
-        from the_similarity.synthetic.generators import (  # type: ignore[import-not-found]
+        from the_similarity.synthetic.copies import (  # type: ignore[import-not-found]
             BlockBootstrapGenerator,
             RegimeBlockBootstrapGenerator,
         )
