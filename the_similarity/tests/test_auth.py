@@ -10,7 +10,6 @@ Covers:
 """
 from __future__ import annotations
 
-import time
 
 import pytest
 
@@ -18,8 +17,6 @@ from the_similarity.core.auth import (
     AuthManager,
     RateLimiter,
     Tier,
-    TIER_RATE_LIMITS,
-    User,
 )
 
 

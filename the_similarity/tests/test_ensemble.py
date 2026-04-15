@@ -16,7 +16,7 @@ from the_similarity.core.ensemble import (
     conformal_prediction_intervals,
     ensemble_forecast,
 )
-from the_similarity.core.scorer import MatchResult, ScoreBreakdown
+from the_similarity.core.scorer import MatchResult
 
 
 # ---------------------------------------------------------------------------

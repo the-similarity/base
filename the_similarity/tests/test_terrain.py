@@ -1,7 +1,6 @@
 """Tests for 2D terrain analysis methods and generation pipeline."""
 
 import numpy as np
-import pytest
 
 
 # ---------------------------------------------------------------------------

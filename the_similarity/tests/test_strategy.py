@@ -4,11 +4,9 @@ Covers signal generation from built-in strategies, strategy evaluation
 mechanics, custom rules, and strategy backtesting.
 """
 import numpy as np
-import pytest
 
 from the_similarity.core.strategy import (
     SignalType,
-    Signal,
     Rule,
     Strategy,
     StrategyBacktestResult,
@@ -18,7 +16,7 @@ from the_similarity.core.strategy import (
     breakout_strategy,
     validate_strategy_backtest,
 )
-from the_similarity.core.scorer import MatchResult, ScoreBreakdown
+from the_similarity.core.scorer import MatchResult
 from the_similarity.core.projector import Forecast
 
 

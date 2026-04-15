@@ -1,5 +1,4 @@
 import numpy as np
-import pytest
 
 from the_similarity.methods.koopman import (
     fit_koopman,

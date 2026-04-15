@@ -9,14 +9,10 @@ Covers:
 """
 from __future__ import annotations
 
-import tempfile
-import time
-from pathlib import Path
-from unittest.mock import MagicMock
 
 import pytest
 
-from the_similarity.core.alerts import AlertManager, Watchlist, Alert
+from the_similarity.core.alerts import AlertManager
 from the_similarity.core.scorer import MatchResult, ScoreBreakdown
 
 

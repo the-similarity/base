@@ -7,7 +7,6 @@ import pytest
 from the_similarity.core.portfolio import (
     CrossAssetResult,
     RegimeSnapshot,
-    DivergenceResult,
     InformationFlowResult,
     cross_asset_scan,
     portfolio_regime_scan,

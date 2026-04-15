@@ -2,7 +2,6 @@ import numpy as np
 
 from the_similarity.methods.emd_matcher import (
     decompose_emd,
-    emd_match,
     emd_score,
 )
 
