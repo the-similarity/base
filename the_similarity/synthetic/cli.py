@@ -15,6 +15,8 @@ Exit code
 from __future__ import annotations
 
 import argparse
+import dataclasses
+import json
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -23,6 +25,8 @@ from typing import Any, Optional
 from the_similarity.synthetic.contracts import (
     FidelityReport,
     PrivacyReport,
+    Provenance,
+    Scorecard,
     SyntheticDataset,
     UtilityReport,
 )
@@ -205,3 +209,86 @@ def run_scorecards(
         print(_MISSING_DEPS_MSG.format(name="utility"), file=sys.stderr)
 
     return fidelity, privacy, utility
+
+
+# ---------------------------------------------------------------------------
+# Writers
+# ---------------------------------------------------------------------------
+
+
+def _df_from_dataset(ds: SyntheticDataset) -> "Any":
+    """Coerce a SyntheticDataset to a pandas DataFrame for parquet output.
+
+    Accepts both numpy arrays and DataFrames -- the contract explicitly
+    allows either. Numpy arrays use ``ds.columns`` when provided, otherwise
+    falls back to positional ``col_<i>`` names.
+    """
+    import numpy as np
+    import pandas as pd
+
+    if isinstance(ds.data, pd.DataFrame):
+        return ds.data
+    arr = np.asarray(ds.data)
+    if arr.ndim == 1:
+        arr = arr.reshape(-1, 1)
+    cols = ds.columns or [f"col_{i}" for i in range(arr.shape[1])]
+    return pd.DataFrame(arr, columns=cols, index=ds.index)
+
+
+def write_parquets(run_dir: Path, real: SyntheticDataset, synth: SyntheticDataset) -> None:
+    """Persist real and synthetic datasets side-by-side as parquet.
+
+    We always materialize real too (instead of a path reference) so a run
+    dir is self-contained for downstream auditing -- the source file may
+    move or be rewritten between the run and any later review.
+    """
+    _df_from_dataset(real).to_parquet(run_dir / "real.parquet", index=False)
+    _df_from_dataset(synth).to_parquet(run_dir / "synth.parquet", index=False)
+
+
+def _scorecard_to_dict(sc: Scorecard) -> dict[str, Any]:
+    """Serialize a Scorecard to a JSON-safe dict.
+
+    ``SyntheticDataset.data`` is large and not JSON-serializable, so the
+    embedded dataset is reduced to provenance + shape metadata -- the raw
+    payload lives in ``synth.parquet`` alongside.
+    """
+    import numpy as np
+    import pandas as pd
+
+    ds = sc.dataset
+    if isinstance(ds.data, pd.DataFrame):
+        shape = list(ds.data.shape)
+    else:
+        arr = np.asarray(ds.data)
+        shape = list(arr.shape)
+
+    return {
+        "dataset": {
+            "shape": shape,
+            "columns": ds.columns,
+            "provenance": dataclasses.asdict(ds.provenance) if ds.provenance else None,
+        },
+        "fidelity": dataclasses.asdict(sc.fidelity) if sc.fidelity else None,
+        "privacy": dataclasses.asdict(sc.privacy) if sc.privacy else None,
+        "utility": dataclasses.asdict(sc.utility) if sc.utility else None,
+        "passed": sc.passed,
+    }
+
+
+def write_scorecard(run_dir: Path, scorecard: Scorecard) -> None:
+    """Write ``scorecard.json`` -- the machine-readable evaluation record."""
+    payload = _scorecard_to_dict(scorecard)
+    (run_dir / "scorecard.json").write_text(json.dumps(payload, indent=2, default=str))
+
+
+def write_provenance(run_dir: Path, provenance: Provenance) -> None:
+    """Write ``provenance.json`` -- standalone reproducibility record.
+
+    Duplicated from scorecard.json by design: provenance is the single most
+    important audit artifact and consumers should not have to parse the
+    full scorecard to reach it.
+    """
+    (run_dir / "provenance.json").write_text(
+        json.dumps(dataclasses.asdict(provenance), indent=2, default=str)
+    )
