@@ -92,6 +92,38 @@ html, body {
 button, input, textarea, select { font: inherit; }
 button { cursor: pointer; }
 
+/* ── Editorial typography defaults ───────────────────────────────────
+ * Page bodies inherit from these; component classes can still override
+ * any one value. Keeping these "defaults, not dogma" means existing
+ * component styles aren't disturbed, we just stop ad-hoc headings from
+ * looking like random system UI.
+ * - h1 = 40px editorial title scale
+ * - h2 = 26px section heading scale
+ * - h3 = 18px card heading scale
+ * Mono is reserved for labels, tags, timestamps (use `--font-mono`).
+ * ─────────────────────────────────────────────────────────────────── */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-sans);
+  color: var(--text-primary);
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+h1 { font-size: 40px; letter-spacing: -0.04em; line-height: 1.1; }
+h2 { font-size: 26px; letter-spacing: -0.03em; }
+h3 { font-size: 18px; letter-spacing: -0.02em; }
+
+/* Mono utility class for timestamps / labels / tags — opt-in. */
+.mono-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
 /* ── Scrollbar ── */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
