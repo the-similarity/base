@@ -34,28 +34,45 @@ writable_scope:
 # ---------------------------------------------------------------------------
 # Frozen evaluator — same slices and walk-forward contract as v1 lane
 # ---------------------------------------------------------------------------
+#
+# MIGRATION NOTE (Phase 2 — Track 2C — 2026-04-14)
+# ------------------------------------------------
+# This spec used to inline per-slice `symbols: [{symbol, path}]` stanzas
+# under `canonical_slices`.  Those inlines are now replaced with
+# `catalogue_slice_ids` referencing entries in
+# research/autoresearch/slices/catalogue.yaml.  The walk-forward runner
+# (research/autoresearch/scripts/run_projector_v2_sweep.py) currently
+# hardcodes its own slice list, but consumers that read THIS spec file
+# (the report writers, the ledger schema, future orchestrator runs)
+# should resolve these IDs via
+# research.autoresearch.slices.loader.load_many.
+#
+# If a new slice is needed here, add it to the catalogue first (the
+# catalogue is append-only) and only then reference it from this file.
 benchmark:
   dataset_family: historical price series with walk-forward validation
   canonical_slices:
 
-    # Equities-daily-core slice (matches projector-calibration-core-v1 for
-    # cross-lane comparability).
+    # Equities-daily-core aggregate — two catalogue IDs cover the
+    # single-name calm (AAPL) and the multi-regime index context (SPY).
+    # Source file: research/autoresearch/slices/catalogue.yaml.
     - id: equities-daily-core
-      description: Daily equities slice for baseline calibration checks.
+      description: Daily equities aggregate for baseline calibration checks.
       timeframe: 1d
       source: stooq
-      symbols:
-        - {symbol: spy, path: the-similarity-data/data/stocks/spy/1d.parquet}
-        - {symbol: aapl, path: the-similarity-data/data/stocks/aapl/1d.parquet}
+      catalogue_slice_ids:
+        - spy-bull-2016-2019   # trending bull, LEGACY 1A
+        - aapl-calm-2019       # calm single-name recovery
 
-    # Crypto-daily-core slice — higher vol / fat tails stress test for
-    # cone-width and conformal recalibration variants.
+    # Crypto-daily-core aggregate — BTC across 2019-2024 covers melt-up,
+    # 2022 crypto winter, and 2024 ETF-approval rally.  Fat-tail
+    # calibration stress lives here.
     - id: crypto-daily-core
-      description: Higher-volatility slice for uncertainty width stress.
+      description: Higher-volatility aggregate for uncertainty width stress.
       timeframe: 1d
       source: ccxt
-      symbols:
-        - {symbol: btc_usdt, path: the-similarity-data/data/crypto/btc_usdt/1d.parquet}
+      catalogue_slice_ids:
+        - btc-long-run          # LEGACY 1A — full decade of BTC structure
 
   query_window: 60
   forward_bars: 30
