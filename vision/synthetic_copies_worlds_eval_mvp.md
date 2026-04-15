@@ -14,7 +14,7 @@ Three components, built today, that together form the smallest coherent demo of 
 Take a real tabular dataset → emit a synthetic copy that preserves distributions and passes a privacy audit.
 
 - **Pitch:** *"Privacy-audited, realism-first datasets."*
-- **MVP generator:** one method — a Gaussian copula fit to marginals + correlation, with categorical columns handled via empirical CDF. This is the simplest thing that is honestly "synthetic data" and can be scored on all three eval axes. Anything fancier (GAN, diffusion) is out of scope today.
+- **MVP generator:** block bootstrap (moving-block) and regime-aware block bootstrap — shipped as `BlockBootstrapGenerator` and `RegimeBlockBootstrapGenerator` in `the_similarity/synthetic/copies.py`. These preserve short-range temporal/serial structure by resampling contiguous blocks of rows, with the regime-aware variant sampling blocks conditioned on a regime label. Honest "synthetic data" that can be scored on all three eval axes. Anything fancier (GAN, diffusion, Gaussian copula) is out of scope today — see Follow-ups below.
 - **Input:** one Parquet / CSV file with tabular columns (numeric + low-cardinality categorical).
 - **Output:** a synthetic dataset with the same schema, N rows (default: match input), plus manifest + eval report.
 
@@ -56,7 +56,7 @@ artifacts/<run_id>/
 **manifest.json** (high-level fields — Contract Agent codifies exact types in task #2):
 - `run_id` (str, ULID)
 - `product` (`"copies"` | `"worlds"`)
-- `generator` (str, e.g. `"copies.gaussian_copula"` / `"world.regime_switch"`)
+- `generator` (str, e.g. `"copies.block_bootstrap"` / `"copies.regime_block_bootstrap"` / `"world.regime_switch"`)
 - `version` (str, semver of the generator)
 - `seed` (int)
 - `params` (dict — generator-specific config)
@@ -80,7 +80,7 @@ Rule of thumb for all agents: *if a field isn't in this doc or the contracts mod
 
 | Area | IN (today) | OUT (cut) |
 |---|---|---|
-| Copies generator | 1 method: Gaussian copula (numeric + categorical) | GANs, diffusion, VAEs, LLM-based tabular, time-series copies |
+| Copies generator | 2 methods: block bootstrap (moving-block) and regime-aware block bootstrap | GANs, diffusion, VAEs, LLM-based tabular, Gaussian copula |
 | Worlds | 2 worlds: regime-switch AR(1), M/M/1 queue | Physics sims, agents, multi-entity, image/video worlds |
 | Eval | KS/TVD fidelity, NN-ratio + MI-AUC privacy, TSTR utility | Per-column detailed reports, fairness audits, DP accounting |
 | CLI | `synth copies run`, `synth worlds run`, `synth eval run`, `synth batch` | Web UI, REST API, hosted runs, auth |
@@ -124,6 +124,19 @@ Stretch (if we're ahead):
 
 ---
 
+## Follow-ups / Not yet shipped
+
+These are deliberately out of scope for the MVP but are on deck for V1 of Copies:
+
+- **Gaussian copula** (numeric + categorical via empirical CDF) — the classic "i.i.d. tabular" copy baseline. Useful for non-time-series tabular inputs where block bootstrap's serial-structure assumption does not apply.
+- **Tabular GAN** / **diffusion** / **VAE** — higher-capacity generators for richer joint distributions.
+- **LLM-based tabular** — row-wise synthesis conditioned on schema/descriptions.
+- **Time-series copies beyond block bootstrap** — e.g. stationary bootstrap, TimeGAN-style models, state-space surrogates.
+
+All of the above will plug into the same artifact contract and eval spine; only the generator module changes.
+
+---
+
 ## The product wedges (for pitches / copy)
 
 - **Synthetic Copies:** *"Privacy-audited, realism-first datasets — every copy ships with its own receipt."*
@@ -138,3 +151,30 @@ Stretch (if we're ahead):
 - **Shared-file rules (from CLAUDE.md):** do not edit `obsidian_thesim/_MOC.md`, `.gitignore`, `CHANGELOG.md`, `pyproject.toml` from worktree agents. Note any additions you need in your PR body instead.
 - **Determinism is a contract, not a nice-to-have** for worlds — PRs without seed-stability tests will be sent back.
 - **Merge as PRs land**, not in a batch. Cascading conflicts otherwise.
+
+---
+
+## Demos
+
+Two canonical commands that run from a fresh clone with no manual setup. Both
+are deterministic given their seed. See `the_similarity/synthetic/demos/README.md`
+for the full list of output artifacts per command.
+
+**Copies demo** — fit + sample + score against the shipped 500-row fixture:
+
+```bash
+python -m the_similarity.synthetic.cli \
+  --input the_similarity/synthetic/demos/sample.csv \
+  --n 500 --seed 42 \
+  --out artifacts/demo-copies
+```
+
+**Worlds demo** — headless 500-tick rollout of the bundled `small_village` scenario:
+
+```bash
+cd the-similarity-fractal && \
+  npm run sim:headless -- \
+    --scenario scenarios/small_village.json \
+    --seed 42 --steps 500 \
+    --out artifacts/demo-worlds.jsonl
+```

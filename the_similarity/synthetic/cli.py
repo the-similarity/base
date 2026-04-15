@@ -43,7 +43,7 @@ from the_similarity.synthetic.contracts import (
 # ---------------------------------------------------------------------------
 
 
-GENERATOR_CHOICES = ("block", "regime-block")
+GENERATOR_CHOICES = ("block_bootstrap", "regime_block_bootstrap")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -80,8 +80,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument(
         "--generator",
         choices=GENERATOR_CHOICES,
-        default="block",
-        help="Which generator to use (default: block).",
+        default="block_bootstrap",
+        help="Which generator to use (default: block_bootstrap).",
     )
     p.add_argument(
         "--out",
@@ -188,9 +188,9 @@ def build_generator(name: str) -> "Any":
     except ImportError as exc:  # pragma: no cover - exercised only before merge
         raise RuntimeError(_MISSING_DEPS_MSG.format(name="generators")) from exc
 
-    if name == "block":
+    if name == "block_bootstrap":
         return BlockBootstrapGenerator()
-    if name == "regime-block":
+    if name == "regime_block_bootstrap":
         return RegimeBlockBootstrapGenerator()
     raise ValueError(f"Unknown generator {name!r}")
 
