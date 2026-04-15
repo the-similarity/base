@@ -1,0 +1,398 @@
+[
+  {
+    "knobs": {
+      "energy_decay": 0.005,
+      "food_spawn_rate": 0.05
+    },
+    "seed": 1,
+    "n_rows": 150,
+    "final_metrics": {
+      "alive": 11,
+      "dead": 9,
+      "food_count": 4,
+      "mean_energy": 0.16671263048298252,
+      "mean_age": 150,
+      "cumulative_deaths": 9,
+      "cumulative_food_eaten": 1
+    },
+    "totals": {
+      "deaths": 9,
+      "births": 0,
+      "food_eaten": 1
+    }
+  },
+  {
+    "knobs": {
+      "energy_decay": 0.005,
+      "food_spawn_rate": 0.05
+    },
+    "seed": 2,
+    "n_rows": 150,
+    "final_metrics": {
+      "alive": 11,
+      "dead": 9,
+      "food_count": 8,
+      "mean_energy": 0.15525359217585422,
+      "mean_age": 150,
+      "cumulative_deaths": 9,
+      "cumulative_food_eaten": 1
+    },
+    "totals": {
+      "deaths": 9,
+      "births": 0,
+      "food_eaten": 1
+    }
+  },
+  {
+    "knobs": {
+      "energy_decay": 0.005,
+      "food_spawn_rate": 0.05
+    },
+    "seed": 3,
+    "n_rows": 150,
+    "final_metrics": {
+      "alive": 8,
+      "dead": 12,
+      "food_count": 9,
+      "mean_energy": 0.11447794187697516,
+      "mean_age": 150,
+      "cumulative_deaths": 12,
+      "cumulative_food_eaten": 1
+    },
+    "totals": {
+      "deaths": 12,
+      "births": 0,
+      "food_eaten": 1
+    }
+  },
+  {
+    "knobs": {
+      "energy_decay": 0.005,
+      "food_spawn_rate": 0.15
+    },
+    "seed": 1,
+    "n_rows": 150,
+    "final_metrics": {
+      "alive": 11,
+      "dead": 9,
+      "food_count": 22,
+      "mean_energy": 0.169846918143924,
+      "mean_age": 150,
+      "cumulative_deaths": 9,
+      "cumulative_food_eaten": 1
+    },
+    "totals": {
+      "deaths": 9,
+      "births": 0,
+      "food_eaten": 1
+    }
+  },
+  {
+    "knobs": {
+      "energy_decay": 0.005,
+      "food_spawn_rate": 0.15
+    },
+    "seed": 2,
+    "n_rows": 150,
+    "final_metrics": {
+      "alive": 12,
+      "dead": 8,
+      "food_count": 20,
+      "mean_energy": 0.16532975168665803,
+      "mean_age": 150,
+      "cumulative_deaths": 8,
+      "cumulative_food_eaten": 2
+    },
+    "totals": {
+      "deaths": 8,
+      "births": 0,
+      "food_eaten": 2
+    }
+  },
+  {
+    "knobs": {
+      "energy_decay": 0.005,
+      "food_spawn_rate": 0.15
+    },
+    "seed": 3,
+    "n_rows": 150,
+    "final_metrics": {
+      "alive": 8,
+      "dead": 12,
+      "food_count": 25,
+      "mean_energy": 0.13016869003476972,
+      "mean_age": 150,
+      "cumulative_deaths": 12,
+      "cumulative_food_eaten": 1
+    },
+    "totals": {
+      "deaths": 12,
+      "births": 0,
+      "food_eaten": 1
+    }
+  },
+  {
+    "knobs": {
+      "energy_decay": 0.01,
+      "food_spawn_rate": 0.05
+    },
+    "seed": 1,
+    "n_rows": 150,
+    "final_metrics": {
+      "alive": 0,
+      "dead": 20,
+      "food_count": 7,
+      "mean_energy": 0,
+      "mean_age": 0,
+      "cumulative_deaths": 20,
+      "cumulative_food_eaten": 0
+    },
+    "totals": {
+      "deaths": 20,
+      "births": 0,
+      "food_eaten": 0
+    }
+  },
+  {
+    "knobs": {
+      "energy_decay": 0.01,
+      "food_spawn_rate": 0.05
+    },
+    "seed": 2,
+    "n_rows": 150,
+    "final_metrics": {
+      "alive": 0,
+      "dead": 20,
+      "food_count": 6,
+      "mean_energy": 0,
+      "mean_age": 0,
+      "cumulative_deaths": 20,
+      "cumulative_food_eaten": 0
+    },
+    "totals": {
+      "deaths": 20,
+      "births": 0,
+      "food_eaten": 0
+    }
+  },
+  {
+    "knobs": {
+      "energy_decay": 0.01,
+      "food_spawn_rate": 0.05
+    },
+    "seed": 3,
+    "n_rows": 150,
+    "final_metrics": {
+      "alive": 0,
+      "dead": 20,
+      "food_count": 8,
+      "mean_energy": 0,
+      "mean_age": 0,
+      "cumulative_deaths": 20,
+      "cumulative_food_eaten": 1
+    },
+    "totals": {
+      "deaths": 20,
+      "births": 0,
+      "food_eaten": 1
+    }
+  },
+  {
+    "knobs": {
+      "energy_decay": 0.01,
+      "food_spawn_rate": 0.15
+    },
+    "seed": 1,
+    "n_rows": 150,
+    "final_metrics": {
+      "alive": 0,
+      "dead": 20,
+      "food_count": 17,
+      "mean_energy": 0,
+      "mean_age": 0,
+      "cumulative_deaths": 20,
+      "cumulative_food_eaten": 0
+    },
+    "totals": {
+      "deaths": 20,
+      "births": 0,
+      "food_eaten": 0
+    }
+  },
+  {
+    "knobs": {
+      "energy_decay": 0.01,
+      "food_spawn_rate": 0.15
+    },
+    "seed": 2,
+    "n_rows": 150,
+    "final_metrics": {
+      "alive": 0,
+      "dead": 20,
+      "food_count": 11,
+      "mean_energy": 0,
+      "mean_age": 0,
+      "cumulative_deaths": 20,
+      "cumulative_food_eaten": 0
+    },
+    "totals": {
+      "deaths": 20,
+      "births": 0,
+      "food_eaten": 0
+    }
+  },
+  {
+    "knobs": {
+      "energy_decay": 0.01,
+      "food_spawn_rate": 0.15
+    },
+    "seed": 3,
+    "n_rows": 150,
+    "final_metrics": {
+      "alive": 0,
+      "dead": 20,
+      "food_count": 20,
+      "mean_energy": 0,
+      "mean_age": 0,
+      "cumulative_deaths": 20,
+      "cumulative_food_eaten": 0
+    },
+    "totals": {
+      "deaths": 20,
+      "births": 0,
+      "food_eaten": 0
+    }
+  },
+  {
+    "knobs": {
+      "energy_decay": 0.02,
+      "food_spawn_rate": 0.05
+    },
+    "seed": 1,
+    "n_rows": 150,
+    "final_metrics": {
+      "alive": 0,
+      "dead": 20,
+      "food_count": 9,
+      "mean_energy": 0,
+      "mean_age": 0,
+      "cumulative_deaths": 20,
+      "cumulative_food_eaten": 0
+    },
+    "totals": {
+      "deaths": 20,
+      "births": 0,
+      "food_eaten": 0
+    }
+  },
+  {
+    "knobs": {
+      "energy_decay": 0.02,
+      "food_spawn_rate": 0.05
+    },
+    "seed": 2,
+    "n_rows": 150,
+    "final_metrics": {
+      "alive": 0,
+      "dead": 20,
+      "food_count": 11,
+      "mean_energy": 0,
+      "mean_age": 0,
+      "cumulative_deaths": 20,
+      "cumulative_food_eaten": 0
+    },
+    "totals": {
+      "deaths": 20,
+      "births": 0,
+      "food_eaten": 0
+    }
+  },
+  {
+    "knobs": {
+      "energy_decay": 0.02,
+      "food_spawn_rate": 0.05
+    },
+    "seed": 3,
+    "n_rows": 150,
+    "final_metrics": {
+      "alive": 0,
+      "dead": 20,
+      "food_count": 6,
+      "mean_energy": 0,
+      "mean_age": 0,
+      "cumulative_deaths": 20,
+      "cumulative_food_eaten": 1
+    },
+    "totals": {
+      "deaths": 20,
+      "births": 0,
+      "food_eaten": 1
+    }
+  },
+  {
+    "knobs": {
+      "energy_decay": 0.02,
+      "food_spawn_rate": 0.15
+    },
+    "seed": 1,
+    "n_rows": 150,
+    "final_metrics": {
+      "alive": 0,
+      "dead": 20,
+      "food_count": 26,
+      "mean_energy": 0,
+      "mean_age": 0,
+      "cumulative_deaths": 20,
+      "cumulative_food_eaten": 0
+    },
+    "totals": {
+      "deaths": 20,
+      "births": 0,
+      "food_eaten": 0
+    }
+  },
+  {
+    "knobs": {
+      "energy_decay": 0.02,
+      "food_spawn_rate": 0.15
+    },
+    "seed": 2,
+    "n_rows": 150,
+    "final_metrics": {
+      "alive": 0,
+      "dead": 20,
+      "food_count": 18,
+      "mean_energy": 0,
+      "mean_age": 0,
+      "cumulative_deaths": 20,
+      "cumulative_food_eaten": 0
+    },
+    "totals": {
+      "deaths": 20,
+      "births": 0,
+      "food_eaten": 0
+    }
+  },
+  {
+    "knobs": {
+      "energy_decay": 0.02,
+      "food_spawn_rate": 0.15
+    },
+    "seed": 3,
+    "n_rows": 150,
+    "final_metrics": {
+      "alive": 0,
+      "dead": 20,
+      "food_count": 25,
+      "mean_energy": 0,
+      "mean_age": 0,
+      "cumulative_deaths": 20,
+      "cumulative_food_eaten": 0
+    },
+    "totals": {
+      "deaths": 20,
+      "births": 0,
+      "food_eaten": 0
+    }
+  }
+]
