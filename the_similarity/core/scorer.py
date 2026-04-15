@@ -90,8 +90,14 @@ class ScoreBreakdown:
 # Ordered list of all score field names — used for iteration.
 # This MUST stay in sync with ScoreBreakdown's fields.
 _SCORE_FIELDS = [
-    "bempedelis_r2", "bempedelis_smoothness", "koopman",
-    "wavelet_spectrum", "emd", "tda", "dtw", "pearson_warped",
+    "bempedelis_r2",
+    "bempedelis_smoothness",
+    "koopman",
+    "wavelet_spectrum",
+    "emd",
+    "tda",
+    "dtw",
+    "pearson_warped",
     "transfer_entropy",
 ]
 
@@ -111,34 +117,36 @@ class MatchResult:
     """
 
     # --- Location in the history array ---
-    start_idx: int                                  # First index of the matched window
-    end_idx: int                                    # Last index + 1 (exclusive)
-    start_date: str | None = None                   # ISO date string, if dates available
+    start_idx: int  # First index of the matched window
+    end_idx: int  # Last index + 1 (exclusive)
+    start_date: str | None = None  # ISO date string, if dates available
     end_date: str | None = None
 
     # --- Composite score ---
-    confidence_score: float = 0.0                   # Final weighted score [0, 100]
+    confidence_score: float = 0.0  # Final weighted score [0, 100]
     score_breakdown: ScoreBreakdown = field(default_factory=ScoreBreakdown)
 
     # --- The actual matched series values ---
-    matched_series: np.ndarray | None = None        # Raw values of the matched segment
+    matched_series: np.ndarray | None = None  # Raw values of the matched segment
 
     # --- Bempedelis transform diagnostics ---
-    transform_alpha: np.ndarray | None = None       # Learned time-scaling function
-    transform_beta: np.ndarray | None = None        # Learned value-scaling function
-    transform_r2: float = 0.0                       # Combined alpha+beta R²
+    transform_alpha: np.ndarray | None = None  # Learned time-scaling function
+    transform_beta: np.ndarray | None = None  # Learned value-scaling function
+    transform_r2: float = 0.0  # Combined alpha+beta R²
 
     # --- Koopman operator diagnostics ---
-    koopman_eigenvalues: np.ndarray | None = None   # Complex eigenvalues of fitted operator
+    koopman_eigenvalues: np.ndarray | None = (
+        None  # Complex eigenvalues of fitted operator
+    )
 
     # --- Wavelet Leaders diagnostics ---
-    fractal_spectrum: np.ndarray | None = None      # f(α) singularity spectrum points
+    fractal_spectrum: np.ndarray | None = None  # f(α) singularity spectrum points
 
     # --- TDA diagnostics ---
-    persistence_diagram: object | None = None       # Birth-death persistence pairs
+    persistence_diagram: object | None = None  # Birth-death persistence pairs
 
     # --- Market regime context ---
-    regime: str | None = None                       # e.g., "trending_up", "high_vol"
+    regime: str | None = None  # e.g., "trending_up", "high_vol"
 
     # --- Forward window for projection ---
     # The values that actually occurred AFTER this match ended.
@@ -146,10 +154,12 @@ class MatchResult:
     forward_window: np.ndarray | None = None
 
     # --- Cross-timeframe search metadata ---
-    source_timeframe: str | None = None             # e.g., "1h", "1d", "1w"
+    source_timeframe: str | None = None  # e.g., "1h", "1d", "1w"
 
 
-def compute_confidence(breakdown: ScoreBreakdown, config: Config | None = None) -> float:
+def compute_confidence(
+    breakdown: ScoreBreakdown, config: Config | None = None
+) -> float:
     """Compute weighted composite confidence score (0-100).
 
     The scoring formula:

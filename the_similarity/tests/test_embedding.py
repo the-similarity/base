@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import numpy as np
-import pytest
 
 from the_similarity.core.embedding import auto_dim, auto_lag, delay_embed
 

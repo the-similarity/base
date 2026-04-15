@@ -3,14 +3,15 @@
 Phase 7d — provides human-readable explanations for match results,
 forecast projections, and calibration commentary.
 """
+
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 import numpy as np
 
 from the_similarity.config import Config
-from the_similarity.core.scorer import MatchResult, ScoreBreakdown, _SCORE_FIELDS
+from the_similarity.core.scorer import MatchResult, _SCORE_FIELDS
 from the_similarity.core.projector import Forecast
 from the_similarity.core.ensemble import EnsembleForecast
 
@@ -49,51 +50,57 @@ _METHOD_SHORT_NAMES: dict[str, str] = {
 # Data structures
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class MethodContribution:
     """Per-method contribution to the overall match confidence score."""
+
     method: str
-    score: float                 # raw score 0-1
-    weight: float                # config weight
+    score: float  # raw score 0-1
+    weight: float  # config weight
     weighted_contribution: float  # score * weight (renormalized)
-    percentile_rank: float       # how this score compares to typical (0-100)
-    description: str             # from METHOD_DESCRIPTIONS
-    verdict: str                 # "strong", "moderate", "weak", "negligible"
+    percentile_rank: float  # how this score compares to typical (0-100)
+    description: str  # from METHOD_DESCRIPTIONS
+    verdict: str  # "strong", "moderate", "weak", "negligible"
 
 
 @dataclass
 class MatchExplanation:
     """Human-readable explanation of a match result."""
+
     confidence_score: float
     regime: str | None
     top_drivers: list[MethodContribution]  # sorted by contribution desc
-    summary: str                            # 1-2 sentence natural language
-    detailed: str                           # full multi-line explanation
-    strengths: list[str]                    # what's good about this match
-    weaknesses: list[str]                   # what's weak
+    summary: str  # 1-2 sentence natural language
+    detailed: str  # full multi-line explanation
+    strengths: list[str]  # what's good about this match
+    weaknesses: list[str]  # what's weak
 
 
 @dataclass
 class ForecastExplanation:
     """Human-readable explanation of a forecast projection."""
-    direction: str             # "bullish", "bearish", "neutral"
-    magnitude: str             # "strong", "moderate", "mild"
+
+    direction: str  # "bullish", "bearish", "neutral"
+    magnitude: str  # "strong", "moderate", "mild"
     confidence_narrative: str  # explanation of confidence bands
-    summary: str               # 1-2 sentence explanation
-    risk_factors: list[str]    # potential risks
+    summary: str  # 1-2 sentence explanation
+    risk_factors: list[str]  # potential risks
 
 
 @dataclass
 class CalibrationCommentary:
     """Commentary on match confidence calibration."""
-    confidence_level: float       # the match's score
-    historical_accuracy: str      # "This confidence level..."
-    recommendation: str           # action recommendation
+
+    confidence_level: float  # the match's score
+    historical_accuracy: str  # "This confidence level..."
+    recommendation: str  # action recommendation
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _score_to_verdict(score: float) -> str:
     """Map a 0-1 score to a qualitative verdict."""
@@ -122,6 +129,7 @@ def _score_to_percentile(score: float) -> float:
 # explain_match
 # ---------------------------------------------------------------------------
 
+
 def explain_match(
     match: MatchResult,
     config: Config | None = None,
@@ -143,8 +151,7 @@ def explain_match(
 
     # Determine active fields with positive weights
     active_fields = [
-        f for f in config.active_methods
-        if f in _SCORE_FIELDS and w.get(f, 0.0) > 0
+        f for f in config.active_methods if f in _SCORE_FIELDS and w.get(f, 0.0) > 0
     ]
 
     weight_total = sum(w[f] for f in active_fields) if active_fields else 1.0
@@ -158,15 +165,17 @@ def explain_match(
         norm_weight = w[f] / weight_total
         weighted = raw_score * norm_weight
 
-        contributions.append(MethodContribution(
-            method=f,
-            score=raw_score,
-            weight=norm_weight,
-            weighted_contribution=weighted,
-            percentile_rank=_score_to_percentile(raw_score),
-            description=METHOD_DESCRIPTIONS.get(f, f),
-            verdict=_score_to_verdict(raw_score),
-        ))
+        contributions.append(
+            MethodContribution(
+                method=f,
+                score=raw_score,
+                weight=norm_weight,
+                weighted_contribution=weighted,
+                percentile_rank=_score_to_percentile(raw_score),
+                description=METHOD_DESCRIPTIONS.get(f, f),
+                verdict=_score_to_verdict(raw_score),
+            )
+        )
 
     # Sort by weighted contribution descending
     contributions.sort(key=lambda c: c.weighted_contribution, reverse=True)
@@ -190,7 +199,9 @@ def explain_match(
         driver_parts.append(f"{c.verdict} {short} ({c.score:.2f})")
     drivers_text = " and ".join(driver_parts)
 
-    summary = f"This match scored {confidence:.1f}/100, primarily driven by {drivers_text}."
+    summary = (
+        f"This match scored {confidence:.1f}/100, primarily driven by {drivers_text}."
+    )
     if match.regime:
         regime_display = match.regime.replace("_", " ")
         summary += f" The match was found in a {regime_display} regime."
@@ -231,6 +242,7 @@ def explain_match(
 # ---------------------------------------------------------------------------
 # explain_forecast
 # ---------------------------------------------------------------------------
+
 
 def explain_forecast(
     forecast: Forecast | EnsembleForecast,
@@ -289,7 +301,9 @@ def explain_forecast(
                 f"The P10-P90 spread at bar {bars} is wide ({spread:.1%}), "
                 "indicating significant uncertainty in the projection."
             )
-            risk_factors.append("Wide confidence cone suggests high forecast uncertainty")
+            risk_factors.append(
+                "Wide confidence cone suggests high forecast uncertainty"
+            )
         elif spread > 0.04:
             confidence_narrative = (
                 f"The P10-P90 spread at bar {bars} is moderate ({spread:.1%}), "
@@ -301,7 +315,9 @@ def explain_forecast(
                 "indicating relatively high confidence in the direction."
             )
     else:
-        confidence_narrative = "Limited percentile data available for confidence assessment."
+        confidence_narrative = (
+            "Limited percentile data available for confidence assessment."
+        )
 
     # Conformal interval commentary for EnsembleForecast
     if isinstance(forecast, EnsembleForecast) and forecast.conformal is not None:
@@ -318,7 +334,9 @@ def explain_forecast(
 
     # General risk factors
     if direction != "neutral" and magnitude == "mild":
-        risk_factors.append("Mild magnitude suggests the directional signal may not be actionable")
+        risk_factors.append(
+            "Mild magnitude suggests the directional signal may not be actionable"
+        )
 
     # Check for path divergence (early vs late direction change)
     if len(p50) > 2:
@@ -328,7 +346,11 @@ def explain_forecast(
             risk_factors.append("Forecast direction reverses mid-horizon")
 
     # Summary
-    direction_word = {"bullish": "upward", "bearish": "downward", "neutral": "sideways"}[direction]
+    direction_word = {
+        "bullish": "upward",
+        "bearish": "downward",
+        "neutral": "sideways",
+    }[direction]
     summary = (
         f"The forecast projects a {magnitude} {direction_word} move of {final_p50:+.1%} "
         f"over {bars} bars."
@@ -349,6 +371,7 @@ def explain_forecast(
 # calibration_commentary
 # ---------------------------------------------------------------------------
 
+
 def calibration_commentary(
     confidence_score: float,
     backtest_hit_rate: float | None = None,
@@ -362,9 +385,11 @@ def calibration_commentary(
     Returns:
         CalibrationCommentary with qualitative assessment and recommendation.
     """
-    # Qualitative description based on confidence level
+    # Qualitative description based on confidence level.
+    # NOTE: earlier versions tracked a local `tier` label (high/moderate/low-moderate/low),
+    # but it was never consumed downstream — CalibrationCommentary only surfaces
+    # `accuracy_desc` and `recommendation`. Drop the dead variable to keep the file lint-clean.
     if confidence_score >= 80:
-        tier = "high"
         accuracy_desc = (
             f"This is a high-confidence match ({confidence_score:.0f}/100). "
             "Matches at this level typically show strong agreement across multiple methods."
@@ -374,7 +399,6 @@ def calibration_commentary(
             "Consider using this as a primary signal."
         )
     elif confidence_score >= 60:
-        tier = "moderate"
         accuracy_desc = (
             f"This is a moderate-confidence match ({confidence_score:.0f}/100). "
             "Several methods agree, but some show weaker alignment."
@@ -384,7 +408,6 @@ def calibration_commentary(
             "with additional analysis or signals."
         )
     elif confidence_score >= 40:
-        tier = "low-moderate"
         accuracy_desc = (
             f"This is a below-average match ({confidence_score:.0f}/100). "
             "Method agreement is limited."
@@ -394,7 +417,6 @@ def calibration_commentary(
             "Use as a secondary signal only, combined with other indicators."
         )
     else:
-        tier = "low"
         accuracy_desc = (
             f"This is a low-confidence match ({confidence_score:.0f}/100). "
             "Most methods show weak alignment."
@@ -431,6 +453,7 @@ def calibration_commentary(
 # ---------------------------------------------------------------------------
 # explain_full — convenience function combining all
 # ---------------------------------------------------------------------------
+
 
 def explain_full(
     match: MatchResult,

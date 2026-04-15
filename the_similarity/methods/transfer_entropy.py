@@ -6,14 +6,14 @@ TE = H(target_future | target_past) - H(target_future | target_past, source_past
 High TE means the source (match window) genuinely predicts the target (forward window).
 
 Information Theoretic Causal Flow:
-- Contextual Uniqueness: TE fundamentally diverges from standard pairwise metrics. 
-  It directly quantifies the Information Flow passing from the `candidate` sequence 
+- Contextual Uniqueness: TE fundamentally diverges from standard pairwise metrics.
+  It directly quantifies the Information Flow passing from the `candidate` sequence
   purely into its own deterministic `forward_window`, ignoring the `query` entirely.
-- Distribution Estimation: Probability density operations rely exclusively on fast 
-  discretized integer histograms, enabling normalized Shannon Entropy calculations 
+- Distribution Estimation: Probability density operations rely exclusively on fast
+  discretized integer histograms, enabling normalized Shannon Entropy calculations
   `H(X)` without costly kernel density overheads.
-- Causal Determinism: High Transfer Entropy rigidly implies that the historically 
-  matched feature explicitly mitigated future sequence uncertainty, enforcing a 
+- Causal Determinism: High Transfer Entropy rigidly implies that the historically
+  matched feature explicitly mitigated future sequence uncertainty, enforcing a
   structural cause-and-effect relationship rather than spurious alignment.
 """
 

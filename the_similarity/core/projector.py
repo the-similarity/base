@@ -7,23 +7,23 @@ to cumulative returns, and builds weighted percentile curves that form
 the "forecast cone" — the engine's probabilistic prediction.
 
 Conceptual Boundary:
-This projection creates empirical outcome distributions. It is NOT a predictive 
-model; it is a statistical summary of empirical history post-match. The core axiom 
+This projection creates empirical outcome distributions. It is NOT a predictive
+model; it is a statistical summary of empirical history post-match. The core axiom
 is that prior analogues form a useful Bayesian prior for future behavior.
 
 Data Lifecycle & Guardrails:
-- Incomplete Paths: Any match whose projection window exceeds the available 
+- Incomplete Paths: Any match whose projection window exceeds the available
   `history` length is silently dropped (fail-closed).
-- Cone Widening: `confidence_decay_rate` artificially expands the upper and 
-  lower percentile variance bounds linearly over time steps to counteract 
+- Cone Widening: `confidence_decay_rate` artificially expands the upper and
+  lower percentile variance bounds linearly over time steps to counteract
   over-confidence in long-term historical analogues.
-- Implementation details: Because `numpy.quantile` lacks sample weight support, 
+- Implementation details: Because `numpy.quantile` lacks sample weight support,
   `_weighted_quantile` uses piecewise-linear CDF center interpolation.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 import numpy as np
 from numpy.typing import NDArray
@@ -47,11 +47,12 @@ class Forecast:
         weights: 1D array of normalized weights used for each path (sums to 1.0).
         koopman_forecast: Optional Koopman operator evolution for blended forecast.
     """
+
     bars: int
     percentiles: list[int]
     curves: dict[int, NDArray[np.float64]]  # percentile → projected values
-    all_paths: NDArray[np.float64]          # (n_matches, bars) raw paths
-    weights: NDArray[np.float64]            # normalized confidence weights
+    all_paths: NDArray[np.float64]  # (n_matches, bars) raw paths
+    weights: NDArray[np.float64]  # normalized confidence weights
     koopman_forecast: KoopmanForecast | None = None
 
 
@@ -135,7 +136,7 @@ def project(
         )
 
     # --- Build the weighted percentile forecast ---
-    paths_arr = np.array(paths)    # shape: (n_valid_matches, forward_bars)
+    paths_arr = np.array(paths)  # shape: (n_valid_matches, forward_bars)
     weights_arr = np.array(weights)
 
     # Normalize weights to sum to 1.0 for proper weighted quantile computation.
