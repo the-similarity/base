@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import warnings
 from concurrent.futures import ProcessPoolExecutor, BrokenExecutor
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from multiprocessing import cpu_count
 from typing import Callable
 
@@ -78,7 +78,7 @@ class BacktestReport:
             f"  hit_rate={self.hit_rate:.1%}",
             f"  mean_absolute_error={self.mean_error:.4f}",
             f"  crps={self.crps:.4f}",
-            f"  calibration:",
+            "  calibration:",
         ]
         for p, rate in sorted(self.calibration.items()):
             expected = p / 100.0

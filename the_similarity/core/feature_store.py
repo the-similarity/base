@@ -39,7 +39,7 @@ import sqlite3
 import time
 import warnings
 from pathlib import Path
-from typing import Any, Callable, TypeVar
+from typing import Callable, TypeVar
 
 import numpy as np
 from numpy.typing import NDArray

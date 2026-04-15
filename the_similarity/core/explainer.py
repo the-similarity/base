@@ -5,12 +5,12 @@ forecast projections, and calibration commentary.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 import numpy as np
 
 from the_similarity.config import Config
-from the_similarity.core.scorer import MatchResult, ScoreBreakdown, _SCORE_FIELDS
+from the_similarity.core.scorer import MatchResult, _SCORE_FIELDS
 from the_similarity.core.projector import Forecast
 from the_similarity.core.ensemble import EnsembleForecast
 
@@ -362,9 +362,11 @@ def calibration_commentary(
     Returns:
         CalibrationCommentary with qualitative assessment and recommendation.
     """
-    # Qualitative description based on confidence level
+    # Qualitative description based on confidence level.
+    # NOTE: earlier versions tracked a local `tier` label (high/moderate/low-moderate/low),
+    # but it was never consumed downstream — CalibrationCommentary only surfaces
+    # `accuracy_desc` and `recommendation`. Drop the dead variable to keep the file lint-clean.
     if confidence_score >= 80:
-        tier = "high"
         accuracy_desc = (
             f"This is a high-confidence match ({confidence_score:.0f}/100). "
             "Matches at this level typically show strong agreement across multiple methods."
@@ -374,7 +376,6 @@ def calibration_commentary(
             "Consider using this as a primary signal."
         )
     elif confidence_score >= 60:
-        tier = "moderate"
         accuracy_desc = (
             f"This is a moderate-confidence match ({confidence_score:.0f}/100). "
             "Several methods agree, but some show weaker alignment."
@@ -384,7 +385,6 @@ def calibration_commentary(
             "with additional analysis or signals."
         )
     elif confidence_score >= 40:
-        tier = "low-moderate"
         accuracy_desc = (
             f"This is a below-average match ({confidence_score:.0f}/100). "
             "Method agreement is limited."
@@ -394,7 +394,6 @@ def calibration_commentary(
             "Use as a secondary signal only, combined with other indicators."
         )
     else:
-        tier = "low"
         accuracy_desc = (
             f"This is a low-confidence match ({confidence_score:.0f}/100). "
             "Most methods show weak alignment."
