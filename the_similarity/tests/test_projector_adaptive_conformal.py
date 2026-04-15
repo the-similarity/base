@@ -136,7 +136,9 @@ def test_walk_forward_only_uses_match_forward_windows():
     # (deceptive) future suffix. The adaptive layer must behave the SAME
     # because it only consults match forward windows.
     fc_a = project(matches, lookback, forward_bars=30)
-    fc_b = project(matches, np.concatenate([lookback, np.full(50, 999.0)]), forward_bars=30)
+    fc_b = project(
+        matches, np.concatenate([lookback, np.full(50, 999.0)]), forward_bars=30
+    )
     np.testing.assert_allclose(fc_a.curves[10], fc_b.curves[10])
     np.testing.assert_allclose(fc_a.curves[90], fc_b.curves[90])
 

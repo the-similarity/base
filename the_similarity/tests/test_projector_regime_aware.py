@@ -115,10 +115,17 @@ def test_multiplier_of_one_is_noop():
         matches,
         history,
         forward_bars=30,
-        regime_multipliers={k: 1.0 for k in [
-            "trending_up", "trending_down", "mean_reverting",
-            "high_vol", "low_vol", "unknown",
-        ]},
+        regime_multipliers={
+            k: 1.0
+            for k in [
+                "trending_up",
+                "trending_down",
+                "mean_reverting",
+                "high_vol",
+                "low_vol",
+                "unknown",
+            ]
+        },
     )
     for p in [10, 25, 50, 75, 90]:
         np.testing.assert_allclose(fc_base.curves[p], fc_reg.curves[p])
@@ -133,10 +140,17 @@ def test_apply_to_restricts_scaling():
         matches,
         history,
         forward_bars=30,
-        regime_multipliers={k: 2.0 for k in [
-            "trending_up", "trending_down", "mean_reverting",
-            "high_vol", "low_vol", "unknown",
-        ]},
+        regime_multipliers={
+            k: 2.0
+            for k in [
+                "trending_up",
+                "trending_down",
+                "mean_reverting",
+                "high_vol",
+                "low_vol",
+                "unknown",
+            ]
+        },
         apply_to=(90,),  # only P90 should change
     )
 

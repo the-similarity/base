@@ -106,7 +106,9 @@ def test_paths_preserve_row_correlation():
     for i, start in enumerate(range(0, 300, 40)):
         slope = (i - 4) * 0.5
         forward_start = start + 40
-        history[forward_start : forward_start + 30] = history[forward_start - 1] + slope * np.arange(1, 31)
+        history[forward_start : forward_start + 30] = history[
+            forward_start - 1
+        ] + slope * np.arange(1, 31)
         matches.append(_make_match(start, start + 40, score=1.0))
 
     fc = project(matches, history, forward_bars=30, n_paths=500, seed=42)

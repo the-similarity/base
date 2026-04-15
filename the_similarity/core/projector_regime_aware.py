@@ -55,8 +55,8 @@ _DEFAULT_MULTIPLIERS: dict[str, float] = {
     "trending_up": 0.9,
     "trending_down": 0.9,
     "mean_reverting": 0.85,
-    "high_vol": 1.4,   # the fat-tail case — baseline cone is too tight
-    "low_vol": 0.8,    # baseline cone is too loose
+    "high_vol": 1.4,  # the fat-tail case — baseline cone is too tight
+    "low_vol": 0.8,  # baseline cone is too loose
     "unknown": 1.0,
 }
 

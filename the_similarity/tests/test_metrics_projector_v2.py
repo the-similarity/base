@@ -24,7 +24,9 @@ def _trial(
         query_start=0,
         query_end=50,
         actual_returns=actual_curve.astype(np.float64),
-        forecast_curves={p: np.asarray(c, dtype=np.float64) for p, c in forecast.items()},
+        forecast_curves={
+            p: np.asarray(c, dtype=np.float64) for p, c in forecast.items()
+        },
         n_matches=5,
         top_match_score=1.0,
         directional_hit=(p50_terminal > 0) == (float(actual_curve[-1]) > 0),
@@ -75,7 +77,6 @@ class TestCalibrationErrorOverTime:
         """A contrived setup where terminal calibration is perfect but
         mid-horizon calibration is off — over_time should register the
         miscoverage the terminal-only metric misses."""
-        bars = 5
         # P90 forecast is extremely wide at the terminal (always contains
         # actual) but collapses to zero mid-horizon (rarely contains).
         p90 = np.array([0.0, 0.0, 0.0, 0.0, 10.0])  # only terminal is wide
@@ -159,4 +160,6 @@ class TestJointPathCRPS:
             actual_curve=np.array([0.5]),
             forecast={p: np.array([v[0]]) for p, v in forecast.items()},
         )
-        assert abs(joint_path_crps([trial]) - joint_path_crps([single_bar_trial])) < 1e-9
+        assert (
+            abs(joint_path_crps([trial]) - joint_path_crps([single_bar_trial])) < 1e-9
+        )

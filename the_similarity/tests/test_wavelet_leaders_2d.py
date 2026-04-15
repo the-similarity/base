@@ -1,4 +1,5 @@
 """Tests for 2D wavelet-leaders multifractal analysis (wavelet_leaders_2d.py)."""
+
 import numpy as np
 import pytest
 
