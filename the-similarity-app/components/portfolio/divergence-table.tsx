@@ -85,12 +85,14 @@ export function DivergenceTable({ data }: { data: DivergencePair[] }) {
               <td className="portfolio-table__td portfolio-table__td--mono portfolio-table__td--right">
                 <span
                   style={{
+                    // Editorial ramp: strong negative ink for high divergence,
+                    // primary text for mid, muted for low. No amber hue.
                     color:
                       row.divergenceScore > 0.3
                         ? "var(--negative)"
                         : row.divergenceScore > 0.15
-                          ? "#fbbf24"
-                          : "var(--text-secondary)",
+                          ? "var(--text-primary)"
+                          : "var(--text-muted)",
                     fontWeight: 600,
                   }}
                 >
