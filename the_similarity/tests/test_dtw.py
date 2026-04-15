@@ -27,11 +27,13 @@ def test_score_decreases_with_distance():
 
 def test_rank_candidates():
     query = np.array([0.0, 1.0, 0.0])
-    candidates = np.array([
-        [0.0, 1.0, 0.0],   # identical
-        [0.0, 0.5, 0.0],   # similar
-        [1.0, 0.0, 1.0],   # inverted
-    ])
+    candidates = np.array(
+        [
+            [0.0, 1.0, 0.0],  # identical
+            [0.0, 0.5, 0.0],  # similar
+            [1.0, 0.0, 1.0],  # inverted
+        ]
+    )
     ranked = rank_candidates(query, candidates)
     # First result should be the identical one
     assert ranked[0][0] == 0

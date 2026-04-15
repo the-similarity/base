@@ -128,12 +128,7 @@ def hydraulic_erosion(
             delta_h = new_h - old_h
 
             # Sediment capacity
-            capacity = (
-                max(-delta_h, params.min_slope)
-                * speed
-                * water
-                * params.capacity
-            )
+            capacity = max(-delta_h, params.min_slope) * speed * water * params.capacity
 
             if sediment > capacity or delta_h > 0:
                 # Deposit
@@ -310,7 +305,12 @@ def _bilinear_height(
     h01 = heightmap[iy + 1, ix]
     h11 = heightmap[iy + 1, ix + 1]
 
-    return h00 * (1 - fx) * (1 - fy) + h10 * fx * (1 - fy) + h01 * (1 - fx) * fy + h11 * fx * fy
+    return (
+        h00 * (1 - fx) * (1 - fy)
+        + h10 * fx * (1 - fy)
+        + h01 * (1 - fx) * fy
+        + h11 * fx * fy
+    )
 
 
 def _apply_brush(

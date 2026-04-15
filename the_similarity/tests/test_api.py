@@ -17,10 +17,12 @@ def test_load_dict():
 
 
 def test_load_dataframe():
-    df = pd.DataFrame({
-        "date": pd.date_range("2020-01-01", periods=100),
-        "close": np.random.randn(100).cumsum() + 100,
-    })
+    df = pd.DataFrame(
+        {
+            "date": pd.date_range("2020-01-01", periods=100),
+            "close": np.random.randn(100).cumsum() + 100,
+        }
+    )
     ts = the_similarity.load(df)
     assert len(ts) == 100
     assert ts.dates is not None
@@ -87,7 +89,9 @@ def test_search_with_structural_methods_and_custom_percentiles():
     assert results.best.transform_alpha is not None
     assert results.best.score_breakdown.bempedelis_r2 >= 0
 
-    forecast = the_similarity.project(results, ts, forward_bars=12, percentiles=[10, 25, 50, 75, 90])
+    forecast = the_similarity.project(
+        results, ts, forward_bars=12, percentiles=[10, 25, 50, 75, 90]
+    )
     assert forecast.percentiles == [10, 25, 50, 75, 90]
     assert 25 in forecast.curves
     assert 75 in forecast.curves

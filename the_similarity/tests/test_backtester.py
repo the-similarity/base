@@ -1,4 +1,5 @@
 """Tests for the backtester validation framework."""
+
 import numpy as np
 import pytest
 
@@ -13,6 +14,7 @@ from the_similarity.config import Config
 
 
 # --- Helper to create synthetic TrialResults ---
+
 
 def _make_trial(
     actual_terminal: float = 0.05,
@@ -47,18 +49,25 @@ def _make_trial(
 
 # ===================== UNIT TESTS (fast) =====================
 
+
 class TestHitRate:
     def test_all_hits(self):
-        trials = [_make_trial(actual_terminal=0.05, p50_terminal=0.04) for _ in range(10)]
+        trials = [
+            _make_trial(actual_terminal=0.05, p50_terminal=0.04) for _ in range(10)
+        ]
         assert hit_rate(trials) == 1.0
 
     def test_no_hits(self):
-        trials = [_make_trial(actual_terminal=-0.05, p50_terminal=0.04) for _ in range(10)]
+        trials = [
+            _make_trial(actual_terminal=-0.05, p50_terminal=0.04) for _ in range(10)
+        ]
         assert hit_rate(trials) == 0.0
 
     def test_mixed(self):
         hits = [_make_trial(actual_terminal=0.05, p50_terminal=0.04) for _ in range(6)]
-        misses = [_make_trial(actual_terminal=-0.05, p50_terminal=0.04) for _ in range(4)]
+        misses = [
+            _make_trial(actual_terminal=-0.05, p50_terminal=0.04) for _ in range(4)
+        ]
         assert hit_rate(hits + misses) == pytest.approx(0.6)
 
     def test_empty(self):
@@ -67,7 +76,9 @@ class TestHitRate:
 
 class TestMeanAbsoluteError:
     def test_zero_error(self):
-        trials = [_make_trial(actual_terminal=0.05, p50_terminal=0.05) for _ in range(5)]
+        trials = [
+            _make_trial(actual_terminal=0.05, p50_terminal=0.05) for _ in range(5)
+        ]
         assert mean_absolute_error(trials) == pytest.approx(0.0)
 
     def test_known_error(self):
@@ -81,13 +92,17 @@ class TestMeanAbsoluteError:
 class TestCalibration:
     def test_perfect_calibration_below_p90(self):
         # All actuals are below P90 forecast → containment should be 100%
-        trials = [_make_trial(actual_terminal=0.05, p90_terminal=0.10) for _ in range(10)]
+        trials = [
+            _make_trial(actual_terminal=0.05, p90_terminal=0.10) for _ in range(10)
+        ]
         cal = calibration(trials, [90])
         assert cal[90] == pytest.approx(1.0)
 
     def test_none_below_p10(self):
         # All actuals are above P10 forecast → containment should be 0%
-        trials = [_make_trial(actual_terminal=0.05, p10_terminal=-0.02) for _ in range(10)]
+        trials = [
+            _make_trial(actual_terminal=0.05, p10_terminal=-0.02) for _ in range(10)
+        ]
         cal = calibration(trials, [10])
         assert cal[10] == pytest.approx(0.0)
 
@@ -99,12 +114,14 @@ class TestCalibration:
 class TestCRPS:
     def test_perfect_forecast(self):
         # All percentile forecasts equal the actual → CRPS should be low
-        trials = [_make_trial(
-            actual_terminal=0.05,
-            p10_terminal=0.05,
-            p50_terminal=0.05,
-            p90_terminal=0.05,
-        )]
+        trials = [
+            _make_trial(
+                actual_terminal=0.05,
+                p10_terminal=0.05,
+                p50_terminal=0.05,
+                p90_terminal=0.05,
+            )
+        ]
         score = crps(trials)
         # With perfect point forecast, indicators are [0, 0, 0] for percentiles [10, 50, 90]
         # since actual <= forecast for all, indicators = [1, 1, 1]
@@ -116,7 +133,16 @@ class TestCRPS:
     def test_terrible_forecast(self):
         # Forecast is completely wrong direction
         good = crps([_make_trial(actual_terminal=0.05, p50_terminal=0.04)])
-        bad = crps([_make_trial(actual_terminal=0.05, p10_terminal=-0.50, p50_terminal=-0.40, p90_terminal=-0.30)])
+        bad = crps(
+            [
+                _make_trial(
+                    actual_terminal=0.05,
+                    p10_terminal=-0.50,
+                    p50_terminal=-0.40,
+                    p90_terminal=-0.30,
+                )
+            ]
+        )
         assert bad > good
 
     def test_empty(self):
@@ -126,15 +152,23 @@ class TestCRPS:
 class TestPickTrialPositions:
     def test_respects_min_lookback(self):
         positions = _pick_trial_positions(
-            history_len=1000, window_size=60, forward_bars=50,
-            min_lookback=180, n_trials=50, seed=42,
+            history_len=1000,
+            window_size=60,
+            forward_bars=50,
+            min_lookback=180,
+            n_trials=50,
+            seed=42,
         )
         assert all(pos >= 180 for pos in positions)
 
     def test_respects_forward_constraint(self):
         positions = _pick_trial_positions(
-            history_len=1000, window_size=60, forward_bars=50,
-            min_lookback=180, n_trials=50, seed=42,
+            history_len=1000,
+            window_size=60,
+            forward_bars=50,
+            min_lookback=180,
+            n_trials=50,
+            seed=42,
         )
         assert all(pos + 60 + 50 <= 1000 for pos in positions)
 
@@ -194,6 +228,7 @@ class TestBacktestReport:
 
 # ===================== INTEGRATION TESTS (slow) =====================
 
+
 @pytest.mark.slow
 class TestBacktestIntegration:
     def test_runs_on_synthetic_trending_data(self):
@@ -210,8 +245,13 @@ class TestBacktestIntegration:
             stride=5,
         )
         report = run_backtest(
-            history, window_size=60, forward_bars=30,
-            n_trials=10, config=config, seed=42, n_workers=1,
+            history,
+            window_size=60,
+            forward_bars=30,
+            n_trials=10,
+            config=config,
+            seed=42,
+            n_workers=1,
         )
         assert report.n_valid_trials > 0
         assert 0 <= report.hit_rate <= 1
@@ -228,8 +268,13 @@ class TestBacktestIntegration:
             stride=5,
         )
         kwargs = dict(
-            history=history, window_size=30, forward_bars=20,
-            n_trials=5, config=config, seed=99, n_workers=1,
+            history=history,
+            window_size=30,
+            forward_bars=20,
+            n_trials=5,
+            config=config,
+            seed=99,
+            n_workers=1,
         )
         r1 = run_backtest(**kwargs)
         r2 = run_backtest(**kwargs)
@@ -246,8 +291,13 @@ class TestBacktestIntegration:
             stride=5,
         )
         report = run_backtest(
-            history, window_size=30, forward_bars=20,
-            n_trials=5, config=config, seed=42, n_workers=1,
+            history,
+            window_size=30,
+            forward_bars=20,
+            n_trials=5,
+            config=config,
+            seed=42,
+            n_workers=1,
         )
         for trial in report.valid_trials:
             # The search was run on history[:query_start], so all match indices

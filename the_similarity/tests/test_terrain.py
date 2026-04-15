@@ -1,7 +1,6 @@
 """Tests for 2D terrain analysis methods and generation pipeline."""
 
 import numpy as np
-import pytest
 
 
 # ---------------------------------------------------------------------------
@@ -81,8 +80,15 @@ class TestWaveletLeaders2D:
         hmap = self._make_terrain(64)
         result = extract_terrain_spectrum(hmap)
 
-        for key in ["alpha", "f_alpha", "spectrum_width", "h_mean", "h_std",
-                     "dominant_scale", "hurst_map"]:
+        for key in [
+            "alpha",
+            "f_alpha",
+            "spectrum_width",
+            "h_mean",
+            "h_std",
+            "dominant_scale",
+            "hurst_map",
+        ]:
             assert key in result, f"Missing key: {key}"
 
         assert 0 <= result["h_mean"] <= 1
@@ -402,7 +408,11 @@ class TestFeatureScatter:
 
     def test_no_trees_on_steep_slopes(self):
         """Trees should not appear on very steep terrain."""
-        from the_similarity.core.feature_scatter import scatter_features, FEATURE_TREE_PINE, FEATURE_TREE_OAK
+        from the_similarity.core.feature_scatter import (
+            scatter_features,
+            FEATURE_TREE_PINE,
+            FEATURE_TREE_OAK,
+        )
 
         size = 64
         # Create a cliff with a smooth transition zone to get clear gradient

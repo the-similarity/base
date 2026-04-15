@@ -36,8 +36,14 @@ class TestConfigDefaults:
         """The 9 production methods must still be active by default."""
         cfg = Config()
         expected = {
-            "bempedelis_r2", "bempedelis_smoothness", "koopman",
-            "wavelet_spectrum", "emd", "tda", "dtw", "pearson_warped",
+            "bempedelis_r2",
+            "bempedelis_smoothness",
+            "koopman",
+            "wavelet_spectrum",
+            "emd",
+            "tda",
+            "dtw",
+            "pearson_warped",
             "transfer_entropy",
         }
         assert set(cfg.active_methods) == expected
@@ -55,7 +61,9 @@ class TestFeatureFlags:
         cfg = Config()
         flags = cfg.feature_flags()
         assert set(flags.keys()) == {
-            "jepa_enabled", "jepa_weight", "jepa_embedding_path",
+            "jepa_enabled",
+            "jepa_weight",
+            "jepa_embedding_path",
         }
 
     def test_feature_flags_default_values(self):

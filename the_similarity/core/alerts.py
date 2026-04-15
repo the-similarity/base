@@ -21,6 +21,7 @@ Architecture:
     │  Backend: SQLite (process-safe, WAL mode)      │
     └──────────────────────────────────────────────┘
 """
+
 from __future__ import annotations
 
 import json
@@ -31,7 +32,7 @@ import uuid
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable
+from typing import Callable
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +45,7 @@ class NotificationChannel(str, Enum):
 @dataclass
 class Watchlist:
     """A user-defined pattern watch configuration."""
+
     id: str
     user_id: str
     name: str
@@ -71,6 +73,7 @@ class Watchlist:
 @dataclass
 class Alert:
     """A fired alert record."""
+
     id: str
     watchlist_id: str
     user_id: str
@@ -91,7 +94,10 @@ def _default_log_notify(alert: Alert, watchlist: Watchlist) -> None:
     """Default notification: log the alert."""
     logger.info(
         "ALERT [%s] watchlist=%s score=%.1f — %s",
-        alert.id[:8], watchlist.name, alert.confidence_score, alert.message,
+        alert.id[:8],
+        watchlist.name,
+        alert.confidence_score,
+        alert.message,
     )
 
 
@@ -119,20 +125,25 @@ def _webhook_notify(alert: Alert, watchlist: Watchlist) -> None:
     if not watchlist.webhook_url:
         return
     if not _validate_webhook_url(watchlist.webhook_url):
-        logger.warning("Webhook URL rejected (SSRF check): %s", watchlist.webhook_url[:50])
+        logger.warning(
+            "Webhook URL rejected (SSRF check): %s", watchlist.webhook_url[:50]
+        )
         return
     import urllib.request
-    payload = json.dumps({
-        "alert_id": alert.id,
-        "watchlist_id": watchlist.id,
-        "watchlist_name": watchlist.name,
-        "confidence_score": alert.confidence_score,
-        "match_start_idx": alert.match_start_idx,
-        "match_end_idx": alert.match_end_idx,
-        "match_regime": alert.match_regime,
-        "message": alert.message,
-        "fired_at": alert.fired_at,
-    }).encode("utf-8")
+
+    payload = json.dumps(
+        {
+            "alert_id": alert.id,
+            "watchlist_id": watchlist.id,
+            "watchlist_name": watchlist.name,
+            "confidence_score": alert.confidence_score,
+            "match_start_idx": alert.match_start_idx,
+            "match_end_idx": alert.match_end_idx,
+            "match_regime": alert.match_regime,
+            "message": alert.message,
+            "fired_at": alert.fired_at,
+        }
+    ).encode("utf-8")
     req = urllib.request.Request(
         watchlist.webhook_url,
         data=payload,
@@ -243,13 +254,23 @@ class AlertManager:
                     top_k, stride, active_methods, enabled, created_at, updated_at)
                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
-                    wl.id, wl.user_id, wl.name, json.dumps(wl.query_values),
-                    wl.dataset_id, wl.symbol, wl.timeframe,
-                    wl.threshold, wl.cooldown_seconds,
-                    json.dumps(wl.channels), wl.webhook_url,
-                    wl.top_k, wl.stride,
+                    wl.id,
+                    wl.user_id,
+                    wl.name,
+                    json.dumps(wl.query_values),
+                    wl.dataset_id,
+                    wl.symbol,
+                    wl.timeframe,
+                    wl.threshold,
+                    wl.cooldown_seconds,
+                    json.dumps(wl.channels),
+                    wl.webhook_url,
+                    wl.top_k,
+                    wl.stride,
                     json.dumps(wl.active_methods) if wl.active_methods else None,
-                    int(wl.enabled), wl.created_at, wl.updated_at,
+                    int(wl.enabled),
+                    wl.created_at,
+                    wl.updated_at,
                 ),
             )
             conn.commit()
@@ -279,11 +300,23 @@ class AlertManager:
             conn.close()
 
     # Explicit allowlist of fields that can be updated via kwargs.
-    _UPDATABLE_FIELDS = frozenset({
-        "name", "dataset_id", "symbol", "timeframe", "threshold",
-        "cooldown_seconds", "webhook_url", "top_k", "stride",
-        "query_values", "channels", "active_methods", "enabled",
-    })
+    _UPDATABLE_FIELDS = frozenset(
+        {
+            "name",
+            "dataset_id",
+            "symbol",
+            "timeframe",
+            "threshold",
+            "cooldown_seconds",
+            "webhook_url",
+            "top_k",
+            "stride",
+            "query_values",
+            "channels",
+            "active_methods",
+            "enabled",
+        }
+    )
 
     def update_watchlist(self, watchlist_id: str, **kwargs) -> Watchlist | None:
         wl = self.get_watchlist(watchlist_id)
@@ -323,7 +356,9 @@ class AlertManager:
         conn = self._connect()
         try:
             conn.execute("DELETE FROM alerts WHERE watchlist_id = ?", (watchlist_id,))
-            cursor = conn.execute("DELETE FROM watchlists WHERE id = ?", (watchlist_id,))
+            cursor = conn.execute(
+                "DELETE FROM watchlists WHERE id = ?", (watchlist_id,)
+            )
             conn.commit()
             return cursor.rowcount > 0
         finally:
@@ -383,10 +418,16 @@ class AlertManager:
                     message, fired_at, acknowledged)
                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
-                    alert.id, alert.watchlist_id, alert.user_id,
-                    alert.confidence_score, alert.match_start_idx,
-                    alert.match_end_idx, alert.match_regime,
-                    alert.message, alert.fired_at, 0,
+                    alert.id,
+                    alert.watchlist_id,
+                    alert.user_id,
+                    alert.confidence_score,
+                    alert.match_start_idx,
+                    alert.match_end_idx,
+                    alert.match_regime,
+                    alert.message,
+                    alert.fired_at,
+                    0,
                 ),
             )
             conn.commit()
@@ -473,7 +514,8 @@ class AlertManager:
                 ).fetchone()
             else:
                 row = conn.execute(
-                    "SELECT COUNT(*) FROM alerts WHERE user_id = ?", (user_id,),
+                    "SELECT COUNT(*) FROM alerts WHERE user_id = ?",
+                    (user_id,),
                 ).fetchone()
             return row[0] if row else 0
         finally:
@@ -497,7 +539,9 @@ class AlertManager:
             webhook_url=row["webhook_url"],
             top_k=row["top_k"],
             stride=row["stride"],
-            active_methods=json.loads(row["active_methods"]) if row["active_methods"] else None,
+            active_methods=json.loads(row["active_methods"])
+            if row["active_methods"]
+            else None,
             enabled=bool(row["enabled"]),
             created_at=row["created_at"],
             updated_at=row["updated_at"],

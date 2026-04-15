@@ -24,7 +24,6 @@ from matplotlib.figure import Figure
 
 from the_similarity.core.scorer import MatchResult
 from the_similarity.core.projector import Forecast
-from the_similarity.io.loader import TimeSeries
 
 
 def plot_matches(
@@ -72,7 +71,7 @@ def plot_matches(
         s_norm = (s - s_min) / s_range
 
         # Build a descriptive label: rank + score + optional date range
-        label = f"#{i+1} score={match.confidence_score:.1f}"
+        label = f"#{i + 1} score={match.confidence_score:.1f}"
         if match.start_date:
             label += f" ({match.start_date})"
         # Lower alpha and thinner lines keep the query visually dominant.
@@ -125,11 +124,11 @@ def plot_forecast(
     # Each percentile gets a distinct color for quick identification.
     # Common convention: red=bearish(P10), blue=median(P50), green=bullish(P90).
     colors = {
-        10: "#d62728",   # Red — bearish tail
-        25: "#ff7f0e",   # Orange — below median
-        50: "#1f77b4",   # Blue — median
-        75: "#17becf",   # Cyan — above median
-        90: "#2ca02c",   # Green — bullish tail
+        10: "#d62728",  # Red — bearish tail
+        25: "#ff7f0e",  # Orange — below median
+        50: "#1f77b4",  # Blue — median
+        75: "#17becf",  # Cyan — above median
+        90: "#2ca02c",  # Green — bullish tail
     }
     for p in sorted_pcts:
         curve = forecast.curves[p]

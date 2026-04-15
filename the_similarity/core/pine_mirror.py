@@ -53,7 +53,9 @@ def logreturn_zscore(values: NDArray[np.float64]) -> NDArray[np.float64]:
     return (returns - returns.mean()) / std
 
 
-def resample_series(values: NDArray[np.float64], target_length: int) -> NDArray[np.float64]:
+def resample_series(
+    values: NDArray[np.float64], target_length: int
+) -> NDArray[np.float64]:
     """Linearly resample a 1D series to the target length."""
     values = np.asarray(values, dtype=np.float64)
     if target_length <= 0:
@@ -76,7 +78,9 @@ def total_log_return(values: NDArray[np.float64]) -> float:
     return float(np.log(max(values[-1], EPSILON) / max(values[0], EPSILON)))
 
 
-def similarity_score(query: NDArray[np.float64], candidate: NDArray[np.float64]) -> float:
+def similarity_score(
+    query: NDArray[np.float64], candidate: NDArray[np.float64]
+) -> float:
     """Mirror the Pine score blend used in the TradingView scripts.
 
     Score components:
@@ -113,7 +117,9 @@ def similarity_score(query: NDArray[np.float64], candidate: NDArray[np.float64])
     return float(np.clip(raw_score * 100.0, 0.0, 100.0))
 
 
-def scale_match_to_current(match: NDArray[np.float64], current_price: float) -> NDArray[np.float64]:
+def scale_match_to_current(
+    match: NDArray[np.float64], current_price: float
+) -> NDArray[np.float64]:
     """Anchor a matched window so its last value equals `current_price`."""
     match = np.asarray(match, dtype=np.float64)
     if match.size == 0:
@@ -188,7 +194,9 @@ def find_best_match(
 
             anchor = float(candidate_raw[-1])
             future_segment = history[end_idx + 1 : future_end]
-            projected_prices = project_future_to_current(future_segment, anchor, current_price)
+            projected_prices = project_future_to_current(
+                future_segment, anchor, current_price
+            )
             projected_returns = (projected_prices / current_price) - 1.0
 
             if best is None or score > best.score:
@@ -199,7 +207,9 @@ def find_best_match(
                     projected_end_return=float(projected_returns[-1]),
                     projected_min_return=float(projected_returns.min()),
                     projected_max_return=float(projected_returns.max()),
-                    matched_resampled=scale_match_to_current(candidate_resampled, current_price),
+                    matched_resampled=scale_match_to_current(
+                        candidate_resampled, current_price
+                    ),
                     projected_prices=projected_prices,
                 )
 

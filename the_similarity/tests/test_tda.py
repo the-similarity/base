@@ -1,11 +1,15 @@
 """Tests for TDA persistence-diagram matcher."""
+
 import numpy as np
 import pytest
 
 ripser = pytest.importorskip("ripser")
 pytest.importorskip("persim")
 
-from the_similarity.methods.tda_matcher import (
+# E402: the import below is deliberately after the importorskip calls — importing
+# tda_matcher eagerly loads ripser/persim at module import time, so on machines
+# without those optional deps this module must skip before attempting the import.
+from the_similarity.methods.tda_matcher import (  # noqa: E402
     compare,
     compute_persistence,
     persistence_distance,

@@ -71,9 +71,7 @@ def scatter_features(
     base_grass_count = int(area * 0.004 * density)
 
     # --- Trees ---
-    tree_candidates = _generate_candidates(
-        base_tree_count, H, W, rng, min_spacing=3.0
-    )
+    tree_candidates = _generate_candidates(base_tree_count, H, W, rng, min_spacing=3.0)
     for cx, cy in tree_candidates:
         ix, iy = int(cx), int(cy)
         if ix < 0 or ix >= W or iy < 0 or iy >= H:
@@ -103,15 +101,17 @@ def scatter_features(
 
         features.append(
             _make_feature(
-                tree_type, cx, cy, elev, rng,
+                tree_type,
+                cx,
+                cy,
+                elev,
+                rng,
                 base_scale=0.8 + 0.4 * m_val,  # bigger with more moisture
             )
         )
 
     # --- Rocks ---
-    rock_candidates = _generate_candidates(
-        base_rock_count, H, W, rng, min_spacing=2.0
-    )
+    rock_candidates = _generate_candidates(base_rock_count, H, W, rng, min_spacing=2.0)
     for cx, cy in rock_candidates:
         ix, iy = int(cx), int(cy)
         if ix < 0 or ix >= W or iy < 0 or iy >= H:
@@ -144,9 +144,7 @@ def scatter_features(
         )
 
     # --- Bushes ---
-    bush_candidates = _generate_candidates(
-        base_bush_count, H, W, rng, min_spacing=2.0
-    )
+    bush_candidates = _generate_candidates(base_bush_count, H, W, rng, min_spacing=2.0)
     for cx, cy in bush_candidates:
         ix, iy = int(cx), int(cy)
         if ix < 0 or ix >= W or iy < 0 or iy >= H:
