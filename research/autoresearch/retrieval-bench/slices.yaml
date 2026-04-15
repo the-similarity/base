@@ -1,0 +1,214 @@
+id: retrieval-bench-tiers-v1
+title: Retrieval ablation — Tier 1 (SAX+MASS → DTW+Pearson) vs Tier 1+2 full stack
+status: active
+owner: research
+objective: >-
+  Decide whether Tier 2 enrichment (Bempedelis, Koopman, Wavelet, EMD, TDA, Transfer
+  Entropy) earns its place in the default retrieval stack by measurably improving
+  walk-forward retrieval quality over Tier 1 alone, and whether the runtime cost is
+  justified. This is a measurement lane — the default engine is NOT changed by this
+  lane's runs.
+
+# ---------------------------------------------------------------------------
+# Lane type / scope
+# ---------------------------------------------------------------------------
+# Only new files under research/autoresearch/retrieval-bench/ and report/ledger
+# entries under progress/autoresearch/ are permitted.  The engine itself
+# (the_similarity/**) must NOT be mutated by this lane — a tier ablation that
+# requires engine changes is an independent decision and must live in its own
+# lane / PR.
+lane_type: retrieval_ablation
+writable_scope:
+  allowed:
+    - research/autoresearch/retrieval-bench/
+    - progress/autoresearch/experiments.jsonl
+    - progress/autoresearch/reports/retrieval-bench-v1.md
+    - obsidian_thesim/concepts/retrieval_bench.md
+  forbidden:
+    - the_similarity/**
+    - pyproject.toml
+    - the-similarity-data/**
+
+# ---------------------------------------------------------------------------
+# Slice spec — representative finance slices for ablation
+# ---------------------------------------------------------------------------
+# Each slice names a symbol parquet (resolved via data_root at runtime), a
+# date window to filter to, and a "regime" label used for reporting.  The
+# runner uses walk-forward sampling — it never leaks forward data into the
+# matcher and it restricts each trial's history to dataset[:query_start].
+#
+# Regime labels are descriptive, not algorithmic — they document why a slice
+# was included so a future agent can reproduce the reasoning.
+data_root_default: the-similarity-data/data
+slices:
+  # --- Trending bull regime ---
+  # Long secular uptrend with low realized volatility — Tier 1 shape
+  # similarity (DTW/Pearson) should already be strong here.  If Tier 2
+  # does not help on trends, that is useful evidence.
+  - id: spy-bull-2016-2019
+    symbol: spy
+    path: stocks/spy/1d.parquet
+    start_date: "2016-01-04"
+    end_date: "2019-12-31"
+    regime: trending_bull
+    rationale: >-
+      Calm trend with periodic mild corrections. Baseline environment for
+      shape-based retrieval; Tier 2 must do real work to move the needle.
+
+  # --- Crisis / high vol regime ---
+  # COVID crash + rebound.  Tier 2 wavelets/TDA/Koopman should in principle
+  # shine here because shape is unreliable under regime breaks.
+  - id: spy-covid-2020
+    symbol: spy
+    path: stocks/spy/1d.parquet
+    start_date: "2019-06-01"
+    end_date: "2020-12-31"
+    regime: crisis_then_rebound
+    rationale: >-
+      Fastest 30% drawdown in S&P history followed by V-recovery. Stress
+      test for whether Tier 2 dynamical methods find more informative
+      analogues than pure shape.
+
+  # --- Grinding bear regime ---
+  # 2022 rate-hike bear — different volatility signature from COVID.
+  - id: spy-rate-hike-2022
+    symbol: spy
+    path: stocks/spy/1d.parquet
+    start_date: "2021-11-01"
+    end_date: "2022-12-31"
+    regime: grinding_bear
+    rationale: >-
+      Slow, persistent drawdown driven by policy.  Different vol
+      signature from crisis windows — isolates whether Tier 2 adapts.
+
+  # --- Single-name growth stock ---
+  # NVDA — strong dynamical structure, multiple regime shifts.
+  - id: nvda-long-run
+    symbol: nvda
+    path: stocks/nvda/1d.parquet
+    start_date: "2015-01-02"
+    end_date: "2024-12-31"
+    regime: single_name_growth
+    rationale: >-
+      Mega-cap growth name with strong dynamical structure. Koopman /
+      Bempedelis should plausibly earn weight here.
+
+  # --- Mega-cap with idiosyncratic drawdowns ---
+  - id: tsla-long-run
+    symbol: tsla
+    path: stocks/tsla/1d.parquet
+    start_date: "2015-01-02"
+    end_date: "2024-12-31"
+    regime: single_name_volatile
+    rationale: >-
+      Volatile mega-cap with well-known idiosyncratic drawdowns; tests
+      retrieval under fat tails at the single-name level.
+
+  # --- Crypto high-vol regime ---
+  - id: btc-long-run
+    symbol: btc_usdt
+    path: crypto/btc_usdt/1d.parquet
+    start_date: "2019-09-23"
+    end_date: "2024-12-31"
+    regime: crypto_highvol
+    rationale: >-
+      Major crypto pair covering 2020 melt-up, 2021 peak, 2022 winter,
+      and 2023 recovery.  Fat tails stress uncertainty width and tier
+      contribution to CRPS.
+
+# ---------------------------------------------------------------------------
+# Evaluation protocol
+# ---------------------------------------------------------------------------
+# query_window / forward_bars / top_k / n_trials mirror jepa-retrieval-core-v1
+# defaults so results are directly comparable across lanes.  Seeds are fixed
+# for reproducibility.
+protocol:
+  query_window: 60
+  forward_bars: 30
+  top_k: 10
+  n_trials: 40          # per-slice trial count for the full sweep
+  n_trials_smoke: 5     # used by the --smoke flag during development
+  seeds:
+    - 42
+    - 314
+  no_lookahead_required: true
+  min_lookback_multiplier: 3   # history before query must be >= 3 * window_size
+
+# ---------------------------------------------------------------------------
+# Tier configurations under test
+# ---------------------------------------------------------------------------
+# Each entry defines an "arm" of the ablation.  active_methods is the list
+# passed directly into Config().active_methods; the matcher's CHEAP_SCORE_FIELDS
+# set decides which of those run in Tier 1.
+#
+# tier1_only keeps only DTW + Pearson (plus the always-on SAX+MASS prefilter
+# which happens in Tier 0 regardless).  tier1_plus_full turns every method
+# back on and matches the current production default.
+arms:
+  - id: tier1_only
+    label: "Tier 1 only (SAX+MASS → DTW + Pearson)"
+    active_methods: [dtw, pearson_warped]
+    tier2_candidates: 0
+    notes: >-
+      Cheap, CPU-bound shape matcher.  SAX+MASS prefilter runs unconditionally
+      in Tier 0.  No Bempedelis / Koopman / Wavelet / EMD / TDA / TE.
+
+  - id: tier1_plus_full
+    label: "Tier 1 + Tier 2 (current default — 9 methods)"
+    active_methods:
+      - dtw
+      - pearson_warped
+      - bempedelis_r2
+      - bempedelis_smoothness
+      - koopman
+      - wavelet_spectrum
+      - emd
+      - tda
+      - transfer_entropy
+    tier2_candidates: 20
+    notes: >-
+      Matches the default in the_similarity/config.py.  The question this
+      lane answers is whether the ~6 extra methods earn their CPU.
+
+# ---------------------------------------------------------------------------
+# Scorecard
+# ---------------------------------------------------------------------------
+# The retrieval lane reports three classes of metric:
+#   * retrieval quality — forward-return Pearson correlation of match
+#     forward paths vs. actual query-forward path (top_k precision proxy).
+#   * forecast quality — CRPS & calibration error of the ensemble cone
+#     built from each arm's matches.  CRPS rewards both sharpness and
+#     calibration in a single number.
+#   * runtime — seconds per query, reported as both median and p95 so a
+#     few slow outliers cannot hide cost.
+scorecard:
+  primary_metrics:
+    - name: forward_return_correlation
+      direction: higher_is_better
+    - name: crps
+      direction: lower_is_better
+  secondary_metrics:
+    - name: calibration_error_p10_p90
+      direction: lower_is_better
+    - name: hit_rate
+      direction: higher_is_better
+    - name: runtime_seconds_per_query_median
+      direction: lower_is_better
+    - name: runtime_seconds_per_query_p95
+      direction: lower_is_better
+
+# ---------------------------------------------------------------------------
+# Decision thresholds
+# ---------------------------------------------------------------------------
+# These are the numeric gates used to answer "does Tier 2 earn its place?".
+# A future agent reading this file must reach the same verdict.
+thresholds:
+  min_crps_improvement: 0.005            # absolute CRPS reduction (Tier 1 -> Tier 1+2)
+  min_forward_corr_improvement: 0.02     # absolute Pearson correlation lift
+  max_runtime_multiplier: 3.0            # Tier 1+2 runtime / Tier 1 runtime
+  min_slices_improved: 3                 # of the 6 slices, ≥3 must show CRPS improvement
+
+logging:
+  ledger_path: progress/autoresearch/experiments.jsonl
+  report_path: progress/autoresearch/reports/retrieval-bench-v1.md
+  artifact_dir: progress/autoresearch/reports/retrieval-bench/
