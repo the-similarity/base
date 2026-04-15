@@ -16,6 +16,7 @@ AI AGENT NOTES:
   continuous CDF.
 - TYPE_CHECKING import avoids circular dependency with backtester.py.
 """
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
@@ -156,9 +157,9 @@ def crps(trials: list[TrialResult]) -> float:
         actual_terminal = trial.actual_returns[-1]
 
         # Extract the terminal-bar forecast value at each percentile level
-        forecast_terminals = np.array([
-            trial.forecast_curves[p][-1] for p in sorted_percentiles
-        ])
+        forecast_terminals = np.array(
+            [trial.forecast_curves[p][-1] for p in sorted_percentiles]
+        )
 
         # Convert integer percentiles to [0, 1] CDF levels
         cdf_levels = np.array(sorted_percentiles) / 100.0

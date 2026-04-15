@@ -4,11 +4,12 @@ Runs randomized walk-forward trials: for each trial, picks a random query
 window, searches only the history BEFORE the query (no look-ahead), generates
 a forecast cone, and compares it to what actually happened.
 """
+
 from __future__ import annotations
 
 import warnings
 from concurrent.futures import ProcessPoolExecutor, BrokenExecutor
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from multiprocessing import cpu_count
 from typing import Callable
 
@@ -22,6 +23,7 @@ from the_similarity.core.metrics import calibration, crps, hit_rate, mean_absolu
 @dataclass
 class TrialResult:
     """Result of a single backtest trial."""
+
     query_start: int
     query_end: int
     actual_returns: NDArray[np.float64]
@@ -37,6 +39,7 @@ class TrialResult:
 @dataclass
 class BacktestReport:
     """Aggregated backtest results."""
+
     trials: list[TrialResult]
     config: Config
     window_size: int
@@ -78,12 +81,14 @@ class BacktestReport:
             f"  hit_rate={self.hit_rate:.1%}",
             f"  mean_absolute_error={self.mean_error:.4f}",
             f"  crps={self.crps:.4f}",
-            f"  calibration:",
+            "  calibration:",
         ]
         for p, rate in sorted(self.calibration.items()):
             expected = p / 100.0
             delta = rate - expected
-            lines.append(f"    P{p}: {rate:.1%} (expected {expected:.0%}, delta {delta:+.1%})")
+            lines.append(
+                f"    P{p}: {rate:.1%} (expected {expected:.0%}, delta {delta:+.1%})"
+            )
         result = "\n".join(lines)
         print(result)
         return result
@@ -167,8 +172,7 @@ def run_backtest(
         n_workers = min(4, cpu_count() or 1)
 
     trial_args = [
-        (history, pos, window_size, forward_bars, config, top_k)
-        for pos in positions
+        (history, pos, window_size, forward_bars, config, top_k) for pos in positions
     ]
 
     trials: list[TrialResult] = []
@@ -221,7 +225,11 @@ def _pick_trial_positions(
         positions = list(range(earliest, latest + 1))
         rng.shuffle(positions)
     else:
-        positions = sorted(rng.choice(range(earliest, latest + 1), size=n_samples, replace=False).tolist())
+        positions = sorted(
+            rng.choice(
+                range(earliest, latest + 1), size=n_samples, replace=False
+            ).tolist()
+        )
 
     return positions[:n_trials]
 

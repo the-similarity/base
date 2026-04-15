@@ -66,9 +66,7 @@ def sliding_windows(
     """
     series = np.asarray(series, dtype=np.float64)
     if window_size > len(series):
-        raise ValueError(
-            f"window_size ({window_size}) > series length ({len(series)})"
-        )
+        raise ValueError(f"window_size ({window_size}) > series length ({len(series)})")
     if window_size < 1:
         raise ValueError("window_size must be >= 1")
     if stride < 1:
@@ -133,10 +131,11 @@ class MultiScaleWindow:
     Carries the scale metadata alongside the index range so the scorer
     can account for time-stretching when comparing against the query.
     """
-    start_idx: int          # Start position in the original series
-    end_idx: int            # End position (exclusive) in the original series
-    scale: float            # Multiplier relative to base query length
-    window_size: int        # Actual number of bars in this window
+
+    start_idx: int  # Start position in the original series
+    end_idx: int  # End position (exclusive) in the original series
+    scale: float  # Multiplier relative to base query length
+    window_size: int  # Actual number of bars in this window
 
 
 def multi_scale_indices(
@@ -181,10 +180,12 @@ def multi_scale_indices(
 
         # Generate standard sliding window positions at this scale
         for start, end in window_indices(series_length, ws, stride):
-            results.append(MultiScaleWindow(
-                start_idx=start,
-                end_idx=end,
-                scale=scale,
-                window_size=ws,
-            ))
+            results.append(
+                MultiScaleWindow(
+                    start_idx=start,
+                    end_idx=end,
+                    scale=scale,
+                    window_size=ws,
+                )
+            )
     return results

@@ -30,7 +30,9 @@ class TerrainParams:
     dominant_scale: int = 3  # primary feature scale (wavelet level)
 
     # --- From EMD 2D ---
-    imf_energies: list[float] = field(default_factory=lambda: [0.4, 0.25, 0.15, 0.1, 0.05, 0.05])
+    imf_energies: list[float] = field(
+        default_factory=lambda: [0.4, 0.25, 0.15, 0.1, 0.05, 0.05]
+    )
     scale_count: int = 5  # number of meaningful IMFs
 
     # --- From Bempedelis 2D ---

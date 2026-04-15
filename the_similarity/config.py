@@ -52,17 +52,19 @@ class Config:
     #   them would make Tier 2 enrichment irrelevant.
     # - Transfer entropy (0.05) is experimental; raise it if forward-prediction
     #   accuracy becomes a primary objective.
-    weights: dict[str, float] = field(default_factory=lambda: {
-        "bempedelis_r2": 0.20,          # Power law fit quality (self-similarity)
-        "bempedelis_smoothness": 0.10,  # Scaling function smoothness
-        "koopman": 0.20,               # Koopman eigenvalue spectrum match
-        "wavelet_spectrum": 0.15,      # f(α) singularity spectrum distance
-        "emd": 0.10,                   # EMD multi-scale energy-weighted distance
-        "tda": 0.08,                   # Persistent homology Wasserstein distance
-        "dtw": 0.07,                   # Dynamic Time Warping (shape baseline)
-        "pearson_warped": 0.05,        # Pearson correlation after DTW alignment
-        "transfer_entropy": 0.05,      # Information transfer: match → forward
-    })
+    weights: dict[str, float] = field(
+        default_factory=lambda: {
+            "bempedelis_r2": 0.20,  # Power law fit quality (self-similarity)
+            "bempedelis_smoothness": 0.10,  # Scaling function smoothness
+            "koopman": 0.20,  # Koopman eigenvalue spectrum match
+            "wavelet_spectrum": 0.15,  # f(α) singularity spectrum distance
+            "emd": 0.10,  # EMD multi-scale energy-weighted distance
+            "tda": 0.08,  # Persistent homology Wasserstein distance
+            "dtw": 0.07,  # Dynamic Time Warping (shape baseline)
+            "pearson_warped": 0.05,  # Pearson correlation after DTW alignment
+            "transfer_entropy": 0.05,  # Information transfer: match → forward
+        }
+    )
 
     # -------------------------------------------------------------------------
     # Active methods
@@ -71,17 +73,19 @@ class Config:
     # Removing methods here is the fastest way to speed up search at the cost
     # of less discriminative scoring. The WebSocket front-end also sends an
     # `active_methods` override per-request for interactive tuning.
-    active_methods: list[str] = field(default_factory=lambda: [
-        "bempedelis_r2",
-        "bempedelis_smoothness",
-        "koopman",
-        "wavelet_spectrum",
-        "emd",
-        "tda",
-        "dtw",
-        "pearson_warped",
-        "transfer_entropy",
-    ])
+    active_methods: list[str] = field(
+        default_factory=lambda: [
+            "bempedelis_r2",
+            "bempedelis_smoothness",
+            "koopman",
+            "wavelet_spectrum",
+            "emd",
+            "tda",
+            "dtw",
+            "pearson_warped",
+            "transfer_entropy",
+        ]
+    )
 
     # -------------------------------------------------------------------------
     # DTW configuration

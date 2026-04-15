@@ -12,16 +12,17 @@ growth/decay rates of the dynamics — two windows with similar eigenvalue
 spectra are governed by similar dynamical processes.
 
 Algorithmic Invariants & Dimensionality:
-- EDMD Mechanism: Transforms non-linear time series sequences into linear 
-  matrix operators via Takens' Delay Embedding. This expands the state-space 
+- EDMD Mechanism: Transforms non-linear time series sequences into linear
+  matrix operators via Takens' Delay Embedding. This expands the state-space
   observables artificially.
-- Hungarian Matching: Extracted operator eigenvalues are strictly unordered 
-  complex numbers representing frequencies and growth rates. `linear_sum_assignment` 
-  determines the optimal minimum-distance pairing between two eigenvalue spectra. 
-- Stability Constraints: `koopman_evolve` clamps unstable eigenvalues (magnitude > 1) 
-  to the unit disk radially, preserving phase frequency while hard-capping exploding 
+- Hungarian Matching: Extracted operator eigenvalues are strictly unordered
+  complex numbers representing frequencies and growth rates. `linear_sum_assignment`
+  determines the optimal minimum-distance pairing between two eigenvalue spectra.
+- Stability Constraints: `koopman_evolve` clamps unstable eigenvalues (magnitude > 1)
+  to the unit disk radially, preserving phase frequency while hard-capping exploding
   geometric scale.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -39,13 +40,15 @@ KOOPMAN_MIN_WINDOW = 50
 @dataclass
 class KoopmanForecast:
     """Forward evolution from a fitted Koopman operator."""
-    trajectory: NDArray[np.float64]   # (forward_bars,) predicted cumulative returns
+
+    trajectory: NDArray[np.float64]  # (forward_bars,) predicted cumulative returns
     uncertainty: NDArray[np.float64]  # (forward_bars,) per-step 1-sigma bounds
 
 
 @dataclass
 class KoopmanResult:
     """Result of Koopman EDMD decomposition."""
+
     eigenvalues: NDArray[np.complex128]
     eigenvectors: NDArray[np.complex128]
     a_tilde: NDArray[np.complex128]
@@ -79,7 +82,7 @@ def fit_koopman(
 
     # Build snapshot pairs: X = embedded[:-1], Y = embedded[1:]
     x_mat = embedded[:-1].T  # (dim, n_snapshots)
-    y_mat = embedded[1:].T   # (dim, n_snapshots)
+    y_mat = embedded[1:].T  # (dim, n_snapshots)
 
     # SVD of X
     u, s, vt = np.linalg.svd(x_mat, full_matrices=False)
@@ -223,7 +226,9 @@ def koopman_match(
         return 0.0
 
     distance = koopman_eigenvalue_distance(
-        result_q.eigenvalues, result_c.eigenvalues, top_k=n_modes,
+        result_q.eigenvalues,
+        result_c.eigenvalues,
+        top_k=n_modes,
     )
     return koopman_score(distance, n_modes)
 
@@ -235,8 +240,8 @@ def clamp_eigenvalues(
 
     Eigenvalues with |λ| > 1 represent unstable modes that would cause
     the iterative forecast to diverge to infinity geometrically. Clamping
-    scales their magnitude to 1.0 (forcing them to be purely oscillatory, 
-    i.e., pure sine waves without exponential growth) while keeping the 
+    scales their magnitude to 1.0 (forcing them to be purely oscillatory,
+    i.e., pure sine waves without exponential growth) while keeping the
     oscillation frequency (phase angle) intact.
 
     Args:
@@ -359,7 +364,7 @@ def koopman_evolve(
 
     for t in range(1, forward_bars + 1):
         # x_reduced(t) = W @ diag(λ^t) @ b
-        x_evolved = W @ (b * eigs_clamped ** t)
+        x_evolved = W @ (b * eigs_clamped**t)
         # Project back to full space, take first component (most recent value)
         x_full = u_r @ x_evolved
         predicted_value = x_full[0].real

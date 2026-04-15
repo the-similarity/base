@@ -116,9 +116,7 @@ def decompose_terrain(
         all_points = []
         all_values = []
 
-        for profile_coords, profile_imfs in zip(
-            all_profile_coords, all_profile_imfs
-        ):
+        for profile_coords, profile_imfs in zip(all_profile_coords, all_profile_imfs):
             if imf_idx >= len(profile_imfs):
                 continue
             imf_values = profile_imfs[imf_idx]

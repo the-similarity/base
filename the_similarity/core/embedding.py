@@ -76,9 +76,7 @@ def auto_lag(series: NDArray[np.float64], max_lag: int | None = None) -> int:
         py = pxy.sum(axis=0)
         # MI = sum p(x,y) * log(p(x,y) / (p(x)*p(y)))
         mask = pxy > 0
-        mi = np.sum(
-            pxy[mask] * np.log(pxy[mask] / (px[:, None] * py[None, :])[mask])
-        )
+        mi = np.sum(pxy[mask] * np.log(pxy[mask] / (px[:, None] * py[None, :])[mask]))
         mi_values[tau] = mi
 
     # First local minimum of MI
@@ -156,7 +154,7 @@ def auto_dim(
         for i in indices:
             # Find nearest neighbor (excluding self) via brute force
             diffs = embedded_check - embedded_check[i]
-            dists = np.sqrt(np.sum(diffs ** 2, axis=1))
+            dists = np.sqrt(np.sum(diffs**2, axis=1))
             dists[i] = np.inf
             nn_idx = np.argmin(dists)
             nn_dist = dists[nn_idx]

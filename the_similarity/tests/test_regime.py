@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import numpy as np
-import pytest
 
 from the_similarity.core.regime import hurst_dfa, tag_regime
 
@@ -43,7 +42,11 @@ class TestTagRegime:
         series[0] = 100.0
         # Strong mean reversion with moderate vol
         for i in range(1, n):
-            series[i] = series[i - 1] + 0.15 * (100.0 - series[i - 1]) + np.random.normal(0, 1.5)
+            series[i] = (
+                series[i - 1]
+                + 0.15 * (100.0 - series[i - 1])
+                + np.random.normal(0, 1.5)
+            )
         assert tag_regime(series) == "mean_reverting"
 
     def test_high_vol(self):

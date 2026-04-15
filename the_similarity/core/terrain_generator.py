@@ -112,7 +112,7 @@ class TerrainGenerator:
         # Large areas tend to sit in lowlands or rolling uplands, while sharp
         # relief occupies a smaller fraction of the surface.
         lowland_bias = 1.25 + 1.2 * p.water_level
-        heightmap = heightmap ** lowland_bias
+        heightmap = heightmap**lowland_bias
         heightmap = 0.7 * heightmap + 0.3 * continentalness
 
         # 6. Apply elevation range scaling
@@ -128,7 +128,9 @@ class TerrainGenerator:
             iterations=erosion_iters,
             seed=seed,
         )
-        heightmap = thermal_erosion(heightmap, iterations=max(5, int(20 * p.erosion_strength)))
+        heightmap = thermal_erosion(
+            heightmap, iterations=max(5, int(20 * p.erosion_strength))
+        )
         heightmap = self._relax_heightmap(
             heightmap,
             passes=max(1, int(round(2 + 2 * p.erosion_strength))),
@@ -147,7 +149,10 @@ class TerrainGenerator:
         from the_similarity.core.feature_scatter import scatter_features
 
         features = scatter_features(
-            heightmap, hurst_map, moisture, biome_map,
+            heightmap,
+            hurst_map,
+            moisture,
+            biome_map,
             density=p.vegetation_density,
             seed=seed,
         )
@@ -283,7 +288,7 @@ class TerrainGenerator:
         centered = fbm - 0.5
         ridged = 1.0 - np.abs(centered) * 2.0
         ridged = np.clip(ridged, 0, 1)
-        return ridged ** 2  # sharpen the ridges
+        return ridged**2  # sharpen the ridges
 
     def _fractal_detail(
         self, size: int, rng: np.random.Generator
