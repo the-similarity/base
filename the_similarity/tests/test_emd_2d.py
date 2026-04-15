@@ -1,4 +1,5 @@
 """Tests for 2D EMD terrain decomposition (emd_2d.py)."""
+
 import numpy as np
 import pytest
 
@@ -154,7 +155,13 @@ def test_terrain_scale_analysis_keys():
     """Return dict must contain all expected keys."""
     hm = _flat_heightmap(64)
     result = terrain_scale_analysis(hm, max_imfs=4, n_profiles=4)
-    expected_keys = {"imfs", "energies", "energy_fractions", "dominant_scale", "scale_count"}
+    expected_keys = {
+        "imfs",
+        "energies",
+        "energy_fractions",
+        "dominant_scale",
+        "scale_count",
+    }
     assert expected_keys.issubset(result.keys()), (
         f"Missing keys: {expected_keys - result.keys()}"
     )
