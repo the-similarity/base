@@ -555,7 +555,7 @@ button { cursor: pointer; }
   align-items: center;
   justify-content: center;
   gap: 12px;
-  background: rgba(8, 9, 13, 0.7);
+  background: rgba(250, 250, 250, 0.85);
   z-index: 10;
   color: var(--text-secondary);
   font-family: var(--font-mono);
@@ -635,18 +635,20 @@ button { cursor: pointer; }
   flex-shrink: 0;
 }
 
+/*
+ * Status dots — editorial theme: no glow. Color alone conveys state;
+ * a soft border replaces the former box-shadow halo that belonged to
+ * the dark terminal.
+ */
 .status-dot--live {
   background: var(--positive);
-  box-shadow: 0 0 6px rgba(52, 211, 153, 0.5);
 }
 .status-dot--loading {
   background: var(--accent);
   animation: pulse 1.5s infinite;
-  box-shadow: 0 0 6px rgba(129, 140, 248, 0.5);
 }
 .status-dot--error {
   background: var(--negative);
-  box-shadow: 0 0 6px rgba(248, 113, 113, 0.5);
 }
 
 @keyframes pulse {
@@ -896,12 +898,11 @@ button { cursor: pointer; }
 
 .search-bar-range::-webkit-slider-thumb {
   appearance: none;
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
   border-radius: 50%;
   background: var(--accent);
   border: 2px solid var(--bg-elevated);
-  box-shadow: 0 0 8px var(--accent-glow);
   cursor: pointer;
 }
 
@@ -930,30 +931,34 @@ button { cursor: pointer; }
   border-color: var(--accent);
 }
 
+/*
+ * Primary CTA — editorial monochrome button. Solid ink fill, mono
+ * label, no glow or lift. Hover drops opacity to 0.65 to match deck
+ * links/buttons rather than shifting color.
+ */
 .search-sidebar__run-btn {
   width: 100%;
   padding: 9px;
   border-radius: var(--radius-sm);
-  border: none;
+  border: 1px solid var(--accent);
   background: var(--accent);
-  color: #fff;
-  font-size: 12px;
+  color: var(--bg-elevated);
+  font-family: var(--font-mono);
+  font-size: 11px;
   font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   cursor: pointer;
-  transition: all 150ms ease;
-  box-shadow: 0 2px 8px rgba(129, 140, 248, 0.3);
+  transition: opacity 120ms ease;
 }
 
 .search-sidebar__run-btn:hover {
-  box-shadow: 0 4px 16px rgba(129, 140, 248, 0.4);
-  transform: translateY(-1px);
+  opacity: 0.65;
 }
 
 .search-sidebar__run-btn:disabled {
   opacity: 0.35;
   cursor: not-allowed;
-  transform: none;
-  box-shadow: none;
 }
 
 .search-sidebar__cancel-btn {
@@ -961,20 +966,23 @@ button { cursor: pointer; }
   padding: 9px;
   border-radius: var(--radius-sm);
   border: 1px solid var(--negative);
-  background: var(--negative-dim);
+  background: var(--bg-elevated);
   color: var(--negative);
-  font-size: 12px;
+  font-family: var(--font-mono);
+  font-size: 11px;
   font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   cursor: pointer;
   transition: all 150ms ease;
 }
 
-/* Trajectory line on chart */
+/* Trajectory line on chart — editorial: dark ink + dashed, no amber */
 .chart-line-trajectory {
-  stroke: #fbbf24;
-  stroke-width: 1.8;
+  stroke: var(--text-primary);
+  stroke-width: 1.5;
   stroke-dasharray: 3 4;
-  opacity: 0.9;
+  opacity: 0.7;
 }
 
 /* ── Responsive ── */
@@ -1249,24 +1257,29 @@ button { cursor: pointer; }
 
 /* ── Apply Button ── */
 
+/*
+ * Strategy "Apply" CTA — same editorial primary button treatment as
+ * .search-sidebar__run-btn. Mono label, monochrome ink fill, no glow.
+ */
 .strategy-apply-btn {
   width: 100%;
   padding: 10px;
   border-radius: var(--radius-sm);
-  border: none;
+  border: 1px solid var(--accent);
   background: var(--accent);
-  color: #fff;
-  font-size: 12px;
+  color: var(--bg-elevated);
+  font-family: var(--font-mono);
+  font-size: 11px;
   font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   cursor: pointer;
-  transition: all 150ms ease;
-  box-shadow: 0 2px 8px rgba(129, 140, 248, 0.3);
+  transition: opacity 120ms ease;
   margin-top: var(--space-sm);
 }
 
 .strategy-apply-btn:hover {
-  box-shadow: 0 4px 16px rgba(129, 140, 248, 0.4);
-  transform: translateY(-1px);
+  opacity: 0.65;
 }
 
 /* ── Signal Table ── */
@@ -1356,13 +1369,13 @@ button { cursor: pointer; }
 .strategy-badge-long {
   background: var(--positive-dim);
   color: var(--positive);
-  border: 1px solid rgba(52, 211, 153, 0.2);
+  border: 1px solid var(--positive);
 }
 
 .strategy-badge-short {
   background: var(--negative-dim);
   color: var(--negative);
-  border: 1px solid rgba(248, 113, 113, 0.2);
+  border: 1px solid var(--negative);
 }
 
 .strategy-badge-flat {
@@ -1948,7 +1961,7 @@ button { cursor: pointer; }
 }
 
 .portfolio-table__row:nth-child(even) {
-  background: rgba(255, 255, 255, 0.01);
+  background: #fbfbfb;
 }
 
 .portfolio-table__row:hover {
@@ -2064,6 +2077,11 @@ button { cursor: pointer; }
   border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
 }
 
+/*
+ * Weakness indicator — editorial: ochre `--deck-warn` tone for
+ * "caution" instead of the dark-terminal orange. Soft surface tint,
+ * quiet left border.
+ */
 .detail-weakness {
   display: flex;
   align-items: center;
@@ -2071,9 +2089,9 @@ button { cursor: pointer; }
   font-size: 11px;
   color: var(--text-secondary);
   padding: var(--space-xs) var(--space-sm);
-  border-left: 2px solid #fb923c;
+  border-left: 2px solid #8a6200;
   margin-bottom: var(--space-xs);
-  background: rgba(251, 146, 60, 0.08);
+  background: rgba(138, 98, 0, 0.06);
   border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
 }
 
@@ -2232,7 +2250,7 @@ button { cursor: pointer; }
   height: 36px;
   border-radius: 50%;
   background: var(--negative-dim);
-  border: 1px solid rgba(248, 113, 113, 0.2);
+  border: 1px solid var(--negative);
   color: var(--negative);
   font-size: 16px;
   font-weight: 700;
