@@ -6,16 +6,12 @@ import matplotlib.pyplot as plt
 
 from the_similarity.config import Config
 from the_similarity.io.loader import load as _load, TimeSeries
-from the_similarity.core.normalizer import normalize
-from the_similarity.core.matcher import ProgressCallback, ProgressEvent, find_matches
+from the_similarity.core.matcher import ProgressCallback, find_matches
 from the_similarity.core.scorer import MatchResult
 from the_similarity.core.projector import project as _project, Forecast
 from the_similarity.core.ensemble import (
     ensemble_forecast as _ensemble_forecast,
     EnsembleForecast,
-    MonteCarloResult,
-    RegimeConditionalResult,
-    ConformalResult,
 )
 from the_similarity.methods.koopman import koopman_evolve
 from the_similarity.viz.plotter import plot_matches, plot_forecast
