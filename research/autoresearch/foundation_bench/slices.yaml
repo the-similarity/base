@@ -1,0 +1,177 @@
+id: foundation-bench-v1
+title: Foundation-model baselines — TimesFM, Chronos, Moirai, MOMENT, wavelet MLP vs the 9-method engine
+status: active
+owner: research
+objective: >-
+  Measure five foundation / baseline forecasters (TimesFM, Chronos, Moirai,
+  MOMENT, and one wavelet-aware baseline) against the current production
+  engine (tier1_plus_full) and the Tier 1 stack (tier1_only) on the SAME
+  walk-forward slices used by retrieval-bench-tiers-v1, so results are
+  directly comparable to the Phase 1 findings.  The engine default is NOT
+  changed by this lane — this is measurement, not promotion.
+
+# ---------------------------------------------------------------------------
+# Lane type / writable scope
+# ---------------------------------------------------------------------------
+# Everything this lane writes lives under research/autoresearch/foundation_bench/
+# for code, and progress/autoresearch/reports/foundation-bench/ for artefacts.
+# The engine (the_similarity/**) is strictly read-only.
+lane_type: foundation_model_baseline
+writable_scope:
+  allowed:
+    - research/autoresearch/foundation_bench/
+    - progress/autoresearch/experiments.jsonl
+    - progress/autoresearch/reports/foundation-bench-v1.md
+    - progress/autoresearch/reports/foundation-bench/
+    - obsidian_thesim/concepts/foundation_bench.md
+    - obsidian_thesim/topics/Foundation-model baselines 414.md
+  forbidden:
+    - the_similarity/**
+    - pyproject.toml
+    - the-similarity-data/**
+
+# ---------------------------------------------------------------------------
+# Slice spec — REUSE of retrieval-bench-tiers-v1 slice IDs so this lane's
+# artefacts can be joined with 1A's on (slice_id, trial_index).
+#
+# Keep these IDs, dates, and regimes identical to
+# research/autoresearch/retrieval_bench/slices.yaml.  If that file changes,
+# update this file in the same PR to preserve comparability.
+# ---------------------------------------------------------------------------
+data_root_default: the-similarity-data/data
+slices:
+  - id: spy-bull-2016-2019
+    symbol: spy
+    path: stocks/spy/1d.parquet
+    start_date: "2016-01-04"
+    end_date: "2019-12-31"
+    regime: trending_bull
+    synthetic_seed: 101
+    synthetic_bars: 1500
+    rationale: >-
+      Shares slice id with retrieval-bench-tiers-v1 so per-trial deltas
+      between 1A (retrieval ablation) and 2A (foundation baselines) can be
+      joined.
+
+  - id: spy-covid-2020
+    symbol: spy
+    path: stocks/spy/1d.parquet
+    start_date: "2019-06-01"
+    end_date: "2020-12-31"
+    regime: crisis_then_rebound
+    synthetic_seed: 202
+    synthetic_bars: 800
+    rationale: >-
+      COVID crash + rebound.  Highest-variance slice in the 1A suite;
+      foundation models trained on recent macro data should in principle
+      shine here.
+
+  - id: spy-rate-hike-2022
+    symbol: spy
+    path: stocks/spy/1d.parquet
+    start_date: "2021-11-01"
+    end_date: "2022-12-31"
+    regime: grinding_bear
+    synthetic_seed: 303
+    synthetic_bars: 700
+    rationale: >-
+      Slow, policy-driven drawdown.  The only slice where Tier 2 produced a
+      measurable CRPS win in 1A — foundation models should be benchmarked
+      against that result.
+
+  - id: btc-long-run
+    symbol: btc_usdt
+    path: crypto/btc_usdt/1d.parquet
+    start_date: "2019-09-23"
+    end_date: "2024-12-31"
+    regime: crypto_highvol
+    synthetic_seed: 404
+    synthetic_bars: 1800
+    rationale: >-
+      Fat-tailed crypto slice, stress-tests calibration and uncertainty
+      width.  Subset of 1A's slices — NVDA and TSLA are deferred to keep
+      2A's budget under 25 minutes on CPU.
+
+# ---------------------------------------------------------------------------
+# Evaluation protocol
+# ---------------------------------------------------------------------------
+# (history_len, forward_bars, top_k, seeds) MATCH retrieval-bench-tiers-v1
+# so that fairness across lanes is preserved.  n_trials is smaller here
+# because foundation models are orders of magnitude slower per forecast
+# than the Tier 1 engine — we cap aggressively and surface the cap in
+# artefact metadata.
+protocol:
+  query_window: 60
+  forward_bars: 30
+  top_k: 10
+  n_trials: 12         # per-slice trial count; full sweep stays within 25-min CPU budget
+  n_trials_smoke: 3    # used by --smoke for development
+  seeds:
+    - 42
+  no_lookahead_required: true
+  min_lookback_multiplier: 3
+
+  # Budget cap per (model, slice) cell in wall-clock seconds. A cell that
+  # exceeds the cap is truncated and the artefact is flagged
+  # status: "skipped_budget" for the remaining trials.
+  per_cell_budget_seconds: 180.0
+
+  # Nominal percentile grid passed to every adapter.  Adapters must
+  # return a quantile for every percentile in this list.
+  percentiles: [10, 25, 50, 75, 90]
+
+# ---------------------------------------------------------------------------
+# Baseline arms — the engine-side references we compare foundation models to.
+# These mirror the two arms from retrieval-bench-tiers-v1.
+# ---------------------------------------------------------------------------
+engine_arms:
+  - id: tier1_only
+    label: "Tier 1 only (SAX+MASS → DTW + Pearson)"
+    active_methods: [dtw, pearson_warped]
+    tier2_candidates: 0
+
+  - id: tier1_plus_full
+    label: "Tier 1 + Tier 2 (current default — 9 methods)"
+    active_methods:
+      - dtw
+      - pearson_warped
+      - bempedelis_r2
+      - bempedelis_smoothness
+      - koopman
+      - wavelet_spectrum
+      - emd
+      - tda
+      - transfer_entropy
+    tier2_candidates: 20
+
+# ---------------------------------------------------------------------------
+# Scorecard
+# ---------------------------------------------------------------------------
+# Same metrics as 1A/1B so deltas are directly comparable.
+scorecard:
+  primary_metrics:
+    - name: crps
+      direction: lower_is_better
+    - name: calibration_error_p10_p90
+      direction: lower_is_better
+  secondary_metrics:
+    - name: hit_rate
+      direction: higher_is_better
+    - name: runtime_seconds_per_query_median
+      direction: lower_is_better
+    - name: runtime_seconds_per_query_p95
+      direction: lower_is_better
+
+# ---------------------------------------------------------------------------
+# Keep / discard thresholds for "would we adopt this as a baseline in the
+# default scorecard?" (not "would we replace the engine with it").
+# ---------------------------------------------------------------------------
+thresholds:
+  baseline_worth_keeping_crps_max: 0.03   # model CRPS must be at most 3% worse than tier1_plus_full on average
+  min_slices_not_worse: 2                 # at least 2 of 4 slices where the model is competitive
+  explainability_floor: "low"             # qualitative — noted in report, not enforced numerically
+
+logging:
+  ledger_path: progress/autoresearch/experiments.jsonl
+  report_path: progress/autoresearch/reports/foundation-bench-v1.md
+  artifact_dir: progress/autoresearch/reports/foundation-bench/

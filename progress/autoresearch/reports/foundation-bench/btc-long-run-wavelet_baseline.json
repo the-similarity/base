@@ -1,0 +1,280 @@
+{
+  "metadata": {
+    "timestamp": "2026-04-15T17:50:20Z",
+    "git_sha": "da3ebb8",
+    "benchmark_id": "foundation-bench-v1"
+  },
+  "result": {
+    "slice_id": "btc-long-run",
+    "model_id": "wavelet_baseline",
+    "n_trials": 12,
+    "n_skipped_budget": 0,
+    "any_fallback": false,
+    "fallback_ratio": 0.0,
+    "crps": 0.24697180220988488,
+    "calibration_error_p10_p90": 0.30000000000000004,
+    "hit_rate": 0.3333333333333333,
+    "runtime_seconds": {
+      "median": 0.029879729510867037,
+      "mean": 0.02883414591876014,
+      "p95": 0.030096212506759912,
+      "n": 12
+    },
+    "status": "ok",
+    "notes": "",
+    "trials": [
+      {
+        "quantile_forecast": {
+          "10": -0.2110702801047497,
+          "25": -0.16303156271157593,
+          "50": -0.08841480014289016,
+          "75": -0.0009598614227183111,
+          "90": 0.060147806521433145
+        },
+        "realised_forward_return": 0.48501335133469414,
+        "runtime_seconds": 0.02965995902195573,
+        "fallback_reason": null,
+        "adapter_metadata": {
+          "adapter": "wavelet_baseline",
+          "mode": "real_classical",
+          "wavelet": "db4",
+          "n_levels": 3,
+          "residual_order": 2,
+          "n_paths": 200,
+          "ctx_len_used": 316
+        }
+      },
+      {
+        "quantile_forecast": {
+          "10": -0.3249528099435105,
+          "25": -0.25273546331828456,
+          "50": -0.14942641439600957,
+          "75": -0.06795256135950689,
+          "90": 0.07380492629850854
+        },
+        "realised_forward_return": 0.884930385819259,
+        "runtime_seconds": 0.03002070900402032,
+        "fallback_reason": null,
+        "adapter_metadata": {
+          "adapter": "wavelet_baseline",
+          "mode": "real_classical",
+          "wavelet": "db4",
+          "n_levels": 3,
+          "residual_order": 2,
+          "n_paths": 200,
+          "ctx_len_used": 512
+        }
+      },
+      {
+        "quantile_forecast": {
+          "10": 0.024928647291829975,
+          "25": 0.08823791752856791,
+          "50": 0.17372773263332775,
+          "75": 0.28158303591084266,
+          "90": 0.3780337869873456
+        },
+        "realised_forward_return": -0.32611278231365715,
+        "runtime_seconds": 0.03014200000325218,
+        "fallback_reason": null,
+        "adapter_metadata": {
+          "adapter": "wavelet_baseline",
+          "mode": "real_classical",
+          "wavelet": "db4",
+          "n_levels": 3,
+          "residual_order": 2,
+          "n_paths": 200,
+          "ctx_len_used": 512
+        }
+      },
+      {
+        "quantile_forecast": {
+          "10": -0.17496049785014112,
+          "25": -0.12231987189309901,
+          "50": -0.05749837975595162,
+          "75": 0.016777367560039558,
+          "90": 0.11402348113377503
+        },
+        "realised_forward_return": -0.07978170979478605,
+        "runtime_seconds": 0.030008958012331277,
+        "fallback_reason": null,
+        "adapter_metadata": {
+          "adapter": "wavelet_baseline",
+          "mode": "real_classical",
+          "wavelet": "db4",
+          "n_levels": 3,
+          "residual_order": 2,
+          "n_paths": 200,
+          "ctx_len_used": 512
+        }
+      },
+      {
+        "quantile_forecast": {
+          "10": -0.20518221913360923,
+          "25": -0.09876726387594525,
+          "50": 0.004088837303120929,
+          "75": 0.1256046722964006,
+          "90": 0.2755489933598829
+        },
+        "realised_forward_return": -0.013633691907875667,
+        "runtime_seconds": 0.02987054202822037,
+        "fallback_reason": null,
+        "adapter_metadata": {
+          "adapter": "wavelet_baseline",
+          "mode": "real_classical",
+          "wavelet": "db4",
+          "n_levels": 3,
+          "residual_order": 2,
+          "n_paths": 200,
+          "ctx_len_used": 512
+        }
+      },
+      {
+        "quantile_forecast": {
+          "10": -0.17558185361073786,
+          "25": -0.07846629926611559,
+          "50": 0.00802134078779182,
+          "75": 0.10749223076143055,
+          "90": 0.22894660607294082
+        },
+        "realised_forward_return": -0.17126491912171127,
+        "runtime_seconds": 0.030058750009629875,
+        "fallback_reason": null,
+        "adapter_metadata": {
+          "adapter": "wavelet_baseline",
+          "mode": "real_classical",
+          "wavelet": "db4",
+          "n_levels": 3,
+          "residual_order": 2,
+          "n_paths": 200,
+          "ctx_len_used": 512
+        }
+      },
+      {
+        "quantile_forecast": {
+          "10": -0.02691240330520228,
+          "25": 0.053364249278018416,
+          "50": 0.13302818505869074,
+          "75": 0.23478953601257024,
+          "90": 0.32898469289222576
+        },
+        "realised_forward_return": 0.10941073873947671,
+        "runtime_seconds": 0.029888916993513703,
+        "fallback_reason": null,
+        "adapter_metadata": {
+          "adapter": "wavelet_baseline",
+          "mode": "real_classical",
+          "wavelet": "db4",
+          "n_levels": 3,
+          "residual_order": 2,
+          "n_paths": 200,
+          "ctx_len_used": 311
+        }
+      },
+      {
+        "quantile_forecast": {
+          "10": -0.24367766089875287,
+          "25": -0.10185029677345114,
+          "50": 0.005980438057433979,
+          "75": 0.09996748520018928,
+          "90": 0.20273299101086906
+        },
+        "realised_forward_return": -0.24701589896558174,
+        "runtime_seconds": 0.03002041598665528,
+        "fallback_reason": null,
+        "adapter_metadata": {
+          "adapter": "wavelet_baseline",
+          "mode": "real_classical",
+          "wavelet": "db4",
+          "n_levels": 3,
+          "residual_order": 2,
+          "n_paths": 200,
+          "ctx_len_used": 512
+        }
+      },
+      {
+        "quantile_forecast": {
+          "10": -0.2978049087677169,
+          "25": -0.24453767829997797,
+          "50": -0.1923710750851737,
+          "75": -0.1011221364425493,
+          "90": 0.030688098113400786
+        },
+        "realised_forward_return": -0.1211163318528159,
+        "runtime_seconds": 0.029759040975477546,
+        "fallback_reason": null,
+        "adapter_metadata": {
+          "adapter": "wavelet_baseline",
+          "mode": "real_classical",
+          "wavelet": "db4",
+          "n_levels": 3,
+          "residual_order": 2,
+          "n_paths": 200,
+          "ctx_len_used": 488
+        }
+      },
+      {
+        "quantile_forecast": {
+          "10": -0.1864829048395703,
+          "25": -0.12257082627544957,
+          "50": -0.024274140236306918,
+          "75": 0.05786874211211179,
+          "90": 0.1493915597632658
+        },
+        "realised_forward_return": 0.27707625314545625,
+        "runtime_seconds": 0.025595416984288022,
+        "fallback_reason": null,
+        "adapter_metadata": {
+          "adapter": "wavelet_baseline",
+          "mode": "real_classical",
+          "wavelet": "db4",
+          "n_levels": 3,
+          "residual_order": 2,
+          "n_paths": 200,
+          "ctx_len_used": 324
+        }
+      },
+      {
+        "quantile_forecast": {
+          "10": -0.15125800016600532,
+          "25": -0.0822610515513248,
+          "50": -0.01935809160509494,
+          "75": 0.07246192943408292,
+          "90": 0.18180257885748063
+        },
+        "realised_forward_return": -0.0726596554443294,
+        "runtime_seconds": 0.02546999999321997,
+        "fallback_reason": null,
+        "adapter_metadata": {
+          "adapter": "wavelet_baseline",
+          "mode": "real_classical",
+          "wavelet": "db4",
+          "n_levels": 3,
+          "residual_order": 2,
+          "n_paths": 200,
+          "ctx_len_used": 512
+        }
+      },
+      {
+        "quantile_forecast": {
+          "10": 0.06429056681076184,
+          "25": 0.15148520860734438,
+          "50": 0.2952862070587261,
+          "75": 0.43862624443333265,
+          "90": 0.5555504923428611
+        },
+        "realised_forward_return": -0.0037643051994754595,
+        "runtime_seconds": 0.025515042012557387,
+        "fallback_reason": null,
+        "adapter_metadata": {
+          "adapter": "wavelet_baseline",
+          "mode": "real_classical",
+          "wavelet": "db4",
+          "n_levels": 3,
+          "residual_order": 2,
+          "n_paths": 200,
+          "ctx_len_used": 512
+        }
+      }
+    ]
+  }
+}

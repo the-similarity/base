@@ -1,0 +1,244 @@
+{
+  "metadata": {
+    "timestamp": "2026-04-15T17:50:18Z",
+    "git_sha": "da3ebb8",
+    "benchmark_id": "foundation-bench-v1"
+  },
+  "result": {
+    "slice_id": "spy-rate-hike-2022",
+    "model_id": "timesfm",
+    "n_trials": 12,
+    "n_skipped_budget": 0,
+    "any_fallback": true,
+    "fallback_ratio": 1.0,
+    "crps": 0.031456019087682065,
+    "calibration_error_p10_p90": 0.033333333333333326,
+    "hit_rate": 0.3333333333333333,
+    "runtime_seconds": {
+      "median": 0.02645964598923456,
+      "mean": 0.026329149167092208,
+      "p95": 0.02663404360646382,
+      "n": 12
+    },
+    "status": "partial_synthetic_fallback",
+    "notes": "",
+    "trials": [
+      {
+        "quantile_forecast": {
+          "10": -0.08882797274896415,
+          "25": -0.047628582178819934,
+          "50": 0.005196286797184646,
+          "75": 0.05390359251341725,
+          "90": 0.10868950157458102
+        },
+        "realised_forward_return": 0.021159287879241928,
+        "runtime_seconds": 0.02609383300296031,
+        "fallback_reason": "timesfm import failed: ModuleNotFoundError: No module named 'timesfm'",
+        "adapter_metadata": {
+          "adapter": "timesfm",
+          "mode": "synthetic_fallback",
+          "bootstrap_paths": 200,
+          "ctx_len_used": 218
+        }
+      },
+      {
+        "quantile_forecast": {
+          "10": -0.11058612036266247,
+          "25": -0.04757639554341764,
+          "50": 0.0030789796097920874,
+          "75": 0.05655541608474035,
+          "90": 0.10750159956412819
+        },
+        "realised_forward_return": 0.02651959306012097,
+        "runtime_seconds": 0.02662225000676699,
+        "fallback_reason": "timesfm import failed: ModuleNotFoundError: No module named 'timesfm'",
+        "adapter_metadata": {
+          "adapter": "timesfm",
+          "mode": "synthetic_fallback",
+          "bootstrap_paths": 200,
+          "ctx_len_used": 512
+        }
+      },
+      {
+        "quantile_forecast": {
+          "10": -0.10659177477765336,
+          "25": -0.06144271421044034,
+          "50": -0.011778384071865822,
+          "75": 0.03984600173022268,
+          "90": 0.08789641960443362
+        },
+        "realised_forward_return": -0.003998262141810205,
+        "runtime_seconds": 0.026094458007719368,
+        "fallback_reason": "timesfm import failed: ModuleNotFoundError: No module named 'timesfm'",
+        "adapter_metadata": {
+          "adapter": "timesfm",
+          "mode": "synthetic_fallback",
+          "bootstrap_paths": 200,
+          "ctx_len_used": 461
+        }
+      },
+      {
+        "quantile_forecast": {
+          "10": -0.10112642313936926,
+          "25": -0.06670562487032528,
+          "50": -0.008189331632007302,
+          "75": 0.04392478439029279,
+          "90": 0.08413036294478538
+        },
+        "realised_forward_return": 0.06938554094312765,
+        "runtime_seconds": 0.026480291999178007,
+        "fallback_reason": "timesfm import failed: ModuleNotFoundError: No module named 'timesfm'",
+        "adapter_metadata": {
+          "adapter": "timesfm",
+          "mode": "synthetic_fallback",
+          "bootstrap_paths": 200,
+          "ctx_len_used": 368
+        }
+      },
+      {
+        "quantile_forecast": {
+          "10": -0.08513537368757074,
+          "25": -0.050364294490980455,
+          "50": -0.009778295058806674,
+          "75": 0.04265468381701387,
+          "90": 0.09460132278903588
+        },
+        "realised_forward_return": 0.05764149513760741,
+        "runtime_seconds": 0.025840042013442144,
+        "fallback_reason": "timesfm import failed: ModuleNotFoundError: No module named 'timesfm'",
+        "adapter_metadata": {
+          "adapter": "timesfm",
+          "mode": "synthetic_fallback",
+          "bootstrap_paths": 200,
+          "ctx_len_used": 366
+        }
+      },
+      {
+        "quantile_forecast": {
+          "10": -0.11132624019020065,
+          "25": -0.06059184620403324,
+          "50": -0.004201734128184698,
+          "75": 0.05377307094342143,
+          "90": 0.10302747835100168
+        },
+        "realised_forward_return": 0.042330004363043905,
+        "runtime_seconds": 0.02664845800609328,
+        "fallback_reason": "timesfm import failed: ModuleNotFoundError: No module named 'timesfm'",
+        "adapter_metadata": {
+          "adapter": "timesfm",
+          "mode": "synthetic_fallback",
+          "bootstrap_paths": 200,
+          "ctx_len_used": 512
+        }
+      },
+      {
+        "quantile_forecast": {
+          "10": -0.11600840089339448,
+          "25": -0.07554826958675886,
+          "50": -0.020974819358756003,
+          "75": 0.04972216031218957,
+          "90": 0.10360754458010901
+        },
+        "realised_forward_return": 0.046598485049010874,
+        "runtime_seconds": 0.026491833006730303,
+        "fallback_reason": "timesfm import failed: ModuleNotFoundError: No module named 'timesfm'",
+        "adapter_metadata": {
+          "adapter": "timesfm",
+          "mode": "synthetic_fallback",
+          "bootstrap_paths": 200,
+          "ctx_len_used": 216
+        }
+      },
+      {
+        "quantile_forecast": {
+          "10": -0.0912549073545399,
+          "25": -0.05405829162107767,
+          "50": -0.009388560982915628,
+          "75": 0.0484041343782633,
+          "90": 0.08368399303906182
+        },
+        "realised_forward_return": 0.04173482337585144,
+        "runtime_seconds": 0.026313790993299335,
+        "fallback_reason": "timesfm import failed: ModuleNotFoundError: No module named 'timesfm'",
+        "adapter_metadata": {
+          "adapter": "timesfm",
+          "mode": "synthetic_fallback",
+          "bootstrap_paths": 200,
+          "ctx_len_used": 479
+        }
+      },
+      {
+        "quantile_forecast": {
+          "10": -0.11513424701411579,
+          "25": -0.0687992568126432,
+          "50": -0.026426474313373527,
+          "75": 0.027915671264677533,
+          "90": 0.07882240812298824
+        },
+        "realised_forward_return": 0.08122390246072131,
+        "runtime_seconds": 0.026570999994874,
+        "fallback_reason": "timesfm import failed: ModuleNotFoundError: No module named 'timesfm'",
+        "adapter_metadata": {
+          "adapter": "timesfm",
+          "mode": "synthetic_fallback",
+          "bootstrap_paths": 200,
+          "ctx_len_used": 266
+        }
+      },
+      {
+        "quantile_forecast": {
+          "10": -0.10458814126440419,
+          "25": -0.06484664381915473,
+          "50": -0.011924268978186103,
+          "75": 0.04486413265699363,
+          "90": 0.11813032391089018
+        },
+        "realised_forward_return": 0.00432771439486257,
+        "runtime_seconds": 0.025770249980269,
+        "fallback_reason": "timesfm import failed: ModuleNotFoundError: No module named 'timesfm'",
+        "adapter_metadata": {
+          "adapter": "timesfm",
+          "mode": "synthetic_fallback",
+          "bootstrap_paths": 200,
+          "ctx_len_used": 220
+        }
+      },
+      {
+        "quantile_forecast": {
+          "10": -0.09520085738189388,
+          "25": -0.05853604003028556,
+          "50": -0.011103699293090408,
+          "75": 0.041345701249887234,
+          "90": 0.09077230687192062
+        },
+        "realised_forward_return": -0.09669393295118645,
+        "runtime_seconds": 0.026584583014482632,
+        "fallback_reason": "timesfm import failed: ModuleNotFoundError: No module named 'timesfm'",
+        "adapter_metadata": {
+          "adapter": "timesfm",
+          "mode": "synthetic_fallback",
+          "bootstrap_paths": 200,
+          "ctx_len_used": 406
+        }
+      },
+      {
+        "quantile_forecast": {
+          "10": -0.08175816615043918,
+          "25": -0.043264357131524545,
+          "50": 0.018068118509676045,
+          "75": 0.07424345877420935,
+          "90": 0.11070446174618587
+        },
+        "realised_forward_return": -0.038391443799048575,
+        "runtime_seconds": 0.02643899997929111,
+        "fallback_reason": "timesfm import failed: ModuleNotFoundError: No module named 'timesfm'",
+        "adapter_metadata": {
+          "adapter": "timesfm",
+          "mode": "synthetic_fallback",
+          "bootstrap_paths": 200,
+          "ctx_len_used": 512
+        }
+      }
+    ]
+  }
+}

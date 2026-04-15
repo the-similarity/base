@@ -1,0 +1,268 @@
+{
+  "metadata": {
+    "timestamp": "2026-04-15T17:50:19Z",
+    "git_sha": "da3ebb8",
+    "benchmark_id": "foundation-bench-v1"
+  },
+  "result": {
+    "slice_id": "btc-long-run",
+    "model_id": "moirai",
+    "n_trials": 12,
+    "n_skipped_budget": 0,
+    "any_fallback": true,
+    "fallback_ratio": 1.0,
+    "crps": 0.22971249959005305,
+    "calibration_error_p10_p90": 0.6333333333333334,
+    "hit_rate": 0.16666666666666666,
+    "runtime_seconds": {
+      "median": 0.0002487504971213639,
+      "mean": 0.000322211754488914,
+      "p95": 0.0006575603096280246,
+      "n": 12
+    },
+    "status": "partial_synthetic_fallback",
+    "notes": "",
+    "trials": [
+      {
+        "quantile_forecast": {
+          "10": -0.04611400804518995,
+          "25": -0.024563816451032117,
+          "50": -4.853312532226983e-05,
+          "75": 0.02508288391233715,
+          "90": 0.04824155563465893
+        },
+        "realised_forward_return": 0.48501335133469414,
+        "runtime_seconds": 0.0005626670026686043,
+        "fallback_reason": "uni2ts/moirai import failed: ModuleNotFoundError: No module named 'uni2ts'",
+        "adapter_metadata": {
+          "adapter": "moirai",
+          "mode": "synthetic_fallback",
+          "cone": "ar1_gaussian",
+          "patch_size": 32,
+          "num_samples": 20,
+          "ctx_len_used": 316
+        }
+      },
+      {
+        "quantile_forecast": {
+          "10": -0.03476875283964831,
+          "25": -0.013366297268743499,
+          "50": 0.01097039869172689,
+          "75": 0.03590739319119196,
+          "90": 0.05887697900140254
+        },
+        "realised_forward_return": 0.884930385819259,
+        "runtime_seconds": 0.00023208302445709705,
+        "fallback_reason": "uni2ts/moirai import failed: ModuleNotFoundError: No module named 'uni2ts'",
+        "adapter_metadata": {
+          "adapter": "moirai",
+          "mode": "synthetic_fallback",
+          "cone": "ar1_gaussian",
+          "patch_size": 32,
+          "num_samples": 20,
+          "ctx_len_used": 1364
+        }
+      },
+      {
+        "quantile_forecast": {
+          "10": -0.014297860263996376,
+          "25": 0.007112470431170026,
+          "50": 0.03144674067865494,
+          "75": 0.05636898568155524,
+          "90": 0.07931426337529857
+        },
+        "realised_forward_return": -0.32611278231365715,
+        "runtime_seconds": 0.00021662499057129025,
+        "fallback_reason": "uni2ts/moirai import failed: ModuleNotFoundError: No module named 'uni2ts'",
+        "adapter_metadata": {
+          "adapter": "moirai",
+          "mode": "synthetic_fallback",
+          "cone": "ar1_gaussian",
+          "patch_size": 32,
+          "num_samples": 20,
+          "ctx_len_used": 1181
+        }
+      },
+      {
+        "quantile_forecast": {
+          "10": -0.0356892188470449,
+          "25": -0.014143959331553546,
+          "50": 0.010359402433694154,
+          "75": 0.03547179301555414,
+          "90": 0.05860697820431415
+        },
+        "realised_forward_return": -0.07978170979478605,
+        "runtime_seconds": 0.00021699999342672527,
+        "fallback_reason": "uni2ts/moirai import failed: ModuleNotFoundError: No module named 'uni2ts'",
+        "adapter_metadata": {
+          "adapter": "moirai",
+          "mode": "synthetic_fallback",
+          "cone": "ar1_gaussian",
+          "patch_size": 32,
+          "num_samples": 20,
+          "ctx_len_used": 851
+        }
+      },
+      {
+        "quantile_forecast": {
+          "10": -0.039689692944091526,
+          "25": -0.01820454269426075,
+          "50": 0.00623122629561923,
+          "75": 0.03127517370156707,
+          "90": 0.05434803035331659
+        },
+        "realised_forward_return": -0.013633691907875667,
+        "runtime_seconds": 0.000354000017978251,
+        "fallback_reason": "uni2ts/moirai import failed: ModuleNotFoundError: No module named 'uni2ts'",
+        "adapter_metadata": {
+          "adapter": "moirai",
+          "mode": "synthetic_fallback",
+          "cone": "ar1_gaussian",
+          "patch_size": 32,
+          "num_samples": 20,
+          "ctx_len_used": 842
+        }
+      },
+      {
+        "quantile_forecast": {
+          "10": -0.023236066765782715,
+          "25": -0.0014880113856652333,
+          "50": 0.02324401637169382,
+          "75": 0.04858862885909665,
+          "90": 0.07193589097173336
+        },
+        "realised_forward_return": -0.17126491912171127,
+        "runtime_seconds": 0.0002150830114260316,
+        "fallback_reason": "uni2ts/moirai import failed: ModuleNotFoundError: No module named 'uni2ts'",
+        "adapter_metadata": {
+          "adapter": "moirai",
+          "mode": "synthetic_fallback",
+          "cone": "ar1_gaussian",
+          "patch_size": 32,
+          "num_samples": 20,
+          "ctx_len_used": 1493
+        }
+      },
+      {
+        "quantile_forecast": {
+          "10": -0.03305428732979132,
+          "25": -0.01143955746229608,
+          "50": 0.013143091052480571,
+          "75": 0.03833703917221598,
+          "90": 0.06154762309542838
+        },
+        "realised_forward_return": 0.10941073873947671,
+        "runtime_seconds": 0.00020654199761338532,
+        "fallback_reason": "uni2ts/moirai import failed: ModuleNotFoundError: No module named 'uni2ts'",
+        "adapter_metadata": {
+          "adapter": "moirai",
+          "mode": "synthetic_fallback",
+          "cone": "ar1_gaussian",
+          "patch_size": 32,
+          "num_samples": 20,
+          "ctx_len_used": 311
+        }
+      },
+      {
+        "quantile_forecast": {
+          "10": -0.019129936147660564,
+          "25": 0.0021553230077500096,
+          "50": 0.026346928373709,
+          "75": 0.05112250885484859,
+          "90": 0.07393227319528517
+        },
+        "realised_forward_return": -0.24701589896558174,
+        "runtime_seconds": 0.0002633339900057763,
+        "fallback_reason": "uni2ts/moirai import failed: ModuleNotFoundError: No module named 'uni2ts'",
+        "adapter_metadata": {
+          "adapter": "moirai",
+          "mode": "synthetic_fallback",
+          "cone": "ar1_gaussian",
+          "patch_size": 32,
+          "num_samples": 20,
+          "ctx_len_used": 1246
+        }
+      },
+      {
+        "quantile_forecast": {
+          "10": -0.04379304474174828,
+          "25": -0.022968607176579003,
+          "50": 0.0007011574918394103,
+          "75": 0.02494435077634294,
+          "90": 0.04726576302203234
+        },
+        "realised_forward_return": -0.1211163318528159,
+        "runtime_seconds": 0.00031291600316762924,
+        "fallback_reason": "uni2ts/moirai import failed: ModuleNotFoundError: No module named 'uni2ts'",
+        "adapter_metadata": {
+          "adapter": "moirai",
+          "mode": "synthetic_fallback",
+          "cone": "ar1_gaussian",
+          "patch_size": 32,
+          "num_samples": 20,
+          "ctx_len_used": 488
+        }
+      },
+      {
+        "quantile_forecast": {
+          "10": -0.05028087567909023,
+          "25": -0.028716615626151576,
+          "50": -0.004182441938216597,
+          "75": 0.020971453746648994,
+          "90": 0.044153564511199894
+        },
+        "realised_forward_return": 0.27707625314545625,
+        "runtime_seconds": 0.000773541018133983,
+        "fallback_reason": "uni2ts/moirai import failed: ModuleNotFoundError: No module named 'uni2ts'",
+        "adapter_metadata": {
+          "adapter": "moirai",
+          "mode": "synthetic_fallback",
+          "cone": "ar1_gaussian",
+          "patch_size": 32,
+          "num_samples": 20,
+          "ctx_len_used": 324
+        }
+      },
+      {
+        "quantile_forecast": {
+          "10": -0.03232379387060258,
+          "25": -0.01118603649409311,
+          "50": 0.012841488526490696,
+          "75": 0.03745286650619728,
+          "90": 0.060114813594353445
+        },
+        "realised_forward_return": -0.0726596554443294,
+        "runtime_seconds": 0.0002785830001812428,
+        "fallback_reason": "uni2ts/moirai import failed: ModuleNotFoundError: No module named 'uni2ts'",
+        "adapter_metadata": {
+          "adapter": "moirai",
+          "mode": "synthetic_fallback",
+          "cone": "ar1_gaussian",
+          "patch_size": 32,
+          "num_samples": 20,
+          "ctx_len_used": 985
+        }
+      },
+      {
+        "quantile_forecast": {
+          "10": -0.01749934362263661,
+          "25": 0.004427007711370612,
+          "50": 0.029363120372530416,
+          "75": 0.05491830212470039,
+          "90": 0.07846078952246582
+        },
+        "realised_forward_return": -0.0037643051994754595,
+        "runtime_seconds": 0.00023416700423695147,
+        "fallback_reason": "uni2ts/moirai import failed: ModuleNotFoundError: No module named 'uni2ts'",
+        "adapter_metadata": {
+          "adapter": "moirai",
+          "mode": "synthetic_fallback",
+          "cone": "ar1_gaussian",
+          "patch_size": 32,
+          "num_samples": 20,
+          "ctx_len_used": 1672
+        }
+      }
+    ]
+  }
+}
