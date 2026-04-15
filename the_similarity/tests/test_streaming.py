@@ -7,7 +7,6 @@ public search() API. WebSocket endpoint integration tests are separate
 from __future__ import annotations
 
 import numpy as np
-import pytest
 
 from the_similarity import search, Config, ProgressEvent
 
@@ -49,7 +48,9 @@ class TestProgressCallback:
         history = prices[:-60]
 
         events: list[ProgressEvent] = []
-        results = search(
+        # We only care about the streaming progress side effect here, not the
+        # returned matches — leave the return value unbound to keep lint quiet.
+        search(
             query=query,
             history=history,
             top_k=5,
@@ -97,7 +98,9 @@ class TestProgressCallback:
         history = prices[:-60]
 
         events: list[ProgressEvent] = []
-        results = search(
+        # We only care about the streaming progress side effect here, not the
+        # returned matches — leave the return value unbound to keep lint quiet.
+        search(
             query=query,
             history=history,
             top_k=5,

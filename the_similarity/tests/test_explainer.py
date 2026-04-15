@@ -9,8 +9,6 @@ from the_similarity.core.scorer import MatchResult, ScoreBreakdown
 from the_similarity.core.projector import Forecast
 from the_similarity.core.ensemble import EnsembleForecast, ConformalResult
 from the_similarity.core.explainer import (
-    METHOD_DESCRIPTIONS,
-    MethodContribution,
     MatchExplanation,
     ForecastExplanation,
     CalibrationCommentary,
@@ -129,9 +127,11 @@ class TestExplainMatch:
 
     def test_summary_mentions_top_method(self, sample_match: MatchResult):
         result = explain_match(sample_match)
-        # The top contributor by weighted_contribution should appear in the summary
-        top_method = result.top_drivers[0].method
-        # Summary should reference the score or the method name in some form
+        # The top contributor must still be computable (smoke-check that
+        # top_drivers is populated) — we don't currently assert its identity
+        # appears in the rendered summary because the string template only
+        # guarantees the confidence score and overall length.
+        assert result.top_drivers[0].method
         assert "82.3" in result.summary
         assert len(result.summary) > 20
 
