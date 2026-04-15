@@ -39,6 +39,26 @@ writable_scope:
 #
 # Regime labels are descriptive, not algorithmic — they document why a slice
 # was included so a future agent can reproduce the reasoning.
+#
+# -----------------------------------------------------------------------------
+# MIGRATION NOTE (Phase 2 — Track 2C — 2026-04-14)
+# -----------------------------------------------------------------------------
+# Every slice below now REFERENCES the canonical catalogue at
+# research/autoresearch/slices/catalogue.yaml by ``id``.  Date windows,
+# dataset paths, and asset symbols are resolved from the catalogue at
+# load time by run_bench.load_spec (Mode B — catalogue reference).
+#
+# The ``regime`` field here is a per-lane descriptive tag (e.g.
+# "crisis_then_rebound" rather than the catalogue's canonical enum
+# "crisis"); it is preserved because the retrieval report groups
+# slices by this finer-grained label.  The ``rationale`` likewise
+# overrides the catalogue's shorter ``description``.
+#
+# DO NOT re-inline symbol/path/start_date/end_date here — that is what
+# the catalogue exists to prevent.  If you need to change a date, edit
+# the catalogue (it is append-only: mark the old ID deprecated with a
+# successor_id and add a new entry).
+# -----------------------------------------------------------------------------
 data_root_default: the-similarity-data/data
 slices:
   # --- Trending bull regime ---
@@ -46,10 +66,6 @@ slices:
   # similarity (DTW/Pearson) should already be strong here.  If Tier 2
   # does not help on trends, that is useful evidence.
   - id: spy-bull-2016-2019
-    symbol: spy
-    path: stocks/spy/1d.parquet
-    start_date: "2016-01-04"
-    end_date: "2019-12-31"
     regime: trending_bull
     rationale: >-
       Calm trend with periodic mild corrections. Baseline environment for
@@ -59,10 +75,6 @@ slices:
   # COVID crash + rebound.  Tier 2 wavelets/TDA/Koopman should in principle
   # shine here because shape is unreliable under regime breaks.
   - id: spy-covid-2020
-    symbol: spy
-    path: stocks/spy/1d.parquet
-    start_date: "2019-06-01"
-    end_date: "2020-12-31"
     regime: crisis_then_rebound
     rationale: >-
       Fastest 30% drawdown in S&P history followed by V-recovery. Stress
@@ -72,10 +84,6 @@ slices:
   # --- Grinding bear regime ---
   # 2022 rate-hike bear — different volatility signature from COVID.
   - id: spy-rate-hike-2022
-    symbol: spy
-    path: stocks/spy/1d.parquet
-    start_date: "2021-11-01"
-    end_date: "2022-12-31"
     regime: grinding_bear
     rationale: >-
       Slow, persistent drawdown driven by policy.  Different vol
@@ -84,10 +92,6 @@ slices:
   # --- Single-name growth stock ---
   # NVDA — strong dynamical structure, multiple regime shifts.
   - id: nvda-long-run
-    symbol: nvda
-    path: stocks/nvda/1d.parquet
-    start_date: "2015-01-02"
-    end_date: "2024-12-31"
     regime: single_name_growth
     rationale: >-
       Mega-cap growth name with strong dynamical structure. Koopman /
@@ -95,10 +99,6 @@ slices:
 
   # --- Mega-cap with idiosyncratic drawdowns ---
   - id: tsla-long-run
-    symbol: tsla
-    path: stocks/tsla/1d.parquet
-    start_date: "2015-01-02"
-    end_date: "2024-12-31"
     regime: single_name_volatile
     rationale: >-
       Volatile mega-cap with well-known idiosyncratic drawdowns; tests
@@ -106,10 +106,6 @@ slices:
 
   # --- Crypto high-vol regime ---
   - id: btc-long-run
-    symbol: btc_usdt
-    path: crypto/btc_usdt/1d.parquet
-    start_date: "2019-09-23"
-    end_date: "2024-12-31"
     regime: crypto_highvol
     rationale: >-
       Major crypto pair covering 2020 melt-up, 2021 peak, 2022 winter,
