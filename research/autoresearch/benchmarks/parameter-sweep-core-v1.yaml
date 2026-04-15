@@ -1,0 +1,151 @@
+id: parameter-sweep-core-v1
+title: Parameter-sweep lane for optimal self-similarity configuration
+status: active
+owner: research
+objective: >-
+  Systematically identify the configuration (window_size, forward_bars,
+  top_k, confidence_decay_rate, koopman_blend_weight) that minimises
+  CRPS on canonical daily price slices without regressing hit_rate
+  below 45%.
+
+lane_type: parameter_sweep
+
+writable_scope:
+  allowed:
+    - research/autoresearch/
+    - progress/autoresearch/
+    - obsidian_thesim/topics/
+  forbidden:
+    - the_similarity/           # engine code is read-only for this lane
+    - pyproject.toml
+    - the-similarity-data/
+
+# ────────────────────────────────────────────────────────────────────────
+# Parameter grid
+# ────────────────────────────────────────────────────────────────────────
+# The sweep driver (run_parameter_sweep.py) walks these axes using a
+# phased strategy (baseline → one-at-a-time → combined best-per-axis →
+# ±1 neighbourhood fine-tune). Full-grid search would be 720 runs; the
+# phased approach completes in ~24 runs.
+
+axes:
+  - name: window_size
+    applies_to: backtest   # passed as a kwarg to backtest()
+    default: 60
+    values: [20, 50, 100, 150, 200]
+
+  - name: forward_bars
+    applies_to: backtest
+    default: 30
+    values: [20, 50, 100]
+
+  - name: top_k
+    applies_to: backtest
+    default: 10
+    values: [5, 10, 20]
+
+  - name: confidence_decay_rate
+    applies_to: config     # set on Config before backtest()
+    default: 0.0
+    values: [0.0, 0.01, 0.02, 0.05]
+
+  - name: koopman_blend_weight
+    applies_to: config
+    default: 0.0
+    values: [0.0, 0.1, 0.2, 0.3]
+
+# ────────────────────────────────────────────────────────────────────────
+# Benchmark slices — same canonical slices as projector-calibration-core-v1
+# so per-run metrics are directly comparable across lanes.
+# ────────────────────────────────────────────────────────────────────────
+
+benchmark:
+  dataset_family: historical price series with walk-forward validation
+  canonical_slices:
+
+    - id: stocks-daily-core
+      description: SPY daily — primary benchmark slice.
+      timeframe: 1d
+      source: stooq
+      symbols:
+        - {symbol: spy, path: data/stocks/spy/1d.parquet}
+
+    - id: crypto-daily-core
+      description: BTC/USDT daily — fat-tail stress slice.
+      timeframe: 1d
+      source: ccxt
+      symbols:
+        - {symbol: btc_usdt, path: data/crypto/btc_usdt/1d.parquet}
+
+  n_trials: 30
+  seeds: [42]
+  evaluation_api: the_similarity.api.backtest
+  no_lookahead_required: true
+  driver: research/autoresearch/scripts/run_parameter_sweep.py
+
+# ────────────────────────────────────────────────────────────────────────
+# Scorecard
+# ────────────────────────────────────────────────────────────────────────
+
+scorecard:
+  primary_metrics:
+    - name: crps
+      direction: lower_is_better
+  secondary_metrics:
+    - name: calibration_error_p10_p90
+      direction: lower_is_better
+    - name: hit_rate
+      direction: higher_is_better
+    - name: runtime_seconds
+      direction: lower_is_better
+
+acceptance:
+  keep_if:
+    - condition: CRPS improves AND hit_rate >= 0.55
+  discard_if:
+    - condition: CRPS worsens by more than 10% vs baseline
+    - condition: hit_rate drops below 0.45
+
+thresholds:
+  max_crps_regression_ratio: 0.10     # relative, e.g. +10% = discard
+  min_hit_rate_floor: 0.45
+  preferred_hit_rate_floor: 0.55
+
+logging:
+  ledger_path: progress/autoresearch/experiments.jsonl
+  schema_path: research/autoresearch/ledger/experiment-ledger.schema.json
+  benchmark_id_field: parameter-sweep-core-v1
+  report_prefix: progress/autoresearch/reports/sweep-
+
+# ────────────────────────────────────────────────────────────────────────
+# Known-best findings (append-only; each entry pins a concrete result).
+# ────────────────────────────────────────────────────────────────────────
+
+findings:
+  - run_id: spy-initial-v1
+    date: 2026-04-14
+    slice: stocks-daily-core (SPY only)
+    n_trials: 30
+    seed: 42
+    best_config:
+      window_size: 100     # all others at default
+    metrics:
+      baseline:  {crps: 0.18500, hit_rate: 0.700, calibration_error_p10_p90: 0.0667}
+      best:      {crps: 0.14433, hit_rate: 0.600, calibration_error_p10_p90: 0.0333}
+      crps_improvement_pct: 22.0
+    sensitivity_crps_range:
+      window_size:           0.04800   # dominant axis
+      forward_bars:          0.02800
+      top_k:                 0.01667
+      confidence_decay_rate: 0.0       # no observed effect
+      koopman_blend_weight:  0.0       # no observed effect
+    notes: |
+      Combined best-per-axis configs scored worse than window_size=100
+      alone — the axes are NOT additive on SPY. hit_rate fell 70% → 60%
+      at the best CRPS: the cone is tighter and better-calibrated but
+      the directional pick is slightly less reliable.
+    next_steps:
+      - validate on BTC daily before promoting as default
+      - re-run with more trials (n_trials=100) to tighten the estimate
+    artifacts:
+      - progress/autoresearch/reports/sweep-summary-spy-initial-v1.json
