@@ -81,6 +81,48 @@ touching the method list. That is the next lane to investigate.
 - Re-run with full `n_trials` and both seeds before a keep/discard on
   the default config; the current sample is budget-capped.
 
+## Run 2 — expanded-seed rerun (2026-04-15, SPY-only partial)
+
+- Trials per slice: **40** (was 8 in Run 1)
+- Seeds: **[42, 314]** (was [42] in Run 1)
+- Slices completed: 3 of 6 (all three SPY regimes). NVDA / TSLA / BTC not reached — the worktree agent crashed with an API connection error after 22 min and 13 of 24 cells.
+- Partial cells on disk: 12 paired SPY cells (3 slices × 2 seeds × 2 arms) + 1 orphan (`nvda-long-run_seed42-tier1_only`).
+
+### SPY-only scorecard (12 paired cells)
+
+| slice | seed | T1 CRPS | T1+2 CRPS | ΔCRPS | Δcorr | rt× |
+|---|---|---|---|---|---|---|
+| `spy-bull-2016-2019` | 42 | 0.01951 | 0.01893 | **−0.00058** | +0.056 | 9.7× |
+| `spy-bull-2016-2019` | 314 | 0.02747 | 0.02755 | +0.00008 | +0.055 | 8.3× |
+| `spy-covid-2020` | 42 | 0.03007 | 0.03031 | +0.00025 | **+0.427** | 37.3× |
+| `spy-covid-2020` | 314 | 0.03679 | 0.03838 | +0.00158 | **+0.208** | 45.0× |
+| `spy-rate-hike-2022` | 42 | 0.05354 | 0.04785 | **−0.00569** | +0.030 | 47.5× |
+| `spy-rate-hike-2022` | 314 | 0.05354 | 0.04785 | **−0.00569** | +0.030 | 42.4× |
+
+### Signals
+
+1. **Seed 42 and seed 314 agree on direction across all 3 SPY slices.** The Run 1 discard verdict was not a seed artifact.
+2. **CRPS ≥0.005 improvement only on `spy-rate-hike-2022`** (both seeds, cleanly). Bull and COVID remain flat-to-worse for Tier 2. This matches Run 1 exactly — rate-hike is the only regime where Tier 2 earns CRPS on SPY.
+3. **Forward-return correlation lift reverses compared to Run 1.** With 40 trials (vs 8), Tier 2 now improves correlation on *every* SPY cell, including +0.427 on covid seed 42 where Tier 1 was strongly anti-correlated. Tier 2 IS finding more informative analogues dynamically; the cone construction is losing that signal before it reaches CRPS.
+4. **Runtime blowout unchanged.** 8.3×–47.5×, all cells far above the 3.0× gate.
+
+### Preliminary partial verdict
+
+On SPY-only the Run 1 CRPS-based discard **holds** under expanded trials and paired seeds: 1 of 3 slices passes CRPS, far below the 3 of 6 threshold.
+
+However, Run 1's claim that "forward-return correlation regresses with Tier 2" **does not replicate** at 40 trials. Tier 2 improves correlation on all 3 SPY regimes. This is a signal worth preserving — the correlation gate is the secondary pathway to `keep` in `compare.decide`. A follow-up rerun that covers NVDA / TSLA / BTC could still flip the overall verdict if Tier 2's correlation edge holds there too.
+
+### What Run 2 does NOT settle
+
+- NVDA / TSLA / BTC were *never* evaluated in either run. These are the regimes where Tier 2's dynamical methods (Koopman, TDA, transfer entropy) were hypothesised to pay off. Until these land, the discard is tentative, not decisive.
+- No change to engine defaults on this evidence. Keep the full 9-method stack active; defer promotion of either arm until a full 6-slice × 2-seed run finishes.
+
+### Next actions (unchanged from Run 1, ordered)
+
+1. Finish NVDA / TSLA / BTC slices on both seeds (resume from `bench/retrieval-expanded-budget`).
+2. Per-method ablation — drop one of bempedelis/koopman/wavelet/emd/tda/TE at a time to find which methods carry the correlation lift.
+3. Tier 2 cost reduction (lower `tier2_candidates`, enable `feature_store` caching) before any engine-level decision.
+
 ## Artefacts
 
 - Raw per-(slice, arm) JSON: `progress/autoresearch/reports/retrieval-bench/`

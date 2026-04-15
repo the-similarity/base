@@ -78,3 +78,19 @@ Immediate next lanes (queued in `progress/autoresearch/reports/retrieval-bench-v
 1. Finish remaining three slices + second seed (budget-expanded rerun).
 2. Per-method ablation (drop one of bempedelis/koopman/wavelet/emd/tda/TE at a time).
 3. Tier 2 cost reduction (lower `tier2_candidates`, enable `feature_store` caching).
+
+## Findings (Run 2, 2026-04-15, SPY-only partial, expanded seeds)
+
+Partial rerun on `bench/retrieval-expanded-budget`. Worktree agent crashed at cell 13 of 24 with an API connection error; the 12 paired SPY cells (3 slices × 2 seeds × 2 arms) are complete and committed. NVDA / TSLA / BTC were not reached.
+
+Protocol change vs Run 1: `n_trials` 8 → 40, seeds `[42]` → `[42, 314]`.
+
+What held:
+- **Seed 42 and seed 314 agree** on direction across every SPY slice — Run 1 discard was not a seed artifact.
+- **Runtime blowout unchanged** (8.3×–47.5×, every cell over the 3× gate).
+- **CRPS improvement only on `spy-rate-hike-2022`** (both seeds, clean −0.00569). Bull and COVID remain flat-to-worse. 1 of 3 SPY slices pass CRPS, far below the 3-of-6 bar.
+
+What reversed:
+- **Forward-return correlation now lifts on every SPY cell**, including +0.427 on covid seed 42 where Tier 1 was strongly anti-correlated. Tier 2 *is* finding more informative analogues; the cone construction is losing that signal before CRPS. Run 1's "correlation regresses" claim fails to replicate at 40 trials.
+
+Status: **partial discard confirmed on SPY**, single-name / crypto untested. Engine defaults untouched. Next lane resumes NVDA / TSLA / BTC before any verdict is promoted.
