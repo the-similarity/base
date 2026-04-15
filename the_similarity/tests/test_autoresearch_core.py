@@ -174,6 +174,126 @@ class TestLedger:
         rows = list(iter_entries(ledger))
         assert rows[0]["run_id"] == "legacy"
 
+    def test_compare_runs_raises_when_run_missing(self, tmp_path: Path) -> None:
+        # Guards against silent "None delta" answers when an agent passes a
+        # typo'd run_id — we prefer a loud LookupError so the caller knows.
+        from research.autoresearch.core.ledger import (
+            LedgerEntry,
+            append_entry,
+            compare_runs,
+        )
+
+        ledger = tmp_path / "experiments.jsonl"
+        append_entry(
+            LedgerEntry(
+                run_id="only",
+                timestamp="2026-04-14T00:00:00Z",
+                benchmark_id="b",
+                lane_id="L",
+                status="ok",
+                decision="keep",
+                summary="",
+                metrics_before={},
+                metrics_after={"crps": 0.1},
+            ),
+            ledger,
+        )
+        with pytest.raises(LookupError):
+            compare_runs("only", "does-not-exist", ledger)
+
+    def test_compare_runs_emits_none_delta_for_non_numeric(
+        self, tmp_path: Path
+    ) -> None:
+        # Non-numeric metric values must not crash the diff — we surface
+        # them as ``None`` so reviewers can still see the paired values.
+        from research.autoresearch.core.ledger import (
+            LedgerEntry,
+            append_entry,
+            compare_runs,
+        )
+
+        ledger = tmp_path / "experiments.jsonl"
+        for rid, value in [("a", "baseline"), ("b", "candidate")]:
+            append_entry(
+                LedgerEntry(
+                    run_id=rid,
+                    timestamp=f"2026-04-14T00:00:0{len(rid)}Z",
+                    benchmark_id="b",
+                    lane_id="L",
+                    status="ok",
+                    decision="keep",
+                    summary="",
+                    metrics_before={},
+                    metrics_after={"label": value},
+                ),
+                ledger,
+            )
+        out = compare_runs("a", "b", ledger)
+        assert out["metric_deltas"]["label"] == ("baseline", "candidate", None)
+
+    def test_append_entries_batch_round_trip(self, tmp_path: Path) -> None:
+        # Batch append must preserve iteration order and work on a fresh
+        # file (parent directory autocreate).
+        from research.autoresearch.core.ledger import (
+            LedgerEntry,
+            append_entries,
+            iter_entries,
+        )
+
+        ledger = tmp_path / "nested" / "experiments.jsonl"
+        batch = [
+            LedgerEntry(
+                run_id=f"r{i}",
+                timestamp=f"2026-04-14T00:00:0{i}Z",
+                benchmark_id="b",
+                lane_id="L",
+                status="ok",
+                decision="keep",
+                summary="",
+                metrics_before={},
+                metrics_after={},
+            )
+            for i in range(3)
+        ]
+        append_entries(batch, ledger)
+        ids = [row["run_id"] for row in iter_entries(ledger)]
+        assert ids == ["r0", "r1", "r2"]
+
+    def test_validate_rejects_bad_decision(self) -> None:
+        from research.autoresearch.core.ledger import LedgerEntry
+
+        entry = LedgerEntry(
+            run_id="x",
+            timestamp="2026-04-14T00:00:00Z",
+            benchmark_id="b",
+            lane_id="l",
+            status="ok",
+            decision="MAYBE",
+            summary="",
+            metrics_before={},
+            metrics_after={},
+        )
+        with pytest.raises(ValueError):
+            entry.validate()
+
+    def test_iter_entries_skips_blank_and_malformed_lines(
+        self, tmp_path: Path
+    ) -> None:
+        # iter_entries must stay fail-soft on partially-written ledgers
+        # — a crash mid-write would leave a bad line we must tolerate.
+        from research.autoresearch.core.ledger import iter_entries
+
+        ledger = tmp_path / "experiments.jsonl"
+        ledger.write_text(
+            '{"run_id": "ok"}\n'
+            "\n"
+            "not-json\n"
+            '{"run_id": "also_ok"}\n',
+            encoding="utf-8",
+        )
+        ids = [row["run_id"] for row in iter_entries(ledger)]
+        assert ids == ["ok", "also_ok"]
+
 
 # ---------------------------------------------------------------------------
 # Metrics delta
