@@ -544,3 +544,63 @@ def backtest(
         progress_fn=progress_fn,
         top_k=top_k,
     )
+
+
+def ensemble_backtest(
+    history: TimeSeries | np.ndarray,
+    window_size: int,
+    forward_bars: int = 50,
+    n_trials: int = 100,
+    config: Config | None = None,
+    seed: int | None = 42,
+    n_workers: int | None = None,
+    progress_fn=None,
+    top_k: int = 10,
+    mc_simulations: int = 500,
+    conformal_coverage: float = 0.9,
+):
+    """Walk-forward backtest that evaluates the full ensemble forecast pipeline.
+
+    Runs BOTH the basic projector and the full ensemble (Monte Carlo +
+    regime-conditional + conformal) on each walk-forward position, so the
+    report can compare them head-to-head on identical data.
+
+    Primary scorecard (hit_rate / MAE / calibration / CRPS) is computed on
+    the blended ensemble curves. `basic_hit_rate` is exposed for comparison,
+    and `conformal_empirical_coverage` checks whether the stated target
+    coverage (default 90%) is actually achieved by the conformal interval.
+
+    Args:
+        history: Full historical data to backtest on.
+        window_size: Query window length.
+        forward_bars: Forecast horizon.
+        n_trials: Random trials.
+        config: Pipeline config.
+        seed: RNG seed.
+        n_workers: Ignored today (ensemble trials run sequentially); reserved
+            for future parallelism.
+        progress_fn: Optional callback(completed, total).
+        top_k: Matches per trial.
+        mc_simulations: Monte Carlo paths per trial.
+        conformal_coverage: Target marginal coverage in (0, 1).
+
+    Returns:
+        EnsembleBacktestReport with blended + per-component metrics.
+    """
+    from the_similarity.core.backtester import run_ensemble_backtest as _run_ensemble
+
+    h_values = history.values if isinstance(history, TimeSeries) else np.asarray(history, dtype=np.float64)
+
+    return _run_ensemble(
+        history=h_values,
+        window_size=window_size,
+        forward_bars=forward_bars,
+        n_trials=n_trials,
+        config=config,
+        seed=seed,
+        n_workers=n_workers,
+        progress_fn=progress_fn,
+        top_k=top_k,
+        mc_simulations=mc_simulations,
+        conformal_coverage=conformal_coverage,
+    )
