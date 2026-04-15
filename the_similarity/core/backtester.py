@@ -17,7 +17,17 @@ import numpy as np
 from numpy.typing import NDArray
 
 from the_similarity.config import Config
-from the_similarity.core.metrics import calibration, crps, hit_rate, mean_absolute_error
+from the_similarity.core.metrics import (
+    calibration,
+    coverage_probability,
+    crps,
+    hit_rate,
+    interval_score,
+    max_drawdown,
+    mean_absolute_error,
+    profit_factor,
+    sharpe_ratio,
+)
 
 
 @dataclass
@@ -74,13 +84,58 @@ class BacktestReport:
     def crps(self) -> float:
         return crps(self.valid_trials)
 
+    # --- Richer metrics (interval / coverage / trading-oriented) ---
+    # These compose with the primary set above and are computed on-demand
+    # from the same underlying TrialResult list, so no per-trial caching or
+    # state is stored on the report itself.
+
+    @property
+    def interval_score(self) -> float:
+        """Proper scoring rule for the P10/P90 interval (default alpha=0.20)."""
+        return interval_score(self.valid_trials)
+
+    @property
+    def coverage(self) -> float:
+        """Empirical coverage of the central P10-P90 interval."""
+        return coverage_probability(self.valid_trials)
+
+    @property
+    def profit_factor(self) -> float:
+        """Gain-to-loss ratio when trading the P50 direction."""
+        return profit_factor(self.valid_trials)
+
+    @property
+    def max_drawdown(self) -> float:
+        """Worst peak-to-trough of the P50-directed equity curve."""
+        return max_drawdown(self.valid_trials)
+
+    @property
+    def sharpe(self) -> float:
+        """Annualised Sharpe of P50-directed per-trial returns (252 periods/yr)."""
+        return sharpe_ratio(self.valid_trials)
+
     def summary(self) -> str:
+        # Metric values are computed lazily via the properties above; we
+        # capture them once here so the printed block is internally consistent
+        # (cheap — each property is O(n_trials)).
+        sharpe_val = self.sharpe
+        pf_val = self.profit_factor
         lines = [
             f"BacktestReport: {self.n_valid_trials} valid trials, {self.n_skipped_trials} skipped",
             f"  window_size={self.window_size}, forward_bars={self.forward_bars}",
             f"  hit_rate={self.hit_rate:.1%}",
             f"  mean_absolute_error={self.mean_error:.4f}",
             f"  crps={self.crps:.4f}",
+            f"  interval_score(P10/P90)={self.interval_score:.4f}",
+            f"  coverage(P10/P90)={self.coverage:.1%}",
+            # profit_factor can be +inf when losses == 0 — format defensively.
+            f"  profit_factor={pf_val:.3f}"
+            if np.isfinite(pf_val)
+            else f"  profit_factor={pf_val}",
+            f"  max_drawdown={self.max_drawdown:.4f}",
+            f"  sharpe(annualised)={sharpe_val:.3f}"
+            if not np.isnan(sharpe_val)
+            else "  sharpe(annualised)=nan",
             "  calibration:",
         ]
         for p, rate in sorted(self.calibration.items()):

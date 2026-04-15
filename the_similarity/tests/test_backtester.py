@@ -11,7 +11,17 @@ from the_similarity.core.backtester import (
     _pick_trial_positions,
     run_backtest,
 )
-from the_similarity.core.metrics import calibration, crps, hit_rate, mean_absolute_error
+from the_similarity.core.metrics import (
+    calibration,
+    coverage_probability,
+    crps,
+    hit_rate,
+    interval_score,
+    max_drawdown,
+    mean_absolute_error,
+    profit_factor,
+    sharpe_ratio,
+)
 from the_similarity.config import Config
 
 
@@ -149,6 +159,140 @@ class TestCRPS:
 
     def test_empty(self):
         assert np.isnan(crps([]))
+
+
+class TestIntervalScore:
+    def test_actual_inside_interval(self):
+        # P10=-0.02, P90=0.10, actual=0.05 → no miss, score = width = 0.12
+        trials = [_make_trial(actual_terminal=0.05, p10_terminal=-0.02, p90_terminal=0.10)]
+        assert interval_score(trials, alpha=0.20) == pytest.approx(0.12)
+
+    def test_actual_above_upper(self):
+        # P10=-0.02, P90=0.04, actual=0.10, alpha=0.20
+        # width=0.06, above_miss=0.10-0.04=0.06
+        # score = 0.06 + (2/0.20)*0.06 = 0.06 + 0.60 = 0.66
+        trials = [_make_trial(actual_terminal=0.10, p10_terminal=-0.02, p90_terminal=0.04)]
+        assert interval_score(trials, alpha=0.20) == pytest.approx(0.66)
+
+    def test_actual_below_lower(self):
+        # P10=0.02, P90=0.10, actual=-0.03, alpha=0.20
+        # width=0.08, below_miss=0.02-(-0.03)=0.05
+        # score = 0.08 + (2/0.20)*0.05 = 0.08 + 0.50 = 0.58
+        trials = [_make_trial(actual_terminal=-0.03, p10_terminal=0.02, p90_terminal=0.10)]
+        assert interval_score(trials, alpha=0.20) == pytest.approx(0.58)
+
+    def test_missing_percentile_returns_nan(self):
+        # Only P50 in curves — alpha=0.20 needs P10 and P90
+        trial = TrialResult(
+            query_start=0, query_end=10,
+            actual_returns=np.zeros(5),
+            forecast_curves={50: np.zeros(5)},
+            n_matches=1, top_match_score=1.0,
+            directional_hit=False, p50_error=0.0,
+        )
+        assert np.isnan(interval_score([trial], alpha=0.20))
+
+    def test_empty(self):
+        assert np.isnan(interval_score([], alpha=0.20))
+
+
+class TestCoverageProbability:
+    def test_all_contained(self):
+        trials = [_make_trial(actual_terminal=0.05, p10_terminal=-0.02, p90_terminal=0.10) for _ in range(10)]
+        assert coverage_probability(trials) == pytest.approx(1.0)
+
+    def test_none_contained_above(self):
+        trials = [_make_trial(actual_terminal=0.50, p10_terminal=-0.02, p90_terminal=0.10) for _ in range(10)]
+        assert coverage_probability(trials) == pytest.approx(0.0)
+
+    def test_none_contained_below(self):
+        trials = [_make_trial(actual_terminal=-0.50, p10_terminal=-0.02, p90_terminal=0.10) for _ in range(10)]
+        assert coverage_probability(trials) == pytest.approx(0.0)
+
+    def test_partial(self):
+        inside = [_make_trial(actual_terminal=0.05) for _ in range(7)]
+        outside = [_make_trial(actual_terminal=0.50) for _ in range(3)]
+        assert coverage_probability(inside + outside) == pytest.approx(0.7)
+
+    def test_empty(self):
+        assert np.isnan(coverage_probability([]))
+
+
+class TestProfitFactor:
+    def test_all_wins(self):
+        # All directional hits, each |actual|=0.05 → +inf (no losses)
+        trials = [_make_trial(actual_terminal=0.05, p50_terminal=0.04) for _ in range(5)]
+        assert profit_factor(trials) == float("inf")
+
+    def test_all_losses(self):
+        # All directional misses → PF = 0.0 (no gains, nonzero losses)
+        trials = [_make_trial(actual_terminal=-0.05, p50_terminal=0.04) for _ in range(5)]
+        assert profit_factor(trials) == pytest.approx(0.0)
+
+    def test_mixed_known_ratio(self):
+        # 6 wins @ |0.05|, 4 losses @ |0.05| → PF = 0.30/0.20 = 1.5
+        wins = [_make_trial(actual_terminal=0.05, p50_terminal=0.04) for _ in range(6)]
+        losses = [_make_trial(actual_terminal=-0.05, p50_terminal=0.04) for _ in range(4)]
+        assert profit_factor(wins + losses) == pytest.approx(1.5)
+
+    def test_empty(self):
+        assert np.isnan(profit_factor([]))
+
+
+class TestMaxDrawdown:
+    def test_no_drawdown_all_wins(self):
+        # Each trial adds +0.05 to equity; peak keeps rising, MDD=0
+        trials = [_make_trial(actual_terminal=0.05, p50_terminal=0.04) for _ in range(5)]
+        assert max_drawdown(trials) == pytest.approx(0.0)
+
+    def test_known_drawdown(self):
+        # +0.10, -0.05, -0.05 (P50 long, but actuals reverse)
+        # equity = [0.10, 0.05, 0.00]; peak=[0.10, 0.10, 0.10]; dd=[0, 0.05, 0.10]
+        t_up = _make_trial(actual_terminal=0.10, p50_terminal=0.04)
+        t_dn1 = _make_trial(actual_terminal=-0.05, p50_terminal=0.04)
+        t_dn2 = _make_trial(actual_terminal=-0.05, p50_terminal=0.04)
+        assert max_drawdown([t_up, t_dn1, t_dn2]) == pytest.approx(0.10)
+
+    def test_single_trial(self):
+        trials = [_make_trial(actual_terminal=0.05, p50_terminal=0.04)]
+        assert max_drawdown(trials) == pytest.approx(0.0)
+
+    def test_empty(self):
+        assert np.isnan(max_drawdown([]))
+
+
+class TestSharpeRatio:
+    def test_positive_sharpe(self):
+        # Mostly positive directional returns → positive Sharpe
+        np.random.seed(0)
+        trials = [
+            _make_trial(actual_terminal=0.05 + 0.001 * i, p50_terminal=0.04)
+            for i in range(20)
+        ]
+        s = sharpe_ratio(trials, periods_per_year=252)
+        assert s > 0
+        assert np.isfinite(s)
+
+    def test_negative_sharpe(self):
+        # Directionally wrong on average → negative Sharpe
+        trials = [
+            _make_trial(actual_terminal=-0.05 - 0.001 * i, p50_terminal=0.04)
+            for i in range(20)
+        ]
+        s = sharpe_ratio(trials, periods_per_year=252)
+        assert s < 0
+
+    def test_zero_std_returns_nan(self):
+        # Identical returns → std=0 → NaN (ill-defined Sharpe)
+        trials = [_make_trial(actual_terminal=0.05, p50_terminal=0.04) for _ in range(5)]
+        assert np.isnan(sharpe_ratio(trials))
+
+    def test_single_trial_returns_nan(self):
+        trials = [_make_trial(actual_terminal=0.05, p50_terminal=0.04)]
+        assert np.isnan(sharpe_ratio(trials))
+
+    def test_empty(self):
+        assert np.isnan(sharpe_ratio([]))
 
 
 class TestPickTrialPositions:
