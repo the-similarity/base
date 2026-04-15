@@ -498,6 +498,11 @@ def main(argv: list[str] | None = None) -> int:
                         help="Single seed override (default: use spec.seeds)")
     parser.add_argument("--smoke", action="store_true",
                         help="Use spec.n_trials_smoke instead of spec.n_trials")
+    parser.add_argument(
+        "--n-trials", type=int, default=None,
+        help="Override spec.n_trials (and --smoke's n_trials_smoke). Useful for "
+             "budget-capped sweeps where full n_trials would exceed wall-clock.",
+    )
     parser.add_argument("--reports-dir", default=str(REPORTS_DIR),
                         help="Directory for per-slice JSON artefacts")
     args = parser.parse_args(argv)
@@ -515,7 +520,12 @@ def main(argv: list[str] | None = None) -> int:
         parser.error("No slices or arms selected — check --slice / --arm filters.")
 
     seeds = [args.seed] if args.seed is not None else spec.seeds
-    n_trials = spec.n_trials_smoke if args.smoke else spec.n_trials
+    if args.n_trials is not None:
+        n_trials = int(args.n_trials)
+    elif args.smoke:
+        n_trials = spec.n_trials_smoke
+    else:
+        n_trials = spec.n_trials
 
     print(f"[retrieval-bench] spec={spec.id}  slices={len(slices)}  arms={len(arms)}")
     print(f"[retrieval-bench] n_trials={n_trials}  seeds={seeds}  data_root={data_root}")
