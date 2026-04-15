@@ -56,6 +56,25 @@ Each trial gives the matcher only `dataset[:query_start]` as history. Forward re
 - [[Keep-discard thresholds]] — the cross-lane convention this lane inherits.
 - [[Experiment report format]] — the ledger/schema this lane conforms to.
 
-## Findings
+## Findings (first run, 2026-04-15, budget-capped)
 
-Findings are populated by the first real run. See `progress/autoresearch/reports/retrieval-bench-v1.md` for the current scorecard + verdict.
+First run covered the three SPY regime slices (bull 2016–19, COVID 2020, rate-hike 2022) at 8 trials / slice / seed. NVDA, TSLA, and BTC slices were deferred: Tier 1+2 on their 2k–7k-bar histories exceeded the session's wall-clock budget.
+
+Headline:
+
+- **Runtime bottleneck is Tier 2, decisively.** Tier 1 runs at ~0.12–0.48 s/query on SPY; Tier 1+2 adds 5–8 s/query (10×–54× slower). The [[Nine-method pipeline]]'s enrichment stage dominates wall-clock when enabled.
+- **CRPS is essentially flat** between the two arms on the sampled SPY slices (mean ΔCRPS = +0.00004). Tier 2 improved CRPS only on the 2022 rate-hike bear (ΔCRPS = -0.005).
+- **Forward-return correlation drops on average** with Tier 2 on SPY (mean Δ = -0.12). Only the rate-hike slice saw a correlation lift.
+- **Verdict: `discard`** under the lane's decision gates — runtime blowout with no CRPS majority. Logged to `progress/autoresearch/experiments.jsonl`.
+
+Caveats:
+
+- Three slices is the minimum for `min_slices_improved=3`; a larger sweep across NVDA/TSLA/BTC could flip the correlation sign. Re-run with both seeds (42, 314) before making engine-level decisions.
+- `tier2_candidates=20` (the spec's current arm value) means Tier 2 runs 9 methods × 20 windows per query. Reducing this knob is a cheaper intervention than removing methods entirely.
+- This lane measures forecast/retrieval quality with a fixed percentile grid; it does not cover regime-conditional or conformal extensions already present in [[Nine-method pipeline]] ensemble mode.
+
+Immediate next lanes (queued in `progress/autoresearch/reports/retrieval-bench-v1.md`):
+
+1. Finish remaining three slices + second seed (budget-expanded rerun).
+2. Per-method ablation (drop one of bempedelis/koopman/wavelet/emd/tda/TE at a time).
+3. Tier 2 cost reduction (lower `tier2_candidates`, enable `feature_store` caching).
