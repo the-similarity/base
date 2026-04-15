@@ -1,5 +1,10 @@
 """Markdown report writer for the retrieval-bench lane.
 
+.. deprecated::
+    Lane-specific report code is frozen. New lanes MUST render via
+    :mod:`research.autoresearch.core.report` (canonical section layout).
+    This module remains for the existing retrieval-bench callers only.
+
 Consumes the output of ``compare.decide`` (plus the raw ArmResult rows) and
 writes a Markdown scorecard with:
 
