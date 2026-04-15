@@ -577,6 +577,48 @@ def main(argv: list[str] | None = None) -> int:
             f"{r.hit_rate:5.2f} "
             f"{r.runtime['median']:7.2f}"
         )
+
+    # Invoke the comparison / reporting layer so the JSONL ledger and the
+    # markdown scorecard are produced as part of a single bench run — callers
+    # do not need to remember a separate finalise step.  Skipped only when
+    # fewer than 2 arms were evaluated (filter applied by --arm).
+    if len(arms) >= 2:
+        # Deferred imports to keep the engine-free test surface minimal.
+        from research.autoresearch.retrieval_bench.compare import (
+            build_comparison_rows,
+            decide,
+            load_arm_reports,
+        )
+        from research.autoresearch.retrieval_bench.ledger import (
+            append_ledger_entry,
+            build_ledger_entry,
+        )
+        from research.autoresearch.retrieval_bench.report import write_markdown_report
+
+        grouped = load_arm_reports(reports_dir)
+        rows = build_comparison_rows(grouped, thresholds=spec.thresholds)
+        verdict = decide(rows, thresholds=spec.thresholds)
+
+        md_path = REPO_ROOT / "progress" / "autoresearch" / "reports" / "retrieval-bench-v1.md"
+        written = write_markdown_report(
+            verdict,
+            md_path,
+            benchmark_id=spec.id,
+            n_trials=n_trials,
+            seeds=seeds,
+            git_sha=_git_sha(),
+        )
+        print(f"\n[report] wrote {written.relative_to(REPO_ROOT)}")
+
+        entry = build_ledger_entry(
+            verdict,
+            benchmark_id=spec.id,
+            artefacts=[str(md_path.relative_to(REPO_ROOT))],
+        )
+        ledger_path = LEDGER_PATH
+        append_ledger_entry(entry, ledger_path)
+        print(f"[ledger] appended to {ledger_path.relative_to(REPO_ROOT)}  decision={verdict.decision}")
+
     return 0
 
 
