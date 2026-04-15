@@ -92,6 +92,21 @@ html, body {
 button, input, textarea, select { font: inherit; }
 button { cursor: pointer; }
 
+/* ── Editorial focus rings ──────────────────────────────────────────
+ * Every focusable control gets a black (text-primary) 2px outline on
+ * keyboard focus — never a colored accent-glow. Mouse focus stays
+ * quiet to avoid double-ring on click. Components can override by
+ * targeting a more specific selector. */
+:focus-visible {
+  outline: 2px solid var(--text-primary);
+  outline-offset: 1px;
+}
+button:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--text-primary);
+  outline-offset: 2px;
+}
+
 /* ── Editorial typography defaults ───────────────────────────────────
  * Page bodies inherit from these; component classes can still override
  * any one value. Keeping these "defaults, not dogma" means existing
@@ -758,9 +773,10 @@ h3 { font-size: 18px; letter-spacing: -0.02em; }
 }
 
 .search-sidebar__filter-input:focus {
+  /* Editorial focus: black border only, no accent-dim ring glow. */
   outline: none;
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-dim);
+  box-shadow: none;
 }
 
 .search-sidebar__filter-input::placeholder {
