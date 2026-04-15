@@ -1,0 +1,15 @@
+{
+  "calibration_error_over_time_p10_p90": 0.09666666666666665,
+  "calibration_error_p10_p90": 0.16666666666666663,
+  "crps": 0.231,
+  "dataset_path": "the-similarity-data/data/crypto/btc_usdt/1d.parquet",
+  "hit_rate": 0.4666666666666667,
+  "joint_path_crps": 0.19720000000000004,
+  "mean_error": 0.07254868291107916,
+  "n_skipped_trials": 0,
+  "n_valid_trials": 15,
+  "runtime_seconds": 129.93270554102492,
+  "slice_id": "btc-1d",
+  "synthetic": true,
+  "variant": "baseline"
+}

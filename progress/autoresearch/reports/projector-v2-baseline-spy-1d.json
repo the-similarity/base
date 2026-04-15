@@ -1,0 +1,15 @@
+{
+  "calibration_error_over_time_p10_p90": 0.14666666666666667,
+  "calibration_error_p10_p90": 0.03333333333333333,
+  "crps": 0.15100000000000005,
+  "dataset_path": "the-similarity-data/data/stocks/spy/1d.parquet",
+  "hit_rate": 0.5333333333333333,
+  "joint_path_crps": 0.22640000000000007,
+  "mean_error": 0.07303679384784453,
+  "n_skipped_trials": 0,
+  "n_valid_trials": 15,
+  "runtime_seconds": 166.1825378340145,
+  "slice_id": "spy-1d",
+  "synthetic": true,
+  "variant": "baseline"
+}
