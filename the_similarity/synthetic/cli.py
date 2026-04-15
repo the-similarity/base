@@ -87,21 +87,38 @@ def build_parser() -> argparse.ArgumentParser:
         "--threshold-fidelity",
         type=float,
         default=None,
-        help="Optional. Minimum FidelityReport.overall_score to pass.",
+        help=(
+            "Optional. Minimum FidelityReport.overall_score; thresholds used "
+            "for the `passed` banner and for `--strict` exit gating."
+        ),
     )
     p.add_argument(
         "--threshold-privacy",
         type=float,
         default=None,
-        help="Optional. Minimum PrivacyReport.overall_score to pass.",
+        help=(
+            "Optional. Minimum PrivacyReport.overall_score; thresholds used "
+            "for the `passed` banner and for `--strict` exit gating."
+        ),
     )
     p.add_argument(
         "--threshold-utility",
         type=float,
         default=None,
         help=(
-            "Optional. Maximum UtilityReport.transfer_gap to pass "
-            "(lower gap = better utility)."
+            "Optional. Maximum UtilityReport.transfer_gap (lower = better); "
+            "thresholds used for the `passed` banner and for `--strict` "
+            "exit gating."
+        ),
+    )
+    p.add_argument(
+        "--strict",
+        action="store_true",
+        default=False,
+        help=(
+            "If set, exit 1 when any scorecard fails its threshold. "
+            "By default, exit 0 on successful artifact write regardless "
+            "of scorecard pass/fail."
         ),
     )
     return p
