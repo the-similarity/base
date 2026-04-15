@@ -100,9 +100,7 @@ def test_api_backtest_drives_calibration_aware_gate():
     aware = CalibrationAwareStrategy(
         base_strategy=_always_long_strategy(),
         trust_filter=TrustFilter(min_matches=100),  # Impossible with top_k=5.
-        decision_config=DecisionRuleConfig(
-            entry_percentile=25, entry_threshold=0.005
-        ),
+        decision_config=DecisionRuleConfig(entry_percentile=25, entry_threshold=0.005),
         calibration_report=report,
     )
     aware_signals = aware.evaluate(

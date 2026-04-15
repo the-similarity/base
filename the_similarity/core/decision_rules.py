@@ -479,9 +479,12 @@ def _compute_position_size(
         return 0.0
 
     conf01 = max(0.0, min(1.0, float(confidence) / 100.0))
-    raw = decision_config.min_position_size + (
-        decision_config.max_position_size - decision_config.min_position_size
-    ) * float(trust.score) * conf01
+    raw = (
+        decision_config.min_position_size
+        + (decision_config.max_position_size - decision_config.min_position_size)
+        * float(trust.score)
+        * conf01
+    )
     return float(
         max(
             decision_config.min_position_size

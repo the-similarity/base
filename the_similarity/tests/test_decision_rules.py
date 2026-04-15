@@ -89,7 +89,9 @@ def _always_short_strategy() -> Strategy:
 
     return Strategy(
         name="always_short",
-        rules=[Rule(name="always_short", condition=_cond, signal_type=SignalType.SHORT)],
+        rules=[
+            Rule(name="always_short", condition=_cond, signal_type=SignalType.SHORT)
+        ],
         min_confidence=0.0,
     )
 

@@ -86,16 +86,12 @@ def _wide_projection(n_paths: int = 10, bars: int = 20) -> _FakeProjection:
 
 def _well_calibrated_report() -> _FakeReport:
     """Calibration where empirical ≈ stated for every percentile."""
-    return _FakeReport(
-        calibration={10: 0.10, 25: 0.25, 50: 0.50, 75: 0.75, 90: 0.90}
-    )
+    return _FakeReport(calibration={10: 0.10, 25: 0.25, 50: 0.50, 75: 0.75, 90: 0.90})
 
 
 def _badly_calibrated_report() -> _FakeReport:
     """Calibration with huge systematic drift."""
-    return _FakeReport(
-        calibration={10: 0.40, 25: 0.55, 50: 0.80, 75: 0.95, 90: 0.99}
-    )
+    return _FakeReport(calibration={10: 0.40, 25: 0.55, 50: 0.80, 75: 0.95, 90: 0.99})
 
 
 # ---------------------------------------------------------------------------
@@ -205,8 +201,12 @@ def test_no_paths_falls_back_to_curve_spread():
     proj_wide = _FakeProjection(curves=curves_wide, all_paths=None)
 
     report = _well_calibrated_report()
-    d_tight = evaluate(match_pool=matches, projection=proj_tight, calibration_report=report)
-    d_wide = evaluate(match_pool=matches, projection=proj_wide, calibration_report=report)
+    d_tight = evaluate(
+        match_pool=matches, projection=proj_tight, calibration_report=report
+    )
+    d_wide = evaluate(
+        match_pool=matches, projection=proj_wide, calibration_report=report
+    )
 
     assert d_tight.signals["agreement"] > d_wide.signals["agreement"]
 

@@ -248,8 +248,7 @@ class TrustFilter:
         sample_gate_ok = n_matches >= self.min_matches
         if not sample_gate_ok:
             reasons.append(
-                f"sample_size: only {n_matches} matches "
-                f"(need >= {self.min_matches})"
+                f"sample_size: only {n_matches} matches (need >= {self.min_matches})"
             )
 
         # --- Signal 2: calibration (HARD gate) ---
@@ -286,7 +285,12 @@ class TrustFilter:
         # --- Final decision: both hard gates + score threshold ---
         trust = sample_gate_ok and cal_gate_ok and (overall >= self.min_score)
 
-        if not trust and overall >= self.min_score and sample_gate_ok and not cal_gate_ok:
+        if (
+            not trust
+            and overall >= self.min_score
+            and sample_gate_ok
+            and not cal_gate_ok
+        ):
             reasons.append(
                 f"overall_score={overall:.2f} passed but calibration gate failed"
             )
@@ -392,10 +396,7 @@ def _calibration_score(
 
     reason = None
     if mae > max_mae:
-        reason = (
-            f"calibration: empirical MAE {mae:.3f} "
-            f"exceeds threshold {max_mae:.3f}"
-        )
+        reason = f"calibration: empirical MAE {mae:.3f} exceeds threshold {max_mae:.3f}"
     return float(score), mae, reason
 
 
