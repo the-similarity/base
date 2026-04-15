@@ -8,13 +8,14 @@ Phase 7c — provides tools for analyzing relationships across multiple assets:
 
 AI AGENT NOTES:
 - This module analyzes interconnectedness between different assets.
-- `cross_asset_scan()` measures how one asset (target) behaves *after* a 
+- `cross_asset_scan()` measures how one asset (target) behaves *after* a
   pattern matched on a completely different asset (source).
-- Useful for modeling broad market dynamics, e.g. "When SPY prints this 
+- Useful for modeling broad market dynamics, e.g. "When SPY prints this
   pattern, what does BTC do 4 hours later?"
 - Returns correlations and Information Flow (Transfer Entropy) to definitively
   measure lead-lag relationships.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -32,9 +33,11 @@ from the_similarity.methods.transfer_entropy import compute_transfer_entropy
 # Cross-asset scan
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class CrossAssetResult:
     """Result of scanning how a target asset behaves when source patterns match."""
+
     source_asset: str
     target_asset: str
     source_matches: list[MatchResult]
@@ -158,7 +161,7 @@ def _find_optimal_lag(
         if lag == 0:
             s, t = source[:n], target[:n]
         else:
-            s = source[:n - lag]
+            s = source[: n - lag]
             t = target[lag:n]
 
         if len(s) < 2 or np.std(s) < 1e-12 or np.std(t) < 1e-12:
@@ -178,9 +181,11 @@ def _find_optimal_lag(
 # Portfolio regime snapshot
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class RegimeSnapshot:
     """Regime classification for a single asset at current time."""
+
     asset: str
     regime: str
     hurst: float  # Hurst exponent from DFA
@@ -208,10 +213,15 @@ def portfolio_regime_scan(
         tail = s[-window:] if len(s) >= window else s
 
         if len(tail) < 2:
-            snapshots.append(RegimeSnapshot(
-                asset=name, regime="low_vol", hurst=0.5,
-                volatility=0.0, trend_slope=0.0,
-            ))
+            snapshots.append(
+                RegimeSnapshot(
+                    asset=name,
+                    regime="low_vol",
+                    hurst=0.5,
+                    volatility=0.0,
+                    trend_slope=0.0,
+                )
+            )
             continue
 
         regime = tag_regime(tail)
@@ -231,13 +241,15 @@ def portfolio_regime_scan(
         else:
             slope = 0.0
 
-        snapshots.append(RegimeSnapshot(
-            asset=name,
-            regime=regime,
-            hurst=hurst,
-            volatility=vol,
-            trend_slope=slope,
-        ))
+        snapshots.append(
+            RegimeSnapshot(
+                asset=name,
+                regime=regime,
+                hurst=hurst,
+                volatility=vol,
+                trend_slope=slope,
+            )
+        )
 
     snapshots.sort(key=lambda x: x.volatility, reverse=True)
     return snapshots
@@ -247,9 +259,11 @@ def portfolio_regime_scan(
 # Divergence scanner
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class DivergenceResult:
     """Detects correlation regime changes between two assets."""
+
     asset_a: str
     asset_b: str
     historical_correlation: float  # long-term correlation
@@ -325,14 +339,16 @@ def divergence_scanner(
         div_score = abs(hist_corr - rec_corr)
         direction = "decorrelating" if rec_corr < hist_corr else "recorrelating"
 
-        results.append(DivergenceResult(
-            asset_a=a,
-            asset_b=b,
-            historical_correlation=hist_corr,
-            recent_correlation=rec_corr,
-            divergence_score=div_score,
-            direction=direction,
-        ))
+        results.append(
+            DivergenceResult(
+                asset_a=a,
+                asset_b=b,
+                historical_correlation=hist_corr,
+                recent_correlation=rec_corr,
+                divergence_score=div_score,
+                direction=direction,
+            )
+        )
 
     results.sort(key=lambda x: x.divergence_score, reverse=True)
     return results
@@ -342,9 +358,11 @@ def divergence_scanner(
 # Information flow network
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class InformationFlowResult:
     """Pairwise transfer entropy analysis between two assets."""
+
     source: str
     target: str
     te_forward: float  # TE from source -> target
@@ -406,14 +424,16 @@ def information_flow_network(
         else:
             direction = "target_leads"
 
-        results.append(InformationFlowResult(
-            source=a,
-            target=b,
-            te_forward=te_ab,
-            te_reverse=te_ba,
-            net_flow=net,
-            direction=direction,
-        ))
+        results.append(
+            InformationFlowResult(
+                source=a,
+                target=b,
+                te_forward=te_ab,
+                te_reverse=te_ba,
+                net_flow=net,
+                direction=direction,
+            )
+        )
 
     results.sort(key=lambda x: abs(x.net_flow), reverse=True)
     return results

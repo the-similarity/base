@@ -9,7 +9,9 @@ from the_similarity.methods.bempedelis import (
 )
 
 
-def _make_self_similar(n: int = 100, exponent: float = 0.5, seed: int = 42) -> np.ndarray:
+def _make_self_similar(
+    n: int = 100, exponent: float = 0.5, seed: int = 42
+) -> np.ndarray:
     """Generate a self-similar signal: power-law correlated noise."""
     rng = np.random.default_rng(seed)
     # Simple approach: fractional differencing approximation
@@ -95,7 +97,7 @@ def test_bempedelis_match_prefers_same_process():
 
 def test_power_law_r2_perfect():
     t = np.arange(1, 6, dtype=np.float64)
-    values = 2.0 * t ** 0.7  # perfect power law
+    values = 2.0 * t**0.7  # perfect power law
     r2 = _power_law_r2(t, values)
     assert r2 > 0.999
 

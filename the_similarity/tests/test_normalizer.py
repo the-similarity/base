@@ -1,7 +1,11 @@
 import numpy as np
 import pytest
 
-from the_similarity.core.normalizer import normalize, normalize_pair, METHOD_NORM_DEFAULTS
+from the_similarity.core.normalizer import (
+    normalize,
+    normalize_pair,
+    METHOD_NORM_DEFAULTS,
+)
 
 
 def test_zscore_basic():

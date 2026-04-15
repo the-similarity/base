@@ -8,9 +8,9 @@ Covers:
 - Rate limiting per tier
 - Edge cases (duplicate email, bad password, disabled user, revoked key)
 """
+
 from __future__ import annotations
 
-import time
 
 import pytest
 
@@ -18,8 +18,6 @@ from the_similarity.core.auth import (
     AuthManager,
     RateLimiter,
     Tier,
-    TIER_RATE_LIMITS,
-    User,
 )
 
 
@@ -28,8 +26,8 @@ def auth_mgr(tmp_path):
     return AuthManager(
         db_path=tmp_path / "auth_test.db",
         jwt_secret="test-secret-key",
-        token_expiry=60,       # 1 minute for tests
-        refresh_expiry=300,    # 5 minutes for tests
+        token_expiry=60,  # 1 minute for tests
+        refresh_expiry=300,  # 5 minutes for tests
     )
 
 

@@ -36,12 +36,12 @@ from numpy.typing import NDArray
 # ---------------------------------------------------------------------------
 # Classification thresholds (empirically tuned for daily financial data)
 # ---------------------------------------------------------------------------
-_SLOPE_THRESHOLD = 0.01   # Normalized OLS slope magnitude to consider "trending"
-_HURST_TREND = 0.6        # H above this threshold confirms persistent trending
-_HURST_MR = 0.4           # H below this threshold → anti-persistent / mean-reverting
-_VOL_HIGH = 0.4           # Annualized vol above 40% → "high_vol" (overrides trend)
-_VOL_LOW = 0.1            # Annualized vol below 10% → "low_vol" (overrides trend)
-_MIN_LENGTH = 10          # Minimum series length for meaningful classification
+_SLOPE_THRESHOLD = 0.01  # Normalized OLS slope magnitude to consider "trending"
+_HURST_TREND = 0.6  # H above this threshold confirms persistent trending
+_HURST_MR = 0.4  # H below this threshold → anti-persistent / mean-reverting
+_VOL_HIGH = 0.4  # Annualized vol above 40% → "high_vol" (overrides trend)
+_VOL_LOW = 0.1  # Annualized vol below 10% → "low_vol" (overrides trend)
+_MIN_LENGTH = 10  # Minimum series length for meaningful classification
 
 
 def tag_regime(series: NDArray[np.float64] | list) -> str:
@@ -67,13 +67,13 @@ def tag_regime(series: NDArray[np.float64] | list) -> str:
     # --- Edge cases: too short or constant → default to low_vol ---
     if len(s) < 2:
         return "low_vol"
-    if np.all(s == s[0]):          # Constant series = zero volatility
+    if np.all(s == s[0]):  # Constant series = zero volatility
         return "low_vol"
-    if len(s) < _MIN_LENGTH:       # Too short for reliable Hurst estimation
+    if len(s) < _MIN_LENGTH:  # Too short for reliable Hurst estimation
         return "low_vol"
 
     # --- Compute log-returns for volatility estimation ---
-    safe = np.maximum(s, 1e-12)    # Guard against log(0)
+    safe = np.maximum(s, 1e-12)  # Guard against log(0)
     log_ret = np.diff(np.log(safe))
     if len(log_ret) == 0 or np.all(log_ret == 0):
         return "low_vol"
@@ -119,6 +119,7 @@ def tag_regime(series: NDArray[np.float64] | list) -> str:
 # Detrended Fluctuation Analysis (DFA)
 # ---------------------------------------------------------------------------
 
+
 def hurst_dfa(
     series: NDArray[np.float64] | list,
     min_box: int = 4,
@@ -152,7 +153,7 @@ def hurst_dfa(
     try:
         s = np.asarray(series, dtype=np.float64).ravel()
         if len(s) < 2 * min_box:
-            return 0.5    # Not enough data for meaningful DFA
+            return 0.5  # Not enough data for meaningful DFA
 
         # Work on log-returns to make the analysis scale-invariant
         safe = np.maximum(s, 1e-12)
@@ -176,17 +177,19 @@ def hurst_dfa(
         # a stable log-log regression).
         box_sizes = np.unique(
             np.logspace(
-                np.log10(min_box), np.log10(max_box), num=20,
+                np.log10(min_box),
+                np.log10(max_box),
+                num=20,
             ).astype(int)
         )
         box_sizes = box_sizes[box_sizes >= min_box]
         if len(box_sizes) < 2:
-            return 0.5   # Need ≥ 2 points for a regression
+            return 0.5  # Need ≥ 2 points for a regression
 
         # Step 3: Compute fluctuation function F(n) for each box size
         fluct = np.empty(len(box_sizes))
         for i, n in enumerate(box_sizes):
-            n_boxes = N // n        # Number of non-overlapping boxes
+            n_boxes = N // n  # Number of non-overlapping boxes
             if n_boxes == 0:
                 fluct[i] = np.nan
                 continue
@@ -199,7 +202,7 @@ def hurst_dfa(
                 # This is what makes DFA "detrended" — local trends don't
                 # inflate the fluctuation estimate.
                 t = np.arange(n, dtype=np.float64)
-                coeffs = np.polyfit(t, seg, 1)   # Linear fit
+                coeffs = np.polyfit(t, seg, 1)  # Linear fit
                 trend = np.polyval(coeffs, t)
                 rms_vals[j] = np.sqrt(np.mean((seg - trend) ** 2))
 
@@ -227,6 +230,7 @@ def hurst_dfa(
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _ols_slope(series: NDArray[np.float64]) -> float:
     """Compute the OLS slope of the z-scored series.

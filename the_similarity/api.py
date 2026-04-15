@@ -1,4 +1,5 @@
 """Public API for The Similarity."""
+
 from __future__ import annotations
 
 import numpy as np
@@ -6,16 +7,12 @@ import matplotlib.pyplot as plt
 
 from the_similarity.config import Config
 from the_similarity.io.loader import load as _load, TimeSeries
-from the_similarity.core.normalizer import normalize
-from the_similarity.core.matcher import ProgressCallback, ProgressEvent, find_matches
+from the_similarity.core.matcher import ProgressCallback, find_matches
 from the_similarity.core.scorer import MatchResult
 from the_similarity.core.projector import project as _project, Forecast
 from the_similarity.core.ensemble import (
     ensemble_forecast as _ensemble_forecast,
     EnsembleForecast,
-    MonteCarloResult,
-    RegimeConditionalResult,
-    ConformalResult,
 )
 from the_similarity.methods.koopman import koopman_evolve
 from the_similarity.viz.plotter import plot_matches, plot_forecast
@@ -44,7 +41,7 @@ class SearchResults:
         for i, m in enumerate(self.matches[:10]):
             b = m.score_breakdown
             lines.append(
-                f"  #{i+1}  score={m.confidence_score:5.1f}  "
+                f"  #{i + 1}  score={m.confidence_score:5.1f}  "
                 f"dtw={b.dtw:.2f}  pear={b.pearson_warped:.2f}  "
                 f"bemp_r2={b.bempedelis_r2:.2f}  koop={b.koopman:.2f}  "
                 f"wvlt={b.wavelet_spectrum:.2f}  emd={b.emd:.2f}  "
@@ -91,6 +88,7 @@ def search(
     else:
         # Copy to avoid mutating the caller's config (statelessness)
         from copy import deepcopy
+
         config = deepcopy(config)
     if weights is not None:
         config.weights.update(weights)
@@ -98,22 +96,35 @@ def search(
         if hasattr(config, key):
             setattr(config, key, val)
 
-    q_values = query.values if isinstance(query, TimeSeries) else np.asarray(query, dtype=np.float64)
-    h_values = history.values if isinstance(history, TimeSeries) else np.asarray(history, dtype=np.float64)
+    q_values = (
+        query.values
+        if isinstance(query, TimeSeries)
+        else np.asarray(query, dtype=np.float64)
+    )
+    h_values = (
+        history.values
+        if isinstance(history, TimeSeries)
+        else np.asarray(history, dtype=np.float64)
+    )
     h_dates = history.dates if isinstance(history, TimeSeries) else None
 
     # Auto-detect query region for self-exclusion
     exclude_region = None
-    if exclude_self and isinstance(query, TimeSeries) and isinstance(history, TimeSeries):
+    if (
+        exclude_self
+        and isinstance(query, TimeSeries)
+        and isinstance(history, TimeSeries)
+    ):
         # Try to find query in history by value match
         for i in range(len(h_values) - len(q_values) + 1):
-            if np.array_equal(h_values[i:i + len(q_values)], q_values):
+            if np.array_equal(h_values[i : i + len(q_values)], q_values):
                 exclude_region = (i, i + len(q_values))
                 break
 
     ds_hash = ""
     if feature_store is not None:
         from the_similarity.core.feature_store import dataset_hash
+
         ds_hash = dataset_hash(h_values)
 
     matches = find_matches(
@@ -163,9 +174,17 @@ def project(
         q_values = matches.query
         matches = matches.matches
     if query is not None:
-        q_values = query.values if isinstance(query, TimeSeries) else np.asarray(query, dtype=np.float64)
+        q_values = (
+            query.values
+            if isinstance(query, TimeSeries)
+            else np.asarray(query, dtype=np.float64)
+        )
 
-    h_values = history.values if isinstance(history, TimeSeries) else np.asarray(history, dtype=np.float64)
+    h_values = (
+        history.values
+        if isinstance(history, TimeSeries)
+        else np.asarray(history, dtype=np.float64)
+    )
 
     forecast = _project(
         matches=matches,
@@ -245,9 +264,17 @@ def ensemble_project(
         q_values = matches.query
         matches = matches.matches
     if query is not None:
-        q_values = query.values if isinstance(query, TimeSeries) else np.asarray(query, dtype=np.float64)
+        q_values = (
+            query.values
+            if isinstance(query, TimeSeries)
+            else np.asarray(query, dtype=np.float64)
+        )
 
-    h_values = history.values if isinstance(history, TimeSeries) else np.asarray(history, dtype=np.float64)
+    h_values = (
+        history.values
+        if isinstance(history, TimeSeries)
+        else np.asarray(history, dtype=np.float64)
+    )
 
     return _ensemble_forecast(
         matches=matches,
@@ -312,11 +339,14 @@ def _resample_timeseries(
         raise ValueError("Cannot resample TimeSeries without dates")
 
     import pandas as pd
+
     df = pd.DataFrame({"close": ts.values}, index=pd.DatetimeIndex(ts.dates))
     resampled = df.resample(target_timeframe).last().dropna()
 
     if len(resampled) < 2:
-        raise ValueError(f"Resampling to '{target_timeframe}' produced fewer than 2 bars")
+        raise ValueError(
+            f"Resampling to '{target_timeframe}' produced fewer than 2 bars"
+        )
 
     return TimeSeries(
         values=resampled["close"].values.astype(np.float64),
@@ -403,12 +433,18 @@ def cross_timeframe_search(
         ValueError: If history has no dates.
     """
     if not isinstance(history, TimeSeries) or history.dates is None:
-        raise ValueError("history must be a TimeSeries with dates for cross-timeframe search")
+        raise ValueError(
+            "history must be a TimeSeries with dates for cross-timeframe search"
+        )
 
     if config is None:
         config = Config()
 
-    q_values = query.values if isinstance(query, TimeSeries) else np.asarray(query, dtype=np.float64)
+    q_values = (
+        query.values
+        if isinstance(query, TimeSeries)
+        else np.asarray(query, dtype=np.float64)
+    )
     query_len = len(q_values)
 
     all_matches: list[MatchResult] = []
@@ -491,7 +527,11 @@ def backtest(
     """
     from the_similarity.core.backtester import run_backtest as _run_backtest
 
-    h_values = history.values if isinstance(history, TimeSeries) else np.asarray(history, dtype=np.float64)
+    h_values = (
+        history.values
+        if isinstance(history, TimeSeries)
+        else np.asarray(history, dtype=np.float64)
+    )
 
     return _run_backtest(
         history=h_values,

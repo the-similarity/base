@@ -13,9 +13,15 @@ def test_dtw_and_pearson_only():
 def test_all_perfect():
     """All 9 methods at 1.0 → 100."""
     breakdown = ScoreBreakdown(
-        bempedelis_r2=1.0, bempedelis_smoothness=1.0, koopman=1.0,
-        wavelet_spectrum=1.0, emd=1.0, tda=1.0, dtw=1.0,
-        pearson_warped=1.0, transfer_entropy=1.0,
+        bempedelis_r2=1.0,
+        bempedelis_smoothness=1.0,
+        koopman=1.0,
+        wavelet_spectrum=1.0,
+        emd=1.0,
+        tda=1.0,
+        dtw=1.0,
+        pearson_warped=1.0,
+        transfer_entropy=1.0,
     )
     score = compute_confidence(breakdown)
     assert abs(score - 100.0) < 0.01

@@ -1,11 +1,9 @@
 import numpy as np
-import pytest
 
 from the_similarity.methods.wavelet_leaders import (
     compute_wavelet_leaders,
     multifractal_spectrum,
     spectrum_distance,
-    wavelet_score,
     wavelet_spectrum_score,
 )
 

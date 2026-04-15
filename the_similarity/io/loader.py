@@ -34,6 +34,7 @@ class TimeSeries:
                 source had no date information.
         name:   Human-readable identifier (e.g., file path, symbol name).
     """
+
     values: NDArray[np.float64]
     dates: NDArray | None = None
     name: str = ""
@@ -116,7 +117,11 @@ def load(
     if isinstance(source, dict):
         if "values" in source:
             vals = np.array(source["values"], dtype=np.float64)
-            dates = np.array(source.get("dates"), dtype="datetime64") if "dates" in source else None
+            dates = (
+                np.array(source.get("dates"), dtype="datetime64")
+                if "dates" in source
+                else None
+            )
             return TimeSeries(values=vals, dates=dates)
         raise ValueError("Dict must contain 'values' key")
 
@@ -159,7 +164,15 @@ def _from_dataframe(
         dates = pd.to_datetime(df[dcol]).values
     else:
         # Auto-detect: try common date column names in priority order
-        for candidate in ["date", "Date", "datetime", "Datetime", "timestamp", "time", "Time"]:
+        for candidate in [
+            "date",
+            "Date",
+            "datetime",
+            "Datetime",
+            "timestamp",
+            "time",
+            "Time",
+        ]:
             if candidate in df.columns:
                 dates = pd.to_datetime(df[candidate]).values
                 break

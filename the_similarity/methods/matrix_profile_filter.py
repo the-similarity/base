@@ -29,7 +29,9 @@ from numpy.typing import NDArray
 HAS_STUMPY = True
 
 
-def _sliding_dot_product(query: NDArray[np.float64], ts: NDArray[np.float64]) -> NDArray[np.float64]:
+def _sliding_dot_product(
+    query: NDArray[np.float64], ts: NDArray[np.float64]
+) -> NDArray[np.float64]:
     """Compute sliding dot product of query against ts using FFT.
 
     Convolution theorem: Convolution in the time domain is element-wise
@@ -52,7 +54,7 @@ def _sliding_dot_product(query: NDArray[np.float64], ts: NDArray[np.float64]) ->
     result = np.fft.irfft(fft_ts * fft_q, n=n)
 
     # The valid sliding dot products start at index m-1
-    return result[m - 1: n]
+    return result[m - 1 : n]
 
 
 def query_profile(
@@ -84,18 +86,18 @@ def query_profile(
 
     # Sliding mean and std of history windows via cumulative sums O(n)
     cumsum = np.concatenate([[0], np.cumsum(history)])
-    cumsum2 = np.concatenate([[0], np.cumsum(history ** 2)])
+    cumsum2 = np.concatenate([[0], np.cumsum(history**2)])
 
     # Sum of elements in each sliding window
-    window_sum = cumsum[m:] - cumsum[:n - m + 1]
+    window_sum = cumsum[m:] - cumsum[: n - m + 1]
     # Sum of squared elements in each sliding window
-    window_sum2 = cumsum2[m:] - cumsum2[:n - m + 1]
-    
+    window_sum2 = cumsum2[m:] - cumsum2[: n - m + 1]
+
     # Sliding mean
     mu_t = window_sum / m
     # Variance with clamp to avoid negative values from floating point error
     # Var(X) = E[X^2] - (E[X])^2
-    var_t = np.maximum(window_sum2 / m - mu_t ** 2, 0.0)
+    var_t = np.maximum(window_sum2 / m - mu_t**2, 0.0)
     std_t = np.sqrt(var_t)
     std_t = np.maximum(std_t, 1e-10)
 

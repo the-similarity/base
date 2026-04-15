@@ -1,7 +1,11 @@
 import numpy as np
 import pytest
 
-from the_similarity.core.windower import sliding_windows, window_indices, multi_scale_indices
+from the_similarity.core.windower import (
+    sliding_windows,
+    window_indices,
+    multi_scale_indices,
+)
 
 
 def test_basic_sliding():
@@ -43,9 +47,9 @@ def test_full_window():
 def test_multi_scale_indices():
     results = multi_scale_indices(100, base_window_size=20, scales=[0.5, 1.0, 2.0])
     sizes = set(r.window_size for r in results)
-    assert 10 in sizes   # 0.5x
-    assert 20 in sizes   # 1.0x
-    assert 40 in sizes   # 2.0x
+    assert 10 in sizes  # 0.5x
+    assert 20 in sizes  # 1.0x
+    assert 40 in sizes  # 2.0x
 
 
 def test_multi_scale_skips_too_large():
