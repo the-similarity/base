@@ -29,6 +29,7 @@ from the_similarity.synthetic.contracts import (
     Scorecard,
     SyntheticDataset,
     UtilityReport,
+    iso_now,
 )
 
 # ---------------------------------------------------------------------------
@@ -362,3 +363,127 @@ def render_report(scorecard: Scorecard, provenance: Provenance) -> str:
 def write_report(run_dir: Path, scorecard: Scorecard, provenance: Provenance) -> None:
     """Render and persist ``report.md``."""
     (run_dir / "report.md").write_text(render_report(scorecard, provenance))
+
+
+# ---------------------------------------------------------------------------
+# Pass/fail gate
+# ---------------------------------------------------------------------------
+
+
+def evaluate_thresholds(scorecard: Scorecard, args: argparse.Namespace) -> bool:
+    """Return True iff all scorecards passed AND CLI thresholds are satisfied.
+
+    Semantics:
+    - Fidelity / Privacy: require ``overall_score >= threshold``.
+    - Utility: require ``transfer_gap <= threshold`` (lower is better).
+    A threshold set for a scorecard that was not produced is a failure --
+    the caller asked for a gate we cannot evaluate.
+    """
+    if not scorecard.passed:
+        return False
+
+    if args.threshold_fidelity is not None:
+        if scorecard.fidelity is None:
+            return False
+        if scorecard.fidelity.overall_score < args.threshold_fidelity:
+            return False
+
+    if args.threshold_privacy is not None:
+        if scorecard.privacy is None:
+            return False
+        if scorecard.privacy.overall_score < args.threshold_privacy:
+            return False
+
+    if args.threshold_utility is not None:
+        if scorecard.utility is None:
+            return False
+        if scorecard.utility.transfer_gap > args.threshold_utility:
+            return False
+
+    return True
+
+
+# ---------------------------------------------------------------------------
+# Main pipeline
+# ---------------------------------------------------------------------------
+
+
+def _real_provenance(source_id: str) -> Provenance:
+    """Provenance record for the real (input) dataset.
+
+    ``generator_name="real"`` is the contract convention for non-synthetic
+    data; seed/version are placeholders since real data has no sampler.
+    """
+    return Provenance(
+        source_id=source_id,
+        generator_name="real",
+        generator_version="0",
+        seed=0,
+        created_at=iso_now(),
+    )
+
+
+def run(args: argparse.Namespace) -> int:
+    """End-to-end: load -> fit -> sample -> score -> write. Returns exit code.
+
+    Each stage is a pure function call -- failures propagate so the CLI
+    never writes a partial run directory. The run dir is created only
+    after the generator has produced a dataset.
+    """
+    df = load_source(args.input)
+    source_id = args.input.stem
+
+    real = SyntheticDataset(
+        data=df,
+        columns=list(df.columns),
+        provenance=_real_provenance(source_id),
+    )
+
+    generator = build_generator(args.generator)
+    generator.fit(real)
+    synth = generator.sample(args.n, seed=args.seed)
+
+    # Backfill provenance if the generator did not populate it -- CLI
+    # callers rely on it for auditing and report rendering.
+    if synth.provenance is None:
+        synth = SyntheticDataset(
+            data=synth.data,
+            index=synth.index,
+            columns=synth.columns,
+            provenance=Provenance(
+                source_id=source_id,
+                generator_name=getattr(generator, "name", args.generator),
+                generator_version=getattr(generator, "version", "0"),
+                seed=args.seed,
+                created_at=iso_now(),
+            ),
+        )
+
+    fidelity, privacy, utility = run_scorecards(real, synth)
+    scorecard = Scorecard(
+        dataset=synth, fidelity=fidelity, privacy=privacy, utility=utility
+    )
+
+    run_dir = args.out / run_dir_name(args.generator, args.seed)
+    run_dir.mkdir(parents=True, exist_ok=True)
+
+    write_parquets(run_dir, real, synth)
+    write_scorecard(run_dir, scorecard)
+    write_provenance(run_dir, synth.provenance)
+    write_report(run_dir, scorecard, synth.provenance)
+
+    passed = evaluate_thresholds(scorecard, args)
+    print(f"run_dir: {run_dir}")
+    print(f"passed:  {passed}")
+    return 0 if passed else 1
+
+
+def main(argv: Optional[list[str]] = None) -> int:
+    """CLI entry point. Returns a process exit code."""
+    parser = build_parser()
+    args = parser.parse_args(argv)
+    return run(args)
+
+
+if __name__ == "__main__":  # pragma: no cover
+    raise SystemExit(main())
