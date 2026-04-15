@@ -40,13 +40,26 @@ def _write_tiny_csv(path: Path, n_rows: int = 200) -> None:
 
 def _run_cli(args: list[str], cwd: Path) -> subprocess.CompletedProcess:
     # Invoke via `python -m the_similarity.synthetic.cli` so we don't depend on
-    # an installed console script being on PATH in the test sandbox.
+    # an installed console script being on PATH in the test sandbox. We pin
+    # PYTHONPATH to the worktree's repo root so the subprocess imports the
+    # in-tree package (e.g. this branch's cli.py), not whatever copy happens
+    # to be pip-installed at the user's site-packages -- otherwise the test
+    # silently exercises stale code from a sibling worktree.
+    import os
+
+    repo_root = Path(__file__).resolve().parents[2]
+    env = os.environ.copy()
+    existing = env.get("PYTHONPATH", "")
+    env["PYTHONPATH"] = (
+        f"{repo_root}{os.pathsep}{existing}" if existing else str(repo_root)
+    )
     return subprocess.run(
         [sys.executable, "-m", "the_similarity.synthetic.cli", *args],
         cwd=cwd,
         capture_output=True,
         text=True,
         timeout=120,
+        env=env,
     )
 
 
