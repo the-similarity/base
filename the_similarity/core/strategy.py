@@ -28,7 +28,6 @@ from numpy.typing import NDArray
 from the_similarity.core.scorer import MatchResult
 from the_similarity.core.projector import Forecast
 from the_similarity.core.ensemble import EnsembleForecast
-from the_similarity.core.regime import tag_regime
 
 
 # ---------------------------------------------------------------------------

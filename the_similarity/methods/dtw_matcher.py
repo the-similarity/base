@@ -23,10 +23,6 @@ import numpy as np
 from numpy.typing import NDArray
 from dtaidistance import dtw
 
-# Import kept for backward compatibility/type checking, but the caller
-# usually normalizes before passing to DTW.
-from the_similarity.core.normalizer import normalize
-
 
 def dtw_distance(
     query: NDArray[np.float64],

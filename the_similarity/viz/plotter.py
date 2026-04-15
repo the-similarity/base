@@ -24,7 +24,6 @@ from matplotlib.figure import Figure
 
 from the_similarity.core.scorer import MatchResult
 from the_similarity.core.projector import Forecast
-from the_similarity.io.loader import TimeSeries
 
 
 def plot_matches(
