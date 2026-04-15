@@ -34,6 +34,17 @@ Vault for **The Similarity**: research ingests, what we learn while building, an
 - [[Experimental feature flags]] — Config toggles for JEPA and future experiments
 - [[Retrieval evaluation harness]] — top-k overlap, rank lift, walk-forward comparison
 - [[Projector calibration lane]] — autoresearch lane for forecast cone tuning
+- [[retrieval_bench]] — Tier 1 vs Tier 2 measurement lane (PR #113)
+- [[projector_v2]] — adaptive-conformal + regime + joint-path projector variants (PR #114)
+- [[trust_filter]] — gated projection trust (PR #111)
+- [[finance_pilot]] — target user, success gates, pilot shape (PR #111)
+
+## Phase 1 findings — 2026-04-14
+
+- [[phase_1_findings_414]] — **compiled research record** across all three tracks
+- [[Tier 2 methods — bench 414]] — Tier 2 is a 37× runtime sink with no measurable CRPS win on SPY; preliminary discard-as-default
+- [[Adaptive conformal calibration 414]] — −14% CRPS, −0.033 calibration error; winning projector variant, awaits real-data confirmation
+- [[Trust filter and decision rules 414]] — search → project → trust-gate → decide → review, opt-in modules; pilot-shaped not pitch-ready
 
 ## Backlog (optional)
 
