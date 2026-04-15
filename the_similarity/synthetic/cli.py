@@ -15,7 +15,17 @@ Exit code
 from __future__ import annotations
 
 import argparse
+import sys
+from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any, Optional
+
+from the_similarity.synthetic.contracts import (
+    FidelityReport,
+    PrivacyReport,
+    SyntheticDataset,
+    UtilityReport,
+)
 
 # ---------------------------------------------------------------------------
 # Argument parsing
@@ -90,3 +100,108 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     return p
+
+
+# ---------------------------------------------------------------------------
+# I/O helpers
+# ---------------------------------------------------------------------------
+
+
+def load_source(path: Path) -> "Any":
+    """Load a .csv or .parquet file into a pandas DataFrame.
+
+    pandas is a first-party dep (see pyproject.toml); importing here keeps
+    the module import cheap for tools that only parse ``--help``.
+    """
+    import pandas as pd
+
+    suffix = path.suffix.lower()
+    if suffix == ".csv":
+        return pd.read_csv(path)
+    if suffix in (".parquet", ".pq"):
+        return pd.read_parquet(path)
+    raise ValueError(f"Unsupported input suffix {suffix!r}; use .csv or .parquet")
+
+
+def run_dir_name(generator: str, seed: int, now: Optional[datetime] = None) -> str:
+    """Canonical run-directory name: ``<generator>-<seed>-<YYYYMMDD-HHMMSS>``.
+
+    UTC timestamp, seconds resolution. ``now`` is injectable so tests can
+    pin a deterministic value.
+    """
+    ts = (now or datetime.now(timezone.utc)).strftime("%Y%m%d-%H%M%S")
+    return f"{generator}-{seed}-{ts}"
+
+
+# ---------------------------------------------------------------------------
+# Lazy imports for parallel-PR dependencies
+# ---------------------------------------------------------------------------
+
+
+_MISSING_DEPS_MSG = (
+    "Synthetic pipeline dependency not found: {name}. "
+    "Run after dependent PRs merge (generator/fidelity/privacy/utility)."
+)
+
+
+def build_generator(name: str) -> "Any":
+    """Resolve a generator name to an instantiated generator object.
+
+    Imports are deferred so this module stays importable even when sibling
+    PRs have not yet landed -- the failure surfaces as a clear message at
+    pipeline run time rather than at ``python -m`` load time.
+    """
+    try:
+        # Standard names agreed with the sibling generator agent.
+        from the_similarity.synthetic.generators import (  # type: ignore[import-not-found]
+            BlockBootstrapGenerator,
+            RegimeBlockBootstrapGenerator,
+        )
+    except ImportError as exc:  # pragma: no cover - exercised only before merge
+        raise RuntimeError(_MISSING_DEPS_MSG.format(name="generators")) from exc
+
+    if name == "block":
+        return BlockBootstrapGenerator()
+    if name == "regime-block":
+        return RegimeBlockBootstrapGenerator()
+    raise ValueError(f"Unknown generator {name!r}")
+
+
+def run_scorecards(
+    real: SyntheticDataset, synth: SyntheticDataset
+) -> "tuple[Optional[FidelityReport], Optional[PrivacyReport], Optional[UtilityReport]]":
+    """Run Fidelity/Privacy/Utility scorecards, tolerating missing siblings.
+
+    Each scorecard is imported and executed independently so one missing
+    dependency does not cascade -- the returned tuple has ``None`` for any
+    scorecard whose implementation is not yet available.
+    """
+    fidelity: Optional[FidelityReport] = None
+    privacy: Optional[PrivacyReport] = None
+    utility: Optional[UtilityReport] = None
+
+    try:
+        from the_similarity.synthetic.fidelity import (  # type: ignore[import-not-found]
+            FidelityScorecard,
+        )
+        fidelity = FidelityScorecard().evaluate(real, synth)
+    except ImportError:
+        print(_MISSING_DEPS_MSG.format(name="fidelity"), file=sys.stderr)
+
+    try:
+        from the_similarity.synthetic.privacy import (  # type: ignore[import-not-found]
+            PrivacyScorecard,
+        )
+        privacy = PrivacyScorecard().evaluate(real, synth)
+    except ImportError:
+        print(_MISSING_DEPS_MSG.format(name="privacy"), file=sys.stderr)
+
+    try:
+        from the_similarity.synthetic.utility import (  # type: ignore[import-not-found]
+            UtilityScorecard,
+        )
+        utility = UtilityScorecard().evaluate(real, synth)
+    except ImportError:
+        print(_MISSING_DEPS_MSG.format(name="utility"), file=sys.stderr)
+
+    return fidelity, privacy, utility
