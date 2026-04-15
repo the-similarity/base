@@ -658,11 +658,15 @@ def main(argv: list[str] | None = None) -> int:
                     cell.slice_id = f"{slice_def.id}_seed{seed}"
                 art = write_cell_artefact(cell, reports_dir)
                 artefacts.append(art)
+                try:
+                    art_label = art.relative_to(REPO_ROOT)
+                except ValueError:
+                    art_label = art  # pragma: no cover — tmp dir in tests
                 print(
                     f"    n={cell.n_trials} skipped={cell.n_skipped_budget} "
                     f"crps={cell.crps:.4f} cal={cell.calibration_error_p10_p90:.3f} "
                     f"hit={cell.hit_rate:.2f} rt_med={cell.runtime['median']:.3f}s "
-                    f"status={cell.status} -> {art.relative_to(REPO_ROOT)}"
+                    f"status={cell.status} -> {art_label}"
                 )
                 all_cells.append(cell)
 
@@ -680,7 +684,11 @@ def main(argv: list[str] | None = None) -> int:
             git_sha=_git_sha(),
             per_cell_budget_seconds=spec.per_cell_budget_seconds,
         )
-        print(f"\n[report] wrote {md_path.relative_to(REPO_ROOT)}")
+        try:
+            md_label = md_path.relative_to(REPO_ROOT)
+        except ValueError:
+            md_label = md_path
+        print(f"\n[report] wrote {md_label}")
 
     # --- Ledger append ----------------------------------------------------
     if not args.skip_ledger and all_cells:
@@ -689,18 +697,24 @@ def main(argv: list[str] | None = None) -> int:
             build_ledger_entry,
         )
 
+        md_resolved = Path(args.report_md).resolve()
+        try:
+            art_str = str(md_resolved.relative_to(REPO_ROOT))
+        except ValueError:
+            art_str = str(md_resolved)
         entry = build_ledger_entry(
             all_cells,
             benchmark_id=spec.id,
-            artefacts=[str(Path(args.report_md).resolve().relative_to(REPO_ROOT))],
+            artefacts=[art_str],
             n_trials=n_trials,
             seeds=seeds,
         )
         append_ledger_entry(entry, LEDGER_PATH)
-        print(
-            f"[ledger] appended to {LEDGER_PATH.relative_to(REPO_ROOT)}  "
-            f"status={entry['status']}"
-        )
+        try:
+            ledger_label = LEDGER_PATH.relative_to(REPO_ROOT)
+        except ValueError:
+            ledger_label = LEDGER_PATH
+        print(f"[ledger] appended to {ledger_label}  status={entry['status']}")
 
     return 0
 
