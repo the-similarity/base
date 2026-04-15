@@ -1,0 +1,244 @@
+{
+  "metadata": {
+    "timestamp": "2026-04-15T17:50:20Z",
+    "git_sha": "da3ebb8",
+    "benchmark_id": "foundation-bench-v1"
+  },
+  "result": {
+    "slice_id": "btc-long-run",
+    "model_id": "moment",
+    "n_trials": 12,
+    "n_skipped_budget": 0,
+    "any_fallback": true,
+    "fallback_ratio": 1.0,
+    "crps": 0.20318503196803506,
+    "calibration_error_p10_p90": 0.21666666666666667,
+    "hit_rate": 0.4166666666666667,
+    "runtime_seconds": {
+      "median": 0.025552396007697098,
+      "mean": 0.02555574999860255,
+      "p95": 0.026046012491860893,
+      "n": 12
+    },
+    "status": "partial_synthetic_fallback",
+    "notes": "",
+    "trials": [
+      {
+        "quantile_forecast": {
+          "10": -0.20051291028543616,
+          "25": -0.09404355002719755,
+          "50": 0.02652750744256216,
+          "75": 0.17132095034899875,
+          "90": 0.31268947288297944
+        },
+        "realised_forward_return": 0.48501335133469414,
+        "runtime_seconds": 0.02502674999414012,
+        "fallback_reason": "momentfm import failed: ModuleNotFoundError: No module named 'momentfm'",
+        "adapter_metadata": {
+          "adapter": "moment",
+          "mode": "synthetic_fallback",
+          "cone": "bootstrap_residual",
+          "ctx_len_used": 316
+        }
+      },
+      {
+        "quantile_forecast": {
+          "10": -0.18909998343886258,
+          "25": -0.08080621106456631,
+          "50": 0.05327803642273454,
+          "75": 0.18490363107932062,
+          "90": 0.29970112893542344
+        },
+        "realised_forward_return": 0.884930385819259,
+        "runtime_seconds": 0.026118749985471368,
+        "fallback_reason": "momentfm import failed: ModuleNotFoundError: No module named 'momentfm'",
+        "adapter_metadata": {
+          "adapter": "moment",
+          "mode": "synthetic_fallback",
+          "cone": "bootstrap_residual",
+          "ctx_len_used": 512
+        }
+      },
+      {
+        "quantile_forecast": {
+          "10": -0.14950345116777486,
+          "25": -0.04950684068563582,
+          "50": 0.08147096170198576,
+          "75": 0.21392512052989576,
+          "90": 0.3153106483064172
+        },
+        "realised_forward_return": -0.32611278231365715,
+        "runtime_seconds": 0.025801666983170435,
+        "fallback_reason": "momentfm import failed: ModuleNotFoundError: No module named 'momentfm'",
+        "adapter_metadata": {
+          "adapter": "moment",
+          "mode": "synthetic_fallback",
+          "cone": "bootstrap_residual",
+          "ctx_len_used": 512
+        }
+      },
+      {
+        "quantile_forecast": {
+          "10": -0.172968858143408,
+          "25": -0.08207098902522869,
+          "50": 0.031217631726252693,
+          "75": 0.16736025419963885,
+          "90": 0.2745245299061203
+        },
+        "realised_forward_return": -0.07978170979478605,
+        "runtime_seconds": 0.025986499997088686,
+        "fallback_reason": "momentfm import failed: ModuleNotFoundError: No module named 'momentfm'",
+        "adapter_metadata": {
+          "adapter": "moment",
+          "mode": "synthetic_fallback",
+          "cone": "bootstrap_residual",
+          "ctx_len_used": 512
+        }
+      },
+      {
+        "quantile_forecast": {
+          "10": -0.20115844597604082,
+          "25": -0.107666140719206,
+          "50": -0.004707984795221498,
+          "75": 0.12956632836880155,
+          "90": 0.2719148184635276
+        },
+        "realised_forward_return": -0.013633691907875667,
+        "runtime_seconds": 0.025676916993688792,
+        "fallback_reason": "momentfm import failed: ModuleNotFoundError: No module named 'momentfm'",
+        "adapter_metadata": {
+          "adapter": "moment",
+          "mode": "synthetic_fallback",
+          "cone": "bootstrap_residual",
+          "ctx_len_used": 512
+        }
+      },
+      {
+        "quantile_forecast": {
+          "10": -0.20885439086586433,
+          "25": -0.12002163523657916,
+          "50": 0.01692320223667987,
+          "75": 0.201816049041603,
+          "90": 0.3492011832913844
+        },
+        "realised_forward_return": -0.17126491912171127,
+        "runtime_seconds": 0.02563245900091715,
+        "fallback_reason": "momentfm import failed: ModuleNotFoundError: No module named 'momentfm'",
+        "adapter_metadata": {
+          "adapter": "moment",
+          "mode": "synthetic_fallback",
+          "cone": "bootstrap_residual",
+          "ctx_len_used": 512
+        }
+      },
+      {
+        "quantile_forecast": {
+          "10": -0.19611033991030158,
+          "25": -0.12279551104334274,
+          "50": 0.0005840015302358559,
+          "75": 0.11206990042325082,
+          "90": 0.24828845354076323
+        },
+        "realised_forward_return": 0.10941073873947671,
+        "runtime_seconds": 0.025472333014477044,
+        "fallback_reason": "momentfm import failed: ModuleNotFoundError: No module named 'momentfm'",
+        "adapter_metadata": {
+          "adapter": "moment",
+          "mode": "synthetic_fallback",
+          "cone": "bootstrap_residual",
+          "ctx_len_used": 311
+        }
+      },
+      {
+        "quantile_forecast": {
+          "10": -0.1476623347255741,
+          "25": -0.04475204752793527,
+          "50": 0.061074793696608065,
+          "75": 0.19360924204842633,
+          "90": 0.2924195760405157
+        },
+        "realised_forward_return": -0.24701589896558174,
+        "runtime_seconds": 0.025761333003174514,
+        "fallback_reason": "momentfm import failed: ModuleNotFoundError: No module named 'momentfm'",
+        "adapter_metadata": {
+          "adapter": "moment",
+          "mode": "synthetic_fallback",
+          "cone": "bootstrap_residual",
+          "ctx_len_used": 512
+        }
+      },
+      {
+        "quantile_forecast": {
+          "10": -0.18520793237453836,
+          "25": -0.13813042913898987,
+          "50": -0.021045311361012953,
+          "75": 0.12577021677970612,
+          "90": 0.264769708216533
+        },
+        "realised_forward_return": -0.1211163318528159,
+        "runtime_seconds": 0.025378791004186496,
+        "fallback_reason": "momentfm import failed: ModuleNotFoundError: No module named 'momentfm'",
+        "adapter_metadata": {
+          "adapter": "moment",
+          "mode": "synthetic_fallback",
+          "cone": "bootstrap_residual",
+          "ctx_len_used": 488
+        }
+      },
+      {
+        "quantile_forecast": {
+          "10": -0.21656719398947577,
+          "25": -0.11811535144071184,
+          "50": -0.017779489553767847,
+          "75": 0.13830418236055309,
+          "90": 0.2693730915482522
+        },
+        "realised_forward_return": 0.27707625314545625,
+        "runtime_seconds": 0.025349375006044284,
+        "fallback_reason": "momentfm import failed: ModuleNotFoundError: No module named 'momentfm'",
+        "adapter_metadata": {
+          "adapter": "moment",
+          "mode": "synthetic_fallback",
+          "cone": "bootstrap_residual",
+          "ctx_len_used": 324
+        }
+      },
+      {
+        "quantile_forecast": {
+          "10": -0.18131728334884678,
+          "25": -0.10274077114206004,
+          "50": 0.0295843627954282,
+          "75": 0.18708773469746065,
+          "90": 0.3688632733924033
+        },
+        "realised_forward_return": -0.0726596554443294,
+        "runtime_seconds": 0.0252864999929443,
+        "fallback_reason": "momentfm import failed: ModuleNotFoundError: No module named 'momentfm'",
+        "adapter_metadata": {
+          "adapter": "moment",
+          "mode": "synthetic_fallback",
+          "cone": "bootstrap_residual",
+          "ctx_len_used": 512
+        }
+      },
+      {
+        "quantile_forecast": {
+          "10": -0.16978328905801054,
+          "25": -0.07841205226617487,
+          "50": 0.04574625224392803,
+          "75": 0.1828535257044961,
+          "90": 0.34100978319486086
+        },
+        "realised_forward_return": -0.0037643051994754595,
+        "runtime_seconds": 0.025177625007927418,
+        "fallback_reason": "momentfm import failed: ModuleNotFoundError: No module named 'momentfm'",
+        "adapter_metadata": {
+          "adapter": "moment",
+          "mode": "synthetic_fallback",
+          "cone": "bootstrap_residual",
+          "ctx_len_used": 512
+        }
+      }
+    ]
+  }
+}

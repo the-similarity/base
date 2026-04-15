@@ -1,0 +1,244 @@
+{
+  "metadata": {
+    "timestamp": "2026-04-15T17:50:17Z",
+    "git_sha": "da3ebb8",
+    "benchmark_id": "foundation-bench-v1"
+  },
+  "result": {
+    "slice_id": "spy-covid-2020",
+    "model_id": "chronos",
+    "n_trials": 12,
+    "n_skipped_budget": 0,
+    "any_fallback": true,
+    "fallback_ratio": 1.0,
+    "crps": 0.10561113642252144,
+    "calibration_error_p10_p90": 0.13333333333333341,
+    "hit_rate": 0.5,
+    "runtime_seconds": {
+      "median": 0.023565604002214968,
+      "mean": 0.02368383667150435,
+      "p95": 0.02462611426017247,
+      "n": 12
+    },
+    "status": "partial_synthetic_fallback",
+    "notes": "",
+    "trials": [
+      {
+        "quantile_forecast": {
+          "10": -0.14999012737807915,
+          "25": -0.06776285913346491,
+          "50": 0.026466015648620944,
+          "75": 0.12272188970577536,
+          "90": 0.19003491141055773
+        },
+        "realised_forward_return": -0.07760857271080268,
+        "runtime_seconds": 0.023214208020363003,
+        "fallback_reason": "chronos import failed: ModuleNotFoundError: No module named 'chronos'",
+        "adapter_metadata": {
+          "adapter": "chronos",
+          "mode": "synthetic_fallback",
+          "bootstrap_paths": 200,
+          "ctx_len_used": 227
+        }
+      },
+      {
+        "quantile_forecast": {
+          "10": -0.19258021705954675,
+          "25": -0.11603473154945865,
+          "50": -0.03353632819524244,
+          "75": 0.05622476640620322,
+          "90": 0.1584768904185363
+        },
+        "realised_forward_return": -0.015244346121738528,
+        "runtime_seconds": 0.023837583023123443,
+        "fallback_reason": "chronos import failed: ModuleNotFoundError: No module named 'chronos'",
+        "adapter_metadata": {
+          "adapter": "chronos",
+          "mode": "synthetic_fallback",
+          "bootstrap_paths": 200,
+          "ctx_len_used": 512
+        }
+      },
+      {
+        "quantile_forecast": {
+          "10": -0.18399052868513321,
+          "25": -0.0892482162388114,
+          "50": -0.022168526517087783,
+          "75": 0.08437751938786953,
+          "90": 0.1595321350620058
+        },
+        "realised_forward_return": -0.2487192250427236,
+        "runtime_seconds": 0.024162207992048934,
+        "fallback_reason": "chronos import failed: ModuleNotFoundError: No module named 'chronos'",
+        "adapter_metadata": {
+          "adapter": "chronos",
+          "mode": "synthetic_fallback",
+          "bootstrap_paths": 200,
+          "ctx_len_used": 512
+        }
+      },
+      {
+        "quantile_forecast": {
+          "10": -0.18833305976583925,
+          "25": -0.12185662217843518,
+          "50": -0.01624564328012812,
+          "75": 0.06751653773189692,
+          "90": 0.18840452467315005
+        },
+        "realised_forward_return": 0.011101280086319276,
+        "runtime_seconds": 0.022683916991809383,
+        "fallback_reason": "chronos import failed: ModuleNotFoundError: No module named 'chronos'",
+        "adapter_metadata": {
+          "adapter": "chronos",
+          "mode": "synthetic_fallback",
+          "bootstrap_paths": 200,
+          "ctx_len_used": 412
+        }
+      },
+      {
+        "quantile_forecast": {
+          "10": -0.1556463964721596,
+          "25": -0.09636104581985983,
+          "50": -0.025527529340584998,
+          "75": 0.07906068801127497,
+          "90": 0.16380611497846043
+        },
+        "realised_forward_return": -0.028838611836986217,
+        "runtime_seconds": 0.023346375004621223,
+        "fallback_reason": "chronos import failed: ModuleNotFoundError: No module named 'chronos'",
+        "adapter_metadata": {
+          "adapter": "chronos",
+          "mode": "synthetic_fallback",
+          "bootstrap_paths": 200,
+          "ctx_len_used": 409
+        }
+      },
+      {
+        "quantile_forecast": {
+          "10": -0.21526985404733234,
+          "25": -0.13829295118452234,
+          "50": -0.06652138203823954,
+          "75": 0.01839380330356355,
+          "90": 0.09972417328975403
+        },
+        "realised_forward_return": 0.31090842274432595,
+        "runtime_seconds": 0.023790083010680974,
+        "fallback_reason": "chronos import failed: ModuleNotFoundError: No module named 'chronos'",
+        "adapter_metadata": {
+          "adapter": "chronos",
+          "mode": "synthetic_fallback",
+          "bootstrap_paths": 200,
+          "ctx_len_used": 512
+        }
+      },
+      {
+        "quantile_forecast": {
+          "10": -0.14995657390405348,
+          "25": -0.06931927418851658,
+          "50": 0.0006074670070019828,
+          "75": 0.09521600385504314,
+          "90": 0.17219303552051057
+        },
+        "realised_forward_return": -0.0302096896068047,
+        "runtime_seconds": 0.02358754101442173,
+        "fallback_reason": "chronos import failed: ModuleNotFoundError: No module named 'chronos'",
+        "adapter_metadata": {
+          "adapter": "chronos",
+          "mode": "synthetic_fallback",
+          "bootstrap_paths": 200,
+          "ctx_len_used": 225
+        }
+      },
+      {
+        "quantile_forecast": {
+          "10": -0.1854330708520272,
+          "25": -0.1281193648375052,
+          "50": -0.038154341578106155,
+          "75": 0.046736702142535336,
+          "90": 0.14340135348981486
+        },
+        "realised_forward_return": -0.16209029035362565,
+        "runtime_seconds": 0.023543666990008205,
+        "fallback_reason": "chronos import failed: ModuleNotFoundError: No module named 'chronos'",
+        "adapter_metadata": {
+          "adapter": "chronos",
+          "mode": "synthetic_fallback",
+          "bootstrap_paths": 200,
+          "ctx_len_used": 512
+        }
+      },
+      {
+        "quantile_forecast": {
+          "10": -0.1943459819532103,
+          "25": -0.11418589779472521,
+          "50": -0.018442332912115722,
+          "75": 0.08948894205800784,
+          "90": 0.2346299205290574
+        },
+        "realised_forward_return": -0.2223713064689098,
+        "runtime_seconds": 0.02453245801734738,
+        "fallback_reason": "chronos import failed: ModuleNotFoundError: No module named 'chronos'",
+        "adapter_metadata": {
+          "adapter": "chronos",
+          "mode": "synthetic_fallback",
+          "bootstrap_paths": 200,
+          "ctx_len_used": 286
+        }
+      },
+      {
+        "quantile_forecast": {
+          "10": -0.11638691600844253,
+          "25": -0.03942087158420815,
+          "50": 0.029292439166127116,
+          "75": 0.13849504907997456,
+          "90": 0.21320333405439018
+        },
+        "realised_forward_return": -0.12679389060962898,
+        "runtime_seconds": 0.023408999986713752,
+        "fallback_reason": "chronos import failed: ModuleNotFoundError: No module named 'chronos'",
+        "adapter_metadata": {
+          "adapter": "chronos",
+          "mode": "synthetic_fallback",
+          "bootstrap_paths": 200,
+          "ctx_len_used": 229
+        }
+      },
+      {
+        "quantile_forecast": {
+          "10": -0.19344983450869424,
+          "25": -0.1396188067056917,
+          "50": -0.03870402511991056,
+          "75": 0.07379854016131726,
+          "90": 0.18160193912710532
+        },
+        "realised_forward_return": 0.08798719964535162,
+        "runtime_seconds": 0.023358417005511,
+        "fallback_reason": "chronos import failed: ModuleNotFoundError: No module named 'chronos'",
+        "adapter_metadata": {
+          "adapter": "chronos",
+          "mode": "synthetic_fallback",
+          "bootstrap_paths": 200,
+          "ctx_len_used": 459
+        }
+      },
+      {
+        "quantile_forecast": {
+          "10": -0.21139979411560839,
+          "25": -0.1421759592919165,
+          "50": -0.051140309546718665,
+          "75": 0.02196160312418205,
+          "90": 0.10297968047602035
+        },
+        "realised_forward_return": -0.0818324887518711,
+        "runtime_seconds": 0.024740583001403138,
+        "fallback_reason": "chronos import failed: ModuleNotFoundError: No module named 'chronos'",
+        "adapter_metadata": {
+          "adapter": "chronos",
+          "mode": "synthetic_fallback",
+          "bootstrap_paths": 200,
+          "ctx_len_used": 512
+        }
+      }
+    ]
+  }
+}
