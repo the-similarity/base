@@ -5,16 +5,19 @@ export const METHODS = [
 
 export type MethodName = (typeof METHODS)[number];
 
+// Editorial deck palette: monochrome ink ramp from near-black to light gray.
+// No hue; methods are distinguished only by shade, matching the
+// "single ink hierarchy" established in globals.css.
 export const METHOD_COLORS: Record<string, string> = {
-  dtw: "#4ade80",
-  pearson_warped: "#60a5fa",
-  bempedelis_r2: "#f472b6",
-  bempedelis_smoothness: "#fb923c",
-  koopman: "#a78bfa",
-  wavelet_spectrum: "#2dd4bf",
-  emd: "#fbbf24",
-  tda: "#f87171",
-  transfer_entropy: "#94a3b8",
+  dtw: "#1a1a1a",
+  pearson_warped: "#2d2d2d",
+  bempedelis_r2: "#3d3d3d",
+  bempedelis_smoothness: "#4a4a4a",
+  koopman: "#5a5a5a",
+  wavelet_spectrum: "#6b6b6b",
+  emd: "#808080",
+  tda: "#9a9a9a",
+  transfer_entropy: "#b5b5b5",
 };
 
 export const METHOD_LABELS: Record<string, string> = {
