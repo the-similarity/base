@@ -8,9 +8,15 @@ report.md, provenance.json) under a run directory keyed by
 
 Exit code
 ---------
-- ``0`` if every present scorecard reports ``passed=True`` AND every threshold
-  flag (``--threshold-*``) is satisfied.
-- ``1`` otherwise.
+- ``0`` (default / loose mode) whenever artifacts are successfully written,
+  regardless of scorecard pass/fail. The scorecard outcome is surfaced in
+  stdout as ``passed=True|False`` for programmatic consumers.
+- ``1`` only when ``--strict`` is passed AND at least one scorecard fails
+  its threshold. Lets callers opt into treating scorecard miss as a
+  pipeline failure without making it the default.
+- ``2`` reserved for argparse/pipeline errors (argparse emits this
+  automatically on bad CLI args; pipeline exceptions surface as non-zero
+  via Python's default ``SystemExit``).
 """
 from __future__ import annotations
 
@@ -491,8 +497,19 @@ def run(args: argparse.Namespace) -> int:
 
     passed = evaluate_thresholds(scorecard, args)
     print(f"run_dir: {run_dir}")
-    print(f"passed:  {passed}")
-    return 0 if passed else 1
+    # Exit-semantics contract:
+    #   Default (loose): artifact write is the success criterion. The
+    #   `passed` flag is informational -- we print it but exit 0 so that
+    #   CI pipelines that chain artifact-producing steps don't treat a
+    #   soft scorecard miss as a pipeline failure.
+    #   --strict: the caller has opted into treating scorecard miss as
+    #   a failure; propagate `passed` into the exit code.
+    if args.strict:
+        exit_code = 0 if passed else 1
+        print(f"passed={passed} strict-mode exit={exit_code}")
+        return exit_code
+    print(f"passed={passed} (use --strict to gate exit code on this)")
+    return 0
 
 
 def main(argv: Optional[list[str]] = None) -> int:
