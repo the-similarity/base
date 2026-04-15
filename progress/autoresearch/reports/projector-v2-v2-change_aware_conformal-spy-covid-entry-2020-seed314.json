@@ -1,0 +1,15 @@
+{
+  "calibration_error_over_time_p10_p90": 0.10833333333333338,
+  "calibration_error_p10_p90": 0.06666666666666667,
+  "crps": 0.16033333333333336,
+  "dataset_path": "the-similarity-data/data/stocks/spy/1d.parquet",
+  "hit_rate": 0.7333333333333333,
+  "joint_path_crps": 0.1824666666666667,
+  "mean_error": 0.04847104273833949,
+  "n_skipped_trials": 0,
+  "n_valid_trials": 15,
+  "runtime_seconds": 110.71115704200929,
+  "slice_id": "spy-covid-entry-2020",
+  "synthetic": false,
+  "variant": "change_aware_conformal"
+}

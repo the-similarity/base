@@ -1,0 +1,15 @@
+{
+  "calibration_error_over_time_p10_p90": 0.06833333333333336,
+  "calibration_error_p10_p90": 0.09999999999999999,
+  "crps": 0.12566666666666668,
+  "dataset_path": "the-similarity-data/data/stocks/nvda/1d.parquet",
+  "hit_rate": 0.6,
+  "joint_path_crps": 0.13433333333333333,
+  "mean_error": 0.11353544952806063,
+  "n_skipped_trials": 0,
+  "n_valid_trials": 15,
+  "runtime_seconds": 191.72159687499516,
+  "slice_id": "nvda-1d",
+  "synthetic": false,
+  "variant": "adaptive_conformal"
+}
