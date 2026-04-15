@@ -640,6 +640,102 @@ class TestReport:
         assert path.exists()
         assert path.read_text(encoding="utf-8").startswith("# Lane report")
 
+    def test_render_is_deterministic(self) -> None:
+        # The report renderer is a pure function of its inputs — two
+        # renders of the same object must be byte-identical so snapshot
+        # tests stay meaningful.
+        from research.autoresearch.core.gates import evaluate_gates
+        from research.autoresearch.core.report import LaneReport
+
+        decision = evaluate_gates(deltas={}, gates=[])
+        report = LaneReport(
+            lane_id="L",
+            benchmark_id="B",
+            commit="c",
+            timestamp="2026-04-14T00:00:00Z",
+            arms=[{"arm_id": "a", "metrics": {"crps": 0.2}}],
+            slices=[
+                {"slice_id": "s1", "arm_metrics": {"a": {"crps": 0.2}}},
+            ],
+            deltas={"crps": -0.01},
+            gate_decision=decision,
+            verdict="keep",
+            rationale="r",
+        )
+        assert report.render() == report.render()
+
+    def test_render_uses_delta_objects_when_present(self) -> None:
+        # delta_objects overrides the plain deltas dict and adds the
+        # direction + improvement columns.
+        from research.autoresearch.core.gates import evaluate_gates
+        from research.autoresearch.core.metrics_delta import compute_delta
+        from research.autoresearch.core.report import LaneReport
+
+        decision = evaluate_gates(deltas={}, gates=[])
+        delta = compute_delta(0.20, 0.15, direction="lower_is_better")
+        report = LaneReport(
+            lane_id="L",
+            benchmark_id="B",
+            commit="c",
+            timestamp="2026-04-14T00:00:00Z",
+            arms=[{"arm_id": "a", "metrics": {}}],
+            slices=[],
+            deltas={},
+            gate_decision=decision,
+            verdict="keep",
+            rationale="r",
+            delta_objects={"crps": delta},
+        )
+        md = report.render()
+        assert "direction" in md
+        assert "improvement" in md
+        assert "lower_is_better" in md
+
+    def test_render_handles_empty_slices_and_artifacts(self) -> None:
+        # Common path for a crashed lane — we still want a readable
+        # report skeleton, not an IndexError.
+        from research.autoresearch.core.gates import evaluate_gates
+        from research.autoresearch.core.report import LaneReport
+
+        decision = evaluate_gates(deltas={}, gates=[])
+        report = LaneReport(
+            lane_id="L",
+            benchmark_id="B",
+            commit="c",
+            timestamp="2026-04-14T00:00:00Z",
+            arms=[],
+            slices=[],
+            deltas={},
+            gate_decision=decision,
+            verdict="discard",
+            rationale="crashed mid-run",
+        )
+        md = report.render()
+        assert "_No per-slice data._" in md
+        assert "_None linked._" in md
+        assert "_None recorded._" in md  # open questions placeholder
+
+    def test_render_ends_with_single_trailing_newline(self) -> None:
+        from research.autoresearch.core.gates import evaluate_gates
+        from research.autoresearch.core.report import LaneReport
+
+        decision = evaluate_gates(deltas={}, gates=[])
+        report = LaneReport(
+            lane_id="L",
+            benchmark_id="B",
+            commit="c",
+            timestamp="2026-04-14T00:00:00Z",
+            arms=[],
+            slices=[],
+            deltas={},
+            gate_decision=decision,
+            verdict="discard",
+            rationale="r",
+        )
+        md = report.render()
+        assert md.endswith("\n")
+        assert not md.endswith("\n\n")
+
 
 # ---------------------------------------------------------------------------
 # Rejection log
