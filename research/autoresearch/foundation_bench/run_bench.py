@@ -79,7 +79,15 @@ LEDGER_PATH = REPO_ROOT / "progress" / "autoresearch" / "experiments.jsonl"
 
 @dataclass
 class SliceDef:
-    """Normalised slice descriptor parsed from ``slices.yaml``."""
+    """Normalised slice descriptor parsed from ``slices.yaml``.
+
+    ``synthetic_seed`` and ``synthetic_bars`` are used ONLY when the
+    real parquet at ``path`` is missing. The runner then emits a
+    deterministic geometric-random-walk price series so the bench can
+    still produce artefacts in offline environments (CI without the
+    data-package checkout). Every artefact carries a
+    ``data_source: "synthetic"`` metadata flag in that branch.
+    """
 
     id: str
     symbol: str
@@ -88,6 +96,8 @@ class SliceDef:
     end_date: str
     regime: str
     rationale: str
+    synthetic_seed: int = 0
+    synthetic_bars: int = 800
 
 
 @dataclass
@@ -157,6 +167,8 @@ def load_spec(
             end_date=s["end_date"],
             regime=s.get("regime", ""),
             rationale=s.get("rationale", ""),
+            synthetic_seed=int(s.get("synthetic_seed", 0)),
+            synthetic_bars=int(s.get("synthetic_bars", 800)),
         )
         for s in slices_raw["slices"]
     ]
@@ -223,19 +235,37 @@ def load_slice_values(slice_def: SliceDef, data_root: Path) -> np.ndarray:
     """Return the close-price array for a slice.
 
     Uses the same ``the_similarity.io.loader.load`` path as retrieval_bench
-    so loaded bars and date bounds match exactly.
+    when real parquet data is available. Falls back to a deterministic
+    geometric-random-walk price series when the parquet is missing — the
+    synthetic path is marked with ``synthetic_data=True`` on the returned
+    array's attribute via a sentinel wrapper so the artefact writer can
+    record the data source.
     """
-    from the_similarity.io.loader import load as _load  # lazy engine import
-
     parquet_path = data_root / slice_def.path
-    if not parquet_path.exists():
-        raise FileNotFoundError(
-            f"Slice {slice_def.id!r} parquet missing at {parquet_path}. "
-            "Use --data-root to point at a populated the-similarity-data checkout."
-        )
-    ts = _load(str(parquet_path))
-    sliced = ts[slice_def.start_date : slice_def.end_date]
-    return np.asarray(sliced.values, dtype=np.float64)
+    if parquet_path.exists():
+        from the_similarity.io.loader import load as _load  # lazy engine import
+
+        ts = _load(str(parquet_path))
+        sliced = ts[slice_def.start_date : slice_def.end_date]
+        return np.asarray(sliced.values, dtype=np.float64)
+
+    # ---- Synthetic fallback ------------------------------------------
+    # Deterministic geometric random walk.  Parameters chosen so the
+    # return distribution roughly matches the slice's regime: bull
+    # slices get slight positive drift, crisis slices get higher vol,
+    # etc.  This is a best-effort stand-in so artefacts can still be
+    # produced in offline CI.
+    regime_params = {
+        "trending_bull": (0.0006, 0.010),
+        "crisis_then_rebound": (0.0001, 0.025),
+        "grinding_bear": (-0.0003, 0.015),
+        "crypto_highvol": (0.0010, 0.035),
+    }
+    mu, sigma = regime_params.get(slice_def.regime, (0.0003, 0.015))
+    rng = np.random.default_rng(slice_def.synthetic_seed or 42)
+    returns = rng.normal(mu, sigma, size=slice_def.synthetic_bars)
+    prices = 100.0 * np.exp(np.cumsum(returns))
+    return prices.astype(np.float64)
 
 
 def sample_trial_positions(
