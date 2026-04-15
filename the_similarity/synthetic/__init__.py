@@ -15,10 +15,12 @@ from the_similarity.synthetic.contracts import (
     UtilityReport,
     iso_now,
 )
+from the_similarity.synthetic.fidelity import FidelityScorecard
 from the_similarity.synthetic.privacy import PrivacyScorecard
 
 __all__ = [
     "FidelityReport",
+    "FidelityScorecard",
     "GeneratorProtocol",
     "PrivacyReport",
     "PrivacyScorecard",
