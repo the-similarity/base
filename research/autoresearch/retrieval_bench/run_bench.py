@@ -39,6 +39,15 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Iterable
 
+# When invoked as a CLI script (``python path/to/run_bench.py``) the repo
+# root is not automatically on ``sys.path``, so the ``research.*`` namespace
+# package cannot resolve its own sibling module.  Prepending the repo root
+# here means both ``python -m research.autoresearch.retrieval_bench.run_bench``
+# and a direct script invocation produce the same import graph.
+_REPO_ROOT = Path(__file__).resolve().parents[3]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
+
 import numpy as np
 
 # We import yaml lazily inside load_spec() so ``pytest`` can import this
