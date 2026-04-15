@@ -822,3 +822,134 @@ class TestRejectionLog:
             )
         ids = [r["direction_id"] for r in iter_rejections(path)]
         assert ids == ["d0", "d1", "d2"]
+
+    def test_get_rejection_returns_latest_when_repeated(
+        self, tmp_path: Path
+    ) -> None:
+        # When a direction is killed, revisited, and killed again the
+        # most recent entry wins so stale prose does not mislead agents.
+        from research.autoresearch.core.rejection_log import (
+            RejectionEntry,
+            append_rejection,
+            get_rejection,
+        )
+
+        path = tmp_path / "rejections.jsonl"
+        for i, summary in enumerate(["old kill", "new kill"]):
+            append_rejection(
+                RejectionEntry(
+                    direction_id="dupe",
+                    lane_id="L",
+                    summary=summary,
+                    killed_at=f"2026-04-14T00:00:0{i}Z",
+                    evidence_refs=[],
+                    revisit_conditions=[],
+                ),
+                path,
+            )
+        latest = get_rejection("dupe", path)
+        assert latest is not None
+        assert latest["summary"] == "new kill"
+
+    def test_get_rejection_returns_none_for_missing(self, tmp_path: Path) -> None:
+        from research.autoresearch.core.rejection_log import get_rejection
+
+        assert get_rejection("never", tmp_path / "rejections.jsonl") is None
+
+    def test_revisit_ready_true_when_never_rejected(self, tmp_path: Path) -> None:
+        from research.autoresearch.core.rejection_log import revisit_ready
+
+        ready, unmet = revisit_ready(
+            "fresh_idea", {}, tmp_path / "rejections.jsonl"
+        )
+        assert ready is True
+        assert unmet == []
+
+    def test_revisit_ready_blocks_when_conditions_unmet(
+        self, tmp_path: Path
+    ) -> None:
+        # When state blob does not mention any condition keyword, we
+        # treat the direction as "not yet revisitable" and list the
+        # unmet conditions so the caller knows why.
+        from research.autoresearch.core.rejection_log import (
+            RejectionEntry,
+            append_rejection,
+            revisit_ready,
+        )
+
+        path = tmp_path / "rejections.jsonl"
+        append_rejection(
+            RejectionEntry(
+                direction_id="widening_v1",
+                lane_id="L",
+                summary="",
+                killed_at="2026-04-14T00:00:00Z",
+                evidence_refs=[],
+                revisit_conditions=[
+                    "refit multiplicative factors against residuals",
+                ],
+            ),
+            path,
+        )
+        ready, unmet = revisit_ready(
+            "widening_v1",
+            {"current_state": "baseline engine unchanged"},
+            path,
+        )
+        assert ready is False
+        assert unmet == ["refit multiplicative factors against residuals"]
+
+    def test_revisit_ready_passes_when_keyword_present(self, tmp_path: Path) -> None:
+        from research.autoresearch.core.rejection_log import (
+            RejectionEntry,
+            append_rejection,
+            revisit_ready,
+        )
+
+        path = tmp_path / "rejections.jsonl"
+        append_rejection(
+            RejectionEntry(
+                direction_id="widening_v1",
+                lane_id="L",
+                summary="",
+                killed_at="2026-04-14T00:00:00Z",
+                evidence_refs=[],
+                revisit_conditions=[
+                    "refit multiplicative factors against residuals",
+                ],
+            ),
+            path,
+        )
+        ready, unmet = revisit_ready(
+            "widening_v1",
+            {"work_completed": "we did refit the factors from residuals today"},
+            path,
+        )
+        assert ready is True
+        assert unmet == []
+
+    def test_iter_rejections_skips_malformed_lines(self, tmp_path: Path) -> None:
+        from research.autoresearch.core.rejection_log import iter_rejections
+
+        path = tmp_path / "rejections.jsonl"
+        path.write_text(
+            '{"direction_id": "ok"}\n'
+            "garbage\n"
+            '{"direction_id": "also_ok"}\n',
+            encoding="utf-8",
+        )
+        ids = [r["direction_id"] for r in iter_rejections(path)]
+        assert ids == ["ok", "also_ok"]
+
+    def test_validation_rejects_non_string_revisit_condition_element(self) -> None:
+        from research.autoresearch.core.rejection_log import RejectionEntry
+
+        with pytest.raises(ValueError):
+            RejectionEntry(
+                direction_id="d",
+                lane_id="l",
+                summary="s",
+                killed_at="2026-04-14T00:00:00Z",
+                evidence_refs=[],
+                revisit_conditions=[123],  # type: ignore[list-item]
+            ).validate()
