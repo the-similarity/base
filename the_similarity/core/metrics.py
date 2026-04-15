@@ -176,3 +176,325 @@ def crps(trials: list[TrialResult]) -> float:
     if not crps_values:
         return float("nan")
     return float(np.mean(crps_values))
+
+
+def interval_score(
+    trials: list[TrialResult],
+    alpha: float = 0.20,
+) -> float:
+    """Interval score at the terminal bar — a proper scoring rule for prediction intervals.
+
+    The interval score evaluates a central (1-alpha) forecast interval by
+    rewarding narrowness AND penalising actuals that fall outside it. Unlike
+    raw coverage, it is a *proper* scoring rule: it cannot be gamed by
+    submitting a trivially wide or trivially narrow interval.
+
+    Mathematical formulation (per trial, at the terminal bar):
+
+        IS_alpha(L, U, y) = (U - L)
+                          + (2 / alpha) * max(0, L - y)
+                          + (2 / alpha) * max(0, y - U)
+
+    where:
+        - L = lower-bound forecast at percentile (alpha/2) * 100
+        - U = upper-bound forecast at percentile (1 - alpha/2) * 100
+        - y = realised terminal actual return
+
+    For alpha=0.20 this corresponds to the central 80% interval bounded by
+    the P10 and P90 forecast curves (the canonical cone edges used elsewhere
+    in this engine). Lower interval score is better.
+
+    Penalty structure:
+        - Sharpness term (U - L): wider intervals cost more, so the rule
+          discourages hedging through extreme width.
+        - Miss penalty (2/alpha * distance outside): a single miss costs
+          proportionally more as alpha shrinks, so 99% intervals (alpha=0.01)
+          are punished harder for outliers than 80% intervals (alpha=0.20).
+
+    Implementation notes:
+        - Requires percentile keys alpha/2*100 and (1-alpha/2)*100 to be
+          present in forecast_curves. For the default alpha=0.20, this maps
+          to P10 / P90.
+        - Trials missing either bound are skipped (do not contribute),
+          consistent with how calibration() handles missing percentiles.
+        - NaN is returned if the trials list is empty OR if every trial
+          lacks the required percentile pair (fail-closed).
+
+    Args:
+        trials: Completed backtest trials (skipped trials excluded upstream).
+        alpha: Miscoverage level in (0, 1). The interval is (1-alpha) wide.
+            Default 0.20 → 80% central interval using P10/P90.
+
+    Returns:
+        Mean interval score across trials. Lower is better. NaN if empty.
+    """
+    if not trials:
+        return float("nan")
+
+    # Map alpha to integer percentile keys used by forecast_curves. We round
+    # to match the caller-supplied percentile granularity (typically 10, 25,
+    # 50, 75, 90). If those exact keys are absent the trial is skipped.
+    lower_pct = int(round((alpha / 2.0) * 100))
+    upper_pct = int(round((1.0 - alpha / 2.0) * 100))
+
+    scores: list[float] = []
+    for trial in trials:
+        lower_curve = trial.forecast_curves.get(lower_pct)
+        upper_curve = trial.forecast_curves.get(upper_pct)
+        if lower_curve is None or upper_curve is None:
+            continue
+        if len(lower_curve) == 0 or len(upper_curve) == 0:
+            continue
+
+        lower = float(lower_curve[-1])
+        upper = float(upper_curve[-1])
+        actual = float(trial.actual_returns[-1])
+
+        # Sharpness term penalises width. Miss penalties only fire when the
+        # actual falls outside the stated interval.
+        width = upper - lower
+        below_miss = max(0.0, lower - actual)
+        above_miss = max(0.0, actual - upper)
+        score = width + (2.0 / alpha) * (below_miss + above_miss)
+        scores.append(score)
+
+    if not scores:
+        return float("nan")
+    return float(np.mean(scores))
+
+
+def coverage_probability(
+    trials: list[TrialResult],
+    lower_pct: int = 10,
+    upper_pct: int = 90,
+) -> float:
+    """Empirical coverage: fraction of terminal actuals inside [P_lower, P_upper].
+
+    This is the raw calibration statistic for a central interval, independent
+    of sharpness. It answers "does the engine's nominal 80% cone actually
+    contain 80% of outcomes?" The target value is (upper_pct - lower_pct)/100.
+
+    Mathematical formulation:
+
+        coverage = (1/N) * sum_i [ I(L_i <= y_i <= U_i) ]
+
+    where I(.) is the indicator function and L_i, U_i are the lower/upper
+    percentile forecast curves evaluated at the terminal bar.
+
+    Interpretation:
+        - coverage ≈ target → well-calibrated interval
+        - coverage << target → interval too narrow (overconfident)
+        - coverage >> target → interval too wide (underconfident / sandbagged)
+
+    NOTE: Unlike interval_score(), this metric does NOT penalise width. A
+    trivially wide interval can reach 100% coverage while being useless.
+    Use both metrics together to assess both calibration AND sharpness.
+
+    Args:
+        trials: Completed backtest trials.
+        lower_pct: Lower-bound percentile key (default 10).
+        upper_pct: Upper-bound percentile key (default 90).
+
+    Returns:
+        Float in [0, 1], or NaN if empty/unavailable.
+    """
+    if not trials:
+        return float("nan")
+
+    # Containment test uses both endpoints. Trials missing either curve are
+    # excluded from the denominator so coverage reflects only usable data.
+    contained = 0
+    valid = 0
+    for trial in trials:
+        lower_curve = trial.forecast_curves.get(lower_pct)
+        upper_curve = trial.forecast_curves.get(upper_pct)
+        if lower_curve is None or upper_curve is None:
+            continue
+        if len(lower_curve) == 0 or len(upper_curve) == 0:
+            continue
+
+        valid += 1
+        actual = float(trial.actual_returns[-1])
+        if lower_curve[-1] <= actual <= upper_curve[-1]:
+            contained += 1
+
+    if valid == 0:
+        return float("nan")
+    return contained / valid
+
+
+def profit_factor(trials: list[TrialResult]) -> float:
+    """Profit factor when trading the P50 direction for each trial.
+
+    Simulates taking a single-unit position in the direction predicted by
+    the P50 forecast at the terminal bar. The absolute realised return
+    becomes a gain if the direction was correct, a loss otherwise.
+
+    Mathematical formulation:
+
+        profit_factor = sum_{i in wins}   |y_i|
+                      / sum_{i in losses} |y_i|
+
+    where wins are trials with directional_hit == True and losses are the
+    complement.
+
+    Interpretation:
+        - profit_factor > 1 → net profitable directional signal
+        - profit_factor = 1 → break-even (noise-level)
+        - profit_factor < 1 → net losing directional signal
+        - profit_factor = +inf → no losing trades (rare — usually small N)
+
+    Caveats:
+        - Ignores transaction costs, slippage, and position sizing.
+        - Uses terminal-bar return only; ignores intrabar drawdown or MFE.
+        - Directional signal is from P50_terminal > 0 (already captured in
+          TrialResult.directional_hit), so trials with P50 == 0 count as
+          losses rather than flat (consistent with existing hit_rate logic).
+
+    Returns:
+        Float > 0, +inf if no losses, NaN if empty.
+    """
+    if not trials:
+        return float("nan")
+
+    # Walk trials once, splitting absolute terminal returns into the gain/loss
+    # buckets based on the pre-computed directional_hit flag. This keeps the
+    # metric consistent with hit_rate() even if actual == 0 or p50 == 0.
+    gains = 0.0
+    losses = 0.0
+    for trial in trials:
+        magnitude = abs(float(trial.actual_returns[-1]))
+        if trial.directional_hit:
+            gains += magnitude
+        else:
+            losses += magnitude
+
+    if losses == 0.0:
+        # All wins (or all zero-magnitude actuals). Convention: infinite PF.
+        return float("inf") if gains > 0 else float("nan")
+    return gains / losses
+
+
+def max_drawdown(trials: list[TrialResult]) -> float:
+    """Maximum peak-to-trough drawdown of a P50-directed equity curve.
+
+    Treats the backtest trials as a sequential stream of one-shot directional
+    trades. Each trade contributes `sign(P50_terminal) * actual_terminal` to
+    cumulative equity. The function returns the worst peak-to-trough fractional
+    drop observed along that equity curve.
+
+    Mathematical formulation:
+
+        equity_t = sum_{i <= t} sign(P50_i) * y_i        (additive P&L)
+        peak_t   = max_{s <= t} equity_s
+        dd_t     = peak_t - equity_t
+        max_drawdown = max_t dd_t
+
+    Why additive (not multiplicative)? The per-trial actuals are already
+    fractional returns. Compounding them would conflate per-bar position
+    sizing with the strategy's directional alpha. Additive P&L gives a
+    clean directional-signal drawdown independent of sizing.
+
+    Interpretation:
+        - Returned as a non-negative float (fraction of cumulative P&L lost
+          from a peak). 0.15 means a 15-point drop in cumulative fractional
+          return. Absolute magnitude is comparable across datasets sharing
+          the same return representation.
+        - max_drawdown = 0 → equity was monotonically non-decreasing.
+        - Larger values → worse worst-case experience for a naïve trader.
+
+    Note: This metric is path-dependent. Trials are consumed in the order
+    provided (typically random walk-forward sampling order). For
+    chronologically meaningful drawdowns the caller should sort trials by
+    query_start before passing them in.
+
+    Returns:
+        Non-negative float, or NaN if empty.
+    """
+    if not trials:
+        return float("nan")
+
+    # Build directional P&L increments. Sign comes from P50 terminal; we fall
+    # back to 0 (flat trade) if the P50 curve is missing, which is rare for
+    # non-skipped trials but fail-closed here rather than raising.
+    pnl_increments: list[float] = []
+    for trial in trials:
+        p50_curve = trial.forecast_curves.get(50)
+        if p50_curve is None or len(p50_curve) == 0:
+            pnl_increments.append(0.0)
+            continue
+        direction = np.sign(float(p50_curve[-1]))
+        realised = float(trial.actual_returns[-1])
+        pnl_increments.append(direction * realised)
+
+    equity = np.cumsum(pnl_increments)
+    # Running peak is the maximum equity observed up to each point. The
+    # drawdown at t is (peak_t - equity_t); the max of these is the MDD.
+    running_peak = np.maximum.accumulate(equity)
+    drawdowns = running_peak - equity
+    return float(np.max(drawdowns))
+
+
+def sharpe_ratio(
+    trials: list[TrialResult],
+    periods_per_year: int = 252,
+) -> float:
+    """Annualised Sharpe ratio of per-trial P50-directed returns.
+
+    Treats each trial as one sampled realisation of the directional strategy:
+    the return is `sign(P50_terminal) * actual_terminal`. The Sharpe ratio
+    scales the mean-to-std ratio by sqrt(periods_per_year) so values are
+    comparable across sampling frequencies.
+
+    Mathematical formulation:
+
+        r_i = sign(P50_i) * y_i
+        mu  = mean(r)
+        sig = std(r)          (population std, ddof=0)
+        Sharpe = (mu / sig) * sqrt(periods_per_year)
+
+    Choice of ddof=0 matches numpy's default and treats the trial set as the
+    full population of observed outcomes rather than a sample from a larger
+    universe — appropriate for a fixed backtest run.
+
+    Annualisation assumes each trial corresponds to one period of length
+    (1 / periods_per_year) of a trading year. For daily bars the default
+    252 is standard; callers using hourly / weekly bars should override
+    (e.g. 252*6.5 for hourly US equities, 52 for weekly).
+
+    Caveats:
+        - Assumes trials are drawn i.i.d. and from the same regime. Walk-
+          forward sampling approximately satisfies this; heavy regime
+          clustering does not.
+        - Ignores risk-free rate (excess-return Sharpe). Subtract r_f from
+          r_i upstream if you need the strict definition.
+        - Returns NaN if fewer than 2 trials or if std == 0 (no variance
+          means undefined Sharpe, not infinite — fail-closed).
+
+    Returns:
+        Float Sharpe ratio, or NaN if empty/degenerate.
+    """
+    if not trials:
+        return float("nan")
+
+    returns: list[float] = []
+    for trial in trials:
+        p50_curve = trial.forecast_curves.get(50)
+        if p50_curve is None or len(p50_curve) == 0:
+            continue
+        direction = np.sign(float(p50_curve[-1]))
+        returns.append(direction * float(trial.actual_returns[-1]))
+
+    if len(returns) < 2:
+        # Sharpe is ill-defined with a single observation. Fail-closed to NaN
+        # rather than raising so this composes with the other aggregate
+        # metrics on tiny backtest runs.
+        return float("nan")
+
+    returns_arr = np.asarray(returns, dtype=np.float64)
+    mu = float(np.mean(returns_arr))
+    sigma = float(np.std(returns_arr, ddof=0))
+    if sigma == 0.0:
+        return float("nan")
+
+    return (mu / sigma) * float(np.sqrt(periods_per_year))
