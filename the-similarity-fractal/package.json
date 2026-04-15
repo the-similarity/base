@@ -1,0 +1,13 @@
+{
+  "name": "the-similarity-fractal",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Fractal 3D simulation — includes a renderer-free, seeded headless runner for synthetic-world generation.",
+  "scripts": {
+    "sim:headless": "node src/sim/headless/runner.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
