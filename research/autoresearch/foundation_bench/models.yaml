@@ -1,0 +1,112 @@
+id: foundation-bench-v1-models
+title: Foundation-model registry for the foundation-bench lane
+status: active
+
+# ---------------------------------------------------------------------------
+# Registry entries
+# ---------------------------------------------------------------------------
+# Each entry documents a baseline forecaster: what module provides the
+# adapter, what pretrained weights (if any) it requires, its approximate
+# memory footprint, licensing, and whether the current environment is
+# expected to run the real model or fall back to the deterministic
+# synthetic forecast. The runner reads ``expect_real_weights`` only for
+# reporting — the adapter itself decides at runtime whether the real
+# weights are downloadable.
+# ---------------------------------------------------------------------------
+models:
+  - id: timesfm
+    adapter_module: research.autoresearch.foundation_bench.adapters.timesfm
+    adapter_class: TimesFMAdapter
+    type: foundation
+    hf_repo: google/timesfm-1.0-200m
+    params_m: 200
+    ctx_len: 512
+    default_config:
+      model_dim: 1280
+      horizon: 128
+    license: Apache-2.0
+    memory_footprint_mb: 800
+    expect_real_weights: false   # no transformers in this environment
+    explainability: low
+    notes: >-
+      Google's decoder-only time-series foundation model. No native
+      quantile head — we wrap the point forecast with an AR(1) residual
+      cone so quantiles can be supplied to the shared metrics.
+
+  - id: chronos
+    adapter_module: research.autoresearch.foundation_bench.adapters.chronos
+    adapter_class: ChronosAdapter
+    type: foundation
+    hf_repo: amazon/chronos-t5-small
+    params_m: 46
+    ctx_len: 512
+    default_config:
+      num_samples: 20
+      temperature: 1.0
+    license: Apache-2.0
+    memory_footprint_mb: 250
+    expect_real_weights: false
+    explainability: low
+    notes: >-
+      Amazon T5-small variant with probabilistic token-bucketed forecasts.
+      In the real-weights path the adapter samples ``num_samples`` paths
+      and builds quantiles empirically; in the synthetic fallback an
+      AR(1) cone with the empirical residual sigma is emitted instead.
+
+  - id: moirai
+    adapter_module: research.autoresearch.foundation_bench.adapters.moirai
+    adapter_class: MoiraiAdapter
+    type: foundation
+    hf_repo: Salesforce/moirai-1.0-R-small
+    params_m: 14
+    ctx_len: 5000
+    default_config:
+      num_samples: 20
+      patch_size: 32
+    license: Apache-2.0
+    memory_footprint_mb: 150
+    expect_real_weights: false
+    explainability: low
+    notes: >-
+      Salesforce masked-encoder foundation model with a parametric mixture
+      output head.  Smallest of the foundation baselines.
+
+  - id: moment
+    adapter_module: research.autoresearch.foundation_bench.adapters.moment
+    adapter_class: MOMENTAdapter
+    type: foundation
+    hf_repo: AutonLab/MOMENT-1-small
+    params_m: 40
+    ctx_len: 512
+    default_config:
+      task: forecasting
+    license: MIT
+    memory_footprint_mb: 200
+    expect_real_weights: false
+    explainability: low
+    notes: >-
+      CMU AutonLab's general-purpose model.  Its forecasting head
+      produces point forecasts; we wrap with a bootstrapped residual
+      cone to supply quantiles.
+
+  - id: wavelet_baseline
+    adapter_module: research.autoresearch.foundation_bench.adapters.wavelet_baseline
+    adapter_class: WaveletBaselineAdapter
+    type: classical
+    hf_repo: null
+    params_m: 0
+    ctx_len: null
+    default_config:
+      wavelet: db4
+      n_levels: 3
+      residual_order: 2     # AR(p) fitted on wavelet-denoised residuals
+    license: inherited (PyWavelets BSD-3-Clause)
+    memory_footprint_mb: 10
+    expect_real_weights: true     # purely classical, no download
+    explainability: medium
+    notes: >-
+      Classical wavelet baseline: Daubechies-4 denoise on the history,
+      fit AR(p) to the denoised series, forecast the mean, and wrap
+      with a bootstrap residual cone for quantiles.  Explainable via
+      the per-level wavelet coefficients.  Serves as the "wavelet-aware
+      model" required by the plan's Track 2A checklist.

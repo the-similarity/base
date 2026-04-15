@@ -88,10 +88,13 @@ describe("ScoreBreakdownBar", () => {
   });
 
   it("uses fallback color for unknown methods", () => {
+    // Fallback is now the editorial `--text-muted` token. Inline style resolves
+    // to the literal `var(--text-muted)` string because jsdom doesn't compute
+    // custom property values, so we assert on the var reference directly.
     const { container } = render(
       <ScoreBreakdownBar breakdown={{ unknown_method: 1.0 }} />
     );
-    const segment = container.querySelector(".score-bar-segment");
-    expect(segment).toHaveStyle({ backgroundColor: "#999" });
+    const segment = container.querySelector<HTMLElement>(".score-bar-segment");
+    expect(segment?.style.backgroundColor).toBe("var(--text-muted)");
   });
 });

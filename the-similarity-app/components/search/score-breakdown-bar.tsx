@@ -1,30 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import { METHOD_COLORS, METHOD_LABELS } from "../../lib/constants";
 
-const METHOD_COLORS: Record<string, string> = {
-  dtw: "#1a1a1a",
-  pearson_warped: "#4a4a4a",
-  bempedelis_r2: "#22a06b",
-  bempedelis_smoothness: "#2ea87e",
-  koopman: "#0066cc",
-  wavelet_spectrum: "#8844cc",
-  emd: "#cc6600",
-  tda: "#cc0044",
-  transfer_entropy: "#6688aa",
-};
+// Source of truth for method colors/labels is `lib/constants.ts`. Previously
+// this component duplicated the map with colored hues; the editorial deck
+// re-theme collapses both into a single monochrome ramp, so we import.
 
-const METHOD_LABELS: Record<string, string> = {
-  dtw: "DTW",
-  pearson_warped: "Pearson",
-  bempedelis_r2: "Bempedelis R\u00B2",
-  bempedelis_smoothness: "Bempedelis Smooth",
-  koopman: "Koopman",
-  wavelet_spectrum: "Wavelet",
-  emd: "EMD",
-  tda: "TDA",
-  transfer_entropy: "Transfer Entropy",
-};
+const FALLBACK_COLOR = "var(--text-muted)";
 
 type ScoreBreakdownBarProps = {
   breakdown: Record<string, number>;
@@ -48,7 +31,7 @@ export function ScoreBreakdownBar({ breakdown }: ScoreBreakdownBarProps) {
               className="score-bar-segment"
               style={{
                 width: `${pct}%`,
-                backgroundColor: METHOD_COLORS[method] ?? "#999",
+                backgroundColor: METHOD_COLORS[method] ?? FALLBACK_COLOR,
                 opacity: hoveredMethod && hoveredMethod !== method ? 0.4 : 1,
               }}
               onMouseEnter={() => setHoveredMethod(method)}
@@ -66,7 +49,7 @@ export function ScoreBreakdownBar({ breakdown }: ScoreBreakdownBarProps) {
             <span key={method} className="score-bar-legend-item">
               <span
                 className="score-bar-legend-swatch"
-                style={{ backgroundColor: METHOD_COLORS[method] ?? "#999" }}
+                style={{ backgroundColor: METHOD_COLORS[method] ?? FALLBACK_COLOR }}
               />
               {METHOD_LABELS[method] ?? method}
             </span>

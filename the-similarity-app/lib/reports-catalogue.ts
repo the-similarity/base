@@ -25,6 +25,16 @@ export type ReportEntry = {
 
 export const REPORTS: ReportEntry[] = [
   {
+    id: "findings-phase2-414",
+    title: "Phase 2 Findings — April 14/15",
+    summary:
+      "Infrastructure sprint. 27 slices locked, canonical report/gate/rejection-log shipped, foundation-model bench scaffolded (first run mostly synthetic fallback). The office the next ten benches live in.",
+    file: "findings_deck_phase2_414.html",
+    date: "2026-04-15",
+    kind: "findings",
+    tag: "Phase 2",
+  },
+  {
     id: "findings-414",
     title: "Phase 1 Findings — April 14",
     summary:

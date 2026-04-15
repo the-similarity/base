@@ -1,39 +1,51 @@
 /* ═══════════════════════════════════════════════════════════════════
-   THE SIMILARITY — Refined Dark Terminal
+   THE SIMILARITY — Editorial "Deck" theme
+   ───────────────────────────────────────────────────────────────────
+   Single light editorial palette mirroring the published decks
+   (see vision/pitch_deck_414.html, vision/findings_deck_414.html and
+   the .deck-* block at the bottom of this file). Off-white surfaces,
+   monochrome accents, quiet #e5e5e5 borders, mono font for labels /
+   numerics / timestamps, sans for body and headings. No glow, no
+   purple, no teal — hover is an opacity change or a quiet border.
    ═══════════════════════════════════════════════════════════════════ */
 
 :root {
-  /* Warm dark palette — not pure black, has depth */
-  --bg: #08090d;
-  --bg-elevated: #0f1117;
-  --bg-surface: #151820;
-  --bg-card: #181c26;
-  --bg-hover: #1e2333;
-  --bg-inset: #0c0d12;
+  /* Surfaces — off-white on white, with subtle insets for inputs */
+  --bg: #fafafa;
+  --bg-elevated: #ffffff;
+  --bg-surface: #ffffff;
+  --bg-card: #ffffff;
+  --bg-hover: #f3f3f3;
+  --bg-inset: #f0f0f0;
 
-  --text-primary: #e8e9ed;
-  --text-secondary: #7c7f8e;
-  --text-muted: #454857;
+  /* Ink — single-ink hierarchy: text → secondary → muted */
+  --text-primary: #1a1a1a;
+  --text-secondary: #4a4a4a;
+  --text-muted: #6b6b6b;
 
-  --border: rgba(255, 255, 255, 0.06);
-  --border-strong: rgba(255, 255, 255, 0.1);
-  --border-focus: rgba(255, 255, 255, 0.18);
+  /* Borders — quiet lines, no opacity tricks */
+  --border: #e5e5e5;
+  --border-strong: #d5d5d5;
+  --border-focus: #1a1a1a;
 
-  --positive: #34d399;
-  --positive-dim: rgba(52, 211, 153, 0.1);
-  --negative: #f87171;
-  --negative-dim: rgba(248, 113, 113, 0.1);
+  /* Semantic status colors — editorial dark green / deep red / ochre */
+  --positive: #116530;
+  --positive-dim: rgba(17, 101, 48, 0.08);
+  --negative: #9a1f1f;
+  --negative-dim: rgba(154, 31, 31, 0.08);
 
-  --accent: #818cf8;
-  --accent-dim: rgba(129, 140, 248, 0.1);
-  --accent-glow: rgba(129, 140, 248, 0.25);
+  /* Accent is now monochrome ink. No purple. */
+  --accent: #1a1a1a;
+  --accent-dim: #f0f0f0;
+  --accent-glow: transparent;
 
-  --chart-query: #e8e9ed;
-  --chart-match: #818cf8;
-  --chart-match-dim: rgba(129, 140, 248, 0.2);
-  --chart-forecast: #34d399;
-  --chart-forecast-fill: rgba(52, 211, 153, 0.06);
-  --chart-grid: rgba(255, 255, 255, 0.04);
+  /* Chart colors — grayscale + single ink accent */
+  --chart-query: #1a1a1a;
+  --chart-match: #6b6b6b;
+  --chart-match-dim: rgba(26, 26, 26, 0.08);
+  --chart-forecast: #116530;
+  --chart-forecast-fill: rgba(17, 101, 48, 0.06);
+  --chart-grid: #ececec;
 
   /* Spacing */
   --space-xs: 4px;
@@ -44,43 +56,20 @@
   --space-2xl: 32px;
   --space-3xl: 40px;
 
-  /* Typography */
-  --font-mono: "SF Mono", "Fira Code", "Cascadia Code", "JetBrains Mono", monospace;
-  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  /* Typography — editorial: mono for labels/numbers, sans for body */
+  --font-mono: "SF Mono", "Fira Code", "Consolas", "JetBrains Mono", monospace;
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
 
-  /* Radii — generous, soft edges */
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 16px;
+  /* Radii — restrained; no pill CTAs */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
   --radius-pill: 100px;
 
-  /* Shadows */
-  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.3), 0 0 0 1px var(--border);
-  --shadow-card-hover: 0 4px 16px rgba(0, 0, 0, 0.4), 0 0 0 1px var(--border-strong);
-  --shadow-selected: 0 0 0 1px var(--accent), 0 0 20px var(--accent-glow);
-}
-
-/* Light mode override */
-[data-theme="light"] {
-  --bg: #f6f7f9;
-  --bg-elevated: #ffffff;
-  --bg-surface: #f0f1f4;
-  --bg-card: #ffffff;
-  --bg-hover: #ebedf2;
-  --bg-inset: #e8eaef;
-  --text-primary: #1a1c23;
-  --text-secondary: #6b6e7b;
-  --text-muted: #b0b3be;
-  --border: rgba(0, 0, 0, 0.06);
-  --border-strong: rgba(0, 0, 0, 0.1);
-  --border-focus: rgba(0, 0, 0, 0.18);
-  --chart-query: #1a1c23;
-  --chart-match: #818cf8;
-  --chart-match-dim: rgba(129, 140, 248, 0.12);
-  --chart-grid: rgba(0, 0, 0, 0.04);
-  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.08), 0 0 0 1px var(--border);
-  --shadow-card-hover: 0 4px 12px rgba(0, 0, 0, 0.1), 0 0 0 1px var(--border-strong);
-  --shadow-selected: 0 0 0 2px var(--accent), 0 0 16px rgba(129, 140, 248, 0.15);
+  /* Shadows — decks use borders, not shadows */
+  --shadow-card: 0 0 0 1px var(--border);
+  --shadow-card-hover: 0 0 0 1px var(--border-strong);
+  --shadow-selected: 0 0 0 1px var(--accent);
 }
 
 /* ── Reset ── */
@@ -102,6 +91,53 @@ html, body {
 
 button, input, textarea, select { font: inherit; }
 button { cursor: pointer; }
+
+/* ── Editorial focus rings ──────────────────────────────────────────
+ * Every focusable control gets a black (text-primary) 2px outline on
+ * keyboard focus — never a colored accent-glow. Mouse focus stays
+ * quiet to avoid double-ring on click. Components can override by
+ * targeting a more specific selector. */
+:focus-visible {
+  outline: 2px solid var(--text-primary);
+  outline-offset: 1px;
+}
+button:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--text-primary);
+  outline-offset: 2px;
+}
+
+/* ── Editorial typography defaults ───────────────────────────────────
+ * Page bodies inherit from these; component classes can still override
+ * any one value. Keeping these "defaults, not dogma" means existing
+ * component styles aren't disturbed, we just stop ad-hoc headings from
+ * looking like random system UI.
+ * - h1 = 40px editorial title scale
+ * - h2 = 26px section heading scale
+ * - h3 = 18px card heading scale
+ * Mono is reserved for labels, tags, timestamps (use `--font-mono`).
+ * ─────────────────────────────────────────────────────────────────── */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-sans);
+  color: var(--text-primary);
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+h1 { font-size: 40px; letter-spacing: -0.04em; line-height: 1.1; }
+h2 { font-size: 26px; letter-spacing: -0.03em; }
+h3 { font-size: 18px; letter-spacing: -0.02em; }
+
+/* Mono utility class for timestamps / labels / tags — opt-in. */
+.mono-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
 
 /* ── Scrollbar ── */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
@@ -329,16 +365,21 @@ button { cursor: pointer; }
 
 .match-card:hover,
 .match-card[data-highlighted="true"] {
-  background: var(--bg-hover);
+  /* Editorial hover: no translate, no shadow — just a quiet opacity fade
+   * with a slightly firmer border so the card stays anchored to the column. */
+  background: var(--bg-card);
   border-color: var(--border-strong);
-  box-shadow: var(--shadow-card-hover);
-  transform: translateY(-1px);
+  box-shadow: none;
+  opacity: 0.85;
+  transform: none;
 }
 
 .match-card[data-selected="true"] {
-  background: var(--accent-dim);
+  /* Selected: ink border, no shadow. The black outline is enough signal. */
+  background: var(--bg-card);
   border-color: var(--accent);
-  box-shadow: var(--shadow-selected);
+  box-shadow: none;
+  opacity: 1;
 }
 
 .match-card-rank {
@@ -566,7 +607,7 @@ button { cursor: pointer; }
   align-items: center;
   justify-content: center;
   gap: 12px;
-  background: rgba(8, 9, 13, 0.7);
+  background: rgba(250, 250, 250, 0.85);
   z-index: 10;
   color: var(--text-secondary);
   font-family: var(--font-mono);
@@ -646,18 +687,20 @@ button { cursor: pointer; }
   flex-shrink: 0;
 }
 
+/*
+ * Status dots — editorial theme: no glow. Color alone conveys state;
+ * a soft border replaces the former box-shadow halo that belonged to
+ * the dark terminal.
+ */
 .status-dot--live {
   background: var(--positive);
-  box-shadow: 0 0 6px rgba(52, 211, 153, 0.5);
 }
 .status-dot--loading {
   background: var(--accent);
   animation: pulse 1.5s infinite;
-  box-shadow: 0 0 6px rgba(129, 140, 248, 0.5);
 }
 .status-dot--error {
   background: var(--negative);
-  box-shadow: 0 0 6px rgba(248, 113, 113, 0.5);
 }
 
 @keyframes pulse {
@@ -730,9 +773,10 @@ button { cursor: pointer; }
 }
 
 .search-sidebar__filter-input:focus {
+  /* Editorial focus: black border only, no accent-dim ring glow. */
   outline: none;
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-dim);
+  box-shadow: none;
 }
 
 .search-sidebar__filter-input::placeholder {
@@ -907,12 +951,11 @@ button { cursor: pointer; }
 
 .search-bar-range::-webkit-slider-thumb {
   appearance: none;
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
   border-radius: 50%;
   background: var(--accent);
   border: 2px solid var(--bg-elevated);
-  box-shadow: 0 0 8px var(--accent-glow);
   cursor: pointer;
 }
 
@@ -941,30 +984,34 @@ button { cursor: pointer; }
   border-color: var(--accent);
 }
 
+/*
+ * Primary CTA — editorial monochrome button. Solid ink fill, mono
+ * label, no glow or lift. Hover drops opacity to 0.65 to match deck
+ * links/buttons rather than shifting color.
+ */
 .search-sidebar__run-btn {
   width: 100%;
   padding: 9px;
   border-radius: var(--radius-sm);
-  border: none;
+  border: 1px solid var(--accent);
   background: var(--accent);
-  color: #fff;
-  font-size: 12px;
+  color: var(--bg-elevated);
+  font-family: var(--font-mono);
+  font-size: 11px;
   font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   cursor: pointer;
-  transition: all 150ms ease;
-  box-shadow: 0 2px 8px rgba(129, 140, 248, 0.3);
+  transition: opacity 120ms ease;
 }
 
 .search-sidebar__run-btn:hover {
-  box-shadow: 0 4px 16px rgba(129, 140, 248, 0.4);
-  transform: translateY(-1px);
+  opacity: 0.65;
 }
 
 .search-sidebar__run-btn:disabled {
   opacity: 0.35;
   cursor: not-allowed;
-  transform: none;
-  box-shadow: none;
 }
 
 .search-sidebar__cancel-btn {
@@ -972,20 +1019,23 @@ button { cursor: pointer; }
   padding: 9px;
   border-radius: var(--radius-sm);
   border: 1px solid var(--negative);
-  background: var(--negative-dim);
+  background: var(--bg-elevated);
   color: var(--negative);
-  font-size: 12px;
+  font-family: var(--font-mono);
+  font-size: 11px;
   font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   cursor: pointer;
   transition: all 150ms ease;
 }
 
-/* Trajectory line on chart */
+/* Trajectory line on chart — editorial: dark ink + dashed, no amber */
 .chart-line-trajectory {
-  stroke: #fbbf24;
-  stroke-width: 1.8;
+  stroke: var(--text-primary);
+  stroke-width: 1.5;
   stroke-dasharray: 3 4;
-  opacity: 0.9;
+  opacity: 0.7;
 }
 
 /* ── Responsive ── */
@@ -1014,10 +1064,14 @@ button { cursor: pointer; }
    Strategy Builder
    ═══════════════════════════════════════════════════════════════════ */
 
+/* Strategy page adopts the editorial deck column. Because html/body is
+ * `overflow: hidden`, we must cap at `calc(100vh - 40px)` and scroll on
+ * the page container. The strategy topbar stays pinned at the top of the
+ * column so its height is already accounted for in `.strategy-content`. */
 .strategy-page {
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  height: calc(100vh - 40px);
   overflow: hidden;
   background: var(--bg);
 }
@@ -1052,21 +1106,25 @@ button { cursor: pointer; }
 .strategy-content {
   flex: 1;
   overflow-y: auto;
-  padding: var(--space-xl);
+  padding: 48px 24px 96px;
   display: flex;
   flex-direction: column;
-  gap: var(--space-xl);
+  gap: var(--space-2xl);
+  max-width: 1120px;
+  margin: 0 auto;
+  width: 100%;
 }
 
 /* ── Strategy Template Cards ── */
 
 .strategy-section-label {
-  font-family: var(--font-sans);
+  /* Editorial kicker: mono uppercase label that sits above each section. */
+  font-family: var(--font-mono);
   font-size: 11px;
   font-weight: 600;
   color: var(--text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.6px;
+  letter-spacing: 0.08em;
   margin-bottom: var(--space-md);
 }
 
@@ -1076,30 +1134,34 @@ button { cursor: pointer; }
   gap: var(--space-lg);
 }
 
+/* Strategy cards: editorial deck-report treatment — top-border accent, flat
+ * (no shadow), opacity hover. Selected state inverts the top border from
+ * quiet gray to full ink so the chosen card reads like a stamped page. */
 .strategy-card {
   background: var(--bg-card);
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  border-top: 3px solid var(--border-strong);
+  border-radius: 0;
   padding: var(--space-xl);
   cursor: pointer;
-  transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: var(--shadow-card);
+  transition: opacity 120ms ease, border-color 120ms ease;
+  box-shadow: none;
   display: flex;
   flex-direction: column;
   gap: var(--space-sm);
 }
 
 .strategy-card:hover {
-  background: var(--bg-hover);
-  border-color: var(--border-strong);
-  box-shadow: var(--shadow-card-hover);
-  transform: translateY(-2px);
+  opacity: 0.85;
+  box-shadow: none;
+  transform: none;
 }
 
 .strategy-card[data-selected="true"] {
-  background: var(--accent-dim);
-  border-color: var(--accent);
-  box-shadow: var(--shadow-selected);
+  background: var(--bg-card);
+  border-color: var(--border);
+  border-top-color: var(--text-primary);
+  box-shadow: none;
 }
 
 .strategy-card-icon {
@@ -1152,7 +1214,7 @@ button { cursor: pointer; }
 .strategy-config {
   background: var(--bg-elevated);
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  border-radius: 0;
   padding: var(--space-xl);
   display: flex;
   flex-direction: column;
@@ -1168,12 +1230,12 @@ button { cursor: pointer; }
 }
 
 .strategy-config-section-title {
-  font-family: var(--font-sans);
+  font-family: var(--font-mono);
   font-size: 11px;
   font-weight: 600;
   color: var(--text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.08em;
   padding-bottom: var(--space-sm);
   border-bottom: 1px solid var(--border);
 }
@@ -1218,6 +1280,8 @@ button { cursor: pointer; }
 }
 
 .strategy-slider-input::-webkit-slider-thumb {
+  /* Editorial thumb: black ink circle with a white "halo" ring from the
+   * elevated bg — no glow, no scale on hover. Opacity fades instead. */
   appearance: none;
   -webkit-appearance: none;
   width: 14px;
@@ -1225,13 +1289,13 @@ button { cursor: pointer; }
   border-radius: 50%;
   background: var(--accent);
   border: 2px solid var(--bg-elevated);
-  box-shadow: 0 0 6px var(--accent-glow);
+  box-shadow: none;
   cursor: pointer;
-  transition: transform 120ms ease;
+  transition: opacity 120ms ease;
 }
 
 .strategy-slider-input::-webkit-slider-thumb:hover {
-  transform: scale(1.2);
+  opacity: 0.65;
 }
 
 .strategy-slider-input::-moz-range-thumb {
@@ -1240,7 +1304,7 @@ button { cursor: pointer; }
   border-radius: 50%;
   background: var(--accent);
   border: 2px solid var(--bg-elevated);
-  box-shadow: 0 0 6px var(--accent-glow);
+  box-shadow: none;
   cursor: pointer;
 }
 
@@ -1260,24 +1324,29 @@ button { cursor: pointer; }
 
 /* ── Apply Button ── */
 
+/*
+ * Strategy "Apply" CTA — same editorial primary button treatment as
+ * .search-sidebar__run-btn. Mono label, monochrome ink fill, no glow.
+ */
 .strategy-apply-btn {
   width: 100%;
   padding: 10px;
   border-radius: var(--radius-sm);
-  border: none;
+  border: 1px solid var(--accent);
   background: var(--accent);
-  color: #fff;
-  font-size: 12px;
+  color: var(--bg-elevated);
+  font-family: var(--font-mono);
+  font-size: 11px;
   font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   cursor: pointer;
-  transition: all 150ms ease;
-  box-shadow: 0 2px 8px rgba(129, 140, 248, 0.3);
+  transition: opacity 120ms ease;
   margin-top: var(--space-sm);
 }
 
 .strategy-apply-btn:hover {
-  box-shadow: 0 4px 16px rgba(129, 140, 248, 0.4);
-  transform: translateY(-1px);
+  opacity: 0.65;
 }
 
 /* ── Signal Table ── */
@@ -1285,7 +1354,7 @@ button { cursor: pointer; }
 .strategy-signals {
   background: var(--bg-elevated);
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  border-radius: 0;
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -1300,12 +1369,12 @@ button { cursor: pointer; }
 }
 
 .strategy-signals-title {
-  font-family: var(--font-sans);
+  font-family: var(--font-mono);
   font-size: 11px;
   font-weight: 600;
   color: var(--text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.6px;
+  letter-spacing: 0.08em;
 }
 
 .strategy-signals-count {
@@ -1367,13 +1436,13 @@ button { cursor: pointer; }
 .strategy-badge-long {
   background: var(--positive-dim);
   color: var(--positive);
-  border: 1px solid rgba(52, 211, 153, 0.2);
+  border: 1px solid var(--positive);
 }
 
 .strategy-badge-short {
   background: var(--negative-dim);
   color: var(--negative);
-  border: 1px solid rgba(248, 113, 113, 0.2);
+  border: 1px solid var(--negative);
 }
 
 .strategy-badge-flat {
@@ -1486,19 +1555,21 @@ button { cursor: pointer; }
 .strategy-metric-card {
   background: var(--bg-card);
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  border-top: 3px solid var(--text-primary);
+  border-radius: 0;
   padding: var(--space-xl);
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: var(--space-xs);
-  box-shadow: var(--shadow-card);
-  transition: all 180ms ease;
+  box-shadow: none;
+  transition: opacity 120ms ease;
 }
 
 .strategy-metric-card:hover {
-  box-shadow: var(--shadow-card-hover);
-  transform: translateY(-1px);
+  box-shadow: none;
+  transform: none;
+  opacity: 0.85;
 }
 
 .strategy-metric-value {
@@ -1654,13 +1725,17 @@ button { cursor: pointer; }
 }
 
 /* ═══════════════════════════════════════════════════════════════════
-   Navigation Bar
+   Navigation Bar — editorial "deck" style
+   ───────────────────────────────────────────────────────────────────
+   White bar with a single bottom border. Mono wordmark in black.
+   Plain mono text links; hover drops opacity (no fill swap). Active
+   page is marked with a thin bottom-border rule, not a pill.
    ═══════════════════════════════════════════════════════════════════ */
 
 .nav-bar {
   display: flex;
   align-items: center;
-  gap: var(--space-xs);
+  gap: var(--space-md);
   padding: 0 var(--space-xl);
   height: 40px;
   background: var(--bg-elevated);
@@ -1670,18 +1745,18 @@ button { cursor: pointer; }
 
 .nav-bar__logo {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
   color: var(--text-primary);
-  letter-spacing: 1.5px;
-  margin-right: var(--space-sm);
+  letter-spacing: 0.12em;
+  margin-right: var(--space-md);
   flex-shrink: 0;
 }
 
 .nav-bar__sep {
   width: 1px;
   height: 16px;
-  background: var(--border-strong);
+  background: var(--border);
   margin: 0 var(--space-sm);
   flex-shrink: 0;
 }
@@ -1692,34 +1767,41 @@ button { cursor: pointer; }
   font-weight: 500;
   color: var(--text-muted);
   text-decoration: none;
-  padding: 6px 12px;
-  border-radius: var(--radius-sm);
-  transition: all 150ms ease;
-  letter-spacing: 0.3px;
+  padding: 10px 4px;
+  border-bottom: 2px solid transparent;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  transition: color 120ms ease, border-color 120ms ease, opacity 120ms ease;
 }
 
 .nav-link:hover {
-  color: var(--text-secondary);
-  background: var(--bg-hover);
+  color: var(--text-primary);
+  opacity: 0.65;
 }
 
 .nav-link.active {
-  color: var(--accent);
-  background: var(--accent-dim);
+  color: var(--text-primary);
+  border-bottom-color: var(--text-primary);
 }
 
 /* ═══════════════════════════════════════════════════════════════════
    Portfolio Scanner
    ═══════════════════════════════════════════════════════════════════ */
 
+/* Portfolio page adopts the editorial `.deck-page` column: off-white page,
+ * centered 820px column, generous top/bottom padding, quiet gray rules
+ * between sections rather than floating shadowed cards. */
 .portfolio-page {
   display: flex;
   flex-direction: column;
   height: calc(100vh - 40px);
   overflow-y: auto;
   background: var(--bg);
-  padding: var(--space-xl) var(--space-2xl) var(--space-3xl);
+  padding: 48px 24px 96px;
   gap: var(--space-2xl);
+  max-width: 1120px;
+  margin: 0 auto;
+  width: 100%;
 }
 
 /* ── Header ── */
@@ -1757,12 +1839,14 @@ button { cursor: pointer; }
 }
 
 .portfolio-header__title {
+  /* Editorial h1 scale: 40px, tight negative tracking, quiet weight step. */
   font-family: var(--font-sans);
-  font-size: 22px;
+  font-size: 40px;
   font-weight: 700;
   color: var(--text-primary);
   margin: 0;
-  letter-spacing: -0.3px;
+  letter-spacing: -0.04em;
+  line-height: 1.1;
 }
 
 .portfolio-header__subtitle {
@@ -1787,12 +1871,13 @@ button { cursor: pointer; }
 }
 
 .portfolio-section__title {
-  font-family: var(--font-sans);
+  /* Editorial section tag: mono, uppercase, deck-style kicker above content. */
+  font-family: var(--font-mono);
   font-size: 11px;
   font-weight: 600;
   color: var(--text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.6px;
+  letter-spacing: 0.08em;
   margin: 0;
 }
 
@@ -1812,23 +1897,27 @@ button { cursor: pointer; }
 
 /* ── Regime Card ── */
 
+/* Regime card: editorial deck-report language — no shadow, no translate on
+ * hover, top-border accent rule, subtle opacity fade. Cards sit flat on
+ * the off-white column instead of floating. */
 .portfolio-regime-card {
   background: var(--bg-card);
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  border-top: 3px solid var(--text-primary);
+  border-radius: 0;
   padding: var(--space-lg);
   display: flex;
   flex-direction: column;
   gap: var(--space-md);
-  box-shadow: var(--shadow-card);
-  transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: none;
+  transition: opacity 120ms ease;
   cursor: default;
 }
 
 .portfolio-regime-card:hover {
-  border-color: var(--border-focus);
-  box-shadow: var(--shadow-card-hover);
-  transform: translateY(-1px);
+  opacity: 0.85;
+  box-shadow: none;
+  transform: none;
 }
 
 .portfolio-regime-card__header {
@@ -1907,10 +1996,12 @@ button { cursor: pointer; }
 
 /* ── Portfolio Tables (shared) ── */
 
+/* Editorial deck table: plain borders, no rounded corners or float; mono
+ * numerics and uppercase mono headers. */
 .portfolio-table-wrap {
   overflow-x: auto;
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  border-radius: 0;
   background: var(--bg-elevated);
 }
 
@@ -1921,12 +2012,12 @@ button { cursor: pointer; }
 }
 
 .portfolio-table__th {
-  font-family: var(--font-sans);
+  font-family: var(--font-mono);
   font-size: 10px;
-  font-weight: 600;
+  font-weight: 700;
   color: var(--text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.4px;
+  letter-spacing: 0.08em;
   padding: var(--space-md) var(--space-lg);
   text-align: left;
   border-bottom: 1px solid var(--border);
@@ -1959,7 +2050,7 @@ button { cursor: pointer; }
 }
 
 .portfolio-table__row:nth-child(even) {
-  background: rgba(255, 255, 255, 0.01);
+  background: var(--bg);
 }
 
 .portfolio-table__row:hover {
@@ -2075,6 +2166,11 @@ button { cursor: pointer; }
   border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
 }
 
+/*
+ * Weakness indicator — editorial: ochre `--deck-warn` tone for
+ * "caution" instead of the dark-terminal orange. Soft surface tint,
+ * quiet left border.
+ */
 .detail-weakness {
   display: flex;
   align-items: center;
@@ -2082,9 +2178,9 @@ button { cursor: pointer; }
   font-size: 11px;
   color: var(--text-secondary);
   padding: var(--space-xs) var(--space-sm);
-  border-left: 2px solid #fb923c;
+  border-left: 2px solid #8a6200;
   margin-bottom: var(--space-xs);
-  background: rgba(251, 146, 60, 0.08);
+  background: rgba(138, 98, 0, 0.06);
   border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
 }
 
@@ -2178,10 +2274,11 @@ button { cursor: pointer; }
 }
 
 .search-progress-fill {
+  /* Editorial progress fill: solid ink, no glow. */
   height: 100%;
   border-radius: var(--radius-pill);
   background: var(--accent);
-  box-shadow: 0 0 8px var(--accent-glow);
+  box-shadow: none;
   transition: width 600ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -2243,7 +2340,7 @@ button { cursor: pointer; }
   height: 36px;
   border-radius: 50%;
   background: var(--negative-dim);
-  border: 1px solid rgba(248, 113, 113, 0.2);
+  border: 1px solid var(--negative);
   color: var(--negative);
   font-size: 16px;
   font-weight: 700;
@@ -2353,7 +2450,7 @@ button { cursor: pointer; }
   --deck-mono: "SF Mono", "Fira Code", "Consolas", monospace;
   --deck-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
 
-  min-height: calc(100vh - 40px);
+  height: calc(100vh - 40px);
   background: var(--deck-bg);
   color: var(--deck-text);
   font-family: var(--deck-sans);

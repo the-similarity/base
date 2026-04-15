@@ -1,0 +1,32 @@
+# ============================================================================
+# Regime bucket — TREND
+# ============================================================================
+# Persistent directional moves (bull OR bear) with strong autocorrelation.
+# Lists slice IDs from `../catalogue.yaml` that belong to this regime class.
+#
+# Rule: every entry below MUST exist in the catalogue with
+# `regime_class: trend`; `validate.py` enforces this.
+# ============================================================================
+
+regime_class: trend
+description: >-
+  Persistent directional runs (up OR down) where cumulative return trajectory
+  is approximately monotone on the slice window.  DTW/Pearson shape methods
+  are expected to be strong here — Tier-2 methods must still add
+  calibration value to justify their CPU.
+
+slice_ids:
+  # Equity index ------------------------------------------------------------
+  - spy-bull-2016-2019              # LEGACY — secular bull drift
+  - spy-post-covid-rally-2020-2021  # 2020-03 trough to 2021-12 taper-talk
+
+  # Single-name equity ------------------------------------------------------
+  - nvda-long-run                   # LEGACY — decade of regime shifts
+  - tsla-long-run                   # LEGACY — decade, volatile mega-cap
+  - nvda-melt-up-2020-2021          # +700% parabolic uptrend
+  - tsla-melt-up-2020                # +740%, S&P-inclusion run
+
+  # Crypto ------------------------------------------------------------------
+  - btc-long-run                    # LEGACY — 2019-09 to 2024-12
+  - btc-parabola-2020-2021          # COVID-low to Coinbase-IPO peak
+  - btc-parabola-2017               # missing_data=true, synth fallback

@@ -46,6 +46,14 @@ Vault for **The Similarity**: research ingests, what we learn while building, an
 - [[Adaptive conformal calibration 414]] — −14% CRPS, −0.033 calibration error; winning projector variant, awaits real-data confirmation
 - [[Trust filter and decision rules 414]] — search → project → trust-gate → decide → review, opt-in modules; pilot-shaped not pitch-ready
 
+## Phase 2 findings — 2026-04-14/15
+
+- [[phase_2_findings_414]] — **compiled research record** across all three tracks
+- [[Slice catalogue v1 — 414]] — 27 slices, 4 regime classes, 3 cross-asset pairs, append-only
+- [[Autoresearch canonical core — 414]] — canonical ledger + gates + reports + rejection log for every future lane
+- [[Foundation-model baselines 414]] — infra shipped, first-run mostly synthetic fallback; wavelet classical is the baseline to beat
+- [[Rejected directions 414]] — `rejections.jsonl` backfilled with tier2-as-default + regime-aware-widening
+
 ## Backlog (optional)
 
 - [ ] Add `raw/` ingest + one compiled [[topics/Concepts index|concept]] note

@@ -1,0 +1,28 @@
+# ============================================================================
+# Regime bucket — MEAN_REVERTING
+# ============================================================================
+# Range-bound oscillation around a level, low net drift, no regime break
+# inside the window.  Lists slice IDs from `../catalogue.yaml` that belong
+# to this regime class.
+#
+# Rule: every entry below MUST exist in the catalogue with
+# `regime_class: mean_reverting`; `validate.py` enforces this.
+# ============================================================================
+
+regime_class: mean_reverting
+description: >-
+  Range-bound oscillation: cumulative net return across the window is small
+  relative to realized intra-window range.  Tests whether retrieval finds
+  cyclic analogues and whether uncertainty cones avoid spurious trend
+  extrapolation.
+
+slice_ids:
+  # Equity index ------------------------------------------------------------
+  - spy-range-2015-2016        # ~15-month band before Trump-rally breakout
+
+  # Single-name equity ------------------------------------------------------
+  - nvda-range-2022-pre-ai     # 2022-low to 2023-05 ChatGPT-era breakout
+  - aapl-range-2016            # iPhone-7 cycle consolidation
+
+  # Crypto ------------------------------------------------------------------
+  - btc-range-2019             # dataset-available portion of 2019 range

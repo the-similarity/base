@@ -1,0 +1,31 @@
+# ============================================================================
+# Regime bucket — CRISIS
+# ============================================================================
+# Tail-event drawdowns, vol spikes, structural breaks.  Lists slice IDs
+# from `../catalogue.yaml` that belong to this regime class.
+#
+# Rule: every entry below MUST exist in the catalogue with
+# `regime_class: crisis`; `validate.py` enforces this.
+# ============================================================================
+
+regime_class: crisis
+description: >-
+  Tail-event drawdowns where realized vol spikes ≥ 2x the trailing 6M median.
+  Shape-only retrieval is expected to struggle; this is where Tier-2
+  (Koopman, Wavelet, TDA, TE) is hypothesized to earn its place.
+
+slice_ids:
+  # Equity index — daily SPY covers GFC, flash, Volmageddon, COVID, 2022 -
+  - spy-gfc-2008           # 2007-10 ATH to 2009-03 trough (-56%)
+  - spy-flash-crash-2010   # May-2010 intraday dislocation window
+  - spy-volmageddon-2018   # Feb-2018 XIV-termination vol spike
+  - spy-covid-2020         # LEGACY — COVID V-shape
+  - spy-rate-hike-2022     # LEGACY — 2022 grinding bear
+
+  # Single-name equity ------------------------------------------------------
+  - nvda-covid-2020        # COVID drawdown + V-recovery (paired with SPY)
+  - nvda-drawdown-2022     # NVDA -66% from 2021 peak
+
+  # Crypto ------------------------------------------------------------------
+  - btc-collapse-2022      # LUNA, 3AC, Celsius, FTX cascade
+  - eth-collapse-2022      # parallel crypto-winter drawdown
