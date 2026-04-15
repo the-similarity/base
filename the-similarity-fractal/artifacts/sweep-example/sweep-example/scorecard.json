@@ -1,0 +1,250 @@
+{
+  "kind": "worlds",
+  "sweep_id": "example",
+  "scenario": {
+    "world": {
+      "size": 48,
+      "initial_population": 24
+    },
+    "params": {
+      "energy_decay": 0.01,
+      "move_speed": 1,
+      "food_spawn_rate": 0.05,
+      "food_energy": 0.3
+    }
+  },
+  "knob_grid": {
+    "food_spawn_rate": [
+      0.02,
+      0.08
+    ],
+    "energy_decay": [
+      0.005,
+      0.01,
+      0.02
+    ]
+  },
+  "seeds": [
+    1,
+    2,
+    3
+  ],
+  "ticks": 120,
+  "regime_coverage": {
+    "regime_labels": [
+      "collapsed:starving",
+      "collapsed:lean",
+      "collapsed:fed",
+      "thin:starving",
+      "thin:lean",
+      "thin:fed",
+      "healthy:starving",
+      "healthy:lean",
+      "healthy:fed"
+    ],
+    "global": {
+      "regimes_visited": [
+        "collapsed:starving",
+        "healthy:fed",
+        "healthy:lean",
+        "healthy:starving",
+        "thin:starving"
+      ],
+      "coverage": 0.5555555555555556,
+      "counts": {
+        "healthy:fed": 316,
+        "healthy:lean": 775,
+        "healthy:starving": 193,
+        "thin:starving": 242,
+        "collapsed:starving": 634
+      }
+    },
+    "per_config": [
+      {
+        "knobs": {
+          "food_spawn_rate": 0.02,
+          "energy_decay": 0.01
+        },
+        "regimes_visited": [
+          "collapsed:starving",
+          "healthy:fed",
+          "healthy:lean",
+          "healthy:starving",
+          "thin:starving"
+        ],
+        "coverage": 0.5555555555555556
+      },
+      {
+        "knobs": {
+          "food_spawn_rate": 0.08,
+          "energy_decay": 0.01
+        },
+        "regimes_visited": [
+          "collapsed:starving",
+          "healthy:fed",
+          "healthy:lean",
+          "healthy:starving",
+          "thin:starving"
+        ],
+        "coverage": 0.5555555555555556
+      },
+      {
+        "knobs": {
+          "food_spawn_rate": 0.02,
+          "energy_decay": 0.02
+        },
+        "regimes_visited": [
+          "collapsed:starving",
+          "healthy:fed",
+          "healthy:lean",
+          "healthy:starving",
+          "thin:starving"
+        ],
+        "coverage": 0.5555555555555556
+      },
+      {
+        "knobs": {
+          "food_spawn_rate": 0.08,
+          "energy_decay": 0.02
+        },
+        "regimes_visited": [
+          "collapsed:starving",
+          "healthy:fed",
+          "healthy:lean",
+          "healthy:starving",
+          "thin:starving"
+        ],
+        "coverage": 0.5555555555555556
+      },
+      {
+        "knobs": {
+          "food_spawn_rate": 0.02,
+          "energy_decay": 0.005
+        },
+        "regimes_visited": [
+          "healthy:fed",
+          "healthy:lean",
+          "healthy:starving"
+        ],
+        "coverage": 0.3333333333333333
+      },
+      {
+        "knobs": {
+          "food_spawn_rate": 0.08,
+          "energy_decay": 0.005
+        },
+        "regimes_visited": [
+          "healthy:fed",
+          "healthy:lean",
+          "healthy:starving"
+        ],
+        "coverage": 0.3333333333333333
+      }
+    ]
+  },
+  "controllability": {
+    "food_spawn_rate": {
+      "alive": {
+        "effect_size": 0.011857269237392153,
+        "p_value": 0.7085828343313373,
+        "n": 18
+      },
+      "mean_energy": {
+        "effect_size": 0.09980079910843549,
+        "p_value": 0.6147704590818364,
+        "n": 18
+      },
+      "mean_age": {
+        "effect_size": 0.13233944222711205,
+        "p_value": 0.5808383233532934,
+        "n": 18
+      },
+      "food_count": {
+        "effect_size": 0.7021943149062947,
+        "p_value": 0.001996007984031936,
+        "n": 18
+      },
+      "cumulative_deaths": {
+        "effect_size": -0.011857269237392118,
+        "p_value": 0.7085828343313373,
+        "n": 18
+      },
+      "cumulative_food_eaten": {
+        "effect_size": 0.5334005334008002,
+        "p_value": 0.031936127744510975,
+        "n": 18
+      }
+    },
+    "energy_decay": {
+      "alive": {
+        "effect_size": -0.7632478911130681,
+        "p_value": 0.003992015968063872,
+        "n": 18
+      },
+      "mean_energy": {
+        "effect_size": -0.7844350900500214,
+        "p_value": 0.001996007984031936,
+        "n": 18
+      },
+      "mean_age": {
+        "effect_size": -0.8060365899542794,
+        "p_value": 0.001996007984031936,
+        "n": 18
+      },
+      "food_count": {
+        "effect_size": 0.2049875232151527,
+        "p_value": 0.47105788423153694,
+        "n": 18
+      },
+      "cumulative_deaths": {
+        "effect_size": 0.7632478911130681,
+        "p_value": 0.003992015968063872,
+        "n": 18
+      },
+      "cumulative_food_eaten": {
+        "effect_size": -0.5362869443086833,
+        "p_value": 0.013972055888223553,
+        "n": 18
+      }
+    }
+  },
+  "provenance": {
+    "source_id": "worlds-headless-minimal",
+    "generator_name": "worlds_headless",
+    "generator_version": "0.1.0",
+    "seed": 1,
+    "params": {
+      "baseScenario": {
+        "world": {
+          "size": 48,
+          "initial_population": 24
+        },
+        "params": {
+          "energy_decay": 0.01,
+          "move_speed": 1,
+          "food_spawn_rate": 0.05,
+          "food_energy": 0.3
+        }
+      },
+      "knobGrid": {
+        "food_spawn_rate": [
+          0.02,
+          0.08
+        ],
+        "energy_decay": [
+          0.005,
+          0.01,
+          0.02
+        ]
+      },
+      "seeds": [
+        1,
+        2,
+        3
+      ],
+      "ticks": 120,
+      "runtime_ms": 7
+    },
+    "created_at": "2026-04-15T21:27:51Z"
+  }
+}

@@ -1,0 +1,146 @@
+[
+  {
+    "knobs": {
+      "energy_decay": 0.005,
+      "food_spawn_rate": 0.02
+    },
+    "seed": 1,
+    "n_rows": 120
+  },
+  {
+    "knobs": {
+      "energy_decay": 0.005,
+      "food_spawn_rate": 0.02
+    },
+    "seed": 2,
+    "n_rows": 120
+  },
+  {
+    "knobs": {
+      "energy_decay": 0.005,
+      "food_spawn_rate": 0.02
+    },
+    "seed": 3,
+    "n_rows": 120
+  },
+  {
+    "knobs": {
+      "energy_decay": 0.005,
+      "food_spawn_rate": 0.08
+    },
+    "seed": 1,
+    "n_rows": 120
+  },
+  {
+    "knobs": {
+      "energy_decay": 0.005,
+      "food_spawn_rate": 0.08
+    },
+    "seed": 2,
+    "n_rows": 120
+  },
+  {
+    "knobs": {
+      "energy_decay": 0.005,
+      "food_spawn_rate": 0.08
+    },
+    "seed": 3,
+    "n_rows": 120
+  },
+  {
+    "knobs": {
+      "energy_decay": 0.01,
+      "food_spawn_rate": 0.02
+    },
+    "seed": 1,
+    "n_rows": 120
+  },
+  {
+    "knobs": {
+      "energy_decay": 0.01,
+      "food_spawn_rate": 0.02
+    },
+    "seed": 2,
+    "n_rows": 120
+  },
+  {
+    "knobs": {
+      "energy_decay": 0.01,
+      "food_spawn_rate": 0.02
+    },
+    "seed": 3,
+    "n_rows": 120
+  },
+  {
+    "knobs": {
+      "energy_decay": 0.01,
+      "food_spawn_rate": 0.08
+    },
+    "seed": 1,
+    "n_rows": 120
+  },
+  {
+    "knobs": {
+      "energy_decay": 0.01,
+      "food_spawn_rate": 0.08
+    },
+    "seed": 2,
+    "n_rows": 120
+  },
+  {
+    "knobs": {
+      "energy_decay": 0.01,
+      "food_spawn_rate": 0.08
+    },
+    "seed": 3,
+    "n_rows": 120
+  },
+  {
+    "knobs": {
+      "energy_decay": 0.02,
+      "food_spawn_rate": 0.02
+    },
+    "seed": 1,
+    "n_rows": 120
+  },
+  {
+    "knobs": {
+      "energy_decay": 0.02,
+      "food_spawn_rate": 0.02
+    },
+    "seed": 2,
+    "n_rows": 120
+  },
+  {
+    "knobs": {
+      "energy_decay": 0.02,
+      "food_spawn_rate": 0.02
+    },
+    "seed": 3,
+    "n_rows": 120
+  },
+  {
+    "knobs": {
+      "energy_decay": 0.02,
+      "food_spawn_rate": 0.08
+    },
+    "seed": 1,
+    "n_rows": 120
+  },
+  {
+    "knobs": {
+      "energy_decay": 0.02,
+      "food_spawn_rate": 0.08
+    },
+    "seed": 2,
+    "n_rows": 120
+  },
+  {
+    "knobs": {
+      "energy_decay": 0.02,
+      "food_spawn_rate": 0.08
+    },
+    "seed": 3,
+    "n_rows": 120
+  }
+]
