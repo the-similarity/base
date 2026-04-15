@@ -360,6 +360,32 @@
     <section class="slide">
       <div class="slide-meta">
         <span class="slide-number">Slide 02</span>
+        <span class="section-tag">ELI5</span>
+      </div>
+      <h2>The engine in three jobs.</h2>
+      <p class="lead">Before the numbers, the mental model. The engine is three people working together on every bar.</p>
+      <div class="triple">
+        <div class="card">
+          <h3>Librarian (1A)</h3>
+          <p>Given today's chart, goes and finds the most similar charts from history. Like Shazam for price patterns. <strong>1A asks:</strong> is the librarian using too many expensive tricks to find matches, or would a simpler one work just as well?</p>
+        </div>
+        <div class="card">
+          <h3>Weatherman (1B)</h3>
+          <p>Given 50 historical charts that look like today, draws a fan of what tended to happen next. <strong>1B asks:</strong> can the weatherman learn from his recent misses — "last week my 80% range only caught 55%, so I should widen it" — instead of always using the same fixed confidence?</p>
+        </div>
+        <div class="card">
+          <h3>Advisor (1C)</h3>
+          <p>Given the fan, decides whether to actually act. Checks: is the weatherman calibrated lately? Do the historical charts actually agree? Have we seen weather like this before? <strong>1C asks:</strong> does that advisor exist as code, end to end?</p>
+        </div>
+      </div>
+      <div class="callout">
+        <strong>The loop:</strong> librarian finds analogues → weatherman draws the fan → advisor decides whether and how much to act → review the decision later. Every finding below is about one of these three jobs.
+      </div>
+    </section>
+
+    <section class="slide">
+      <div class="slide-meta">
+        <span class="slide-number">Slide 03</span>
         <span class="section-tag">What We Ran</span>
       </div>
       <h2>Three worktree agents. Three parallel PRs. One afternoon.</h2>
@@ -385,7 +411,7 @@
 
     <section class="slide">
       <div class="slide-meta">
-        <span class="slide-number">Slide 03</span>
+        <span class="slide-number">Slide 04</span>
         <span class="section-tag">Finding 1 — Retrieval bench</span>
         <span class="verdict discard">Discard (prelim)</span>
       </div>
@@ -441,7 +467,7 @@
 
     <section class="slide">
       <div class="slide-meta">
-        <span class="slide-number">Slide 04</span>
+        <span class="slide-number">Slide 05</span>
         <span class="section-tag">Finding 1 — what it means</span>
       </div>
       <h2>The correlation dropped. Tier 2 is not just expensive — on this slice set, it's adversarial.</h2>
@@ -467,7 +493,7 @@
 
     <section class="slide">
       <div class="slide-meta">
-        <span class="slide-number">Slide 05</span>
+        <span class="slide-number">Slide 06</span>
         <span class="section-tag">Finding 2 — Projector v2</span>
         <span class="verdict keep">Keep (pending real data)</span>
       </div>
@@ -520,7 +546,7 @@
 
     <section class="slide">
       <div class="slide-meta">
-        <span class="slide-number">Slide 06</span>
+        <span class="slide-number">Slide 07</span>
         <span class="section-tag">Finding 2 — why it matters</span>
       </div>
       <h2>Calibration is the projector's job. Adaptive conformal adds the feedback loop we didn't have.</h2>
@@ -545,7 +571,7 @@
 
     <section class="slide">
       <div class="slide-meta">
-        <span class="slide-number">Slide 07</span>
+        <span class="slide-number">Slide 08</span>
         <span class="section-tag">Finding 3 — Decision layer</span>
         <span class="verdict keep">Shipped (opt-in)</span>
       </div>
@@ -570,7 +596,7 @@
 
     <section class="slide">
       <div class="slide-meta">
-        <span class="slide-number">Slide 08</span>
+        <span class="slide-number">Slide 09</span>
         <span class="section-tag">Finding 3 — pilot spec</span>
       </div>
       <h2>Written shape of a finance pilot. Not yet a pilot.</h2>
@@ -614,7 +640,7 @@
 
     <section class="slide">
       <div class="slide-meta">
-        <span class="slide-number">Slide 09</span>
+        <span class="slide-number">Slide 10</span>
         <span class="section-tag">Synthesis</span>
       </div>
       <h2>The three findings fit one sentence of strategy.</h2>
@@ -629,7 +655,7 @@
 
     <section class="slide">
       <div class="slide-meta">
-        <span class="slide-number">Slide 10</span>
+        <span class="slide-number">Slide 11</span>
         <span class="section-tag">What this doesn't prove</span>
       </div>
       <h2>What we still don't know.</h2>
@@ -647,7 +673,7 @@
 
     <section class="slide">
       <div class="slide-meta">
-        <span class="slide-number">Slide 11</span>
+        <span class="slide-number">Slide 12</span>
         <span class="section-tag">What's next</span>
       </div>
       <h2>Phase 2 starts here.</h2>
@@ -663,7 +689,7 @@
 
     <section class="slide">
       <div class="slide-meta">
-        <span class="slide-number">Slide 12</span>
+        <span class="slide-number">Slide 13</span>
         <span class="section-tag">Closing</span>
       </div>
       <h2>The bench is already paying for itself.</h2>
