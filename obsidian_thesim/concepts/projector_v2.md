@@ -12,6 +12,37 @@ reference. Terminal CRPS and calibration both improve materially with
 adaptive / change-aware conformal; joint-path and regime-aware widening
 are more nuanced.
 
+### Real-parquet confirmation (2026-04-15, v2 sweep)
+
+`adaptive_conformal` **confirmed on real data** across 5 slices
+(spy-1d, btc-1d, nvda-1d, spy-covid-entry-2020, spy-rate-hike-2022):
+
+| Metric | Baseline | Adaptive | Δ |
+|--------|----------|----------|---|
+| CRPS (terminal) | 0.1846 | 0.1622 | **−12.1%** |
+| Calibration error P10/P90 | 0.1067 | 0.0833 | −0.023 |
+| Over-time calibration | 0.0993 | 0.0703 | −0.029 |
+| Joint CRPS | 0.1855 | 0.1633 | −0.022 |
+| Hit rate | 54.0% | 54.0% | flat (expected) |
+| Runtime | 1538s | 1191s | **0.77×** (faster) |
+
+Every slice improved on CRPS and calibration. Runtime is lower because
+the adaptive recalibration cuts wasted width and the cone shortens;
+this was not predicted but held across all 5 slices.
+
+`change_aware_conformal` is **byte-identical** to `adaptive_conformal`
+on these 5 slices (same CRPS to 5 decimals, same calibration, same
+joint CRPS). The shift detector did not fire on any real slice tested,
+so change-aware collapses to adaptive. Treat as "untested on real data"
+not "confirmed"; revisit on slices with forced regime breaks.
+
+Report: `progress/autoresearch/reports/projector-v2-v2.md`.
+Benchmark id in ledger: `projector-v2-core-v2`.
+
+**Promotion status:** adaptive_conformal is confirmed but still
+lane-scoped. Promotion behind `Config.projector` flag deferred until a
+caller (decision layer, design-partner pilot) needs it.
+
 | Variant | Decision | Why |
 |---------|----------|-----|
 | `adaptive_conformal`       | **KEEP**    | -14% terminal CRPS, -0.033 calibration error on both slices |
