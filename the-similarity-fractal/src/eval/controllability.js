@@ -92,19 +92,26 @@ export function permutationPValue(xs, ys, { nPerm = 500, seed = 1 } = {}) {
  * ticks. Exported so tests can assert aggregation behavior independently of
  * the correlation logic.
  */
-export function aggregateCells(telemetry, { metrics, tailFrac = 0.2 } = {}) {
+export function aggregateCells(telemetry, { metrics, tailFrac = 0.2, knobNames } = {}) {
   if (tailFrac <= 0 || tailFrac > 1) {
     throw new RangeError(`aggregateCells: tailFrac must be in (0, 1], got ${tailFrac}`);
   }
-  // Group rows by (seed, knobs) — we build the key from every non-metric,
-  // non-`tick` field on the row.
+  // Group rows by (seed, knobs). When `knobNames` is supplied we use an
+  // explicit allowlist — this is the safe path because it ignores any extra
+  // telemetry fields (e.g. `dead`) that aren't part of DEFAULT_METRICS and
+  // would otherwise get treated as cell identity and over-partition groups.
   const metricSet = new Set(metrics ?? DEFAULT_METRICS);
+  const idKeys = knobNames
+    ? ['seed', ...knobNames]
+    : null; // fall back to "anything not a metric or tick"
   const groups = new Map();
   for (const row of telemetry) {
     const idParts = [];
     const idObj = {};
-    for (const k of Object.keys(row).sort()) {
-      if (k === 'tick' || metricSet.has(k)) continue;
+    const keys = idKeys ?? Object.keys(row).sort();
+    for (const k of keys) {
+      if (!(k in row)) continue;
+      if (!idKeys && (k === 'tick' || metricSet.has(k))) continue;
       idParts.push(`${k}=${JSON.stringify(row[k])}`);
       idObj[k] = row[k];
     }
@@ -146,7 +153,7 @@ export function controllability(telemetry, {
   nPerm = 500,
   seed = 1,
 } = {}) {
-  const cells = aggregateCells(telemetry, { metrics, tailFrac });
+  const cells = aggregateCells(telemetry, { metrics, tailFrac, knobNames });
   // Infer knob names if not provided — any key on id that isn't `seed`.
   let knobs = knobNames;
   if (!knobs) {
