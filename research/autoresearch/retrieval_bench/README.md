@@ -1,4 +1,8 @@
-# Retrieval benchmark lane (`retrieval-bench/`)
+# Retrieval benchmark lane (`retrieval_bench/`)
+
+> Directory uses an underscore so it is importable as a Python package
+> (`research.autoresearch.retrieval_bench`). Report IDs and JSON artefacts
+> still use the `retrieval-bench-*` prefix for consistency with other lanes.
 
 A measurement lane that compares the current 9-method retrieval stack
 against a Tier-1-only variant (SAX+MASS → DTW+Pearson) on representative
@@ -28,13 +32,13 @@ confirms Tier 2 is earning its CPU or flags it for further investigation.
 
 ```bash
 # smoke (fast, tiny trial count — use during development)
-python research/autoresearch/retrieval-bench/run_bench.py --smoke
+python research/autoresearch/retrieval_bench/run_bench.py --smoke
 
 # full sweep (respects n_trials from slices.yaml)
-python research/autoresearch/retrieval-bench/run_bench.py
+python research/autoresearch/retrieval_bench/run_bench.py
 
 # limit to a slice and arm
-python research/autoresearch/retrieval-bench/run_bench.py \
+python research/autoresearch/retrieval_bench/run_bench.py \
     --slice spy-covid-2020 --arm tier1_only
 ```
 

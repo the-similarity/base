@@ -12,7 +12,7 @@ objective: >-
 # ---------------------------------------------------------------------------
 # Lane type / scope
 # ---------------------------------------------------------------------------
-# Only new files under research/autoresearch/retrieval-bench/ and report/ledger
+# Only new files under research/autoresearch/retrieval_bench/ and report/ledger
 # entries under progress/autoresearch/ are permitted.  The engine itself
 # (the_similarity/**) must NOT be mutated by this lane — a tier ablation that
 # requires engine changes is an independent decision and must live in its own
@@ -20,7 +20,7 @@ objective: >-
 lane_type: retrieval_ablation
 writable_scope:
   allowed:
-    - research/autoresearch/retrieval-bench/
+    - research/autoresearch/retrieval_bench/
     - progress/autoresearch/experiments.jsonl
     - progress/autoresearch/reports/retrieval-bench-v1.md
     - obsidian_thesim/concepts/retrieval_bench.md
