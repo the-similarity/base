@@ -15,11 +15,13 @@ const regimeConfig: Record<
   AssetRegime["regime"],
   { label: string; color: string; dimColor: string }
 > = {
+  // Editorial deck semantics: only positive/negative ink gets hue; volatility
+  // regimes use the monochrome ramp (text-primary → muted) to avoid hue noise.
   trending_up: { label: "Trending Up", color: "var(--positive)", dimColor: "var(--positive-dim)" },
   trending_down: { label: "Trending Down", color: "var(--negative)", dimColor: "var(--negative-dim)" },
   mean_reverting: { label: "Mean Reverting", color: "var(--accent)", dimColor: "var(--accent-dim)" },
-  high_vol: { label: "High Vol", color: "#fbbf24", dimColor: "rgba(251, 191, 36, 0.1)" },
-  low_vol: { label: "Low Vol", color: "var(--text-muted)", dimColor: "rgba(69, 72, 87, 0.2)" },
+  high_vol: { label: "High Vol", color: "var(--text-primary)", dimColor: "var(--bg-inset)" },
+  low_vol: { label: "Low Vol", color: "var(--text-muted)", dimColor: "var(--bg-inset)" },
 };
 
 export function RegimeCard({ asset }: { asset: AssetRegime }) {
