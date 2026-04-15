@@ -1,0 +1,16 @@
+{
+  "name": "small_village",
+  "description": "Tiny seeded world: 20 agents on a 64x64 torus with modest food spawn. Used as the default smoke-test scenario for the headless runner.",
+  "seed": 42,
+  "steps": 500,
+  "world": {
+    "size": 64,
+    "initial_population": 20
+  },
+  "params": {
+    "energy_decay": 0.01,
+    "move_speed": 1,
+    "food_spawn_rate": 0.1,
+    "food_energy": 0.3
+  }
+}
