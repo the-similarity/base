@@ -7,14 +7,14 @@ Reference: Jaffard, Lashermes, Abry, "Wavelet Leaders in Multifractal
 Analysis" (2006).
 
 Multifractal Scaling Mechanics:
-- Spectrum Transformation: Converts temporal trajectories into the dense `f(α)` 
-  singularity spectrum parameter space. Rather than a singular monofractal Hurst 
+- Spectrum Transformation: Converts temporal trajectories into the dense `f(α)`
+  singularity spectrum parameter space. Rather than a singular monofractal Hurst
   exponent, multifractal footprints accommodate heterogeneous local scaling densities.
-- Wavelet Leaders Method: Sub-selects local coefficient suprema across all finer 
-  scale cascades. This bypasses raw wavelet instabilities, firmly bounding 
+- Wavelet Leaders Method: Sub-selects local coefficient suprema across all finer
+  scale cascades. This bypasses raw wavelet instabilities, firmly bounding
   oscillatory artifacts.
-- Analytical Transposition: A Legendre transform subsequently projects scaling 
-  exponents onto `f(α)`. Series exhibiting heavily overlapping spectra are 
+- Analytical Transposition: A Legendre transform subsequently projects scaling
+  exponents onto `f(α)`. Series exhibiting heavily overlapping spectra are
   structurally isomorphic in terms of dynamic volatility clustering behavior.
 """
 
@@ -112,7 +112,7 @@ def multifractal_spectrum(
             if q == 0:
                 log_sq[j] = np.mean(np.log(ldr_safe))
             else:
-                log_sq[j] = np.log2(np.mean(ldr_safe ** q) + 1e-30) / max(abs(q), 1e-10)
+                log_sq[j] = np.log2(np.mean(ldr_safe**q) + 1e-30) / max(abs(q), 1e-10)
 
         # Linear regression: log_sq = h(q) * log_scales + const
         if np.std(log_scales) > 0 and np.std(log_sq) > 0:

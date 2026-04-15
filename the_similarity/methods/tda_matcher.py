@@ -4,15 +4,16 @@ Computes persistent homology on delay-embedded time series and compares
 persistence diagrams via Wasserstein distance.
 
 Topological State Space Definitions:
-- Point Cloud Lifting: Employs Takens Delay Embedding to lift 1D temporal series 
+- Point Cloud Lifting: Employs Takens Delay Embedding to lift 1D temporal series
   into structured multi-dimensional phase-space point clouds.
-- Persistent Homology: Analyzes topological evolution (H0 connected components, 
-  H1 loops). Features robustly spaced from the Birth=Death diagonal represent 
+- Persistent Homology: Analyzes topological evolution (H0 connected components,
+  H1 loops). Features robustly spaced from the Birth=Death diagonal represent
   structural manifold properties, while proximate features are ephemeral stochastic noise.
-- Metric Algebra: Compares multi-set Persistence Diagrams directly via Wasserstein 
-  Metric mapping, computing the optimal transport cost required to structurally 
+- Metric Algebra: Compares multi-set Persistence Diagrams directly via Wasserstein
+  Metric mapping, computing the optimal transport cost required to structurally
   align two dynamic attractors.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -24,6 +25,7 @@ from the_similarity.core.embedding import delay_embed
 try:
     from ripser import ripser
     from persim import wasserstein
+
     HAS_TDA = True
 except ImportError:
     HAS_TDA = False
@@ -35,8 +37,7 @@ TDA_MIN_WINDOW = 40
 def _require_tda() -> None:
     if not HAS_TDA:
         raise RuntimeError(
-            "TDA dependencies not installed. Run:\n"
-            "  pip install ripser persim"
+            "TDA dependencies not installed. Run:\n  pip install ripser persim"
         )
 
 
@@ -164,8 +165,12 @@ def compare(
     diag_c = compute_persistence(candidate, dim, lag)
 
     # Both constant → identical (trivial) topology
-    if diag_q["H0"].size == 0 and diag_q["H1"].size == 0 \
-       and diag_c["H0"].size == 0 and diag_c["H1"].size == 0:
+    if (
+        diag_q["H0"].size == 0
+        and diag_q["H1"].size == 0
+        and diag_c["H0"].size == 0
+        and diag_c["H1"].size == 0
+    ):
         return 0.0
 
     dist = persistence_distance(diag_q, diag_c)

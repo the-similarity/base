@@ -3,6 +3,7 @@
 Covers Monte Carlo simulation, regime-conditional projections,
 conformal prediction intervals, and forecast combination.
 """
+
 import numpy as np
 import pytest
 
@@ -22,6 +23,7 @@ from the_similarity.core.scorer import MatchResult
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_match(
     start: int,
@@ -61,10 +63,13 @@ def _make_test_setup(n_bars: int = 500, forward_bars: int = 50):
 # Monte Carlo tests
 # ---------------------------------------------------------------------------
 
+
 class TestMonteCarlo:
     def test_basic_output_shape(self):
         history, matches = _make_test_setup()
-        result = monte_carlo_forecast(matches, history, forward_bars=30, n_simulations=500)
+        result = monte_carlo_forecast(
+            matches, history, forward_bars=30, n_simulations=500
+        )
 
         assert isinstance(result, MonteCarloResult)
         assert result.paths.shape == (500, 30)
@@ -81,7 +86,9 @@ class TestMonteCarlo:
 
     def test_percentiles_ordered(self):
         history, matches = _make_test_setup()
-        result = monte_carlo_forecast(matches, history, forward_bars=30, n_simulations=2000)
+        result = monte_carlo_forecast(
+            matches, history, forward_bars=30, n_simulations=2000
+        )
 
         # P10 <= P50 <= P90 on average (may not hold per-bar with few sims)
         assert np.mean(result.percentiles[10]) <= np.mean(result.percentiles[50])
@@ -117,7 +124,9 @@ class TestMonteCarlo:
 
     def test_uncertainty_grows_with_horizon(self):
         history, matches = _make_test_setup()
-        result = monte_carlo_forecast(matches, history, forward_bars=50, n_simulations=5000)
+        result = monte_carlo_forecast(
+            matches, history, forward_bars=50, n_simulations=5000
+        )
 
         # Std should generally increase over time
         early_std = np.mean(result.std[:10])
@@ -126,7 +135,9 @@ class TestMonteCarlo:
 
     def test_custom_percentiles(self):
         history, matches = _make_test_setup()
-        result = monte_carlo_forecast(matches, history, forward_bars=20, percentiles=[5, 95])
+        result = monte_carlo_forecast(
+            matches, history, forward_bars=20, percentiles=[5, 95]
+        )
 
         assert 5 in result.percentiles
         assert 95 in result.percentiles
@@ -137,6 +148,7 @@ class TestMonteCarlo:
 # Regime-conditional tests
 # ---------------------------------------------------------------------------
 
+
 class TestRegimeConditional:
     def test_detects_query_regime(self):
         history, matches = _make_test_setup()
@@ -144,7 +156,13 @@ class TestRegimeConditional:
         result = regime_conditional_forecast(query, matches, history, forward_bars=30)
 
         assert isinstance(result, RegimeConditionalResult)
-        assert result.regime in {"trending_up", "trending_down", "mean_reverting", "high_vol", "low_vol"}
+        assert result.regime in {
+            "trending_up",
+            "trending_down",
+            "mean_reverting",
+            "high_vol",
+            "low_vol",
+        }
 
     def test_counts_regime_matches(self):
         history, matches = _make_test_setup()
@@ -160,13 +178,15 @@ class TestRegimeConditional:
         history, matches = _make_test_setup()
         query = history[:60]
         result = regime_conditional_forecast(
-            query, matches, history, forward_bars=30, soft_weight=0.0,
+            query,
+            matches,
+            history,
+            forward_bars=30,
+            soft_weight=0.0,
         )
 
         # All matches with valid forward windows should be included
-        valid_count = sum(
-            1 for m in matches if m.end_idx + 30 <= len(history)
-        )
+        valid_count = sum(1 for m in matches if m.end_idx + 30 <= len(history))
         assert len(result.weights) == valid_count
 
     def test_hard_filter_excludes_incompatible(self):
@@ -174,7 +194,11 @@ class TestRegimeConditional:
         history, matches = _make_test_setup()
         query = history[:60]
         result = regime_conditional_forecast(
-            query, matches, history, forward_bars=30, soft_weight=1.0,
+            query,
+            matches,
+            history,
+            forward_bars=30,
+            soft_weight=1.0,
         )
 
         # Fewer matches than total (some regimes are incompatible)
@@ -204,6 +228,7 @@ class TestRegimeConditional:
 # Conformal prediction tests
 # ---------------------------------------------------------------------------
 
+
 class TestConformalPrediction:
     def test_basic_output(self):
         history, matches = _make_test_setup()
@@ -225,7 +250,10 @@ class TestConformalPrediction:
         history, matches = _make_test_setup()
         coverage = 0.8
         result = conformal_prediction_intervals(
-            matches, history, forward_bars=30, coverage=coverage,
+            matches,
+            history,
+            forward_bars=30,
+            coverage=coverage,
         )
 
         # Check coverage: each calibration path should be mostly inside bounds
@@ -254,8 +282,12 @@ class TestConformalPrediction:
 
     def test_wider_coverage_wider_intervals(self):
         history, matches = _make_test_setup()
-        r80 = conformal_prediction_intervals(matches, history, forward_bars=30, coverage=0.8)
-        r95 = conformal_prediction_intervals(matches, history, forward_bars=30, coverage=0.95)
+        r80 = conformal_prediction_intervals(
+            matches, history, forward_bars=30, coverage=0.8
+        )
+        r95 = conformal_prediction_intervals(
+            matches, history, forward_bars=30, coverage=0.95
+        )
 
         width_80 = np.mean(r80.upper - r80.lower)
         width_95 = np.mean(r95.upper - r95.lower)
@@ -279,7 +311,10 @@ class TestConformalPrediction:
         history, matches = _make_test_setup()
         base = np.linspace(0, 0.1, 30)
         result = conformal_prediction_intervals(
-            matches, history, forward_bars=30, base_forecast=base,
+            matches,
+            history,
+            forward_bars=30,
+            base_forecast=base,
         )
 
         # Lower and upper should be centered around base
@@ -292,12 +327,16 @@ class TestConformalPrediction:
 # Ensemble forecast (combination) tests
 # ---------------------------------------------------------------------------
 
+
 class TestEnsembleForecast:
     def test_basic_output(self):
         history, matches = _make_test_setup()
         query = history[:60]
         result = ensemble_forecast(
-            matches, history, query=query, forward_bars=30,
+            matches,
+            history,
+            query=query,
+            forward_bars=30,
         )
 
         assert isinstance(result, EnsembleForecast)
@@ -319,7 +358,10 @@ class TestEnsembleForecast:
         history, matches = _make_test_setup()
         query = history[:60]
         result = ensemble_forecast(
-            matches, history, query=query, forward_bars=30,
+            matches,
+            history,
+            query=query,
+            forward_bars=30,
         )
 
         # The blended P50 should be between MC P50 and historical
@@ -339,8 +381,12 @@ class TestEnsembleForecast:
     def test_custom_blend_weights(self):
         history, matches = _make_test_setup()
         result = ensemble_forecast(
-            matches, history, forward_bars=30,
-            mc_weight=1.0, regime_weight=0.0, historical_weight=0.0,
+            matches,
+            history,
+            forward_bars=30,
+            mc_weight=1.0,
+            regime_weight=0.0,
+            historical_weight=0.0,
         )
 
         # Should be purely Monte Carlo
@@ -355,7 +401,10 @@ class TestEnsembleForecast:
     def test_percentiles_customizable(self):
         history, matches = _make_test_setup()
         result = ensemble_forecast(
-            matches, history, forward_bars=30, percentiles=[5, 50, 95],
+            matches,
+            history,
+            forward_bars=30,
+            percentiles=[5, 50, 95],
         )
 
         assert 5 in result.curves

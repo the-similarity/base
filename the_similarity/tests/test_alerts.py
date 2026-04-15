@@ -7,6 +7,7 @@ Covers:
 - Alert history and acknowledgement
 - Custom notification channels
 """
+
 from __future__ import annotations
 
 
@@ -49,7 +50,9 @@ class TestWatchlistCRUD:
 
     def test_get_watchlist(self, alert_mgr):
         wl = alert_mgr.create_watchlist(
-            user_id="user1", name="Test", query_values=[1.0, 2.0, 3.0],
+            user_id="user1",
+            name="Test",
+            query_values=[1.0, 2.0, 3.0],
         )
         fetched = alert_mgr.get_watchlist(wl.id)
         assert fetched is not None
@@ -71,7 +74,10 @@ class TestWatchlistCRUD:
 
     def test_update_watchlist(self, alert_mgr):
         wl = alert_mgr.create_watchlist(
-            user_id="u1", name="Old", query_values=[1.0, 2.0], threshold=70.0,
+            user_id="u1",
+            name="Old",
+            query_values=[1.0, 2.0],
+            threshold=70.0,
         )
         updated = alert_mgr.update_watchlist(wl.id, name="New", threshold=90.0)
         assert updated is not None
@@ -83,7 +89,9 @@ class TestWatchlistCRUD:
 
     def test_delete_watchlist(self, alert_mgr):
         wl = alert_mgr.create_watchlist(
-            user_id="u1", name="Del", query_values=[1.0, 2.0],
+            user_id="u1",
+            name="Del",
+            query_values=[1.0, 2.0],
         )
         assert alert_mgr.delete_watchlist(wl.id) is True
         assert alert_mgr.get_watchlist(wl.id) is None
@@ -93,7 +101,8 @@ class TestWatchlistCRUD:
 
     def test_watchlist_with_webhook(self, alert_mgr):
         wl = alert_mgr.create_watchlist(
-            user_id="u1", name="Hook",
+            user_id="u1",
+            name="Hook",
             query_values=[1.0, 2.0],
             channels=["log", "webhook"],
             webhook_url="https://example.com/hook",
@@ -104,7 +113,8 @@ class TestWatchlistCRUD:
 
     def test_watchlist_with_active_methods(self, alert_mgr):
         wl = alert_mgr.create_watchlist(
-            user_id="u1", name="Methods",
+            user_id="u1",
+            name="Methods",
             query_values=[1.0, 2.0],
             active_methods=["dtw", "pearson_warped"],
         )
@@ -115,7 +125,10 @@ class TestWatchlistCRUD:
 class TestAlertEvaluation:
     def test_alert_fires_above_threshold(self, alert_mgr):
         wl = alert_mgr.create_watchlist(
-            user_id="u1", name="Test", query_values=[1.0, 2.0], threshold=70.0,
+            user_id="u1",
+            name="Test",
+            query_values=[1.0, 2.0],
+            threshold=70.0,
             cooldown_seconds=0,  # no cooldown for testing
         )
         matches = [_make_match(score=85.0)]
@@ -127,7 +140,10 @@ class TestAlertEvaluation:
 
     def test_no_alert_below_threshold(self, alert_mgr):
         wl = alert_mgr.create_watchlist(
-            user_id="u1", name="Test", query_values=[1.0, 2.0], threshold=90.0,
+            user_id="u1",
+            name="Test",
+            query_values=[1.0, 2.0],
+            threshold=90.0,
         )
         matches = [_make_match(score=80.0)]
         alert = alert_mgr.evaluate(wl.id, matches)
@@ -135,7 +151,10 @@ class TestAlertEvaluation:
 
     def test_no_alert_when_disabled(self, alert_mgr):
         wl = alert_mgr.create_watchlist(
-            user_id="u1", name="Test", query_values=[1.0, 2.0], threshold=50.0,
+            user_id="u1",
+            name="Test",
+            query_values=[1.0, 2.0],
+            threshold=50.0,
         )
         alert_mgr.update_watchlist(wl.id, enabled=False)
         matches = [_make_match(score=85.0)]
@@ -144,15 +163,21 @@ class TestAlertEvaluation:
 
     def test_no_alert_empty_matches(self, alert_mgr):
         wl = alert_mgr.create_watchlist(
-            user_id="u1", name="Test", query_values=[1.0, 2.0], threshold=50.0,
+            user_id="u1",
+            name="Test",
+            query_values=[1.0, 2.0],
+            threshold=50.0,
         )
         alert = alert_mgr.evaluate(wl.id, [])
         assert alert is None
 
     def test_cooldown_prevents_duplicate(self, alert_mgr):
         wl = alert_mgr.create_watchlist(
-            user_id="u1", name="Test", query_values=[1.0, 2.0],
-            threshold=70.0, cooldown_seconds=3600,
+            user_id="u1",
+            name="Test",
+            query_values=[1.0, 2.0],
+            threshold=70.0,
+            cooldown_seconds=3600,
         )
         matches = [_make_match(score=85.0)]
 
@@ -166,8 +191,11 @@ class TestAlertEvaluation:
 
     def test_alert_selects_best_match(self, alert_mgr):
         wl = alert_mgr.create_watchlist(
-            user_id="u1", name="Test", query_values=[1.0, 2.0],
-            threshold=70.0, cooldown_seconds=0,
+            user_id="u1",
+            name="Test",
+            query_values=[1.0, 2.0],
+            threshold=70.0,
+            cooldown_seconds=0,
         )
         matches = [
             _make_match(score=75.0, start=0, end=60),
@@ -187,8 +215,11 @@ class TestAlertEvaluation:
 class TestAlertHistory:
     def test_list_alerts(self, alert_mgr):
         wl = alert_mgr.create_watchlist(
-            user_id="u1", name="Test", query_values=[1.0, 2.0],
-            threshold=70.0, cooldown_seconds=0,
+            user_id="u1",
+            name="Test",
+            query_values=[1.0, 2.0],
+            threshold=70.0,
+            cooldown_seconds=0,
         )
         alert_mgr.evaluate(wl.id, [_make_match(score=85.0)])
         alert_mgr.evaluate(wl.id, [_make_match(score=90.0)])
@@ -200,12 +231,18 @@ class TestAlertHistory:
 
     def test_list_alerts_by_watchlist(self, alert_mgr):
         wl1 = alert_mgr.create_watchlist(
-            user_id="u1", name="A", query_values=[1.0, 2.0],
-            threshold=70.0, cooldown_seconds=0,
+            user_id="u1",
+            name="A",
+            query_values=[1.0, 2.0],
+            threshold=70.0,
+            cooldown_seconds=0,
         )
         wl2 = alert_mgr.create_watchlist(
-            user_id="u1", name="B", query_values=[3.0, 4.0],
-            threshold=70.0, cooldown_seconds=0,
+            user_id="u1",
+            name="B",
+            query_values=[3.0, 4.0],
+            threshold=70.0,
+            cooldown_seconds=0,
         )
         alert_mgr.evaluate(wl1.id, [_make_match(score=85.0)])
         alert_mgr.evaluate(wl2.id, [_make_match(score=90.0)])
@@ -216,8 +253,11 @@ class TestAlertHistory:
 
     def test_acknowledge_alert(self, alert_mgr):
         wl = alert_mgr.create_watchlist(
-            user_id="u1", name="Test", query_values=[1.0, 2.0],
-            threshold=70.0, cooldown_seconds=0,
+            user_id="u1",
+            name="Test",
+            query_values=[1.0, 2.0],
+            threshold=70.0,
+            cooldown_seconds=0,
         )
         alert = alert_mgr.evaluate(wl.id, [_make_match(score=85.0)])
         assert alert is not None
@@ -230,8 +270,11 @@ class TestAlertHistory:
 
     def test_count_alerts(self, alert_mgr):
         wl = alert_mgr.create_watchlist(
-            user_id="u1", name="Test", query_values=[1.0, 2.0],
-            threshold=70.0, cooldown_seconds=0,
+            user_id="u1",
+            name="Test",
+            query_values=[1.0, 2.0],
+            threshold=70.0,
+            cooldown_seconds=0,
         )
         alert_mgr.evaluate(wl.id, [_make_match(score=85.0)])
         alert = alert_mgr.evaluate(wl.id, [_make_match(score=90.0)])
@@ -244,8 +287,11 @@ class TestAlertHistory:
 
     def test_delete_watchlist_deletes_alerts(self, alert_mgr):
         wl = alert_mgr.create_watchlist(
-            user_id="u1", name="Test", query_values=[1.0, 2.0],
-            threshold=70.0, cooldown_seconds=0,
+            user_id="u1",
+            name="Test",
+            query_values=[1.0, 2.0],
+            threshold=70.0,
+            cooldown_seconds=0,
         )
         alert_mgr.evaluate(wl.id, [_make_match(score=85.0)])
         assert alert_mgr.count_alerts("u1") == 1
@@ -264,9 +310,11 @@ class TestCustomNotifier:
         alert_mgr.register_notifier("custom", custom_notify)
 
         wl = alert_mgr.create_watchlist(
-            user_id="u1", name="Custom",
+            user_id="u1",
+            name="Custom",
             query_values=[1.0, 2.0],
-            threshold=70.0, cooldown_seconds=0,
+            threshold=70.0,
+            cooldown_seconds=0,
             channels=["custom"],
         )
         alert_mgr.evaluate(wl.id, [_make_match(score=85.0)])

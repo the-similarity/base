@@ -1,4 +1,5 @@
 """Tests for TDA persistence-diagram matcher."""
+
 import numpy as np
 import pytest
 

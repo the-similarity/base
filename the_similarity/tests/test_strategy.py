@@ -3,6 +3,7 @@
 Covers signal generation from built-in strategies, strategy evaluation
 mechanics, custom rules, and strategy backtesting.
 """
+
 import numpy as np
 
 from the_similarity.core.strategy import (
@@ -23,6 +24,7 @@ from the_similarity.core.projector import Forecast
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_match(
     start: int,
@@ -75,7 +77,9 @@ def _make_forecast(
 
     n_paths = 5
     rng = np.random.default_rng(42)
-    all_paths = np.outer(np.ones(n_paths), t * p50_end) + 0.01 * rng.standard_normal((n_paths, bars))
+    all_paths = np.outer(np.ones(n_paths), t * p50_end) + 0.01 * rng.standard_normal(
+        (n_paths, bars)
+    )
     weights = np.ones(n_paths) / n_paths
 
     return Forecast(
@@ -104,8 +108,8 @@ def _make_test_setup(n_bars: int = 500, forward_bars: int = 50):
 # TestSignalGeneration
 # ---------------------------------------------------------------------------
 
-class TestSignalGeneration:
 
+class TestSignalGeneration:
     def test_momentum_long_signal(self):
         """Momentum strategy should produce a LONG signal for trending-up match
         with positive P50 forecast."""
@@ -115,7 +119,10 @@ class TestSignalGeneration:
         strategy = momentum_strategy(min_confidence=70.0, forecast_threshold=0.02)
 
         signals = evaluate_strategy(
-            strategy, [match], history, forecast=forecast,
+            strategy,
+            [match],
+            history,
+            forecast=forecast,
         )
 
         assert len(signals) == 1
@@ -124,7 +131,10 @@ class TestSignalGeneration:
         assert signals[0].entry_price is not None
         assert signals[0].stop_loss is not None
         assert signals[0].take_profit is not None
-        assert "long" in signals[0].reason.lower() or "momentum" in signals[0].reason.lower()
+        assert (
+            "long" in signals[0].reason.lower()
+            or "momentum" in signals[0].reason.lower()
+        )
 
     def test_momentum_short_signal(self):
         """Momentum strategy should produce a SHORT signal for trending-down
@@ -135,7 +145,10 @@ class TestSignalGeneration:
         strategy = momentum_strategy(min_confidence=70.0, forecast_threshold=0.02)
 
         signals = evaluate_strategy(
-            strategy, [match], history, forecast=forecast,
+            strategy,
+            [match],
+            history,
+            forecast=forecast,
         )
 
         assert len(signals) == 1
@@ -150,7 +163,10 @@ class TestSignalGeneration:
         strategy = momentum_strategy(min_confidence=70.0)
 
         signals = evaluate_strategy(
-            strategy, [match], history, forecast=forecast,
+            strategy,
+            [match],
+            history,
+            forecast=forecast,
         )
 
         assert len(signals) == 0
@@ -162,10 +178,15 @@ class TestSignalGeneration:
         match = _make_match(0, 50, score=75.0, regime="mean_reverting")
         # P50 negative, wide spread
         forecast = _make_forecast(p50_end=-0.05, spread=0.15)
-        strategy = mean_reversion_strategy(min_confidence=65.0, reversion_threshold=0.03)
+        strategy = mean_reversion_strategy(
+            min_confidence=65.0, reversion_threshold=0.03
+        )
 
         signals = evaluate_strategy(
-            strategy, [match], history, forecast=forecast,
+            strategy,
+            [match],
+            history,
+            forecast=forecast,
         )
 
         assert len(signals) == 1
@@ -179,7 +200,10 @@ class TestSignalGeneration:
         strategy = breakout_strategy(min_confidence=75.0)
 
         signals = evaluate_strategy(
-            strategy, [match], history, forecast=forecast,
+            strategy,
+            [match],
+            history,
+            forecast=forecast,
         )
 
         assert len(signals) == 1
@@ -190,8 +214,8 @@ class TestSignalGeneration:
 # TestStrategyEvaluation
 # ---------------------------------------------------------------------------
 
-class TestStrategyEvaluation:
 
+class TestStrategyEvaluation:
     def test_evaluate_returns_max_signals(self):
         """Should return at most max_signals signals."""
         history, _ = _make_test_setup()
@@ -205,7 +229,10 @@ class TestStrategyEvaluation:
         strategy.max_signals = 2
 
         signals = evaluate_strategy(
-            strategy, matches, history, forecast=forecast,
+            strategy,
+            matches,
+            history,
+            forecast=forecast,
         )
 
         assert len(signals) <= 2
@@ -246,7 +273,10 @@ class TestStrategyEvaluation:
         )
 
         signals = evaluate_strategy(
-            strategy, [match], history, forecast=forecast,
+            strategy,
+            [match],
+            history,
+            forecast=forecast,
         )
 
         assert len(signals) == 1
@@ -286,7 +316,10 @@ class TestStrategyEvaluation:
         )
 
         signals = evaluate_strategy(
-            strategy, [match], history, forecast=forecast,
+            strategy,
+            [match],
+            history,
+            forecast=forecast,
         )
 
         assert len(signals) == 1
@@ -298,8 +331,8 @@ class TestStrategyEvaluation:
 # TestStrategyBacktest
 # ---------------------------------------------------------------------------
 
-class TestStrategyBacktest:
 
+class TestStrategyBacktest:
     def test_backtest_returns_metrics(self):
         """Backtesting should return a StrategyBacktestResult with valid metrics."""
         history = _trending_up_history(600)
@@ -311,7 +344,10 @@ class TestStrategyBacktest:
         strategy = momentum_strategy(min_confidence=70.0, forecast_threshold=0.0)
 
         result = validate_strategy_backtest(
-            strategy, matches, history, forward_bars=50,
+            strategy,
+            matches,
+            history,
+            forward_bars=50,
         )
 
         assert isinstance(result, StrategyBacktestResult)
@@ -333,7 +369,10 @@ class TestStrategyBacktest:
         strategy = momentum_strategy(min_confidence=90.0)
 
         result = validate_strategy_backtest(
-            strategy, matches, history, forward_bars=50,
+            strategy,
+            matches,
+            history,
+            forward_bars=50,
         )
 
         assert result.total_signals == 0

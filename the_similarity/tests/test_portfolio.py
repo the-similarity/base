@@ -1,4 +1,5 @@
 """Tests for portfolio-level cross-asset analysis (Phase 7c)."""
+
 from __future__ import annotations
 
 import numpy as np
@@ -19,6 +20,7 @@ from the_similarity.core.scorer import MatchResult
 # ---------------------------------------------------------------------------
 # Synthetic data fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def synthetic_assets():
@@ -50,9 +52,11 @@ def synthetic_matches():
 # TestCrossAssetScan
 # ---------------------------------------------------------------------------
 
-class TestCrossAssetScan:
 
-    def test_correlated_assets_positive_correlation(self, synthetic_assets, synthetic_matches):
+class TestCrossAssetScan:
+    def test_correlated_assets_positive_correlation(
+        self, synthetic_assets, synthetic_matches
+    ):
         result = cross_asset_scan(
             source_matches=synthetic_matches,
             source_history=synthetic_assets["asset_a"],
@@ -67,7 +71,9 @@ class TestCrossAssetScan:
         # Correlated assets should have positive correlation
         assert result.correlation > 0.0
 
-    def test_independent_assets_low_correlation(self, synthetic_assets, synthetic_matches):
+    def test_independent_assets_low_correlation(
+        self, synthetic_assets, synthetic_matches
+    ):
         result = cross_asset_scan(
             source_matches=synthetic_matches,
             source_history=synthetic_assets["asset_a"],
@@ -77,16 +83,20 @@ class TestCrossAssetScan:
             target_name="asset_c",
         )
         # Independent asset should have lower absolute correlation
-        assert abs(result.correlation) < abs(
-            cross_asset_scan(
-                synthetic_matches,
-                synthetic_assets["asset_a"],
-                synthetic_assets["asset_b"],
-                50,
-                "asset_a",
-                "asset_b",
-            ).correlation
-        ) or True  # Allow some noise; main check is it runs without error
+        assert (
+            abs(result.correlation)
+            < abs(
+                cross_asset_scan(
+                    synthetic_matches,
+                    synthetic_assets["asset_a"],
+                    synthetic_assets["asset_b"],
+                    50,
+                    "asset_a",
+                    "asset_b",
+                ).correlation
+            )
+            or True
+        )  # Allow some noise; main check is it runs without error
 
     def test_transfer_entropy_computed(self, synthetic_assets, synthetic_matches):
         result = cross_asset_scan(
@@ -115,8 +125,8 @@ class TestCrossAssetScan:
 # TestPortfolioRegime
 # ---------------------------------------------------------------------------
 
-class TestPortfolioRegime:
 
+class TestPortfolioRegime:
     def test_scan_returns_snapshots(self, synthetic_assets):
         snapshots = portfolio_regime_scan(synthetic_assets, window=60)
         assert len(snapshots) == 3
@@ -155,8 +165,8 @@ class TestPortfolioRegime:
 # TestDivergenceScanner
 # ---------------------------------------------------------------------------
 
-class TestDivergenceScanner:
 
+class TestDivergenceScanner:
     def test_stable_correlation_low_divergence(self):
         """Two consistently correlated series should have low divergence."""
         rng = np.random.default_rng(42)
@@ -205,8 +215,8 @@ class TestDivergenceScanner:
 # TestInformationFlow
 # ---------------------------------------------------------------------------
 
-class TestInformationFlow:
 
+class TestInformationFlow:
     def test_leader_follower_detected(self):
         """When B copies A with a lag, TE should reflect source leading."""
         rng = np.random.default_rng(42)

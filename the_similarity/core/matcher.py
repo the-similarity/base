@@ -13,17 +13,18 @@ The state array `history` remains immutable across the run. Candidate windows
 are generated immutably as strided views.
 
 Concurrency and Threading:
-Tier 2 enrichment heavily relies on compiled extensions (NumPy, SciPy). Because 
-these operations release the Global Interpreter Lock (GIL), the `ThreadPoolExecutor` 
+Tier 2 enrichment heavily relies on compiled extensions (NumPy, SciPy). Because
+these operations release the Global Interpreter Lock (GIL), the `ThreadPoolExecutor`
 actually provides true hardware parallelization up to the CPU core count.
-Memory constraints typically cap this to `max_workers = 4`. Avoid running additional 
+Memory constraints typically cap this to `max_workers = 4`. Avoid running additional
 thread pools inside methods invoked by the executor to prevent thread starvation.
 
 Result Streaming & UI Hooks:
-The `progress_fn` hook is critical. The web UI depends on `ProgressEvent` emissions 
-during major transitions (`tier1`, `tier2`, `done`) to render the live search 
+The `progress_fn` hook is critical. The web UI depends on `ProgressEvent` emissions
+during major transitions (`tier1`, `tier2`, `done`) to render the live search
 progress. Without this, WebSocket connections will timeout.
 """
+
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
@@ -61,6 +62,7 @@ class ProgressEvent:
     Emitted at key stages so callers (e.g., WebSocket handlers) can
     stream real-time updates to clients.
     """
+
     stage: Literal["prefilter", "tier1", "tier2", "done"]
     completed: int = 0
     total: int = 0
@@ -78,7 +80,11 @@ ProgressCallback = Callable[[ProgressEvent], None]
 CHEAP_SCORE_FIELDS = {"dtw", "pearson_warped"}
 BEMPEDELIS_SCORE_FIELDS = {"bempedelis_r2", "bempedelis_smoothness"}
 TIER2_SCORE_FIELDS = {
-    "koopman", "wavelet_spectrum", "emd", "tda", "transfer_entropy",
+    "koopman",
+    "wavelet_spectrum",
+    "emd",
+    "tda",
+    "transfer_entropy",
 }
 ALL_SCORE_FIELDS = CHEAP_SCORE_FIELDS | BEMPEDELIS_SCORE_FIELDS | TIER2_SCORE_FIELDS
 
@@ -86,6 +92,7 @@ ALL_SCORE_FIELDS = CHEAP_SCORE_FIELDS | BEMPEDELIS_SCORE_FIELDS | TIER2_SCORE_FI
 @dataclass
 class CandidateWindow:
     """Internal structure tracking a single window as it moves through the pipeline."""
+
     start_idx: int
     end_idx: int
     scale: float
@@ -142,7 +149,7 @@ def find_matches(
     """Run the full tiered matching pipeline.
 
     Algorithm overview:
-    1. Tier 0: Generate overlapping candidate windows across `history` using 
+    1. Tier 0: Generate overlapping candidate windows across `history` using
        multiple scales (e.g. 1.0x, 1.5x) via strided array views.
     2. Score these millions of candidates cheaply using SAX strings and FFT-based
        MASS distance profiles. Sort and keep only the top `tier1_candidates`.
@@ -160,7 +167,7 @@ def find_matches(
         top_k: Number of highest-scoring matches to return.
         config: Configuration containing weights, active methods, and thresholds.
         dates: Optional parallel array of ISO datetime strings for annotation.
-        exclude_query_region: Bounds (start, end) marking where the query itself 
+        exclude_query_region: Bounds (start, end) marking where the query itself
                               sits in the history to prevent trivial self-matching.
         feature_store: SQLite cache instance for skipping redundant Tier 2 compute.
         ds_hash: Unique identifier of `history` used for cache keys.
@@ -187,7 +194,7 @@ def find_matches(
     radius = config.dtw_sakoe_chiba_radius
     if radius is None:
         # Default Sakoe-Chiba constraint is 10% of the window size,
-        # providing enough slack for minor structural warping without 
+        # providing enough slack for minor structural warping without
         # allowing degenerate flat alignments.
         radius = max(1, query_shape_len // 10)
 
@@ -205,12 +212,14 @@ def find_matches(
         return []
 
     if progress_fn is not None:
-        progress_fn(ProgressEvent(
-            stage="prefilter",
-            completed=len(candidates),
-            total=len(candidates),
-            message=f"{len(candidates)} candidates after prefilter",
-        ))
+        progress_fn(
+            ProgressEvent(
+                stage="prefilter",
+                completed=len(candidates),
+                total=len(candidates),
+                message=f"{len(candidates)} candidates after prefilter",
+            )
+        )
 
     # --- Tier 1: Cheap methods on all survivors ---
     base_fields = [f for f in config.active_methods if f in CHEAP_SCORE_FIELDS]
@@ -231,11 +240,15 @@ def find_matches(
         if "dtw" in active_fields:
             breakdown.dtw = dtw_scores_batch[i]
         if "pearson_warped" in active_fields:
-            breakdown.pearson_warped = score_pearson(query_shape, candidate.shape_series)
+            breakdown.pearson_warped = score_pearson(
+                query_shape, candidate.shape_series
+            )
         candidate.breakdown = breakdown
 
         if base_fields:
-            candidate.base_rank_score = compute_confidence(candidate.breakdown, base_config)
+            candidate.base_rank_score = compute_confidence(
+                candidate.breakdown, base_config
+            )
         else:
             # Fallback if no tier1 methods are active
             candidate.base_rank_score = candidate.prefilter_score * 100.0
@@ -244,14 +257,16 @@ def find_matches(
 
     if progress_fn is not None:
         best_so_far = max(candidates, key=lambda c: c.confidence_score)
-        progress_fn(ProgressEvent(
-            stage="tier1",
-            completed=len(candidates),
-            total=len(candidates),
-            message=f"DTW+Pearson scored {len(candidates)} candidates",
-            top_score=best_so_far.confidence_score,
-            top_match_idx=best_so_far.start_idx,
-        ))
+        progress_fn(
+            ProgressEvent(
+                stage="tier1",
+                completed=len(candidates),
+                total=len(candidates),
+                message=f"DTW+Pearson scored {len(candidates)} candidates",
+                top_score=best_so_far.confidence_score,
+                top_match_idx=best_so_far.start_idx,
+            )
+        )
 
     # --- Tier 2: Expensive methods on top candidates ---
     tier2_fields = (BEMPEDELIS_SCORE_FIELDS | TIER2_SCORE_FIELDS) & active_fields
@@ -281,14 +296,16 @@ def find_matches(
 
     if progress_fn is not None:
         best = candidates[0] if candidates else None
-        progress_fn(ProgressEvent(
-            stage="done",
-            completed=min(top_k, len(candidates)),
-            total=min(top_k, len(candidates)),
-            message=f"returning {min(top_k, len(candidates))} matches",
-            top_score=best.confidence_score if best else 0.0,
-            top_match_idx=best.start_idx if best else -1,
-        ))
+        progress_fn(
+            ProgressEvent(
+                stage="done",
+                completed=min(top_k, len(candidates)),
+                total=min(top_k, len(candidates)),
+                message=f"returning {min(top_k, len(candidates))} matches",
+                top_score=best.confidence_score if best else 0.0,
+                top_match_idx=best.start_idx if best else -1,
+            )
+        )
 
     results: list[MatchResult] = []
     # Only return top K to save serialization overhead
@@ -322,7 +339,7 @@ def _collect_candidates(
 ) -> list[CandidateWindow]:
     """Tier 0: Massive Candidate Filter
 
-    Applies SAX bounding and FFT-based Matrix Profile distance profiling 
+    Applies SAX bounding and FFT-based Matrix Profile distance profiling
     to rapidly evaluate every possible strided window in the history.
     """
     window_size = len(query)
@@ -365,7 +382,7 @@ def _collect_candidates(
 
             raw_window = windows[index]
             shape_window = normalize(raw_window, config.normalization)
-            
+
             # Stretch candidate into query length domain for fair SAX comparison
             if scale != 1.0:
                 shape_window = _resample(shape_window, query_shape_len)
@@ -374,10 +391,13 @@ def _collect_candidates(
             if mp_scores is not None and scale == 1.0 and start < len(mp_scores):
                 mp_score_val = float(mp_scores[start])
 
-            # Prefilter heuristic equation blends the extremely fast MASS score 
+            # Prefilter heuristic equation blends the extremely fast MASS score
             # and SAX string distance into a loose early rejection score
             prefilter = _score_prefilter(
-                query_shape, shape_window, query_sax, config,
+                query_shape,
+                shape_window,
+                query_sax,
+                config,
                 mp_score_val=mp_score_val,
             )
             candidates.append(
@@ -413,7 +433,8 @@ def _score_prefilter(
         alphabet_size=config.sax_alphabet_size,
     )
     mindist = sax_mindist(
-        query_sax, cand_sax,
+        query_sax,
+        cand_sax,
         original_length=len(query_shape),
         alphabet_size=config.sax_alphabet_size,
     )
@@ -469,11 +490,7 @@ def _enrich_tier2(
         if {"koopman", "wavelet_spectrum", "tda"} & active_fields
         else None
     )
-    query_raw = (
-        normalize(query, "raw")
-        if "emd" in active_fields
-        else None
-    )
+    query_raw = normalize(query, "raw") if "emd" in active_fields else None
 
     def _enrich_one(candidate: CandidateWindow) -> None:
         """Enrich a single candidate with all Tier 2 methods. Thread-safe."""
@@ -485,7 +502,10 @@ def _enrich_tier2(
             cand_bemp = normalize(raw, METHOD_NORM_DEFAULTS["bempedelis"])
             try:
                 if feature_store is not None:
-                    from the_similarity.core.feature_store import params_hash as _params_hash
+                    from the_similarity.core.feature_store import (
+                        params_hash as _params_hash,
+                    )
+
                     p_hash = _params_hash(
                         "bempedelis",
                         n_subwindows=config.bempedelis_n_subwindows,
@@ -526,7 +546,10 @@ def _enrich_tier2(
             cand_logret = normalize(raw, METHOD_NORM_DEFAULTS["koopman"])
             try:
                 if feature_store is not None:
-                    from the_similarity.core.feature_store import params_hash as _params_hash
+                    from the_similarity.core.feature_store import (
+                        params_hash as _params_hash,
+                    )
+
                     p_hash = _params_hash("koopman", dim=8, lag=3, n_modes=8)
                     candidate.breakdown.koopman = feature_store.get_or_compute(
                         dataset_hash=ds_hash,
@@ -534,10 +557,14 @@ def _enrich_tier2(
                         window_length=_wlen,
                         method="koopman",
                         params_hash=p_hash,
-                        compute_fn=lambda q=query_logret, c=cand_logret: koopman_match(q, c),
+                        compute_fn=lambda q=query_logret, c=cand_logret: koopman_match(
+                            q, c
+                        ),
                     )
                 else:
-                    candidate.breakdown.koopman = koopman_match(query_logret, cand_logret)
+                    candidate.breakdown.koopman = koopman_match(
+                        query_logret, cand_logret
+                    )
             except Exception:
                 pass
 
@@ -546,7 +573,10 @@ def _enrich_tier2(
             cand_logret_w = normalize(raw, METHOD_NORM_DEFAULTS["wavelet"])
             try:
                 if feature_store is not None:
-                    from the_similarity.core.feature_store import params_hash as _params_hash
+                    from the_similarity.core.feature_store import (
+                        params_hash as _params_hash,
+                    )
+
                     p_hash = _params_hash("wavelet_spectrum")
                     candidate.breakdown.wavelet_spectrum = feature_store.get_or_compute(
                         dataset_hash=ds_hash,
@@ -554,11 +584,14 @@ def _enrich_tier2(
                         window_length=_wlen,
                         method="wavelet_spectrum",
                         params_hash=p_hash,
-                        compute_fn=lambda q=query_logret, c=cand_logret_w: wavelet_spectrum_score(q, c),
+                        compute_fn=lambda q=query_logret, c=cand_logret_w: (
+                            wavelet_spectrum_score(q, c)
+                        ),
                     )
                 else:
                     candidate.breakdown.wavelet_spectrum = wavelet_spectrum_score(
-                        query_logret, cand_logret_w,
+                        query_logret,
+                        cand_logret_w,
                     )
             except Exception:
                 pass
@@ -568,7 +601,10 @@ def _enrich_tier2(
             cand_raw_emd = normalize(raw, METHOD_NORM_DEFAULTS["emd"])
             try:
                 if feature_store is not None:
-                    from the_similarity.core.feature_store import params_hash as _params_hash
+                    from the_similarity.core.feature_store import (
+                        params_hash as _params_hash,
+                    )
+
                     p_hash = _params_hash("emd")
                     candidate.breakdown.emd = feature_store.get_or_compute(
                         dataset_hash=ds_hash,
@@ -588,7 +624,10 @@ def _enrich_tier2(
             cand_tda = normalize(raw, METHOD_NORM_DEFAULTS["tda"])
             try:
                 if feature_store is not None:
-                    from the_similarity.core.feature_store import params_hash as _params_hash
+                    from the_similarity.core.feature_store import (
+                        params_hash as _params_hash,
+                    )
+
                     p_hash = _params_hash("tda")
                     candidate.breakdown.tda = feature_store.get_or_compute(
                         dataset_hash=ds_hash,
@@ -609,7 +648,7 @@ def _enrich_tier2(
             end_idx = candidate.end_idx
             forward_len = config.forward_bars
             if end_idx + forward_len <= len(history):
-                forward = history[end_idx: end_idx + forward_len]
+                forward = history[end_idx : end_idx + forward_len]
                 try:
                     candidate.breakdown.transfer_entropy = te_score(raw, forward)
                 except Exception:
@@ -628,16 +667,18 @@ def _enrich_tier2(
         _enrich_one(candidate)
         _completed[0] += 1
         if progress_fn is not None:
-            progress_fn(ProgressEvent(
-                stage="tier2",
-                completed=_completed[0],
-                total=total,
-                message=f"enriched {_completed[0]}/{total} candidates",
-            ))
+            progress_fn(
+                ProgressEvent(
+                    stage="tier2",
+                    completed=_completed[0],
+                    total=total,
+                    message=f"enriched {_completed[0]}/{total} candidates",
+                )
+            )
 
     if total > 1:
         # Use threads — numpy/scipy release the GIL during computation
-        # Bound arbitrary max_workers to 4 as higher concurrent memory loads 
+        # Bound arbitrary max_workers to 4 as higher concurrent memory loads
         # may hit typical machine constraints.
         n_threads = min(4, total)
         with ThreadPoolExecutor(max_workers=n_threads) as executor:

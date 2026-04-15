@@ -4,12 +4,12 @@ Decomposes a time series into Intrinsic Mode Functions (IMFs).
 Used as a Tier 2 enrichment method to compare multi-scale characteristics.
 
 Spectral Decomposition & Matching Architecture:
-- Data-driven Basis: Unlike Fourier or Wavelet transforms relying on fixed 
-  rigid mathematical dictionaries, EMD empirically derives basis functions 
+- Data-driven Basis: Unlike Fourier or Wavelet transforms relying on fixed
+  rigid mathematical dictionaries, EMD empirically derives basis functions
   (Intrinsic Mode Functions, IMFs) strictly from the target data via sifting.
-- Dimensionality Alignment: `n_q` and `n_c` are not guaranteed to match due to 
+- Dimensionality Alignment: `n_q` and `n_c` are not guaranteed to match due to
   the empirical generation process. The shorter spectrum is padded with zero arrays.
-- Distance Metric: Final score computes the energy-weighted L2 distance mapped 
+- Distance Metric: Final score computes the energy-weighted L2 distance mapped
   exponentially. High energy components in the query firmly dictate distance penalties.
 """
 
@@ -49,7 +49,7 @@ def imf_energy(imf: NDArray[np.float64]) -> float:
     Returns:
         Sum of squared values.
     """
-    return float(np.sum(imf ** 2))
+    return float(np.sum(imf**2))
 
 
 def emd_match(
@@ -106,7 +106,7 @@ def emd_match(
         # Use shorter length for comparison
         min_len = min(len(q_imf), len(c_imf))
         diff = q_imf[:min_len] - c_imf[:min_len]
-        l2 = float(np.sqrt(np.sum(diff ** 2)))
+        l2 = float(np.sqrt(np.sum(diff**2)))
         normalized = l2 / max(min_len, 1)
         total_distance += w * normalized
 

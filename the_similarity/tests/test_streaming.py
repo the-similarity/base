@@ -4,6 +4,7 @@ Tests the ProgressEvent callback mechanism in the core matcher and the
 public search() API. WebSocket endpoint integration tests are separate
 (require httpx + uvicorn).
 """
+
 from __future__ import annotations
 
 import numpy as np

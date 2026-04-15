@@ -1,4 +1,5 @@
 """Tests for the_similarity.core.explainer — Phase 7d explainability layer."""
+
 from __future__ import annotations
 
 import numpy as np
@@ -22,6 +23,7 @@ from the_similarity.core.explainer import (
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def sample_match() -> MatchResult:
@@ -105,13 +107,18 @@ def ensemble_forecast_fixture() -> EnsembleForecast:
         percentiles=[10, 50, 90],
         curves={10: p10, 50: p50, 90: p90},
         conformal=conformal,
-        component_weights={"historical": 0.4, "monte_carlo": 0.3, "regime_conditional": 0.3},
+        component_weights={
+            "historical": 0.4,
+            "monte_carlo": 0.3,
+            "regime_conditional": 0.3,
+        },
     )
 
 
 # ---------------------------------------------------------------------------
 # TestExplainMatch
 # ---------------------------------------------------------------------------
+
 
 class TestExplainMatch:
     def test_returns_explanation_object(self, sample_match: MatchResult):
@@ -152,12 +159,19 @@ class TestExplainMatch:
 
     def test_weaknesses_with_low_scores(self):
         match = MatchResult(
-            start_idx=0, end_idx=50,
+            start_idx=0,
+            end_idx=50,
             confidence_score=40.0,
             score_breakdown=ScoreBreakdown(
-                dtw=0.10, pearson_warped=0.15, bempedelis_r2=0.20,
-                bempedelis_smoothness=0.05, koopman=0.80, wavelet_spectrum=0.10,
-                emd=0.05, tda=0.10, transfer_entropy=0.05,
+                dtw=0.10,
+                pearson_warped=0.15,
+                bempedelis_r2=0.20,
+                bempedelis_smoothness=0.05,
+                koopman=0.80,
+                wavelet_spectrum=0.10,
+                emd=0.05,
+                tda=0.10,
+                transfer_entropy=0.05,
             ),
         )
         result = explain_match(match)
@@ -180,6 +194,7 @@ class TestExplainMatch:
 # ---------------------------------------------------------------------------
 # TestExplainForecast
 # ---------------------------------------------------------------------------
+
 
 class TestExplainForecast:
     def test_bullish_direction(self, bullish_forecast: Forecast):
@@ -208,18 +223,27 @@ class TestExplainForecast:
             weights=np.ones(3) / 3,
         )
         result = explain_forecast(forecast)
-        assert "wide" in result.confidence_narrative.lower() or "uncertainty" in result.confidence_narrative.lower()
+        assert (
+            "wide" in result.confidence_narrative.lower()
+            or "uncertainty" in result.confidence_narrative.lower()
+        )
 
-    def test_ensemble_forecast_handled(self, ensemble_forecast_fixture: EnsembleForecast):
+    def test_ensemble_forecast_handled(
+        self, ensemble_forecast_fixture: EnsembleForecast
+    ):
         result = explain_forecast(ensemble_forecast_fixture)
         assert isinstance(result, ForecastExplanation)
         # Should mention conformal intervals
-        assert "conformal" in result.confidence_narrative.lower() or "Conformal" in result.confidence_narrative
+        assert (
+            "conformal" in result.confidence_narrative.lower()
+            or "Conformal" in result.confidence_narrative
+        )
 
 
 # ---------------------------------------------------------------------------
 # TestCalibrationCommentary
 # ---------------------------------------------------------------------------
+
 
 class TestCalibrationCommentary:
     def test_high_confidence_commentary(self):
@@ -243,9 +267,14 @@ class TestCalibrationCommentary:
 # TestExplainFull
 # ---------------------------------------------------------------------------
 
+
 class TestExplainFull:
-    def test_returns_all_keys(self, sample_match: MatchResult, bullish_forecast: Forecast):
-        result = explain_full(sample_match, forecast=bullish_forecast, backtest_hit_rate=0.70)
+    def test_returns_all_keys(
+        self, sample_match: MatchResult, bullish_forecast: Forecast
+    ):
+        result = explain_full(
+            sample_match, forecast=bullish_forecast, backtest_hit_rate=0.70
+        )
         assert "match" in result
         assert "forecast" in result
         assert "calibration" in result

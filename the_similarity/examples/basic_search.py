@@ -1,4 +1,5 @@
 """Basic The Similarity usage example with synthetic data."""
+
 import numpy as np
 import the_similarity
 
@@ -28,7 +29,7 @@ def main():
 
     print(f"Found {len(results.matches)} matches\n")
     for i, match in enumerate(results.matches[:5]):
-        print(f"Match #{i+1}:")
+        print(f"Match #{i + 1}:")
         print(f"  Position: [{match.start_idx}:{match.end_idx}]")
         print(f"  Confidence: {match.confidence_score:.1f}/100")
         print(f"  DTW score: {match.score_breakdown.dtw:.3f}")
@@ -39,7 +40,7 @@ def main():
     forecast = the_similarity.project(results, history, forward_bars=30)
     print("Forecast percentiles at bar 30:")
     for p, curve in forecast.curves.items():
-        print(f"  P{p}: {curve[-1]:+.4f} ({curve[-1]*100:+.2f}%)")
+        print(f"  P{p}: {curve[-1]:+.4f} ({curve[-1] * 100:+.2f}%)")
 
     # Plot (comment out if running headless)
     # the_similarity.plot(results, forecast, top_n=5)

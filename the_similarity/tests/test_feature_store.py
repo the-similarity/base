@@ -1,4 +1,5 @@
 """Tests for the FeatureStore caching layer."""
+
 import tempfile
 import numpy as np
 import pytest
@@ -140,7 +141,13 @@ class TestFeatureStoreIntegration:
         # With cache
         with tempfile.NamedTemporaryFile(suffix=".db") as f:
             store = FeatureStore(f.name)
-            r2 = search(query=query, history=history, top_k=3, config=config, feature_store=store)
+            r2 = search(
+                query=query,
+                history=history,
+                top_k=3,
+                config=config,
+                feature_store=store,
+            )
 
             # Results should be identical
             assert len(r1.matches) == len(r2.matches)
@@ -152,5 +159,11 @@ class TestFeatureStoreIntegration:
             assert store.size > 0
 
             # Second call should use cache (same results)
-            r3 = search(query=query, history=history, top_k=3, config=config, feature_store=store)
+            r3 = search(
+                query=query,
+                history=history,
+                top_k=3,
+                config=config,
+                feature_store=store,
+            )
             assert len(r2.matches) == len(r3.matches)

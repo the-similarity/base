@@ -107,11 +107,18 @@ def batch_dtw_scores(
     except Exception:
         # Fallback to sequential pure Python/single-threaded C
         return [
-            dtw_score(dtw.distance(
-                query.astype(np.double),
-                c.astype(np.double),
-                **({"window": sakoe_chiba_radius} if sakoe_chiba_radius is not None else {}),
-            ), window_size)
+            dtw_score(
+                dtw.distance(
+                    query.astype(np.double),
+                    c.astype(np.double),
+                    **(
+                        {"window": sakoe_chiba_radius}
+                        if sakoe_chiba_radius is not None
+                        else {}
+                    ),
+                ),
+                window_size,
+            )
             for c in candidates
         ]
 

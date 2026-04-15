@@ -19,18 +19,19 @@ Architecture:
     └─────────────────────────────────────────────┘
 
 Caching Lifecycle and Strict Invariants:
-- Advisory Fallback: The cache is ADVISORY. It strictly fails-open on SQlite 
-  locks or corruption, falling through to recompute `compute_fn()` and raising a 
+- Advisory Fallback: The cache is ADVISORY. It strictly fails-open on SQlite
+  locks or corruption, falling through to recompute `compute_fn()` and raising a
   `RuntimeWarning`.
-- Invalidation Strategy: Keys are composite `(dataset_hash:start:len:method:params_hash)`. 
-  Mutating dataset contents (captured via sparse hash), configuration, or the target 
+- Invalidation Strategy: Keys are composite `(dataset_hash:start:len:method:params_hash)`.
+  Mutating dataset contents (captured via sparse hash), configuration, or the target
   window length naturally orphans old records.
-- Concurrency: Uses SQLite WAL (`PRAGMA journal_mode=WAL`). This guarantees 
+- Concurrency: Uses SQLite WAL (`PRAGMA journal_mode=WAL`). This guarantees
   non-blocking safe reads for concurrent processes (via `ProcessPoolExecutor`).
-- Serialization: Pickling is mandatory because tier-2 methods yield arbitrary 
-  object graphs (e.g. `numpy` structural spectra or custom dataclasses). JSON 
+- Serialization: Pickling is mandatory because tier-2 methods yield arbitrary
+  object graphs (e.g. `numpy` structural spectra or custom dataclasses). JSON
   would permanently strip shape and class metadata.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -176,7 +177,9 @@ class FeatureStore:
         Returns:
             The cached or computed result.
         """
-        key = self._make_key(dataset_hash, window_start, window_length, method, params_hash)
+        key = self._make_key(
+            dataset_hash, window_start, window_length, method, params_hash
+        )
 
         # Try to read from cache
         try:

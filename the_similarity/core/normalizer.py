@@ -60,7 +60,9 @@ METHOD_NORM_DEFAULTS: dict[str, str] = {
 }
 
 
-def normalize(series: NDArray[np.float64], method: str = "zscore") -> NDArray[np.float64]:
+def normalize(
+    series: NDArray[np.float64], method: str = "zscore"
+) -> NDArray[np.float64]:
     """Normalize a 1D time series using the specified strategy.
 
     Args:
