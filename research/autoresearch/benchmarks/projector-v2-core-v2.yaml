@@ -1,0 +1,151 @@
+id: projector-v2-core-v2
+title: Projector v2 — real-parquet confirmation sweep (adaptive conformal)
+status: active
+owner: research
+objective: >-
+  Confirm on REAL market parquets whether `adaptive_conformal` still wins
+  against the baseline projector, across more slices and two seeds, before
+  any decision to promote it to default. Finding 2 of phase_1_findings_414.md
+  documented a -14% CRPS / -3.3pp calibration win on synthetic-fallback data;
+  this lane closes the real-data confirmation gap.
+
+lane_type: projector_calibration_v2_real_parquet_confirm
+
+# ---------------------------------------------------------------------------
+# Writable scope
+# ---------------------------------------------------------------------------
+# v2 confirmation lane — NO engine mutations. New manifest only; runner is
+# reused with --manifest arg. Variants under test already exist in the_similarity/core/.
+writable_scope:
+  allowed:
+    - research/autoresearch/benchmarks/projector-v2-core-v2.yaml
+    - research/autoresearch/scripts/run_projector_v2_sweep.py   # --manifest plumbing only
+    - progress/autoresearch/
+    - obsidian_thesim/topics/
+  forbidden:
+    - the_similarity/core/projector.py
+    - the_similarity/core/projector_adaptive_conformal.py
+    - the_similarity/core/backtester.py
+    - the_similarity/core/matcher.py
+    - pyproject.toml
+
+# ---------------------------------------------------------------------------
+# Frozen evaluator — REAL parquets only. No synthetic fallback.
+# ---------------------------------------------------------------------------
+# Slice definitions reuse the retrieval_bench/slices.yaml canonical cuts so
+# numbers are directly comparable across Phase 1 lanes (see Finding 1 and
+# Finding 2 in obsidian_thesim/research/phase_1_findings_414.md).
+benchmark:
+  dataset_family: historical price series with walk-forward validation
+  synthetic_fallback: false    # HARD: abort with clear error if parquet missing
+  canonical_slices:
+    - id: spy-1d
+      description: SPY daily full history (bench anchor slice).
+      timeframe: 1d
+      source: stooq
+      symbol: spy
+      path: the-similarity-data/data/stocks/spy/1d.parquet
+
+    - id: btc-1d
+      description: BTC/USDT daily — fat-tail stress for conformal width.
+      timeframe: 1d
+      source: ccxt
+      symbol: btc_usdt
+      path: the-similarity-data/data/crypto/btc_usdt/1d.parquet
+
+    - id: nvda-1d
+      description: NVDA daily — single-name mega-cap growth with regime shifts.
+      timeframe: 1d
+      source: stooq
+      symbol: nvda
+      path: the-similarity-data/data/stocks/nvda/1d.parquet
+
+    - id: spy-covid-entry-2020
+      description: COVID-entry crisis cut (matches retrieval_bench spy-covid-2020 regime).
+      timeframe: 1d
+      source: stooq
+      symbol: spy
+      path: the-similarity-data/data/stocks/spy/1d.parquet
+      start_date: "2019-06-01"
+      end_date: "2020-12-31"
+
+    - id: spy-rate-hike-2022
+      description: 2022 rate-hike grinding-bear cut (matches retrieval_bench spy-rate-hike-2022).
+      timeframe: 1d
+      source: stooq
+      symbol: spy
+      path: the-similarity-data/data/stocks/spy/1d.parquet
+      start_date: "2021-11-01"
+      end_date: "2022-12-31"
+
+  # Trial parameters held at v1 levels so v1 and v2 scorecards are comparable.
+  query_window: 50
+  forward_bars: 20
+  top_k: 5
+  n_trials: 15
+  seeds:
+    - 42
+    - 314
+  evaluation_api: the_similarity.api.backtest
+  no_lookahead_required: true
+
+# ---------------------------------------------------------------------------
+# Variants evaluated (skip regime_aware_widening [v1 discard] and joint_path
+# [covered in a separate bench]; keep change_aware_conformal because it is
+# trivially cheap given the adaptive module is already loaded).
+# ---------------------------------------------------------------------------
+variants:
+  - id: baseline
+    module: the_similarity.core.projector
+    description: Reference weighted-quantile cone.
+  - id: adaptive_conformal
+    module: the_similarity.core.projector_adaptive_conformal
+    extra: {mode: adaptive, alpha_target: 0.20, lr: 0.05}
+    description: Gibbs-Candès adaptive conformal — the variant under confirmation.
+  - id: change_aware_conformal
+    module: the_similarity.core.projector_adaptive_conformal
+    extra: {mode: change_aware, alpha_target: 0.20, lr: 0.05}
+    description: Change-aware conformal — trivially cheap alongside adaptive.
+
+# ---------------------------------------------------------------------------
+# Scorecard (identical to v1 so metrics compose)
+# ---------------------------------------------------------------------------
+scorecard:
+  primary_metrics:
+    - {name: crps, direction: lower_is_better}
+    - {name: calibration_error_p10_p90, direction: lower_is_better}
+  secondary_metrics:
+    - {name: hit_rate, direction: higher_is_better}
+    - {name: runtime_seconds, direction: lower_is_better}
+    - {name: calibration_error_over_time, direction: lower_is_better}
+    - {name: joint_path_crps, direction: lower_is_better}
+
+# ---------------------------------------------------------------------------
+# Keep/discard gates (Finding 2 gates — Phase 1B follow-up)
+# ---------------------------------------------------------------------------
+# The variant is PROMOTABLE (keep + recommend default flip) iff:
+#   - CRPS improves (delta < 0) on a MAJORITY of real slices (>= 3/5).
+#   - Calibration error P10/P90 does not regress (mean delta <= +0.005).
+#   - No runtime doubling (runtime ratio <= 2.0).
+#   - Hit rate never falls below 0.45 on any slice.
+# Otherwise:
+#   - KEEP (no promote) if any slice improves without hard regression.
+#   - DISCARD if hard regression or net CRPS worse across slices.
+acceptance:
+  promote_if:
+    - CRPS improves on >=3/5 slices (each seed averaged)
+    - mean calibration_error_p10_p90 delta <= +0.005
+    - max runtime ratio <= 2.0
+    - min hit_rate >= 0.45 across all (slice, seed) cells
+
+thresholds:
+  min_slices_improved: 3
+  min_calibration_improvement: 0.005
+  max_crps_regression: 0.10
+  max_runtime_multiplier: 2.0
+  min_hit_rate: 0.45
+
+logging:
+  ledger_path: progress/autoresearch/experiments.jsonl
+  run_id_prefix: projector-v2-v2-
+  report_path: progress/autoresearch/reports/projector-v2-v2.md
