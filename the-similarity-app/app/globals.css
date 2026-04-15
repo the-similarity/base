@@ -318,16 +318,21 @@ button { cursor: pointer; }
 
 .match-card:hover,
 .match-card[data-highlighted="true"] {
-  background: var(--bg-hover);
+  /* Editorial hover: no translate, no shadow — just a quiet opacity fade
+   * with a slightly firmer border so the card stays anchored to the column. */
+  background: var(--bg-card);
   border-color: var(--border-strong);
-  box-shadow: var(--shadow-card-hover);
-  transform: translateY(-1px);
+  box-shadow: none;
+  opacity: 0.85;
+  transform: none;
 }
 
 .match-card[data-selected="true"] {
-  background: var(--accent-dim);
+  /* Selected: ink border, no shadow. The black outline is enough signal. */
+  background: var(--bg-card);
   border-color: var(--accent);
-  box-shadow: var(--shadow-selected);
+  box-shadow: none;
+  opacity: 1;
 }
 
 .match-card-rank {
@@ -1502,19 +1507,21 @@ button { cursor: pointer; }
 .strategy-metric-card {
   background: var(--bg-card);
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  border-top: 3px solid var(--text-primary);
+  border-radius: 0;
   padding: var(--space-xl);
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: var(--space-xs);
-  box-shadow: var(--shadow-card);
-  transition: all 180ms ease;
+  box-shadow: none;
+  transition: opacity 120ms ease;
 }
 
 .strategy-metric-card:hover {
-  box-shadow: var(--shadow-card-hover);
-  transform: translateY(-1px);
+  box-shadow: none;
+  transform: none;
+  opacity: 0.85;
 }
 
 .strategy-metric-value {
@@ -2219,10 +2226,11 @@ button { cursor: pointer; }
 }
 
 .search-progress-fill {
+  /* Editorial progress fill: solid ink, no glow. */
   height: 100%;
   border-radius: var(--radius-pill);
   background: var(--accent);
-  box-shadow: 0 0 8px var(--accent-glow);
+  box-shadow: none;
   transition: width 600ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
