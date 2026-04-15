@@ -483,6 +483,78 @@ class TestGates:
         assert decision.keep is True
         assert decision.gate_results == {}
 
+    def test_duplicate_gate_name_raises(self) -> None:
+        # Duplicate names would collide in gate_results and silently hide
+        # one of the gate outcomes — must be rejected loudly.
+        from research.autoresearch.core.gates import Gate, evaluate_gates
+
+        gates = [
+            Gate(
+                name="same",
+                metric="crps",
+                threshold=-0.01,
+                direction="lower_is_better",
+                required=True,
+            ),
+            Gate(
+                name="same",
+                metric="hit_rate",
+                threshold=0.01,
+                direction="higher_is_better",
+                required=True,
+            ),
+        ]
+        with pytest.raises(ValueError):
+            evaluate_gates(deltas={"crps": -0.02, "hit_rate": 0.02}, gates=gates)
+
+    def test_threshold_at_boundary_passes(self) -> None:
+        # Boundary observations must PASS, not fail — the threshold is an
+        # inclusive bound (<= for lower_is_better, >= for higher_is_better).
+        from research.autoresearch.core.gates import Gate, evaluate_gates
+
+        low_gate = Gate(
+            name="crps",
+            metric="crps",
+            threshold=-0.01,
+            direction="lower_is_better",
+            required=True,
+        )
+        assert evaluate_gates(deltas={"crps": -0.01}, gates=[low_gate]).keep is True
+
+        high_gate = Gate(
+            name="hit",
+            metric="hit",
+            threshold=0.02,
+            direction="higher_is_better",
+            required=True,
+        )
+        assert evaluate_gates(deltas={"hit": 0.02}, gates=[high_gate]).keep is True
+
+    def test_invalid_direction_raises_on_evaluation(self) -> None:
+        from research.autoresearch.core.gates import Gate, evaluate_gates
+
+        bad = Gate(
+            name="n",
+            metric="m",
+            threshold=0.0,
+            direction="sideways",  # type: ignore[arg-type]
+            required=True,
+        )
+        with pytest.raises(ValueError):
+            evaluate_gates(deltas={"m": 0.0}, gates=[bad])
+
+    def test_standard_forecast_gates_round_trip_and_are_frozen(self) -> None:
+        from research.autoresearch.core.gates import Gate, standard_forecast_gates
+
+        gates = standard_forecast_gates()
+        # Frozen dataclass — assignment must fail so callers don't mutate
+        # the shared preset by accident.
+        with pytest.raises(Exception):
+            gates[0].threshold = 0.0  # type: ignore[misc]
+        names = {g.name for g in gates}
+        assert "crps_improvement" in names
+        assert all(isinstance(g, Gate) for g in gates)
+
 
 # ---------------------------------------------------------------------------
 # Report
