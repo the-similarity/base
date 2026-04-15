@@ -33,7 +33,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
 from research.autoresearch.core.gates import GateDecision
 from research.autoresearch.core.metrics_delta import Delta

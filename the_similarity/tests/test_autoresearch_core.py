@@ -8,7 +8,6 @@ the default ``pytest`` run with the rest of the engine tests.
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 import pytest
@@ -276,19 +275,14 @@ class TestLedger:
         with pytest.raises(ValueError):
             entry.validate()
 
-    def test_iter_entries_skips_blank_and_malformed_lines(
-        self, tmp_path: Path
-    ) -> None:
+    def test_iter_entries_skips_blank_and_malformed_lines(self, tmp_path: Path) -> None:
         # iter_entries must stay fail-soft on partially-written ledgers
         # — a crash mid-write would leave a bad line we must tolerate.
         from research.autoresearch.core.ledger import iter_entries
 
         ledger = tmp_path / "experiments.jsonl"
         ledger.write_text(
-            '{"run_id": "ok"}\n'
-            "\n"
-            "not-json\n"
-            '{"run_id": "also_ok"}\n',
+            '{"run_id": "ok"}\n\nnot-json\n{"run_id": "also_ok"}\n',
             encoding="utf-8",
         )
         ids = [row["run_id"] for row in iter_entries(ledger)]
@@ -428,9 +422,7 @@ class TestGates:
             )
         ]
         # candidate CRPS barely worse -> required gate fails -> discard.
-        decision = evaluate_gates(
-            deltas={"crps": 0.005}, gates=gates
-        )
+        decision = evaluate_gates(deltas={"crps": 0.005}, gates=gates)
         assert decision.keep is False
         assert any("crps" in r for r in decision.reasons)
 
@@ -453,9 +445,7 @@ class TestGates:
                 required=False,
             ),
         ]
-        decision = evaluate_gates(
-            deltas={"crps": -0.05, "hit_rate": 0.01}, gates=gates
-        )
+        decision = evaluate_gates(deltas={"crps": -0.05, "hit_rate": 0.01}, gates=gates)
         # required gate passes -> keep=True even though optional failed.
         assert decision.keep is True
         assert decision.gate_results["crps_improvement"].passed is True
@@ -823,9 +813,7 @@ class TestRejectionLog:
         ids = [r["direction_id"] for r in iter_rejections(path)]
         assert ids == ["d0", "d1", "d2"]
 
-    def test_get_rejection_returns_latest_when_repeated(
-        self, tmp_path: Path
-    ) -> None:
+    def test_get_rejection_returns_latest_when_repeated(self, tmp_path: Path) -> None:
         # When a direction is killed, revisited, and killed again the
         # most recent entry wins so stale prose does not mislead agents.
         from research.autoresearch.core.rejection_log import (
@@ -859,15 +847,11 @@ class TestRejectionLog:
     def test_revisit_ready_true_when_never_rejected(self, tmp_path: Path) -> None:
         from research.autoresearch.core.rejection_log import revisit_ready
 
-        ready, unmet = revisit_ready(
-            "fresh_idea", {}, tmp_path / "rejections.jsonl"
-        )
+        ready, unmet = revisit_ready("fresh_idea", {}, tmp_path / "rejections.jsonl")
         assert ready is True
         assert unmet == []
 
-    def test_revisit_ready_blocks_when_conditions_unmet(
-        self, tmp_path: Path
-    ) -> None:
+    def test_revisit_ready_blocks_when_conditions_unmet(self, tmp_path: Path) -> None:
         # When state blob does not mention any condition keyword, we
         # treat the direction as "not yet revisitable" and list the
         # unmet conditions so the caller knows why.
@@ -933,9 +917,7 @@ class TestRejectionLog:
 
         path = tmp_path / "rejections.jsonl"
         path.write_text(
-            '{"direction_id": "ok"}\n'
-            "garbage\n"
-            '{"direction_id": "also_ok"}\n',
+            '{"direction_id": "ok"}\ngarbage\n{"direction_id": "also_ok"}\n',
             encoding="utf-8",
         )
         ids = [r["direction_id"] for r in iter_rejections(path)]
