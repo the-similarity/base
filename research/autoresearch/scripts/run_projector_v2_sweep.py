@@ -36,6 +36,11 @@ from typing import Any, Callable
 
 import numpy as np
 
+try:
+    import yaml  # Optional; only required when --manifest is supplied.
+except ImportError:  # pragma: no cover - PyYAML is a transitive dep in practice.
+    yaml = None  # type: ignore[assignment]
+
 from the_similarity import backtest
 from the_similarity import api as _api_module
 from the_similarity.config import Config
@@ -145,14 +150,46 @@ class VariantAggregate:
 # ---------------------------------------------------------------------------
 
 
-def _load_series(slice_spec: dict[str, Any]) -> tuple[np.ndarray, bool]:
-    """Return (prices, synthetic_flag). Real parquet takes precedence."""
+def _load_series(
+    slice_spec: dict[str, Any],
+    *,
+    allow_synthetic: bool = True,
+) -> tuple[np.ndarray, bool]:
+    """Return (prices, synthetic_flag). Real parquet takes precedence.
+
+    When ``allow_synthetic`` is False (v2 real-parquet confirmation mode), a
+    missing parquet aborts with a descriptive FileNotFoundError — we never
+    silently synthesise. This is a fairness invariant for confirmation
+    sweeps: comparing baseline vs variant on synthetic data when the
+    manifest demands real data would be a data-source lie.
+
+    Optional ``start_date``/``end_date`` keys on ``slice_spec`` filter the
+    loaded series via TimeSeries date slicing before numpy conversion.
+    This is how crisis-cut slices (COVID-entry, rate-hike) are carved out
+    of the full daily parquet without duplicating files.
+    """
     path = REPO_ROOT / slice_spec["dataset_path"]
     if path.exists() and path.is_file() and path.stat().st_size > 0:
         from the_similarity import load
 
         series = load(str(path))
+        # Apply optional date window (v2 crisis cuts). load() returns a
+        # TimeSeries that supports string-slice date bounds; fall through
+        # to .values cleanly even when no dates survive.
+        start = slice_spec.get("start_date")
+        end = slice_spec.get("end_date")
+        if (start or end) and getattr(series, "dates", None) is not None:
+            series = series[start:end]  # type: ignore[index]
         return series.values.astype(np.float64), False
+
+    if not allow_synthetic:
+        raise FileNotFoundError(
+            f"[projector-v2 sweep] Real parquet required for slice "
+            f"'{slice_spec.get('id', '?')}' but not found at {path}. "
+            f"Manifest forbids synthetic fallback. Fix: ensure "
+            f"the-similarity-data/ submodule is populated, or remove the "
+            f"slice from the manifest."
+        )
 
     # Synthetic fallback: geometric Brownian motion with regime shifts.
     # Deterministic per-slice via ``synthetic_seed`` so sweep runs are
@@ -304,9 +341,10 @@ def _run_variant_on_slice(
     seed: int,
     top_k: int,
     config: Config,
+    allow_synthetic: bool = True,
 ) -> SliceReport:
     """Execute one (variant, slice) combination."""
-    prices, synthetic = _load_series(slice_spec)
+    prices, synthetic = _load_series(slice_spec, allow_synthetic=allow_synthetic)
 
     # Patch api.project — the backtester imports lazily inside each worker,
     # so we need to keep the patch in place for the duration of the run.
@@ -495,13 +533,20 @@ def _append_ledger_entry(
     decision_info: dict[str, Any],
     timestamp: str,
     branch: str,
+    run_id_prefix: str = "projector-v2-",
+    benchmark_id: str = "projector-v2-core-v1",
+    lane_id: str = "projector-v2-lane-v1",
+    slice_ids: list[str] | None = None,
+    report_artifact: str = "progress/autoresearch/reports/projector-v2-v1.md",
 ) -> None:
     """Append one ledger entry per variant (baseline records decision=baseline)."""
+    if slice_ids is None:
+        slice_ids = [slice_spec["id"] for slice_spec in CANONICAL_SLICES]
     entry = {
-        "run_id": f"projector-v2-{variant}-{timestamp}",
+        "run_id": f"{run_id_prefix}{variant}-{timestamp}",
         "timestamp": timestamp,
-        "benchmark_id": "projector-v2-core-v1",
-        "lane_id": "projector-v2-lane-v1",
+        "benchmark_id": benchmark_id,
+        "lane_id": lane_id,
         "branch": branch,
         "commit_before": None,
         "commit_after": None,
@@ -513,8 +558,8 @@ def _append_ledger_entry(
             f"cal_err {variant_agg.calibration_error_p10_p90:.4f}, "
             f"joint_crps {variant_agg.joint_path_crps:.5f}"
         ),
-        "slices": [slice_spec["id"] for slice_spec in CANONICAL_SLICES],
-        "artifacts": [f"progress/autoresearch/reports/projector-v2-v1.md"],
+        "slices": list(slice_ids),
+        "artifacts": [report_artifact],
         "metrics_before": {
             "crps": baseline_agg.crps,
             "calibration_error_p10_p90": baseline_agg.calibration_error_p10_p90,
@@ -566,46 +611,206 @@ def _parse_args() -> argparse.Namespace:
         default="feat/projector-v2-lane",
         help="Branch name to record in ledger entries.",
     )
+    parser.add_argument(
+        "--manifest",
+        default=None,
+        help=(
+            "Optional path to a benchmark YAML (e.g. projector-v2-core-v2.yaml). "
+            "When supplied, slices/seeds/variants/trial params override the "
+            "hardcoded defaults. Output report + ledger paths are switched to "
+            "the manifest's logging.* fields when present. Fairness invariant: "
+            "the backtester path and monkey-patch pattern are unchanged — "
+            "only the inputs are swapped."
+        ),
+    )
     return parser.parse_args()
 
 
+# ---------------------------------------------------------------------------
+# Manifest loader
+# ---------------------------------------------------------------------------
+# A manifest supplies: (1) slices with real-parquet paths (no synthetic fallback
+# by default when the manifest opts out), (2) seeds, (3) variants + extras,
+# (4) trial params, and (5) ledger/report overrides. Everything else in the
+# runner (backtester path, patching, scoring) is unchanged.
+
+
+def _load_manifest(path: Path) -> dict[str, Any]:
+    if yaml is None:
+        raise RuntimeError(
+            "PyYAML is required to load a --manifest; install pyyaml or invoke "
+            "the runner without --manifest to use the v1 hardcoded slices."
+        )
+    with path.open("r", encoding="utf-8") as handle:
+        data = yaml.safe_load(handle)
+    if not isinstance(data, dict):
+        raise ValueError(f"Manifest {path} did not parse as a mapping.")
+    return data
+
+
+def _slices_from_manifest(manifest: dict[str, Any]) -> list[dict[str, Any]]:
+    """Translate manifest slice entries into the runner's slice_spec shape."""
+    bench = manifest.get("benchmark", {})
+    raw_slices = bench.get("canonical_slices", [])
+    specs: list[dict[str, Any]] = []
+    for idx, s in enumerate(raw_slices):
+        spec = {
+            "id": s["id"],
+            "dataset_path": s["path"],
+            # Preserve synthetic_seed/bars for back-compat (unused when
+            # allow_synthetic=False, but a valid default if someone reuses
+            # the schema loosely).
+            "synthetic_seed": 1000 + idx,
+            "synthetic_bars": 2500,
+        }
+        if "start_date" in s:
+            spec["start_date"] = s["start_date"]
+        if "end_date" in s:
+            spec["end_date"] = s["end_date"]
+        specs.append(spec)
+    return specs
+
+
+def _variants_from_manifest(manifest: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    """Translate manifest variant entries into VARIANT_REGISTRY shape."""
+    out: dict[str, dict[str, Any]] = {}
+    for v in manifest.get("variants", []):
+        vid = v["id"]
+        out[vid] = {
+            "module": v["module"],
+            "extra": v.get("extra", {}) or {},
+            "description": v.get("description", ""),
+        }
+    return out
+
+
 def main() -> None:
+    global REPORT_MARKDOWN  # type: ignore[misc]
     args = _parse_args()
 
+    # ------------------------------------------------------------------
+    # Manifest-aware configuration
+    # ------------------------------------------------------------------
+    # v1 default path: use the hardcoded CANONICAL_SLICES and VARIANT_REGISTRY.
+    # v2 path: load the manifest, translate to the same shapes, switch off
+    # synthetic fallback, loop over seeds, and redirect outputs.
+    slice_list = CANONICAL_SLICES
+    variant_registry = VARIANT_REGISTRY
+    requested_variants = list(args.variants)
+    seeds: list[int] = [int(args.seed)]
+    window_size = int(args.window_size)
+    forward_bars = int(args.forward_bars)
+    n_trials = int(args.n_trials)
+    top_k = int(args.top_k)
+    allow_synthetic = True
+    report_markdown_path = REPORT_MARKDOWN
+    benchmark_id = "projector-v2-core-v1"
+    lane_id = "projector-v2-lane-v1"
+    run_id_prefix = "projector-v2-"  # v1 ledger prefix
+
+    if args.manifest:
+        manifest_path = Path(args.manifest).resolve()
+        manifest = _load_manifest(manifest_path)
+        slice_list = _slices_from_manifest(manifest)
+        variant_registry = _variants_from_manifest(manifest) or VARIANT_REGISTRY
+        # If the user did NOT explicitly pass --variants, honour the manifest.
+        if args.variants == list(VARIANT_REGISTRY.keys()):
+            requested_variants = list(variant_registry.keys())
+        bench = manifest.get("benchmark", {})
+        seeds = [int(s) for s in bench.get("seeds", seeds)]
+        window_size = int(bench.get("query_window", window_size))
+        forward_bars = int(bench.get("forward_bars", forward_bars))
+        n_trials = int(bench.get("n_trials", n_trials))
+        top_k = int(bench.get("top_k", top_k))
+        allow_synthetic = bool(bench.get("synthetic_fallback", True))
+        benchmark_id = manifest.get("id", benchmark_id)
+        lane_id = manifest.get("id", lane_id)
+        logging_cfg = manifest.get("logging", {})
+        if "report_path" in logging_cfg:
+            report_markdown_path = REPO_ROOT / logging_cfg["report_path"]
+        if "run_id_prefix" in logging_cfg:
+            run_id_prefix = logging_cfg["run_id_prefix"]
+
     # Baseline must always run first so decisions compare against it.
-    variants = list(args.variants)
+    variants = list(requested_variants)
     if "baseline" in variants:
         variants.remove("baseline")
     variants = ["baseline", *variants]
 
     config = Config()
 
+    # Seed loop: for v2 we want BOTH seed=42 and seed=314. For each (variant,
+    # slice) cell we average CRPS/calibration/etc across seeds BEFORE feeding
+    # into the aggregate. This is what "more seeds to confirm" means in the
+    # v2 manifest — not re-running the aggregate per seed, but reducing
+    # per-cell variance.
     per_variant_aggregates: dict[str, VariantAggregate] = {}
-    per_slice: dict[str, list[SliceReport]] = {s["id"]: [] for s in CANONICAL_SLICES}
+    per_slice: dict[str, list[SliceReport]] = {s["id"]: [] for s in slice_list}
 
     timestamp = datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
     for variant_name in variants:
-        variant_spec = VARIANT_REGISTRY[variant_name]
-        variant_reports: list[SliceReport] = []
-        for slice_spec in CANONICAL_SLICES:
-            slice_report = _run_variant_on_slice(
-                variant_name=variant_name,
-                variant_spec=variant_spec,
-                slice_spec=slice_spec,
-                window_size=args.window_size,
-                forward_bars=args.forward_bars,
-                n_trials=args.n_trials,
-                seed=args.seed,
-                top_k=args.top_k,
-                config=config,
+        if variant_name not in variant_registry:
+            raise KeyError(
+                f"Variant '{variant_name}' not in registry. Available: "
+                f"{sorted(variant_registry)}"
             )
-            variant_reports.append(slice_report)
-            per_slice[slice_spec["id"]].append(slice_report)
+        variant_spec = variant_registry[variant_name]
+        variant_reports: list[SliceReport] = []
+        for slice_spec in slice_list:
+            per_seed_reports: list[SliceReport] = []
+            for seed in seeds:
+                sr = _run_variant_on_slice(
+                    variant_name=variant_name,
+                    variant_spec=variant_spec,
+                    slice_spec=slice_spec,
+                    window_size=window_size,
+                    forward_bars=forward_bars,
+                    n_trials=n_trials,
+                    seed=seed,
+                    top_k=top_k,
+                    config=config,
+                    allow_synthetic=allow_synthetic,
+                )
+                per_seed_reports.append(sr)
+                # Per-(variant, slice, seed) JSON for reproducibility.
+                seed_suffix = f"-seed{seed}" if len(seeds) > 1 else ""
+                report_path = (
+                    REPORT_DIR
+                    / f"{run_id_prefix}{variant_name}-{slice_spec['id']}{seed_suffix}.json"
+                )
+                _write_json_report(report_path, asdict(sr))
 
-            # Per-(variant, slice) JSON report for reproducibility.
-            report_path = REPORT_DIR / f"projector-v2-{variant_name}-{slice_spec['id']}.json"
-            _write_json_report(report_path, asdict(slice_report))
+            # Seed-averaged SliceReport. Runtime is summed (total cost), metrics
+            # are mean-aggregated to collapse seed variance before the cross-
+            # slice aggregate step below.
+            if len(per_seed_reports) == 1:
+                merged = per_seed_reports[0]
+            else:
+                def _mean(attr: str) -> float:
+                    vals = [getattr(r, attr) for r in per_seed_reports if np.isfinite(getattr(r, attr))]
+                    return float(np.mean(vals)) if vals else float("nan")
+
+                merged = SliceReport(
+                    slice_id=slice_spec["id"],
+                    variant=variant_name,
+                    dataset_path=slice_spec["dataset_path"],
+                    synthetic=per_seed_reports[0].synthetic,
+                    n_valid_trials=int(sum(r.n_valid_trials for r in per_seed_reports)),
+                    n_skipped_trials=int(sum(r.n_skipped_trials for r in per_seed_reports)),
+                    hit_rate=_mean("hit_rate"),
+                    mean_error=_mean("mean_error"),
+                    crps=_mean("crps"),
+                    calibration_error_p10_p90=_mean("calibration_error_p10_p90"),
+                    calibration_error_over_time_p10_p90=_mean(
+                        "calibration_error_over_time_p10_p90"
+                    ),
+                    joint_path_crps=_mean("joint_path_crps"),
+                    runtime_seconds=float(sum(r.runtime_seconds for r in per_seed_reports)),
+                )
+
+            variant_reports.append(merged)
+            per_slice[slice_spec["id"]].append(merged)
 
         per_variant_aggregates[variant_name] = _aggregate(variant_reports)
 
@@ -617,12 +822,18 @@ def main() -> None:
             continue
         decisions[name] = _decide_keep_discard(per_variant_aggregates[name], baseline_agg)
 
-    _write_markdown_report(
-        timestamp=timestamp,
-        per_variant=per_variant_aggregates,
-        per_slice=per_slice,
-        decisions=decisions,
-    )
+    # Redirect markdown output if manifest requested a different path.
+    _saved_markdown = REPORT_MARKDOWN
+    REPORT_MARKDOWN = report_markdown_path  # writer reads module global
+    try:
+        _write_markdown_report(
+            timestamp=timestamp,
+            per_variant=per_variant_aggregates,
+            per_slice=per_slice,
+            decisions=decisions,
+        )
+    finally:
+        REPORT_MARKDOWN = _saved_markdown
 
     if args.append_ledger:
         for name in variants:
@@ -633,6 +844,11 @@ def main() -> None:
                 decision_info=decisions.get(name, {}),
                 timestamp=timestamp,
                 branch=args.branch,
+                run_id_prefix=run_id_prefix,
+                benchmark_id=benchmark_id,
+                lane_id=lane_id,
+                slice_ids=[s["id"] for s in slice_list],
+                report_artifact=str(report_markdown_path.relative_to(REPO_ROOT)),
             )
 
     # Console summary
