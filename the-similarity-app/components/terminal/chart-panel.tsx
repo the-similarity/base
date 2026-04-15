@@ -69,20 +69,33 @@ function toCandleDataWithDates(
 }
 
 
+// Editorial deck chart palette.
+//
+// Invariants:
+// - Only ink (black) is used for the primary query line.
+// - Match + match-continuation are two shades of muted gray so the eye reads
+//   them as "support material" rather than a competing primary series.
+// - Candle up/down use the semantic `--positive` and `--negative` CSS tokens
+//   (editorial dark green / deep red). We freeze them as hex here because
+//   lightweight-charts needs concrete strings, not `var(--...)` lookups.
+// - `bg`/`bgLight` both resolve to white so the `isDark` theme toggle no
+//   longer flips the chart background — the editorial theme is single-mode.
 const COLORS = {
-  query: "#e8e9ed",
-  match: "#818cf8",
-  matchContinuation: "#a78bfa",
-  bg: "#08090d",
-  bgLight: "#f8f9fa",
-  grid: "rgba(255, 255, 255, 0.04)",
-  gridLight: "rgba(0, 0, 0, 0.06)",
-  border: "rgba(255, 255, 255, 0.06)",
-  borderLight: "rgba(0, 0, 0, 0.1)",
-  text: "#454857",
-  textLight: "#6b7280",
-  candleUp: "#34d399",
-  candleDown: "#f87171",
+  query: "#1a1a1a",
+  match: "#6b6b6b",
+  matchContinuation: "#9a9a9a",
+  bg: "#ffffff",
+  bgLight: "#ffffff",
+  grid: "#ececec",
+  gridLight: "#ececec",
+  border: "#e5e5e5",
+  borderLight: "#e5e5e5",
+  text: "#4a4a4a",
+  textLight: "#6b6b6b",
+  candleUp: "#116530",
+  candleDown: "#9a1f1f",
+  pickAccent: "#1a1a1a",
+  crosshair: "rgba(26, 26, 26, 0.25)",
 };
 
 export function ChartPanel() {
@@ -185,8 +198,8 @@ export function ChartPanel() {
         horzLines: { color: COLORS.grid },
       },
       crosshair: {
-        vertLine: { color: "rgba(255,255,255,0.1)", width: 1, style: 2 },
-        horzLine: { color: "rgba(255,255,255,0.1)", width: 1, style: 2 },
+        vertLine: { color: COLORS.crosshair, width: 1, style: 2 },
+        horzLine: { color: COLORS.crosshair, width: 1, style: 2 },
       },
       rightPriceScale: {
         borderColor: COLORS.border,
@@ -264,15 +277,15 @@ export function ChartPanel() {
     if (state.queryPicking) {
       chart.applyOptions({
         crosshair: {
-          vertLine: { color: "#22d3ee", width: 1, style: 0, labelVisible: true },
-          horzLine: { color: "rgba(255,255,255,0.1)", width: 1, style: 2 },
+          vertLine: { color: COLORS.pickAccent, width: 1, style: 0, labelVisible: true },
+          horzLine: { color: COLORS.crosshair, width: 1, style: 2 },
         },
       });
     } else {
       chart.applyOptions({
         crosshair: {
-          vertLine: { color: "rgba(255,255,255,0.1)", width: 1, style: 2, labelVisible: true },
-          horzLine: { color: "rgba(255,255,255,0.1)", width: 1, style: 2 },
+          vertLine: { color: COLORS.crosshair, width: 1, style: 2, labelVisible: true },
+          horzLine: { color: COLORS.crosshair, width: 1, style: 2 },
         },
       });
     }
@@ -310,7 +323,7 @@ export function ChartPanel() {
         markersRef.current?.setMarkers([{
           time: timeVal(ohlc!.dates, bestIdx) as unknown as Time,
           position: "aboveBar",
-          color: "#22d3ee",
+          color: COLORS.pickAccent,
           shape: "arrowDown",
           text: "A",
         }]);
@@ -342,8 +355,8 @@ export function ChartPanel() {
       // Markers (A / B labels)
       if (m) {
         const markers: SeriesMarker<Time>[] = [
-          { time: tA, position: "aboveBar", color: "#22d3ee", shape: "arrowDown", text: "A" },
-          { time: tB, position: "aboveBar", color: "#22d3ee", shape: "arrowDown", text: "B" },
+          { time: tA, position: "aboveBar", color: COLORS.pickAccent, shape: "arrowDown", text: "A" },
+          { time: tB, position: "aboveBar", color: COLORS.pickAccent, shape: "arrowDown", text: "B" },
         ];
         markers.sort((a, b) => (a.time as number) - (b.time as number));
         m.setMarkers(markers);
@@ -547,10 +560,10 @@ export function ChartPanel() {
           style={{ position: "absolute", inset: 0, pointerEvents: "none", zIndex: 5 }}
         />
         {pickLines.xA !== null && (
-          <div style={{ position: "absolute", left: pickLines.xA, top: 0, bottom: 0, width: 1, background: "#22d3ee", pointerEvents: "none", zIndex: 10, opacity: 0.7 }} />
+          <div style={{ position: "absolute", left: pickLines.xA, top: 0, bottom: 0, width: 1, background: COLORS.pickAccent, pointerEvents: "none", zIndex: 10, opacity: 0.7 }} />
         )}
         {pickLines.xB !== null && (
-          <div style={{ position: "absolute", left: pickLines.xB, top: 0, bottom: 0, width: 1, background: "#22d3ee", pointerEvents: "none", zIndex: 10, opacity: 0.7 }} />
+          <div style={{ position: "absolute", left: pickLines.xB, top: 0, bottom: 0, width: 1, background: COLORS.pickAccent, pointerEvents: "none", zIndex: 10, opacity: 0.7 }} />
         )}
       </div>
       {isSearching && (
