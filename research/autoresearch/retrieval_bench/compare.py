@@ -1,5 +1,11 @@
 """Ablation comparison — Tier 1 vs Tier 1+2 decision engine.
 
+.. deprecated::
+    Lane-specific comparison code is frozen. New lanes MUST use
+    :mod:`research.autoresearch.core.gates` (declarative keep/discard) and
+    :mod:`research.autoresearch.core.metrics_delta` (paired bootstrap).
+    This module remains for the existing retrieval-bench callers only.
+
 Reads the per-(slice, arm) JSON artefacts written by ``run_bench`` and
 produces:
 
