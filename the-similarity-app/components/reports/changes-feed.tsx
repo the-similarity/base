@@ -80,7 +80,7 @@ export function ChangesFeed() {
 
   if (error) {
     return (
-      <div className="reports-feed-empty">
+      <div className="deck-feed-empty">
         Activity feed unavailable ({error}). The API route shells out to{" "}
         <code>git</code> and <code>gh</code>; they may not be on the PATH
         in this environment.
@@ -89,20 +89,20 @@ export function ChangesFeed() {
   }
 
   if (!payload) {
-    return <div className="reports-feed-empty">Loading activity…</div>;
+    return <div className="deck-feed-empty">Loading activity…</div>;
   }
 
   const items = mergeFeed(payload);
   if (items.length === 0) {
     return (
-      <div className="reports-feed-empty">
+      <div className="deck-feed-empty">
         No recent activity detected.
       </div>
     );
   }
 
   return (
-    <ul className="reports-feed">
+    <ul className="deck-feed">
       {items.map((item) => (
         <FeedRow key={item.kind === "commit" ? item.commit.hash : `pr-${item.pr.number}`} item={item} />
       ))}
@@ -114,12 +114,12 @@ function FeedRow({ item }: { item: FeedItem }) {
   if (item.kind === "commit") {
     const { commit } = item;
     return (
-      <li className="reports-feed__row reports-feed__row--commit">
-        <span className="reports-feed__kind reports-feed__kind--commit">commit</span>
-        <span className="reports-feed__hash">{commit.shortHash}</span>
-        <span className="reports-feed__subject">{commit.subject}</span>
-        <span className="reports-feed__author">{commit.author}</span>
-        <span className="reports-feed__date">{formatDate(commit.date)}</span>
+      <li className="deck-feed__row deck-feed__row--commit">
+        <span className="deck-feed__kind deck-feed__kind--commit">commit</span>
+        <span className="deck-feed__hash">{commit.shortHash}</span>
+        <span className="deck-feed__subject">{commit.subject}</span>
+        <span className="deck-feed__author">{commit.author}</span>
+        <span className="deck-feed__date">{formatDate(commit.date)}</span>
       </li>
     );
   }
@@ -131,21 +131,21 @@ function FeedRow({ item }: { item: FeedItem }) {
         ? "open"
         : "closed";
   return (
-    <li className={`reports-feed__row reports-feed__row--pr`}>
-      <span className={`reports-feed__kind reports-feed__kind--pr-${stateClass}`}>
+    <li className={`deck-feed__row deck-feed__row--pr`}>
+      <span className={`deck-feed__kind deck-feed__kind--pr-${stateClass}`}>
         PR {pr.state.toLowerCase()}
       </span>
-      <span className="reports-feed__hash">#{pr.number}</span>
+      <span className="deck-feed__hash">#{pr.number}</span>
       <a
         href={pr.url}
         target="_blank"
         rel="noopener"
-        className="reports-feed__subject reports-feed__subject--link"
+        className="deck-feed__subject deck-feed__subject--link"
       >
         {pr.title}
       </a>
-      <span className="reports-feed__author">{pr.author}</span>
-      <span className="reports-feed__date">{formatDate(item.at)}</span>
+      <span className="deck-feed__author">{pr.author}</span>
+      <span className="deck-feed__date">{formatDate(item.at)}</span>
     </li>
   );
 }
