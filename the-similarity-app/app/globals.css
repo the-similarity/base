@@ -1719,14 +1719,20 @@ button { cursor: pointer; }
    Portfolio Scanner
    ═══════════════════════════════════════════════════════════════════ */
 
+/* Portfolio page adopts the editorial `.deck-page` column: off-white page,
+ * centered 820px column, generous top/bottom padding, quiet gray rules
+ * between sections rather than floating shadowed cards. */
 .portfolio-page {
   display: flex;
   flex-direction: column;
   height: calc(100vh - 40px);
   overflow-y: auto;
   background: var(--bg);
-  padding: var(--space-xl) var(--space-2xl) var(--space-3xl);
+  padding: 48px 24px 96px;
   gap: var(--space-2xl);
+  max-width: 1120px;
+  margin: 0 auto;
+  width: 100%;
 }
 
 /* ── Header ── */
@@ -1764,12 +1770,14 @@ button { cursor: pointer; }
 }
 
 .portfolio-header__title {
+  /* Editorial h1 scale: 40px, tight negative tracking, quiet weight step. */
   font-family: var(--font-sans);
-  font-size: 22px;
+  font-size: 40px;
   font-weight: 700;
   color: var(--text-primary);
   margin: 0;
-  letter-spacing: -0.3px;
+  letter-spacing: -0.04em;
+  line-height: 1.1;
 }
 
 .portfolio-header__subtitle {
@@ -1794,12 +1802,13 @@ button { cursor: pointer; }
 }
 
 .portfolio-section__title {
-  font-family: var(--font-sans);
+  /* Editorial section tag: mono, uppercase, deck-style kicker above content. */
+  font-family: var(--font-mono);
   font-size: 11px;
   font-weight: 600;
   color: var(--text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.6px;
+  letter-spacing: 0.08em;
   margin: 0;
 }
 
@@ -1819,23 +1828,27 @@ button { cursor: pointer; }
 
 /* ── Regime Card ── */
 
+/* Regime card: editorial deck-report language — no shadow, no translate on
+ * hover, top-border accent rule, subtle opacity fade. Cards sit flat on
+ * the off-white column instead of floating. */
 .portfolio-regime-card {
   background: var(--bg-card);
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  border-top: 3px solid var(--text-primary);
+  border-radius: 0;
   padding: var(--space-lg);
   display: flex;
   flex-direction: column;
   gap: var(--space-md);
-  box-shadow: var(--shadow-card);
-  transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: none;
+  transition: opacity 120ms ease;
   cursor: default;
 }
 
 .portfolio-regime-card:hover {
-  border-color: var(--border-focus);
-  box-shadow: var(--shadow-card-hover);
-  transform: translateY(-1px);
+  opacity: 0.85;
+  box-shadow: none;
+  transform: none;
 }
 
 .portfolio-regime-card__header {
@@ -1914,10 +1927,12 @@ button { cursor: pointer; }
 
 /* ── Portfolio Tables (shared) ── */
 
+/* Editorial deck table: plain borders, no rounded corners or float; mono
+ * numerics and uppercase mono headers. */
 .portfolio-table-wrap {
   overflow-x: auto;
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  border-radius: 0;
   background: var(--bg-elevated);
 }
 
@@ -1928,12 +1943,12 @@ button { cursor: pointer; }
 }
 
 .portfolio-table__th {
-  font-family: var(--font-sans);
+  font-family: var(--font-mono);
   font-size: 10px;
-  font-weight: 600;
+  font-weight: 700;
   color: var(--text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.4px;
+  letter-spacing: 0.08em;
   padding: var(--space-md) var(--space-lg);
   text-align: left;
   border-bottom: 1px solid var(--border);
@@ -1966,7 +1981,7 @@ button { cursor: pointer; }
 }
 
 .portfolio-table__row:nth-child(even) {
-  background: #fbfbfb;
+  background: var(--bg);
 }
 
 .portfolio-table__row:hover {
