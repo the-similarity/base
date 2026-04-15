@@ -1,21 +1,19 @@
 /**
  * Example world-eval sweep — 2×3 knob grid, 3 seeds, short run.
  *
- * Produces a reference artifact at
- * `the-similarity-fractal/artifacts/sweep-example/sweep-example/` so that
- * reviewers (and CI) can see what a world-eval scorecard actually looks
- * like without having to run the sweep themselves.
+ * Loads `scenarios/small_village.json` as the base scenario (matches the
+ * team-lead spec), then sweeps `food_spawn_rate × energy_decay` × 3 seeds
+ * using the headless runner CLI. Produces a reference artifact under
+ * `the-similarity-fractal/artifacts/sweep-example/sweep-example/` so PR
+ * reviewers can see what a world-eval scorecard actually looks like.
  *
- * This script is intentionally small and dependency-free — it runs under
- * plain `node` with no build step. Invoked manually:
- *
- *     node src/eval/run-example-sweep.js
- *
- * It writes to `artifacts/sweep-example/` under the package root.
+ * Usage:
+ *   node src/eval/run-example-sweep.js
  */
 
+import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { dirname, resolve } from 'node:path';
+import { dirname, resolve, join } from 'node:path';
 
 import {
   runSweep,
@@ -27,32 +25,29 @@ import {
 } from './index.js';
 
 async function main() {
-  // Base scenario — matches the headless world defaults, spelled out here so
-  // the artifact is self-documenting (a reader can see exactly what was run).
-  const baseScenario = {
-    world: {
-      size: 48,
-      initial_population: 24,
-    },
-    params: {
-      energy_decay: 0.01,
-      move_speed: 1,
-      food_spawn_rate: 0.05,
-      food_energy: 0.3,
-    },
-  };
+  const here = dirname(fileURLToPath(import.meta.url));
+  const pkgRoot = resolve(here, '../..');
+  const scenarioPath = join(pkgRoot, 'scenarios/small_village.json');
+  const baseScenario = JSON.parse(readFileSync(scenarioPath, 'utf8'));
 
-  // 2 × 3 grid = 6 cells, × 3 seeds = 18 runs. Short (120 ticks) so the
-  // example completes in well under a second on typical hardware.
+  // 2 × 3 grid × 3 seeds = 18 cells. Per team-lead guidance the chosen
+  // knob pair is food_spawn_rate × energy_decay — the two knobs we expect
+  // strongest controllability signal on (food availability vs metabolism).
   const knobGrid = {
-    food_spawn_rate: [0.02, 0.08],         // low vs. high food pressure
+    food_spawn_rate: [0.05, 0.15],         // sparse vs. abundant food
     energy_decay:    [0.005, 0.01, 0.02],  // slow, default, fast metabolism
   };
   const seeds = [1, 2, 3];
-  const ticks = 120;
+  const steps = 150;
 
+  const sweepId = 'example';
+  // Let the sweep use a tmpdir for per-cell JSONL + scenario files and
+  // clean them up after reading — the committed artifact only needs the
+  // aggregated telemetry.jsonl + scorecard.json.
   const t0 = Date.now();
-  const { cells, telemetry } = runSweep({ baseScenario, knobGrid, seeds, ticks });
+  const { cells, telemetry } = runSweep({
+    baseScenario, knobGrid, seeds, steps, keepWorkDir: false,
+  });
   const runtimeMs = Date.now() - t0;
 
   const regimeCoverage = summarizeRegimeCoverage(telemetry, {
@@ -60,9 +55,8 @@ async function main() {
     knobNames: Object.keys(knobGrid),
   });
 
-  // Use the lowest seed as the permutation-test seed so the p-values in the
-  // artifact are stable across re-runs — documented explicitly on the
-  // provenance record.
+  // Fix the permutation-test seed so the committed scorecard's p-values are
+  // stable across re-runs. This is documented on the provenance record.
   const permSeed = Math.min(...seeds);
   const controllabilityReport = controllability(telemetry, {
     knobNames: Object.keys(knobGrid),
@@ -71,34 +65,27 @@ async function main() {
   });
 
   const provenance = makeProvenance({
-    sourceId: 'worlds-headless-minimal',
+    sourceId: baseScenario.name ?? 'worlds-headless',
     generatorName: 'worlds_headless',
     generatorVersion: '0.1.0',
     seed: permSeed,
-    params: { baseScenario, knobGrid, seeds, ticks, runtime_ms: runtimeMs },
+    params: { baseScenario, knobGrid, seeds, steps, runtime_ms: runtimeMs },
   });
 
   const scorecard = buildScorecard({
     scenario: baseScenario,
     knobGrid,
     seeds,
-    ticks,
+    ticks: steps,
     regimeCoverage,
     controllability: controllabilityReport,
     provenance,
-    sweepId: 'example',
+    sweepId,
   });
 
-  const outDir = resolve(dirname(fileURLToPath(import.meta.url)), '../../artifacts/sweep-example');
-  const wrote = await writeScorecard({
-    outDir,
-    scorecard,
-    telemetry,
-    cells,
-  });
+  const outDir = join(pkgRoot, `artifacts/sweep-${sweepId}`);
+  const wrote = await writeScorecard({ outDir, scorecard, telemetry, cells });
 
-  // Single-line result summary — meant to be parseable by CI / orchestrator
-  // log tailing without pulling in a JSON parser.
   console.log(JSON.stringify({
     ok: true,
     wrote,

@@ -2,21 +2,25 @@
   "kind": "worlds",
   "sweep_id": "example",
   "scenario": {
+    "name": "small_village",
+    "description": "Tiny seeded world: 20 agents on a 64x64 torus with modest food spawn. Used as the default smoke-test scenario for the headless runner.",
+    "seed": 42,
+    "steps": 500,
     "world": {
-      "size": 48,
-      "initial_population": 24
+      "size": 64,
+      "initial_population": 20
     },
     "params": {
       "energy_decay": 0.01,
       "move_speed": 1,
-      "food_spawn_rate": 0.05,
+      "food_spawn_rate": 0.1,
       "food_energy": 0.3
     }
   },
   "knob_grid": {
     "food_spawn_rate": [
-      0.02,
-      0.08
+      0.05,
+      0.15
     ],
     "energy_decay": [
       0.005,
@@ -29,7 +33,7 @@
     2,
     3
   ],
-  "ticks": 120,
+  "ticks": 150,
   "regime_coverage": {
     "regime_labels": [
       "collapsed:starving",
@@ -48,21 +52,37 @@
         "healthy:fed",
         "healthy:lean",
         "healthy:starving",
+        "thin:lean",
         "thin:starving"
       ],
-      "coverage": 0.5555555555555556,
+      "coverage": 0.6666666666666666,
       "counts": {
-        "healthy:fed": 316,
-        "healthy:lean": 775,
-        "healthy:starving": 193,
-        "thin:starving": 242,
-        "collapsed:starving": 634
+        "healthy:fed": 294,
+        "healthy:lean": 804,
+        "healthy:starving": 226,
+        "thin:starving": 364,
+        "thin:lean": 4,
+        "collapsed:starving": 1008
       }
     },
     "per_config": [
       {
         "knobs": {
-          "food_spawn_rate": 0.02,
+          "food_spawn_rate": 0.15,
+          "energy_decay": 0.005
+        },
+        "regimes_visited": [
+          "healthy:fed",
+          "healthy:lean",
+          "healthy:starving",
+          "thin:lean",
+          "thin:starving"
+        ],
+        "coverage": 0.5555555555555556
+      },
+      {
+        "knobs": {
+          "food_spawn_rate": 0.05,
           "energy_decay": 0.01
         },
         "regimes_visited": [
@@ -76,7 +96,7 @@
       },
       {
         "knobs": {
-          "food_spawn_rate": 0.08,
+          "food_spawn_rate": 0.15,
           "energy_decay": 0.01
         },
         "regimes_visited": [
@@ -90,7 +110,7 @@
       },
       {
         "knobs": {
-          "food_spawn_rate": 0.02,
+          "food_spawn_rate": 0.05,
           "energy_decay": 0.02
         },
         "regimes_visited": [
@@ -104,7 +124,7 @@
       },
       {
         "knobs": {
-          "food_spawn_rate": 0.08,
+          "food_spawn_rate": 0.15,
           "energy_decay": 0.02
         },
         "regimes_visited": [
@@ -118,118 +138,111 @@
       },
       {
         "knobs": {
-          "food_spawn_rate": 0.02,
+          "food_spawn_rate": 0.05,
           "energy_decay": 0.005
         },
         "regimes_visited": [
           "healthy:fed",
           "healthy:lean",
-          "healthy:starving"
+          "healthy:starving",
+          "thin:starving"
         ],
-        "coverage": 0.3333333333333333
-      },
-      {
-        "knobs": {
-          "food_spawn_rate": 0.08,
-          "energy_decay": 0.005
-        },
-        "regimes_visited": [
-          "healthy:fed",
-          "healthy:lean",
-          "healthy:starving"
-        ],
-        "coverage": 0.3333333333333333
+        "coverage": 0.4444444444444444
       }
     ]
   },
   "controllability": {
     "food_spawn_rate": {
       "alive": {
-        "effect_size": 0.011857269237392153,
-        "p_value": 0.7085828343313373,
+        "effect_size": -0.008329856540603852,
+        "p_value": 0.8842315369261478,
         "n": 18
       },
       "mean_energy": {
-        "effect_size": 0.09980079910843549,
-        "p_value": 0.6147704590818364,
+        "effect_size": 0.027003567399954236,
+        "p_value": 0.7744510978043913,
         "n": 18
       },
       "mean_age": {
-        "effect_size": 0.13233944222711205,
-        "p_value": 0.5808383233532934,
+        "effect_size": -3.089972858418253e-17,
+        "p_value": 1,
         "n": 18
       },
       "food_count": {
-        "effect_size": 0.7021943149062947,
+        "effect_size": 0.8725518703928131,
         "p_value": 0.001996007984031936,
         "n": 18
       },
       "cumulative_deaths": {
-        "effect_size": -0.011857269237392118,
-        "p_value": 0.7085828343313373,
+        "effect_size": 0.008329856540603905,
+        "p_value": 0.8522954091816367,
         "n": 18
       },
       "cumulative_food_eaten": {
-        "effect_size": 0.5334005334008002,
-        "p_value": 0.031936127744510975,
+        "effect_size": -0.09245003270420489,
+        "p_value": 0.5728542914171657,
         "n": 18
       }
     },
     "energy_decay": {
       "alive": {
-        "effect_size": -0.7632478911130681,
-        "p_value": 0.003992015968063872,
+        "effect_size": -0.7536261084631958,
+        "p_value": 0.001996007984031936,
         "n": 18
       },
       "mean_energy": {
-        "effect_size": -0.7844350900500214,
+        "effect_size": -0.7422931036647399,
         "p_value": 0.001996007984031936,
         "n": 18
       },
       "mean_age": {
-        "effect_size": -0.8060365899542794,
-        "p_value": 0.001996007984031936,
-        "n": 18
-      },
-      "food_count": {
-        "effect_size": 0.2049875232151527,
-        "p_value": 0.47105788423153694,
-        "n": 18
-      },
-      "cumulative_deaths": {
-        "effect_size": 0.7632478911130681,
+        "effect_size": -0.7559289460184546,
         "p_value": 0.003992015968063872,
         "n": 18
       },
+      "food_count": {
+        "effect_size": 0.12271529578472833,
+        "p_value": 0.6387225548902196,
+        "n": 18
+      },
+      "cumulative_deaths": {
+        "effect_size": 0.7536261084631956,
+        "p_value": 0.001996007984031936,
+        "n": 18
+      },
       "cumulative_food_eaten": {
-        "effect_size": -0.5362869443086833,
-        "p_value": 0.013972055888223553,
+        "effect_size": -0.5929994533288809,
+        "p_value": 0.00998003992015968,
         "n": 18
       }
     }
   },
   "provenance": {
-    "source_id": "worlds-headless-minimal",
+    "source_id": "small_village",
     "generator_name": "worlds_headless",
     "generator_version": "0.1.0",
     "seed": 1,
     "params": {
       "baseScenario": {
+        "name": "small_village",
+        "description": "Tiny seeded world: 20 agents on a 64x64 torus with modest food spawn. Used as the default smoke-test scenario for the headless runner.",
+        "seed": 42,
+        "steps": 500,
         "world": {
-          "size": 48,
-          "initial_population": 24
+          "size": 64,
+          "initial_population": 20
         },
         "params": {
           "energy_decay": 0.01,
           "move_speed": 1,
-          "food_spawn_rate": 0.05,
+          "food_spawn_rate": 0.1,
           "food_energy": 0.3
         }
       },
       "knobGrid": {
         "food_spawn_rate": [
-          0.02,
-          0.08
+          0.05,
+          0.15
         ],
         "energy_decay": [
           0.005,
@@ -242,9 +255,9 @@
         2,
         3
       ],
-      "ticks": 120,
-      "runtime_ms": 7
+      "steps": 150,
+      "runtime_ms": 1256
     },
-    "created_at": "2026-04-15T21:27:51Z"
+    "created_at": "2026-04-15T21:31:27Z"
   }
 }
