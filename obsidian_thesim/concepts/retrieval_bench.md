@@ -91,6 +91,10 @@ What held:
 - **CRPS improvement only on `spy-rate-hike-2022`** (both seeds, clean −0.00569). Bull and COVID remain flat-to-worse. 1 of 3 SPY slices pass CRPS, far below the 3-of-6 bar.
 
 What reversed:
-- **Forward-return correlation now lifts on every SPY cell**, including +0.427 on covid seed 42 where Tier 1 was strongly anti-correlated. Tier 2 *is* finding more informative analogues; the cone construction is losing that signal before CRPS. Run 1's "correlation regresses" claim fails to replicate at 40 trials.
+- **Forward-return correlation now lifts on every SPY cell**, including +0.427 on covid seed 42 where Tier 1 was strongly anti-correlated. Tier 2 *is* finding more informative analogues on SPY; the cone construction is losing that signal before CRPS. Run 1's "correlation regresses" claim fails to replicate at 40 trials on SPY.
 
-Status: **partial discard confirmed on SPY**, single-name / crypto untested. Engine defaults untouched. Next lane resumes NVDA / TSLA / BTC before any verdict is promoted.
+NVDA partial (1 paired cell, seed 42 only):
+- Δcrps = **+0.00411** (Tier 2 worse), Δcorr = **−0.086** (Tier 2 worse), runtime 13.5×.
+- The spec singled out NVDA as where Tier 2's dynamical methods should most plausibly earn weight. One cell is not decisive, but it contradicts the SPY correlation lift and weakens the hypothesis that single-name / crypto will rescue Tier 2.
+
+Status: **partial discard confirmed on SPY, hypothesis weakened on NVDA**. TSLA and BTC remain untested. Engine defaults untouched. Next lane resumes from `bench/retrieval-expanded-budget` to finish NVDA seed 314, TSLA × 2, BTC × 2 before any verdict is promoted.

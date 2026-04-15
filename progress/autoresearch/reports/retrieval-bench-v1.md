@@ -85,8 +85,8 @@ touching the method list. That is the next lane to investigate.
 
 - Trials per slice: **40** (was 8 in Run 1)
 - Seeds: **[42, 314]** (was [42] in Run 1)
-- Slices completed: 3 of 6 (all three SPY regimes). NVDA / TSLA / BTC not reached — the worktree agent crashed with an API connection error after 22 min and 13 of 24 cells.
-- Partial cells on disk: 12 paired SPY cells (3 slices × 2 seeds × 2 arms) + 1 orphan (`nvda-long-run_seed42-tier1_only`).
+- Slices completed: 3 of 6 (all three SPY regimes) + 1 paired NVDA cell (seed 42). TSLA / BTC not reached. The worktree agent crashed with an API connection error after 22 min and 15 of 24 cells.
+- Partial cells on disk: 12 paired SPY cells (3 slices × 2 seeds × 2 arms) + 2 paired NVDA seed-42 cells + 1 orphan NVDA seed-314 tier1_only.
 
 ### SPY-only scorecard (12 paired cells)
 
@@ -99,12 +99,23 @@ touching the method list. That is the next lane to investigate.
 | `spy-rate-hike-2022` | 42 | 0.05354 | 0.04785 | **−0.00569** | +0.030 | 47.5× |
 | `spy-rate-hike-2022` | 314 | 0.05354 | 0.04785 | **−0.00569** | +0.030 | 42.4× |
 
+### NVDA scorecard (1 paired cell, seed 42 only)
+
+| slice | seed | T1 CRPS | T1+2 CRPS | ΔCRPS | T1 corr | T1+2 corr | Δcorr | rt× |
+|---|---|---|---|---|---|---|---|---|
+| `nvda-long-run` | 42 | 0.10399 | 0.10810 | **+0.00411** | −0.221 | −0.308 | **−0.086** | 13.5× |
+
+The spec singled out NVDA as the slice where Tier 2's dynamical methods (Koopman, Bempedelis) "should plausibly earn weight" because of strong dynamical structure and multiple regime shifts. In this paired cell Tier 2 is **worse on both primary metrics** (CRPS higher, correlation further anti-correlated) at 13.5× runtime. Tier 2 did improve calibration (0.050 → 0.025) and hit rate (0.65 → 0.70), but those are secondary and cannot rescue a CRPS loss.
+
+Single cell with a single seed, so not decisive on its own — but together with SPY it weakens the hypothesis that NVDA / TSLA / BTC will rescue Tier 2.
+
 ### Signals
 
 1. **Seed 42 and seed 314 agree on direction across all 3 SPY slices.** The Run 1 discard verdict was not a seed artifact.
 2. **CRPS ≥0.005 improvement only on `spy-rate-hike-2022`** (both seeds, cleanly). Bull and COVID remain flat-to-worse for Tier 2. This matches Run 1 exactly — rate-hike is the only regime where Tier 2 earns CRPS on SPY.
-3. **Forward-return correlation lift reverses compared to Run 1.** With 40 trials (vs 8), Tier 2 now improves correlation on *every* SPY cell, including +0.427 on covid seed 42 where Tier 1 was strongly anti-correlated. Tier 2 IS finding more informative analogues dynamically; the cone construction is losing that signal before it reaches CRPS.
-4. **Runtime blowout unchanged.** 8.3×–47.5×, all cells far above the 3.0× gate.
+3. **Forward-return correlation lift reverses compared to Run 1 on SPY.** With 40 trials (vs 8), Tier 2 now improves correlation on *every* SPY cell, including +0.427 on covid seed 42 where Tier 1 was strongly anti-correlated. Tier 2 IS finding more informative analogues dynamically on SPY; the cone construction is losing that signal before it reaches CRPS.
+4. **NVDA contradicts the SPY correlation lift.** The one paired NVDA cell shows Tier 2 *worse* on correlation too. Tier 2's edge on SPY covid/bull may not generalise.
+5. **Runtime blowout unchanged.** 8.3×–47.5× on SPY, 13.5× on NVDA — all cells far above the 3.0× gate.
 
 ### Preliminary partial verdict
 
