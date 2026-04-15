@@ -151,3 +151,30 @@ All of the above will plug into the same artifact contract and eval spine; only 
 - **Shared-file rules (from CLAUDE.md):** do not edit `obsidian_thesim/_MOC.md`, `.gitignore`, `CHANGELOG.md`, `pyproject.toml` from worktree agents. Note any additions you need in your PR body instead.
 - **Determinism is a contract, not a nice-to-have** for worlds — PRs without seed-stability tests will be sent back.
 - **Merge as PRs land**, not in a batch. Cascading conflicts otherwise.
+
+---
+
+## Demos
+
+Two canonical commands that run from a fresh clone with no manual setup. Both
+are deterministic given their seed. See `the_similarity/synthetic/demos/README.md`
+for the full list of output artifacts per command.
+
+**Copies demo** — fit + sample + score against the shipped 500-row fixture:
+
+```bash
+python -m the_similarity.synthetic.cli \
+  --input the_similarity/synthetic/demos/sample.csv \
+  --n 500 --seed 42 \
+  --out artifacts/demo-copies
+```
+
+**Worlds demo** — headless 500-tick rollout of the bundled `small_village` scenario:
+
+```bash
+cd the-similarity-fractal && \
+  npm run sim:headless -- \
+    --scenario scenarios/small_village.json \
+    --seed 42 --steps 500 \
+    --out artifacts/demo-worlds.jsonl
+```
