@@ -35,6 +35,23 @@ from numpy.typing import NDArray
 from scipy.stats import pearsonr
 
 from the_similarity.config import Config
+from the_similarity.core.normalizer import METHOD_NORM_DEFAULTS, normalize
+from the_similarity.core.regime import tag_regime
+from the_similarity.core.scorer import MatchResult, ScoreBreakdown, compute_confidence
+from the_similarity.core.windower import sliding_windows, window_indices
+from the_similarity.methods.bempedelis import bempedelis_match
+from the_similarity.methods.dtw_matcher import batch_dtw_scores, dtw_distance, dtw_score
+from the_similarity.methods.emd_matcher import emd_score
+from the_similarity.methods.koopman import koopman_match
+from the_similarity.methods.matrix_profile_filter import (
+    HAS_STUMPY,
+    mp_score_profile,
+    query_profile,
+)
+from the_similarity.methods.sax_filter import sax_mindist, sax_score, sax_transform
+from the_similarity.methods.tda_matcher import compare as tda_compare
+from the_similarity.methods.transfer_entropy import te_score
+from the_similarity.methods.wavelet_leaders import wavelet_spectrum_score
 
 
 @dataclass
@@ -55,24 +72,6 @@ class ProgressEvent:
 
 # Callback type: receives a ProgressEvent, returns nothing.
 ProgressCallback = Callable[[ProgressEvent], None]
-
-from the_similarity.core.normalizer import METHOD_NORM_DEFAULTS, normalize
-from the_similarity.core.regime import tag_regime
-from the_similarity.core.scorer import MatchResult, ScoreBreakdown, compute_confidence
-from the_similarity.core.windower import sliding_windows, window_indices
-from the_similarity.methods.bempedelis import bempedelis_match
-from the_similarity.methods.dtw_matcher import batch_dtw_scores, dtw_distance, dtw_score
-from the_similarity.methods.emd_matcher import emd_score
-from the_similarity.methods.koopman import koopman_match
-from the_similarity.methods.matrix_profile_filter import (
-    HAS_STUMPY,
-    mp_score_profile,
-    query_profile,
-)
-from the_similarity.methods.sax_filter import sax_mindist, sax_score, sax_transform
-from the_similarity.methods.tda_matcher import compare as tda_compare
-from the_similarity.methods.transfer_entropy import te_score
-from the_similarity.methods.wavelet_leaders import wavelet_spectrum_score
 
 # Method groupings for tiered execution
 # Separating cheap and expensive methods ensures responsiveness.
