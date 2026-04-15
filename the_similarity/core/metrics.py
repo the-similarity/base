@@ -435,6 +435,171 @@ def max_drawdown(trials: list[TrialResult]) -> float:
     return float(np.max(drawdowns))
 
 
+def calibration_error_over_time(
+    trials: list[TrialResult],
+    percentiles: list[int] | None = None,
+) -> dict[int, float]:
+    """Per-horizon calibration error, aggregated across trials.
+
+    Unlike :func:`calibration` — which looks only at the terminal bar —
+    this metric measures how containment drifts as the forecast horizon
+    grows. It is the primary diagnostic for projector-v2 variants that
+    claim to improve *joint* coverage across bars, not just marginal
+    terminal coverage.
+
+    Mathematical formulation (per percentile *P*):
+
+        miscoverage_P = (1 / forward_bars) * sum_{b} | containment_P(b) - P/100 |
+
+    where ``containment_P(b)`` is the fraction of trials for which the
+    actual return at bar *b* falls at-or-below the P-th percentile
+    forecast curve at bar *b*.
+
+    Interpretation:
+        - 0.0 — perfect per-horizon calibration
+        - 0.05 — ~5pp mean deviation from nominal at every bar
+        - If a variant improves terminal-only ``calibration_error_p10_p90``
+          but regresses ``calibration_error_over_time``, it is merely
+          overfitting the terminal and should be discarded.
+
+    Args:
+        trials: Completed backtest trials (skipped excluded upstream).
+        percentiles: Which percentiles to evaluate. Defaults to the
+            intersection of percentiles present in the first trial's
+            ``forecast_curves`` — so this composes cleanly with any
+            configured percentile grid.
+
+    Returns:
+        Dict mapping each percentile P to the mean absolute miscoverage
+        across bars. NaN for percentiles that lack coverage data at every
+        bar across every trial.
+    """
+    if not trials:
+        return {}
+
+    # Infer percentile keys from the first trial with curves if not given.
+    if percentiles is None:
+        for trial in trials:
+            if trial.forecast_curves:
+                percentiles = sorted(trial.forecast_curves.keys())
+                break
+        if percentiles is None:
+            return {}
+
+    # Infer forward_bars from the first non-empty percentile curve we
+    # find. Trials with shorter curves are skipped at the per-bar level
+    # rather than crashing the whole aggregation.
+    forward_bars = 0
+    for trial in trials:
+        for p in percentiles:
+            curve = trial.forecast_curves.get(p)
+            if curve is not None and len(curve) > forward_bars:
+                forward_bars = len(curve)
+        if forward_bars:
+            break
+    if forward_bars == 0:
+        return {p: float("nan") for p in percentiles}
+
+    result: dict[int, float] = {}
+    for p in percentiles:
+        # containment[b] = contained_count[b] / valid_count[b]
+        contained = np.zeros(forward_bars, dtype=np.int64)
+        valid = np.zeros(forward_bars, dtype=np.int64)
+        for trial in trials:
+            curve = trial.forecast_curves.get(p)
+            if curve is None or len(curve) == 0:
+                continue
+            n = min(len(curve), len(trial.actual_returns), forward_bars)
+            # Vectorised comparison is O(n) and avoids Python-level loops
+            # across all bars and trials.
+            mask = trial.actual_returns[:n] <= curve[:n]
+            contained[:n] += mask.astype(np.int64)
+            valid[:n] += 1
+
+        with np.errstate(invalid="ignore", divide="ignore"):
+            containment = np.where(valid > 0, contained / np.maximum(valid, 1), np.nan)
+        expected = p / 100.0
+        # Ignore NaN bars (no coverage data) when averaging.
+        diffs = np.abs(containment - expected)
+        valid_diffs = diffs[np.isfinite(diffs)]
+        if len(valid_diffs) == 0:
+            result[p] = float("nan")
+        else:
+            result[p] = float(np.mean(valid_diffs))
+    return result
+
+
+def joint_path_crps(
+    trials: list[TrialResult],
+) -> float:
+    """Joint-path CRPS approximation using the full forward-bar trajectory.
+
+    The standard :func:`crps` looks only at the terminal bar. For
+    projector variants that sample correlated joint paths (not
+    independent per-bar quantiles), we want a scoring rule that rewards
+    *coherence* across the whole horizon. This function approximates the
+    CRPS by integrating the per-bar discrete CRPS along the forecast
+    horizon:
+
+        joint_CRPS ≈ (1 / forward_bars) *
+                     sum_{b} mean_over_percentiles |I(y_b <= F_p_b) - p/100|²
+
+    where *F_p_b* is the forecast at percentile p and bar b. This
+    reduces to the baseline :func:`crps` when forward_bars=1.
+
+    Interpretation:
+        - 0.0 — perfect per-horizon calibration *and* sharpness
+        - Lower is strictly better.
+        - Differences between :func:`crps` and :func:`joint_path_crps`
+          isolate the across-bar coherence component of the variant.
+
+    Args:
+        trials: Completed backtest trials.
+
+    Returns:
+        Mean joint-path CRPS across trials. NaN if empty.
+    """
+    if not trials:
+        return float("nan")
+
+    values: list[float] = []
+    for trial in trials:
+        if not trial.forecast_curves:
+            continue
+        sorted_pcts = sorted(trial.forecast_curves.keys())
+        if not sorted_pcts:
+            continue
+
+        # Stack percentile curves into a single (n_pct, bars) array for
+        # vectorised indicator computation. We take the minimum number
+        # of bars across all percentiles AND actual_returns so mismatched
+        # lengths (rare, from skipped trials) don't crash this metric.
+        min_bars = min(
+            min(len(trial.forecast_curves[p]) for p in sorted_pcts),
+            len(trial.actual_returns),
+        )
+        if min_bars == 0:
+            continue
+
+        stacked = np.stack(
+            [trial.forecast_curves[p][:min_bars] for p in sorted_pcts],
+            axis=0,
+        )  # (n_pct, bars)
+        actuals = trial.actual_returns[:min_bars]  # (bars,)
+        cdf_levels = np.array(sorted_pcts, dtype=np.float64) / 100.0  # (n_pct,)
+
+        # Indicator I(y_b <= F_p_b): broadcast (bars,) against (n_pct, bars).
+        indicators = (actuals[None, :] <= stacked).astype(np.float64)
+        # Squared deviation from nominal CDF — averaged over percentiles
+        # gives per-bar CRPS, then averaged over bars for the trial value.
+        per_bar = np.mean((indicators - cdf_levels[:, None]) ** 2, axis=0)
+        values.append(float(np.mean(per_bar)))
+
+    if not values:
+        return float("nan")
+    return float(np.mean(values))
+
+
 def sharpe_ratio(
     trials: list[TrialResult],
     periods_per_year: int = 252,
