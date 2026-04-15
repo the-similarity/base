@@ -1,5 +1,10 @@
 """Experiment-ledger entry builder for the retrieval-bench lane.
 
+.. deprecated::
+    Lane-specific ledger code is frozen. New lanes MUST use
+    :mod:`research.autoresearch.core.ledger` (canonical schema + helpers).
+    This module remains for the existing retrieval-bench callers only.
+
 The ledger (``progress/autoresearch/experiments.jsonl``) is the append-only
 machine-readable log of every lane run.  Schema is defined at
 ``research/autoresearch/ledger/experiment-ledger.schema.json`` and requires
