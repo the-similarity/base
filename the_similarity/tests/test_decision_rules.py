@@ -10,12 +10,10 @@ Covers:
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 
 import numpy as np
 
 from the_similarity.core.decision_rules import (
-    CalibrationAwareSignal,
     CalibrationAwareStrategy,
     DecisionRuleConfig,
     ReviewSummary,
@@ -26,7 +24,6 @@ from the_similarity.core.projector import Forecast
 from the_similarity.core.scorer import MatchResult
 from the_similarity.core.strategy import (
     Rule,
-    Signal,
     SignalType,
     Strategy,
 )
