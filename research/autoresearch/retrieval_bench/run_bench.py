@@ -146,18 +146,64 @@ def load_spec(path: str | Path = DEFAULT_SPEC) -> BenchSpec:
     with open(path, "r", encoding="utf-8") as fh:
         raw = yaml.safe_load(fh)
 
-    slices = [
-        SliceDef(
-            id=s["id"],
-            symbol=s["symbol"],
-            path=s["path"],
-            start_date=s["start_date"],
-            end_date=s["end_date"],
-            regime=s.get("regime", ""),
-            rationale=s.get("rationale", ""),
+    # ------------------------------------------------------------------
+    # Slice resolution — TWO modes coexist so the migration to the
+    # canonical catalogue (Phase 2 / Track 2C) is non-breaking:
+    #
+    #   Mode A (legacy inline): an entry defines symbol / path /
+    #     start_date / end_date directly in slices.yaml.  Kept for
+    #     historical backward compatibility.
+    #
+    #   Mode B (catalogue reference): an entry supplies only ``id`` and
+    #     optionally a per-lane ``regime`` / ``rationale`` override.  The
+    #     loader fetches the window + path from
+    #     research/autoresearch/slices/catalogue.yaml via
+    #     research.autoresearch.slices.loader.load_slice.
+    #
+    # Detection rule: if BOTH ``symbol`` and ``path`` are absent we assume
+    # Mode B and delegate to the catalogue loader.  This keeps the YAML
+    # author from having to add an explicit ``from_catalogue: true`` flag.
+    # ------------------------------------------------------------------
+    slices: list[SliceDef] = []
+    _catalogue_cache = None  # lazily populated on first Mode-B entry
+    for s in raw["slices"]:
+        if "symbol" in s and "path" in s:
+            slices.append(
+                SliceDef(
+                    id=s["id"],
+                    symbol=s["symbol"],
+                    path=s["path"],
+                    start_date=s["start_date"],
+                    end_date=s["end_date"],
+                    regime=s.get("regime", ""),
+                    rationale=s.get("rationale", ""),
+                )
+            )
+            continue
+
+        # Catalogue-backed entry.  Import is deferred so this module can
+        # be imported from environments that don't have the autoresearch
+        # slices package on the path (e.g. docs tooling).
+        from research.autoresearch.slices import loader as _slices_loader
+        from research.autoresearch.slices import validate as _slices_validate
+
+        if _catalogue_cache is None:
+            _catalogue_cache = _slices_validate.load_catalogue()
+        spec = _slices_loader.load_slice(s["id"], catalogue=_catalogue_cache)
+        slices.append(
+            SliceDef(
+                id=spec.id,
+                symbol=spec.asset,
+                path=spec.dataset_path,
+                start_date=spec.start_date,
+                end_date=spec.end_date,
+                # Per-lane overrides beat catalogue defaults — the
+                # retrieval lane's ``regime`` tag is descriptive, not the
+                # canonical enum, so a lane may want finer labels.
+                regime=s.get("regime", spec.regime_class),
+                rationale=s.get("rationale", spec.description),
+            )
         )
-        for s in raw["slices"]
-    ]
     arms = [
         ArmDef(
             id=a["id"],

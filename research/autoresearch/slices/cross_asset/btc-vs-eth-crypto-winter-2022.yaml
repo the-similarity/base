@@ -1,0 +1,25 @@
+# ============================================================================
+# Cross-asset pair — BTC vs ETH, 2022 crypto winter
+# ============================================================================
+pair_id: btc-vs-eth-crypto-winter-2022
+description: >-
+  Same-family crypto pair through the LUNA/3AC/FTX cascade.  Tests
+  whether retrieval recognises the shared drawdown structure and whether
+  the merge-narrative divergence shows up in match differences.
+regime_class: crisis
+
+# Legs -------------------------------------------------------------------
+left: btc-collapse-2022    # 2021-11-10 .. 2022-12-31
+right: eth-collapse-2022   # 2021-11-10 .. 2022-12-31
+
+# Both use CCXT daily at the same timestamps, so a simple intersection
+# join is exact.  Merge date is 2022-09-15 and appears inside the window
+# for ETH only — a known divergence event the bench can inspect.
+join_rule: intersection
+
+notes: >-
+  Shared events: LUNA/UST depeg 2022-05-09..12, 3AC liquidation
+  2022-06-29, Celsius pause 2022-06-13, FTX collapse 2022-11-06..11.
+  ETH-specific: Merge PoS-transition 2022-09-15.  BTC-specific: none of
+  equivalent magnitude.  Vol scales differ (ETH ~1.3x BTC); runners
+  should z-normalise per-leg.

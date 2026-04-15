@@ -1,0 +1,27 @@
+# ============================================================================
+# Regime bucket — CALM
+# ============================================================================
+# Low realized volatility, shallow drawdowns, no tail events.  Lists slice
+# IDs from `../catalogue.yaml` that belong to this regime class.
+#
+# Rule: every entry below MUST exist in the catalogue with
+# `regime_class: calm`; `validate.py` enforces this.
+# ============================================================================
+
+regime_class: calm
+description: >-
+  Low realized volatility, directional drift is mild, maximum drawdown within
+  window < ~8%.  Used as the baseline environment; Tier-2 methods must do
+  real work on other regimes if they fail to show an edge here.
+
+slice_ids:
+  # Equity index ------------------------------------------------------------
+  - spy-calm-2013-2015     # QE-era grind, realized vol < 15%
+  - spy-calm-2017          # legendary-quiet year, VIX lows
+
+  # Single-name equity ------------------------------------------------------
+  - nvda-accumulation-2016 # pre-Pascal accumulation
+  - aapl-calm-2019         # 2018-Q4 recovery to trend
+
+  # Crypto ------------------------------------------------------------------
+  - btc-calm-2019-range    # post-2019-peak sideways, dataset-start-limited
