@@ -346,6 +346,68 @@ class TestMetricsDelta:
         with pytest.raises(ValueError):
             compute_delta(0.0, 0.0, direction="sideways")
 
+    def test_compute_delta_relative_none_when_baseline_zero(self) -> None:
+        # Division by zero would silently produce inf; we return None so
+        # downstream report renderers can render "—" instead.
+        from research.autoresearch.core.metrics_delta import compute_delta
+
+        d = compute_delta(0.0, 0.05, direction="lower_is_better")
+        assert d.relative_delta is None
+        assert d.raw_delta == pytest.approx(0.05, abs=1e-9)
+
+    def test_paired_bootstrap_rejects_mismatched_lengths(self) -> None:
+        from research.autoresearch.core.metrics_delta import paired_bootstrap
+
+        with pytest.raises(ValueError):
+            paired_bootstrap(
+                [0.1, 0.2],
+                [0.1],
+                direction="lower_is_better",
+                n_resamples=10,
+                seed=1,
+            )
+
+    def test_paired_bootstrap_rejects_empty_samples(self) -> None:
+        from research.autoresearch.core.metrics_delta import paired_bootstrap
+
+        with pytest.raises(ValueError):
+            paired_bootstrap(
+                [], [], direction="lower_is_better", n_resamples=10, seed=1
+            )
+
+    def test_paired_bootstrap_is_deterministic_given_seed(self) -> None:
+        # Two calls with the same seed must produce bit-identical
+        # BootstrapResult so CI and local dev agree on verdicts.
+        from research.autoresearch.core.metrics_delta import paired_bootstrap
+
+        baseline = [0.20, 0.19, 0.21, 0.20, 0.22]
+        candidate = [0.18, 0.17, 0.20, 0.19, 0.21]
+        r1 = paired_bootstrap(
+            baseline, candidate, direction="lower_is_better", n_resamples=200, seed=7
+        )
+        r2 = paired_bootstrap(
+            baseline, candidate, direction="lower_is_better", n_resamples=200, seed=7
+        )
+        assert r1 == r2
+
+    def test_delta_table_skips_metrics_missing_on_either_side(self) -> None:
+        # delta_table is the entry point the canonical report uses; it
+        # must never invent a Delta for a metric that's absent from one
+        # of the inputs.
+        from research.autoresearch.core.metrics_delta import delta_table
+
+        table = delta_table(
+            {"crps": 0.20, "only_baseline": 1.0},
+            {"crps": 0.18, "only_candidate": 2.0},
+            directions={
+                "crps": "lower_is_better",
+                "only_baseline": "lower_is_better",
+                "only_candidate": "higher_is_better",
+            },
+        )
+        assert set(table.keys()) == {"crps"}
+        assert table["crps"].is_improvement is True
+
 
 # ---------------------------------------------------------------------------
 # Gates
