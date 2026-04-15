@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { ChangesFeed } from "../../components/reports/changes-feed";
 import { ReportCard } from "../../components/reports/report-card";
 import { REPORTS } from "../../lib/reports-catalogue";
@@ -6,58 +5,59 @@ import { REPORTS } from "../../lib/reports-catalogue";
 /**
  * /reports — project activity surface for finance stakeholders.
  *
- * Purpose:
- *   Single page that collects every HTML deck / findings report and a
- *   live feed of project activity (recent commits + PRs). Think of it
- *   as the "what changed this week" tab for someone who doesn't open
- *   GitHub. The HTML reports live under `public/reports/` and are
- *   served as static assets; the feed is dynamic via `/api/changes`.
+ * Visual language intentionally mirrors the published HTML decks
+ * (`vision/pitch_deck_414.html`, `vision/findings_deck_414.html`):
+ * off-white background, mono accents, editorial column. Scoped via
+ * `.deck-page` so the dark terminal chrome used by other pages is
+ * not affected by this route.
  *
  * Invariants:
- *   - The catalogue of reports is defined in `lib/reports-catalogue.ts`.
- *     Adding a new HTML deck means (a) drop the file under
- *     `public/reports/`, (b) prepend an entry to REPORTS.
- *   - The feed falls back silently if `git`/`gh` aren't on the PATH;
- *     in that case only the reports cards render.
+ *   - Report catalogue in `lib/reports-catalogue.ts` is the single
+ *     source of truth for what appears under "Published Decks".
+ *   - Activity feed is fetched from `/api/changes`; falls back
+ *     silently if git/gh are unavailable.
  */
 export default function ReportsPage() {
   return (
-    <div className="portfolio-page">
-      <header className="portfolio-header">
-        <div className="portfolio-header__breadcrumb">
-          <Link href="/" className="portfolio-header__breadcrumb-link">
-            Terminal
-          </Link>
-          <span className="portfolio-header__breadcrumb-sep">/</span>
-          <span className="portfolio-header__breadcrumb-current">Reports</span>
-        </div>
-        <h1 className="portfolio-header__title">Project Reports</h1>
-        <p className="portfolio-header__subtitle">
-          Published decks, findings, and a live feed of commits and pull requests as the engine evolves.
+    <div className="deck-page">
+      <div className="deck-page__inner">
+        <div className="deck-page__label">The Similarity / Reports</div>
+        <p className="deck-page__intro">
+          Published decks, findings, and a live feed of commits and pull
+          requests as the engine evolves. The design intentionally matches the
+          HTML decks themselves — this is the same surface, wired live.
         </p>
-      </header>
 
-      {/* Published reports — static HTML decks under public/reports/ */}
-      <section className="portfolio-section">
-        <div className="portfolio-section__header">
-          <h2 className="portfolio-section__title">Published Decks</h2>
-          <span className="portfolio-section__count">{REPORTS.length} reports</span>
-        </div>
-        <div className="reports-grid">
-          {REPORTS.map((report) => (
-            <ReportCard key={report.id} report={report} />
-          ))}
-        </div>
-      </section>
+        <h1 className="deck-page__title">Project reports.</h1>
 
-      {/* Changes feed — fetched from /api/changes at runtime */}
-      <section className="portfolio-section">
-        <div className="portfolio-section__header">
-          <h2 className="portfolio-section__title">Activity Feed</h2>
-          <span className="portfolio-section__count">live</span>
-        </div>
-        <ChangesFeed />
-      </section>
+        <section className="deck-section">
+          <div className="deck-section__meta">
+            <span className="deck-section__tag">Published Decks</span>
+            <span className="deck-section__count">
+              {REPORTS.length} reports
+            </span>
+          </div>
+          <h2 className="deck-section__heading">Decks you can open.</h2>
+          <div className="deck-reports">
+            {REPORTS.map((report) => (
+              <ReportCard key={report.id} report={report} />
+            ))}
+          </div>
+        </section>
+
+        <section className="deck-section">
+          <div className="deck-section__meta">
+            <span className="deck-section__tag">Activity Feed</span>
+            <span className="deck-section__count">live</span>
+          </div>
+          <h2 className="deck-section__heading">Recent changes.</h2>
+          <p className="deck-callout">
+            Commits and pull requests merged as the engine gets sharper. Newest
+            first. Click a PR title to jump to the discussion on GitHub.
+          </p>
+          <ChangesFeed />
+        </section>
+      </div>
     </div>
   );
 }
