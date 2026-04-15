@@ -23,10 +23,6 @@ import numpy as np
 from numpy.typing import NDArray
 from dtaidistance import dtw
 
-# Import kept for backward compatibility/type checking, but the caller
-# usually normalizes before passing to DTW.
-from the_similarity.core.normalizer import normalize
-
 
 def dtw_distance(
     query: NDArray[np.float64],
@@ -111,11 +107,18 @@ def batch_dtw_scores(
     except Exception:
         # Fallback to sequential pure Python/single-threaded C
         return [
-            dtw_score(dtw.distance(
-                query.astype(np.double),
-                c.astype(np.double),
-                **({"window": sakoe_chiba_radius} if sakoe_chiba_radius is not None else {}),
-            ), window_size)
+            dtw_score(
+                dtw.distance(
+                    query.astype(np.double),
+                    c.astype(np.double),
+                    **(
+                        {"window": sakoe_chiba_radius}
+                        if sakoe_chiba_radius is not None
+                        else {}
+                    ),
+                ),
+                window_size,
+            )
             for c in candidates
         ]
 

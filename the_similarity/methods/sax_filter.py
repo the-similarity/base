@@ -29,7 +29,7 @@ from scipy.stats import norm
 
 def _breakpoints(alphabet_size: int) -> NDArray[np.float64]:
     """Equiprobable breakpoints for a standard normal distribution.
-    
+
     Since we assume the input series is z-scored (N(0,1)), we divide the
     Gaussian bell curve into equal-area slices. This ensures that all SAX
     symbols appear with roughly equal probability.
@@ -39,7 +39,7 @@ def _breakpoints(alphabet_size: int) -> NDArray[np.float64]:
 
 def _paa(series: NDArray[np.float64], n_segments: int) -> NDArray[np.float64]:
     """Piecewise Aggregate Approximation: reduce series to n_segments means.
-    
+
     Downsamples the original array of length N into `n_segments` by calculating
     the mean of each slice.
     """
@@ -89,7 +89,7 @@ def _build_dist_table(alphabet_size: int) -> NDArray[np.float64]:
     The distance between adjacent symbols is defined as 0 to allow for
     minor warping. For non-adjacent symbols, it is the distance between
     their bounding Gaussian breakpoints.
-    
+
     dist(a, b) = 0 if |a - b| <= 1, else breakpoint[max] - breakpoint[min-1].
     """
     bps = _breakpoints(alphabet_size)

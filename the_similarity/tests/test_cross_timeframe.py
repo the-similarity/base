@@ -1,4 +1,5 @@
 """Tests for cross-timeframe search."""
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -20,10 +21,14 @@ def _make_ts(n_bars: int, freq: str = "1min") -> TimeSeries:
     return TimeSeries(values=values.astype(np.float64), dates=dates.values, name="test")
 
 
-def _make_match(start: int, end: int, score: float, tf: str | None = None) -> MatchResult:
+def _make_match(
+    start: int, end: int, score: float, tf: str | None = None
+) -> MatchResult:
     return MatchResult(
-        start_idx=start, end_idx=end,
-        confidence_score=score, source_timeframe=tf,
+        start_idx=start,
+        end_idx=end,
+        confidence_score=score,
+        source_timeframe=tf,
     )
 
 

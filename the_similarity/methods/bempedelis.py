@@ -17,15 +17,16 @@ into sub-windows and optimize alpha/beta to collapse them. If both
 achieve high R^2, the same dynamical process generated both.
 
 Mathematical Formulations & Optimizations:
-- Core Intuition: Measures pure self-similarity structure. Evaluates if the time 
-  scaling function `alpha(t)` and amplitude scaling function `beta(t)` adhere to 
+- Core Intuition: Measures pure self-similarity structure. Evaluates if the time
+  scaling function `alpha(t)` and amplitude scaling function `beta(t)` adhere to
   clean power laws (scoring via R^2 fit).
-- Optimization Bounds: We attempt to collapse N subwindows onto a strict common 
+- Optimization Bounds: We attempt to collapse N subwindows onto a strict common
   coordinate plane. This uses `scipy.optimize.minimize` (L-BFGS-B).
-- Random Restarts Constraint: The objective function here is highly non-convex 
-  and exceptionally prone to local minima when encountering noisy signal variants. 
+- Random Restarts Constraint: The objective function here is highly non-convex
+  and exceptionally prone to local minima when encountering noisy signal variants.
   Random restarts with variable `x0` initial parameters are algorithmically mandatory.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -39,14 +40,15 @@ from scipy.interpolate import interp1d
 @dataclass
 class BempedelisResult:
     """Result of self-similarity transform."""
-    alpha: NDArray[np.float64]     # time-scaling vector, shape (n_subwindows,)
-    beta: NDArray[np.float64]      # value-scaling vector, shape (n_subwindows,)
-    power_law_r2: float            # R^2 of power law fit to alpha, beta
-    alpha_r2: float                # R^2 of power law fit to alpha alone
-    beta_r2: float                 # R^2 of power law fit to beta alone
-    smoothness: float              # 1 - normalized total variation (0=jagged, 1=smooth)
-    residual: float                # optimization residual (lower = better collapse)
-    score: float                   # combined self-similarity score in [0, 1]
+
+    alpha: NDArray[np.float64]  # time-scaling vector, shape (n_subwindows,)
+    beta: NDArray[np.float64]  # value-scaling vector, shape (n_subwindows,)
+    power_law_r2: float  # R^2 of power law fit to alpha, beta
+    alpha_r2: float  # R^2 of power law fit to alpha alone
+    beta_r2: float  # R^2 of power law fit to beta alone
+    smoothness: float  # 1 - normalized total variation (0=jagged, 1=smooth)
+    residual: float  # optimization residual (lower = better collapse)
+    score: float  # combined self-similarity score in [0, 1]
 
 
 def self_similarity_transform(
@@ -82,7 +84,7 @@ def self_similarity_transform(
     subwindows = []
     for k in range(n_subwindows):
         start = k * sub_len
-        subwindows.append(series[start:start + sub_len])
+        subwindows.append(series[start : start + sub_len])
     subwindows = np.array(subwindows)  # (n_subwindows, sub_len)
 
     # Reference coordinate: normalized [0, 1]
@@ -111,8 +113,8 @@ def self_similarity_transform(
 
     # Bounds: alpha in [0.1, 10], beta in [-10, 10]
     bounds = (
-        [(0.1, 10.0)] * n_free +  # alpha bounds
-        [(-10.0, 10.0)] * n_free   # beta bounds
+        [(0.1, 10.0)] * n_free  # alpha bounds
+        + [(-10.0, 10.0)] * n_free  # beta bounds
     )
 
     best_result = None
@@ -125,10 +127,12 @@ def self_similarity_transform(
         else:
             # Random start
             rng = np.random.default_rng(seed=restart)
-            x0 = np.concatenate([
-                rng.uniform(0.5, 2.0, n_free),   # alpha
-                rng.uniform(0.5, 2.0, n_free),   # beta
-            ])
+            x0 = np.concatenate(
+                [
+                    rng.uniform(0.5, 2.0, n_free),  # alpha
+                    rng.uniform(0.5, 2.0, n_free),  # beta
+                ]
+            )
 
         result = minimize(
             objective,
@@ -238,7 +242,9 @@ def _rescale_subwindows(
         # Rescaled coordinate: we want values at alpha_k * s_ref
         s_query = np.clip(alpha[k] * s_ref, 0, 1)
 
-        interp = interp1d(s_orig, subwindows[k], kind="linear", fill_value="extrapolate")
+        interp = interp1d(
+            s_orig, subwindows[k], kind="linear", fill_value="extrapolate"
+        )
         rescaled[k] = beta[k] * interp(s_query)
 
     return rescaled
@@ -255,7 +261,7 @@ def _pairwise_collapse_error(rescaled: NDArray[np.float64]) -> float:
     for i in range(n):
         for j in range(i + 1, n):
             diff = rescaled[i] - rescaled[j]
-            total += float(np.sum(diff ** 2))
+            total += float(np.sum(diff**2))
     # Normalize by number of pairs and window length
     n_pairs = n * (n - 1) / 2
     return total / (n_pairs * rescaled.shape[1])
@@ -307,6 +313,7 @@ def _smoothness_score(alpha: NDArray, beta: NDArray) -> float:
     Uses total variation: smoother curves = less variation = higher score.
     Returns a value in [0, 1] where 1 = perfectly smooth.
     """
+
     def _tv_score(v: NDArray) -> float:
         if len(v) < 2:
             return 1.0

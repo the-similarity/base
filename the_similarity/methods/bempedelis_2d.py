@@ -62,9 +62,7 @@ def terrain_self_similarity(
     min_dim = min(H, W)
 
     if min_dim < patch_size:
-        raise ValueError(
-            f"Heightmap too small ({H}×{W}) for patch_size={patch_size}"
-        )
+        raise ValueError(f"Heightmap too small ({H}×{W}) for patch_size={patch_size}")
 
     # Extract patches at increasing scales from center
     cy, cx = H // 2, W // 2
@@ -379,9 +377,7 @@ def _smoothness_score(alpha: NDArray, beta: NDArray) -> float:
     return (_tv(alpha) + _tv(beta)) / 2.0
 
 
-def _transform_similarity_2d(
-    a: BempedelisResult2D, b: BempedelisResult2D
-) -> float:
+def _transform_similarity_2d(a: BempedelisResult2D, b: BempedelisResult2D) -> float:
     """Compare alpha/beta transform profiles between two results."""
     alpha_sim = _profile_sim(a.alpha, b.alpha)
     beta_sim = _profile_sim(np.abs(a.beta), np.abs(b.beta))

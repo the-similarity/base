@@ -29,7 +29,12 @@ AI AGENT NOTES:
 
 # --- Core API functions ---
 from the_similarity.api import (
-    load, search, project, ensemble_project, plot, backtest,
+    load,
+    search,
+    project,
+    ensemble_project,
+    plot,
+    backtest,
     cross_timeframe_search,
 )
 
@@ -43,14 +48,22 @@ from the_similarity.core.ensemble import EnsembleForecast
 
 # --- Strategy builder ---
 from the_similarity.core.strategy import (
-    Signal, SignalType, Rule, Strategy,
-    evaluate_strategy, validate_strategy_backtest,
-    momentum_strategy, mean_reversion_strategy, breakout_strategy,
+    Signal,
+    SignalType,
+    Rule,
+    Strategy,
+    evaluate_strategy,
+    validate_strategy_backtest,
+    momentum_strategy,
+    mean_reversion_strategy,
+    breakout_strategy,
 )
 
 # --- Portfolio analysis ---
 from the_similarity.core.portfolio import (
-    cross_asset_scan, portfolio_regime_scan, divergence_scanner,
+    cross_asset_scan,
+    portfolio_regime_scan,
+    divergence_scanner,
     information_flow_network,
 )
 
@@ -62,20 +75,39 @@ from the_similarity.methods.koopman import KoopmanForecast
 
 __all__ = [
     # Core API
-    "load", "search", "project", "ensemble_project", "plot", "backtest",
+    "load",
+    "search",
+    "project",
+    "ensemble_project",
+    "plot",
+    "backtest",
     "cross_timeframe_search",
     # Config and infrastructure
-    "Config", "KoopmanForecast", "EnsembleForecast", "FeatureStore",
-    "ProgressEvent", "ProgressCallback",
+    "Config",
+    "KoopmanForecast",
+    "EnsembleForecast",
+    "FeatureStore",
+    "ProgressEvent",
+    "ProgressCallback",
     # Strategy builder
-    "Signal", "SignalType", "Rule", "Strategy",
-    "evaluate_strategy", "validate_strategy_backtest",
-    "momentum_strategy", "mean_reversion_strategy", "breakout_strategy",
+    "Signal",
+    "SignalType",
+    "Rule",
+    "Strategy",
+    "evaluate_strategy",
+    "validate_strategy_backtest",
+    "momentum_strategy",
+    "mean_reversion_strategy",
+    "breakout_strategy",
     # Portfolio analysis
-    "cross_asset_scan", "portfolio_regime_scan", "divergence_scanner",
+    "cross_asset_scan",
+    "portfolio_regime_scan",
+    "divergence_scanner",
     "information_flow_network",
     # Explainability
-    "explain_match", "explain_forecast", "explain_full",
+    "explain_match",
+    "explain_forecast",
+    "explain_full",
 ]
 
 __version__ = "0.2.0"

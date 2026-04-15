@@ -16,6 +16,7 @@ AI AGENT NOTES:
   that evaluates the historical performance of these logical rules directly over
   the matched instances, returning Win Rates and average returns.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -28,15 +29,16 @@ from numpy.typing import NDArray
 from the_similarity.core.scorer import MatchResult
 from the_similarity.core.projector import Forecast
 from the_similarity.core.ensemble import EnsembleForecast
-from the_similarity.core.regime import tag_regime
 
 
 # ---------------------------------------------------------------------------
 # Signal types
 # ---------------------------------------------------------------------------
 
+
 class SignalType(Enum):
     """Direction of a trading signal."""
+
     LONG = "long"
     SHORT = "short"
     FLAT = "flat"
@@ -46,9 +48,11 @@ class SignalType(Enum):
 # Data structures
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class Signal:
     """A trading signal produced by strategy evaluation."""
+
     signal_type: SignalType
     confidence: float  # 0-100, from match confidence
     entry_price: float | None = None  # suggested entry
@@ -62,6 +66,7 @@ class Signal:
 @dataclass
 class Rule:
     """A single condition that can produce a signal."""
+
     name: str
     condition: Callable[[MatchResult, Forecast | EnsembleForecast | None, dict], bool]
     signal_type: SignalType
@@ -71,6 +76,7 @@ class Rule:
 @dataclass
 class Strategy:
     """Named collection of rules for signal generation."""
+
     name: str
     rules: list[Rule]
     min_confidence: float = 60.0  # minimum match confidence to consider
@@ -80,6 +86,7 @@ class Strategy:
 @dataclass
 class StrategyBacktestResult:
     """Result of backtesting a strategy against historical matches."""
+
     total_signals: int
     long_signals: int
     short_signals: int
@@ -92,6 +99,7 @@ class StrategyBacktestResult:
 # ---------------------------------------------------------------------------
 # Forecast helpers
 # ---------------------------------------------------------------------------
+
 
 def _get_forecast_curves(
     forecast: Forecast | EnsembleForecast | None,
@@ -116,6 +124,7 @@ def _get_curve_endpoint(
 # ---------------------------------------------------------------------------
 # Strategy evaluation
 # ---------------------------------------------------------------------------
+
 
 def evaluate_strategy(
     strategy: Strategy,
@@ -196,10 +205,14 @@ def evaluate_strategy(
                     # Build signal with price levels
                     entry = current_price
                     stop_loss = _compute_stop(
-                        rule.signal_type, current_price, curves,
+                        rule.signal_type,
+                        current_price,
+                        curves,
                     )
                     take_profit = _compute_target(
-                        rule.signal_type, current_price, curves,
+                        rule.signal_type,
+                        current_price,
+                        curves,
                     )
 
                     signal = Signal(
@@ -267,6 +280,7 @@ def _compute_target(
 # Built-in strategy templates
 # ---------------------------------------------------------------------------
 
+
 def momentum_strategy(
     min_confidence: float = 70.0,
     forecast_threshold: float = 0.02,
@@ -292,11 +306,7 @@ def momentum_strategy(
     ) -> bool:
         p50 = ctx.get("p50")
         regime = ctx.get("regime")
-        return (
-            p50 is not None
-            and p50 > forecast_threshold
-            and regime == "trending_up"
-        )
+        return p50 is not None and p50 > forecast_threshold and regime == "trending_up"
 
     def _short_condition(
         match: MatchResult,
@@ -306,9 +316,7 @@ def momentum_strategy(
         p50 = ctx.get("p50")
         regime = ctx.get("regime")
         return (
-            p50 is not None
-            and p50 < -forecast_threshold
-            and regime == "trending_down"
+            p50 is not None and p50 < -forecast_threshold and regime == "trending_down"
         )
 
     return Strategy(
@@ -426,11 +434,7 @@ def breakout_strategy(
     ) -> bool:
         p75 = ctx.get("p75")
         regime = ctx.get("regime")
-        return (
-            p75 is not None
-            and regime == "high_vol"
-            and p75 > 0
-        )
+        return p75 is not None and regime == "high_vol" and p75 > 0
 
     def _short_condition(
         match: MatchResult,
@@ -439,11 +443,7 @@ def breakout_strategy(
     ) -> bool:
         p25 = ctx.get("p25")
         regime = ctx.get("regime")
-        return (
-            p25 is not None
-            and regime == "high_vol"
-            and p25 < 0
-        )
+        return p25 is not None and regime == "high_vol" and p25 < 0
 
     return Strategy(
         name="breakout",
@@ -468,6 +468,7 @@ def breakout_strategy(
 # ---------------------------------------------------------------------------
 # Strategy backtesting
 # ---------------------------------------------------------------------------
+
 
 def validate_strategy_backtest(
     strategy: Strategy,
@@ -507,13 +508,17 @@ def validate_strategy_backtest(
 
         # Generate forecast from this single match
         forecast = project(
-            [match], history, forward_bars=forward_bars,
+            [match],
+            history,
+            forward_bars=forward_bars,
         )
 
         current_price = float(history[match.end_idx - 1])
 
         signals = evaluate_strategy(
-            strategy, [match], history,
+            strategy,
+            [match],
+            history,
             forecast=forecast,
             current_price=current_price,
         )

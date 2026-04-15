@@ -22,6 +22,7 @@ Architecture:
     │  Backend: SQLite (WAL) + in-memory rate state  │
     └──────────────────────────────────────────────┘
 """
+
 from __future__ import annotations
 
 import base64
@@ -34,7 +35,7 @@ import sqlite3
 import time
 import uuid
 from collections import defaultdict
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
 from typing import Any
@@ -42,13 +43,14 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 # Default JWT settings
-DEFAULT_TOKEN_EXPIRY = 3600       # 1 hour
-DEFAULT_REFRESH_EXPIRY = 604800   # 7 days
+DEFAULT_TOKEN_EXPIRY = 3600  # 1 hour
+DEFAULT_REFRESH_EXPIRY = 604800  # 7 days
 
 
 # ---------------------------------------------------------------------------
 # Minimal HS256 JWT (pure stdlib — no PyJWT / cryptography dependency)
 # ---------------------------------------------------------------------------
+
 
 def _b64url_encode(data: bytes) -> str:
     return base64.urlsafe_b64encode(data).rstrip(b"=").decode()
@@ -110,6 +112,7 @@ TIER_RATE_LIMITS: dict[str, int] = {
 @dataclass
 class User:
     """A registered user account."""
+
     id: str
     email: str
     tier: str = Tier.FREE
@@ -120,6 +123,7 @@ class User:
 @dataclass
 class APIKey:
     """An API key for programmatic access."""
+
     id: str
     user_id: str
     name: str
@@ -132,6 +136,7 @@ class APIKey:
 @dataclass
 class TokenPair:
     """JWT access + refresh token pair."""
+
     access_token: str
     refresh_token: str
     expires_in: int
@@ -432,8 +437,12 @@ class AuthManager:
             conn.close()
 
         api_key = APIKey(
-            id=key_id, user_id=user_id, name=name,
-            key_prefix=key_prefix, enabled=True, created_at=now,
+            id=key_id,
+            user_id=user_id,
+            name=name,
+            key_prefix=key_prefix,
+            enabled=True,
+            created_at=now,
         )
         return api_key, raw_key
 
@@ -479,9 +488,13 @@ class AuthManager:
             ).fetchall()
             return [
                 APIKey(
-                    id=r["id"], user_id=r["user_id"], name=r["name"],
-                    key_prefix=r["key_prefix"], enabled=bool(r["enabled"]),
-                    created_at=r["created_at"], last_used_at=r["last_used_at"],
+                    id=r["id"],
+                    user_id=r["user_id"],
+                    name=r["name"],
+                    key_prefix=r["key_prefix"],
+                    enabled=bool(r["enabled"]),
+                    created_at=r["created_at"],
+                    last_used_at=r["last_used_at"],
                 )
                 for r in rows
             ]
