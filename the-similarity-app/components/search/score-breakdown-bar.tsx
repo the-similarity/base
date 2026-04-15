@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { METHOD_COLORS, METHOD_LABELS } from "@/lib/constants";
+import { METHOD_COLORS, METHOD_LABELS } from "../../lib/constants";
 
 // Source of truth for method colors/labels is `lib/constants.ts`. Previously
 // this component duplicated the map with colored hues; the editorial deck
