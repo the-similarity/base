@@ -1656,13 +1656,17 @@ button { cursor: pointer; }
 }
 
 /* ═══════════════════════════════════════════════════════════════════
-   Navigation Bar
+   Navigation Bar — editorial "deck" style
+   ───────────────────────────────────────────────────────────────────
+   White bar with a single bottom border. Mono wordmark in black.
+   Plain mono text links; hover drops opacity (no fill swap). Active
+   page is marked with a thin bottom-border rule, not a pill.
    ═══════════════════════════════════════════════════════════════════ */
 
 .nav-bar {
   display: flex;
   align-items: center;
-  gap: var(--space-xs);
+  gap: var(--space-md);
   padding: 0 var(--space-xl);
   height: 40px;
   background: var(--bg-elevated);
@@ -1672,18 +1676,18 @@ button { cursor: pointer; }
 
 .nav-bar__logo {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
   color: var(--text-primary);
-  letter-spacing: 1.5px;
-  margin-right: var(--space-sm);
+  letter-spacing: 0.12em;
+  margin-right: var(--space-md);
   flex-shrink: 0;
 }
 
 .nav-bar__sep {
   width: 1px;
   height: 16px;
-  background: var(--border-strong);
+  background: var(--border);
   margin: 0 var(--space-sm);
   flex-shrink: 0;
 }
@@ -1694,20 +1698,21 @@ button { cursor: pointer; }
   font-weight: 500;
   color: var(--text-muted);
   text-decoration: none;
-  padding: 6px 12px;
-  border-radius: var(--radius-sm);
-  transition: all 150ms ease;
-  letter-spacing: 0.3px;
+  padding: 10px 4px;
+  border-bottom: 2px solid transparent;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  transition: color 120ms ease, border-color 120ms ease, opacity 120ms ease;
 }
 
 .nav-link:hover {
-  color: var(--text-secondary);
-  background: var(--bg-hover);
+  color: var(--text-primary);
+  opacity: 0.65;
 }
 
 .nav-link.active {
-  color: var(--accent);
-  background: var(--accent-dim);
+  color: var(--text-primary);
+  border-bottom-color: var(--text-primary);
 }
 
 /* ═══════════════════════════════════════════════════════════════════
