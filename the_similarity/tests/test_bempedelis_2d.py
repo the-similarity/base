@@ -1,4 +1,5 @@
 """Tests for 2D Bempedelis self-similarity transform (bempedelis_2d.py)."""
+
 import numpy as np
 import pytest
 
@@ -24,8 +25,10 @@ def _smooth_heightmap(size: int = 256, seed: int = 0) -> np.ndarray:
     yy, xx = np.meshgrid(y, x, indexing="ij")
     rng = np.random.default_rng(seed)
     hm = (
-        np.sin(yy) + np.cos(xx)
-        + 0.5 * np.sin(2 * yy) + 0.5 * np.cos(2 * xx)
+        np.sin(yy)
+        + np.cos(xx)
+        + 0.5 * np.sin(2 * yy)
+        + 0.5 * np.cos(2 * xx)
         + 0.1 * rng.standard_normal((size, size))
     )
     return hm.astype(np.float64)
@@ -179,7 +182,7 @@ def test_patch_similarity_too_small_returns_half():
 def test_power_law_r2_perfect():
     """Perfect power law data should yield R² ≈ 1."""
     t = np.arange(1, 8, dtype=np.float64)
-    values = 2.5 * t ** 0.6
+    values = 2.5 * t**0.6
     r2 = _power_law_r2(t, values)
     assert r2 > 0.999, f"Expected R² ≈ 1, got {r2}"
 
