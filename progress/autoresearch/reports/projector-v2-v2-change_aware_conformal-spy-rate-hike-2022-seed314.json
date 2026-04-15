@@ -1,0 +1,15 @@
+{
+  "calibration_error_over_time_p10_p90": 0.05333333333333333,
+  "calibration_error_p10_p90": 0.06666666666666665,
+  "crps": 0.19499999999999998,
+  "dataset_path": "the-similarity-data/data/stocks/spy/1d.parquet",
+  "hit_rate": 0.5333333333333333,
+  "joint_path_crps": 0.17900000000000002,
+  "mean_error": 0.0667283297396326,
+  "n_skipped_trials": 0,
+  "n_valid_trials": 15,
+  "runtime_seconds": 93.85005574999377,
+  "slice_id": "spy-rate-hike-2022",
+  "synthetic": false,
+  "variant": "change_aware_conformal"
+}
