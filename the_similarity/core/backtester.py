@@ -238,12 +238,14 @@ class EnsembleBacktestReport:
             f"  ensemble_crps={self.crps:.4f}",
             f"  conformal_coverage(target={self.conformal_coverage:.0%}):"
             f" empirical={self.conformal_empirical_coverage:.1%}",
-            f"  ensemble_calibration:",
+            "  ensemble_calibration:",
         ]
         for p, rate in sorted(self.calibration.items()):
             expected = p / 100.0
             delta = rate - expected
-            lines.append(f"    P{p}: {rate:.1%} (expected {expected:.0%}, delta {delta:+.1%})")
+            lines.append(
+                f"    P{p}: {rate:.1%} (expected {expected:.0%}, delta {delta:+.1%})"
+            )
         result = "\n".join(lines)
         print(result)
         return result
@@ -546,6 +548,7 @@ def _run_parallel(
 # Ensemble backtest
 # ---------------------------------------------------------------------------
 
+
 def run_ensemble_backtest(
     history: NDArray[np.float64],
     window_size: int,
@@ -599,7 +602,9 @@ def run_ensemble_backtest(
     if n_trials <= 0:
         raise ValueError(f"n_trials must be positive, got {n_trials}")
     if not 0.0 < conformal_coverage < 1.0:
-        raise ValueError(f"conformal_coverage must be in (0, 1), got {conformal_coverage}")
+        raise ValueError(
+            f"conformal_coverage must be in (0, 1), got {conformal_coverage}"
+        )
 
     min_lookback = 3 * window_size
     min_history_len = min_lookback + window_size + forward_bars
@@ -652,7 +657,9 @@ def run_ensemble_backtest(
     )
 
 
-def _empty_curves(percentiles: list[int], forward_bars: int) -> dict[int, NDArray[np.float64]]:
+def _empty_curves(
+    percentiles: list[int], forward_bars: int
+) -> dict[int, NDArray[np.float64]]:
     """Return a dict of zero-length percentile curves for failure paths."""
     return {p: np.zeros(0) for p in percentiles}
 
@@ -719,26 +726,43 @@ def _run_single_ensemble_trial(
         )
         if not results.matches:
             return EnsembleTrialResult(
-                query_start=query_start, query_end=query_end,
+                query_start=query_start,
+                query_end=query_end,
                 actual_returns=actual_returns,
-                forecast_curves={}, basic_curves={}, mc_curves={}, regime_curves={},
-                conformal_lower=np.zeros(0), conformal_upper=np.zeros(0),
+                forecast_curves={},
+                basic_curves={},
+                mc_curves={},
+                regime_curves={},
+                conformal_lower=np.zeros(0),
+                conformal_upper=np.zeros(0),
                 conformal_coverage=conformal_coverage,
-                n_matches=0, top_match_score=0.0,
-                regime_tag="", n_regime_matches=0,
-                directional_hit=False, p50_error=0.0, basic_directional_hit=False,
-                skipped=True, skip_reason="no matches found",
+                n_matches=0,
+                top_match_score=0.0,
+                regime_tag="",
+                n_regime_matches=0,
+                directional_hit=False,
+                p50_error=0.0,
+                basic_directional_hit=False,
+                skipped=True,
+                skip_reason="no matches found",
             )
 
         basic = project(
-            matches=results, history=lookback,
-            forward_bars=forward_bars, percentiles=percentiles,
+            matches=results,
+            history=lookback,
+            forward_bars=forward_bars,
+            percentiles=percentiles,
         )
         ensemble = ensemble_project(
-            matches=results, history=lookback, query=query,
-            forward_bars=forward_bars, percentiles=percentiles,
-            config=config, n_simulations=mc_simulations,
-            conformal_coverage=conformal_coverage, seed=seed,
+            matches=results,
+            history=lookback,
+            query=query,
+            forward_bars=forward_bars,
+            percentiles=percentiles,
+            config=config,
+            n_simulations=mc_simulations,
+            conformal_coverage=conformal_coverage,
+            seed=seed,
         )
 
         # Extract per-component curves. Each component may be missing (e.g.
@@ -759,19 +783,23 @@ def _run_single_ensemble_trial(
         )
         conformal_lower = (
             np.asarray(ensemble.conformal.lower)
-            if ensemble.conformal is not None else np.zeros(0)
+            if ensemble.conformal is not None
+            else np.zeros(0)
         )
         conformal_upper = (
             np.asarray(ensemble.conformal.upper)
-            if ensemble.conformal is not None else np.zeros(0)
+            if ensemble.conformal is not None
+            else np.zeros(0)
         )
         regime_tag = (
             ensemble.regime_conditional.regime
-            if ensemble.regime_conditional is not None else ""
+            if ensemble.regime_conditional is not None
+            else ""
         )
         n_regime_matches = (
             ensemble.regime_conditional.n_matches_used
-            if ensemble.regime_conditional is not None else 0
+            if ensemble.regime_conditional is not None
+            else 0
         )
 
         # Ensemble P50 drives the primary directional_hit / p50_error used
@@ -816,13 +844,23 @@ def _run_single_ensemble_trial(
             stacklevel=2,
         )
         return EnsembleTrialResult(
-            query_start=query_start, query_end=query_end,
+            query_start=query_start,
+            query_end=query_end,
             actual_returns=actual_returns,
-            forecast_curves={}, basic_curves={}, mc_curves={}, regime_curves={},
-            conformal_lower=np.zeros(0), conformal_upper=np.zeros(0),
+            forecast_curves={},
+            basic_curves={},
+            mc_curves={},
+            regime_curves={},
+            conformal_lower=np.zeros(0),
+            conformal_upper=np.zeros(0),
             conformal_coverage=conformal_coverage,
-            n_matches=0, top_match_score=0.0,
-            regime_tag="", n_regime_matches=0,
-            directional_hit=False, p50_error=0.0, basic_directional_hit=False,
-            skipped=True, skip_reason=f"exception: {exc}",
+            n_matches=0,
+            top_match_score=0.0,
+            regime_tag="",
+            n_regime_matches=0,
+            directional_hit=False,
+            p50_error=0.0,
+            basic_directional_hit=False,
+            skipped=True,
+            skip_reason=f"exception: {exc}",
         )

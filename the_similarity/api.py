@@ -589,7 +589,11 @@ def ensemble_backtest(
     """
     from the_similarity.core.backtester import run_ensemble_backtest as _run_ensemble
 
-    h_values = history.values if isinstance(history, TimeSeries) else np.asarray(history, dtype=np.float64)
+    h_values = (
+        history.values
+        if isinstance(history, TimeSeries)
+        else np.asarray(history, dtype=np.float64)
+    )
 
     return _run_ensemble(
         history=h_values,

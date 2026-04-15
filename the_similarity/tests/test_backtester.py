@@ -230,6 +230,7 @@ class TestBacktestReport:
 
 # ===================== ENSEMBLE BACKTEST =====================
 
+
 def _make_ensemble_trial(
     actual_terminal: float = 0.05,
     ensemble_p50: float = 0.04,
@@ -257,7 +258,8 @@ def _make_ensemble_trial(
     conformal_lower = np.linspace(0, conf_low, fb)
     conformal_upper = np.linspace(0, conf_high, fb)
     return EnsembleTrialResult(
-        query_start=100, query_end=160,
+        query_start=100,
+        query_end=160,
         actual_returns=actual,
         forecast_curves=ens_curves,
         basic_curves=basic_curves,
@@ -266,8 +268,10 @@ def _make_ensemble_trial(
         conformal_lower=conformal_lower,
         conformal_upper=conformal_upper,
         conformal_coverage=0.9,
-        n_matches=5, top_match_score=75.0,
-        regime_tag=regime, n_regime_matches=3,
+        n_matches=5,
+        top_match_score=75.0,
+        regime_tag=regime,
+        n_regime_matches=3,
         directional_hit=(ensemble_p50 > 0) == (actual_terminal > 0),
         p50_error=abs(ensemble_p50 - actual_terminal),
         basic_directional_hit=(basic_p50 > 0) == (actual_terminal > 0),
@@ -295,7 +299,9 @@ class TestEnsembleBacktestReport:
         report = EnsembleBacktestReport(
             trials=valid + skipped,
             config=Config(),
-            window_size=60, forward_bars=10, seed=42,
+            window_size=60,
+            forward_bars=10,
+            seed=42,
             conformal_coverage=0.9,
         )
         assert report.n_valid_trials == 6
@@ -304,35 +310,61 @@ class TestEnsembleBacktestReport:
     def test_ensemble_vs_basic_hit_rate(self):
         # 5 trials: ensemble correct on all 5, basic correct on 3.
         trials = [
-            _make_ensemble_trial(actual_terminal=0.05, ensemble_p50=0.04, basic_p50=0.02),
-            _make_ensemble_trial(actual_terminal=0.05, ensemble_p50=0.04, basic_p50=0.02),
-            _make_ensemble_trial(actual_terminal=0.05, ensemble_p50=0.04, basic_p50=0.02),
-            _make_ensemble_trial(actual_terminal=0.05, ensemble_p50=0.04, basic_p50=-0.02),
-            _make_ensemble_trial(actual_terminal=0.05, ensemble_p50=0.04, basic_p50=-0.02),
+            _make_ensemble_trial(
+                actual_terminal=0.05, ensemble_p50=0.04, basic_p50=0.02
+            ),
+            _make_ensemble_trial(
+                actual_terminal=0.05, ensemble_p50=0.04, basic_p50=0.02
+            ),
+            _make_ensemble_trial(
+                actual_terminal=0.05, ensemble_p50=0.04, basic_p50=0.02
+            ),
+            _make_ensemble_trial(
+                actual_terminal=0.05, ensemble_p50=0.04, basic_p50=-0.02
+            ),
+            _make_ensemble_trial(
+                actual_terminal=0.05, ensemble_p50=0.04, basic_p50=-0.02
+            ),
         ]
         report = EnsembleBacktestReport(
-            trials=trials, config=Config(), window_size=60,
-            forward_bars=10, seed=42, conformal_coverage=0.9,
+            trials=trials,
+            config=Config(),
+            window_size=60,
+            forward_bars=10,
+            seed=42,
+            conformal_coverage=0.9,
         )
         assert report.ensemble_hit_rate == pytest.approx(1.0)
         assert report.basic_hit_rate == pytest.approx(0.6)
 
     def test_conformal_empirical_coverage(self):
         # 7 inside, 3 outside → empirical coverage = 0.7
-        inside = [_make_ensemble_trial(actual_terminal=0.05, conf_low=-0.02, conf_high=0.10)
-                  for _ in range(7)]
-        outside = [_make_ensemble_trial(actual_terminal=0.50, conf_low=-0.02, conf_high=0.10)
-                   for _ in range(3)]
+        inside = [
+            _make_ensemble_trial(actual_terminal=0.05, conf_low=-0.02, conf_high=0.10)
+            for _ in range(7)
+        ]
+        outside = [
+            _make_ensemble_trial(actual_terminal=0.50, conf_low=-0.02, conf_high=0.10)
+            for _ in range(3)
+        ]
         report = EnsembleBacktestReport(
-            trials=inside + outside, config=Config(),
-            window_size=60, forward_bars=10, seed=42, conformal_coverage=0.9,
+            trials=inside + outside,
+            config=Config(),
+            window_size=60,
+            forward_bars=10,
+            seed=42,
+            conformal_coverage=0.9,
         )
         assert report.conformal_empirical_coverage == pytest.approx(0.7)
 
     def test_empty_report_returns_nan(self):
         report = EnsembleBacktestReport(
-            trials=[], config=Config(),
-            window_size=60, forward_bars=10, seed=42, conformal_coverage=0.9,
+            trials=[],
+            config=Config(),
+            window_size=60,
+            forward_bars=10,
+            seed=42,
+            conformal_coverage=0.9,
         )
         assert np.isnan(report.basic_hit_rate)
         assert np.isnan(report.conformal_empirical_coverage)
@@ -396,6 +428,7 @@ class TestBacktestIntegration:
     def test_ensemble_backtest_synthetic(self):
         """End-to-end ensemble backtest on synthetic trending data."""
         from the_similarity.api import ensemble_backtest
+
         np.random.seed(7)
         t = np.arange(2000, dtype=np.float64)
         history = 100 + 0.05 * t + 3 * np.sin(t * 0.1) + np.random.randn(2000) * 0.5
@@ -406,9 +439,14 @@ class TestBacktestIntegration:
             stride=5,
         )
         report = ensemble_backtest(
-            history, window_size=60, forward_bars=30,
-            n_trials=5, config=config, seed=42,
-            mc_simulations=100, conformal_coverage=0.9,
+            history,
+            window_size=60,
+            forward_bars=30,
+            n_trials=5,
+            config=config,
+            seed=42,
+            mc_simulations=100,
+            conformal_coverage=0.9,
         )
         assert report.n_valid_trials > 0
         # Primary + comparison metrics are well-defined.
