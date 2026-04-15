@@ -1,0 +1,27 @@
+# ============================================================================
+# Cross-asset pair — SPY vs BTC, post-COVID liquidity rally
+# ============================================================================
+pair_id: spy-vs-btc-covid-rally
+description: >-
+  Equity index vs crypto observation of the 2020-Q2..2021 liquidity-driven
+  rally.  Tests whether cross-family retrieval finds analogues despite
+  different calendars and volatility scales.
+regime_class: trend
+
+# Legs -------------------------------------------------------------------
+left: spy-post-covid-rally-2020-2021   # 2020-03-23 .. 2021-12-31 (252d/yr)
+right: btc-parabola-2020-2021          # 2020-03-13 .. 2021-04-14 (365d/yr)
+
+# Mixed calendars: SPY skips weekends/holidays, BTC is continuous.  We
+# anchor to SPY's calendar (`left_anchor`) — for every SPY bar timestamp
+# we take the nearest-prior BTC bar close.  This preserves the SPY trial
+# grid while letting the runner compare joint trajectories.
+join_rule: left_anchor
+
+notes: >-
+  After anchoring, joined window is 2020-03-23 .. 2021-04-14 (BTC's
+  earlier end caps it).  Key events: Fed unlimited QE 2020-03-23 (exact
+  SPY trough), BTC breaks $20k 2020-12-16, Tesla buys BTC 2021-02-08,
+  Coinbase direct listing 2021-04-14 (BTC first ATH).  Vol scales
+  differ by ~4x — runners should z-normalise per-leg before joint
+  comparison.

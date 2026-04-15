@@ -1,0 +1,25 @@
+# ============================================================================
+# Cross-asset pair — SPY vs NVDA, COVID crash + V-recovery
+# ============================================================================
+pair_id: spy-vs-nvda-covid
+description: >-
+  Broad-market vs single-name technology observation of the COVID
+  drawdown/rebound.  Tests whether retrieval finds coherent analogues
+  when a macro shock hits a beta-amplified single name at the same time.
+regime_class: crisis
+
+# Legs reference catalogue.yaml slice IDs (NOT inline copies).
+left: spy-covid-2020        # 2019-06-01 .. 2020-12-31
+right: nvda-covid-2020      # 2020-02-19 .. 2020-04-30
+
+# Calendars are identical (both US equity), so `intersection` is the
+# obvious safe choice.  The joined window collapses to NVDA's tighter
+# range because NVDA's slice is narrower.
+join_rule: intersection
+
+notes: >-
+  After intersection, joined window is 2020-02-19 .. 2020-04-30 (~50
+  bars).  Runner must honor `min_bars` of whichever leg is stricter —
+  both legs have explicit min_bars relaxations.  Key shared events:
+  circuit breakers 2020-03-09/-12/-16/-18, Fed emergency cuts 2020-03-03
+  and 2020-03-15, unlimited QE 2020-03-23.

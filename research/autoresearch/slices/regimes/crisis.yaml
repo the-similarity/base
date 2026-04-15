@@ -23,6 +23,7 @@ slice_ids:
   - spy-rate-hike-2022     # LEGACY — 2022 grinding bear
 
   # Single-name equity ------------------------------------------------------
+  - nvda-covid-2020        # COVID drawdown + V-recovery (paired with SPY)
   - nvda-drawdown-2022     # NVDA -66% from 2021 peak
 
   # Crypto ------------------------------------------------------------------

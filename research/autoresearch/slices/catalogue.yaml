@@ -312,6 +312,22 @@ slices:
     min_bars: 60
     source_bench_lane: phase-2-track-2c
 
+  - id: nvda-covid-2020
+    asset: nvda
+    asset_class: equity_single
+    dataset_path: stocks/nvda/1d.parquet
+    timeframe: 1d
+    start: "2020-02-19"
+    end: "2020-04-30"
+    regime_class: crisis
+    description: NVDA COVID drawdown + rapid V-recovery, parallel to SPY window.
+    notes: >-
+      Fell -37% from 2020-02-19 ATH to 2020-03-16 trough, recovered to
+      new highs by 2020-05. Used for cross-asset pair spy-vs-nvda-covid.
+      Short window (~50 bars) — min_bars relaxed.
+    min_bars: 40
+    source_bench_lane: phase-2-track-2c
+
   - id: nvda-drawdown-2022
     asset: nvda
     asset_class: equity_single
