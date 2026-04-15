@@ -2353,7 +2353,7 @@ button { cursor: pointer; }
   --deck-mono: "SF Mono", "Fira Code", "Consolas", monospace;
   --deck-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
 
-  min-height: calc(100vh - 40px);
+  height: calc(100vh - 40px);
   background: var(--deck-bg);
   color: var(--deck-text);
   font-family: var(--deck-sans);
