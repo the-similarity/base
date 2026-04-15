@@ -165,9 +165,9 @@ def build_generator(name: str) -> "Any":
     except ImportError as exc:  # pragma: no cover - exercised only before merge
         raise RuntimeError(_MISSING_DEPS_MSG.format(name="generators")) from exc
 
-    if name == "block":
+    if name == "block_bootstrap":
         return BlockBootstrapGenerator()
-    if name == "regime-block":
+    if name == "regime_block_bootstrap":
         return RegimeBlockBootstrapGenerator()
     raise ValueError(f"Unknown generator {name!r}")
 
