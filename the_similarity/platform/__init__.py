@@ -31,13 +31,35 @@ from the_similarity.platform.artifacts import (
     read_artifact,
     write_artifact,
 )
-from the_similarity.platform.registry import RunRegistry
+from the_similarity.platform.contracts import (
+    ArtifactRecord,
+    DatasetSpec,
+    Provenance,
+    RunRecord,
+    RunStatus,
+    ScenarioSpec,
+    ScorecardKind,
+    ScorecardSummary,
+)
+from the_similarity.platform.registry import RunRegistry, derive_run_id
 
 __all__ = [
+    # Legacy artifact surface (pre-spine) — still the on-disk contract.
     "RunArtifact",
     "RunKind",
-    "RunRegistry",
     "new_run_id",
     "read_artifact",
     "write_artifact",
+    # Spine records — richer row types persisted in the registry.
+    "ArtifactRecord",
+    "DatasetSpec",
+    "Provenance",
+    "RunRecord",
+    "RunStatus",
+    "ScenarioSpec",
+    "ScorecardKind",
+    "ScorecardSummary",
+    # Registry + deterministic-id helper.
+    "RunRegistry",
+    "derive_run_id",
 ]
