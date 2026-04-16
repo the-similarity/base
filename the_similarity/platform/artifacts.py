@@ -79,7 +79,7 @@ from typing import Any, Dict, Optional
 
 
 class RunKind(str, Enum):
-    """The four kinds of run the platform recognizes.
+    """The run kinds the platform recognizes.
 
     Values are lowercase strings so they round-trip through JSON without a
     custom encoder. Inheriting from ``str`` makes ``RunKind.COPIES ==
@@ -101,12 +101,23 @@ class RunKind(str, Enum):
     EVAL:
         An evaluation-harness run — scores one or more existing runs
         (by `run_id`) and emits a scorecard artifact.
+    FINANCE:
+        A walk-forward similarity-search backtest — produced by
+        ``the_similarity.api.backtest``. Summary carries headline
+        hit_rate / CRPS / calibration so the registry CLI surfaces the
+        same fields as the in-process ``BacktestReport.summary()``.
     """
 
     COPIES = "copies"
     WORLDS = "worlds"
     SWEEP = "sweep"
     EVAL = "eval"
+    # FINANCE: a walk-forward backtest of the similarity-search pipeline over
+    # a real price series. Added additively after the original four kinds so
+    # downstream readers that pin to the original set still decode safely —
+    # the enum lookup fails loud on unknown values, which is the fail-closed
+    # behavior we want for code that has not learned about FINANCE yet.
+    FINANCE = "finance"
 
 
 # ---------------------------------------------------------------------------
