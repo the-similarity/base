@@ -13,7 +13,6 @@ returns 400, which is enough to lock in the shape.
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from typing import Iterator
 
@@ -21,8 +20,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from the_similarity.platform.api import create_app, get_registry
-from the_similarity.platform.api.main import ENV_DB_PATH
-from the_similarity.platform.artifacts import RunArtifact, RunKind, write_artifact
+from the_similarity.platform.artifacts import RunArtifact, RunKind
 from the_similarity.platform.registry import RunRegistry
 
 

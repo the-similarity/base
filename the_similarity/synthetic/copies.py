@@ -33,7 +33,6 @@ Invariants
 
 from __future__ import annotations
 
-from dataclasses import asdict
 from typing import Any, Optional
 
 import numpy as np
