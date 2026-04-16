@@ -26,6 +26,7 @@ exclude = ["the_similarity/tests/**", "**/*.swp"]
 python = "^3.11"
 numpy = "^1.26"
 pandas = "^2.1"
+pyarrow = "^16.0"
 scipy = "^1.11"
 scikit-learn = "^1.4"
 dtaidistance = "^2.3"
