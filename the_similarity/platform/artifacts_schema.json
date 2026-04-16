@@ -1,0 +1,62 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://the-similarity.dev/schemas/run-artifact.json",
+  "title": "RunArtifact",
+  "description": "Unified artifact shape for every run on the synthetic environment platform. Emitted by Python copies runs, TypeScript worlds runs, parameter sweeps, and evaluation runs. One file per run: <run_dir>/artifact.json.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "run_id",
+    "kind",
+    "config",
+    "seed",
+    "artifact_paths",
+    "summary",
+    "provenance",
+    "created_at"
+  ],
+  "properties": {
+    "run_id": {
+      "type": "string",
+      "description": "UUID4 hex (no dashes, 32 chars). Primary key in the run registry.",
+      "pattern": "^[0-9a-f]{32}$"
+    },
+    "kind": {
+      "type": "string",
+      "description": "Which kind of run this is. Drives dispatch in consumers.",
+      "enum": ["copies", "worlds", "sweep", "eval"]
+    },
+    "config": {
+      "type": "object",
+      "description": "JSON-serializable inputs to the run (scenario ID, generator name + params, etc.). Free-form per kind; consumers inspect based on 'kind'.",
+      "additionalProperties": true
+    },
+    "seed": {
+      "description": "Integer RNG seed used for the run, or null if a seed is not meaningful (e.g. evaluation over an existing corpus).",
+      "oneOf": [
+        { "type": "integer" },
+        { "type": "null" }
+      ]
+    },
+    "artifact_paths": {
+      "type": "object",
+      "description": "Logical name -> path relative to the run directory. Example: {'telemetry': 'run.jsonl', 'scorecard': 'scorecard.json'}. Relative so runs stay portable.",
+      "additionalProperties": { "type": "string" }
+    },
+    "summary": {
+      "type": "object",
+      "description": "Headline numbers safe to index in the UI without loading bulk artifacts (e.g. {'fidelity_score': 0.87, 'n_ticks': 2048}).",
+      "additionalProperties": true
+    },
+    "provenance": {
+      "type": "object",
+      "description": "Reproducibility record. Accepts the synthetic.contracts.Provenance shape (copies runs) OR the worlds-runner provenance shape. Both have: generator_name, version/generator_version, seed, created_at, params. Worlds additionally: scenario_name, scenario. Copies additionally: source_id.",
+      "additionalProperties": true
+    },
+    "created_at": {
+      "type": "string",
+      "description": "ISO-8601 UTC timestamp (seconds precision). Indexed by the registry for recency queries.",
+      "format": "date-time"
+    }
+  }
+}
