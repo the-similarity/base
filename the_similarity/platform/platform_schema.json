@@ -1,0 +1,285 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://the-similarity.dev/schemas/platform.json",
+  "title": "PlatformContracts",
+  "description": "Unified platform object model — canonical dataclass shapes consumed by the registry, HTTP API, TypeScript worlds runner, and UI. Mirrors the_similarity/platform/contracts.py field-for-field. Each top-level type is referenced via $defs so TS consumers can validate individual records.",
+  "type": "object",
+  "additionalProperties": true,
+  "$defs": {
+    "RunKind": {
+      "type": "string",
+      "description": "Which kind of run this is. Drives dispatch in consumers across every pillar.",
+      "enum": [
+        "copies",
+        "worlds",
+        "sweep",
+        "eval",
+        "finance",
+        "events",
+        "nl_ts"
+      ]
+    },
+    "RunStatus": {
+      "type": "string",
+      "description": "Lifecycle state of a run row. Linear state machine: pending -> running -> (succeeded|failed).",
+      "enum": ["pending", "running", "succeeded", "failed"]
+    },
+    "ScorecardKind": {
+      "type": "string",
+      "description": "Category of a ScorecardSummary.",
+      "enum": [
+        "fidelity",
+        "privacy",
+        "utility",
+        "controllability",
+        "calibration",
+        "backtest"
+      ]
+    },
+    "RunRecord": {
+      "type": "object",
+      "description": "Canonical platform run row. Superset of the legacy RunArtifact — adds status + pillar. Consumed by the registry and the HTTP API.",
+      "additionalProperties": false,
+      "required": [
+        "run_id",
+        "kind",
+        "config",
+        "seed",
+        "status",
+        "summary",
+        "created_at",
+        "pillar"
+      ],
+      "properties": {
+        "run_id": {
+          "type": "string",
+          "description": "UUID4 hex (no dashes, 32 chars). Primary key in the registry.",
+          "pattern": "^[0-9a-f]{32}$"
+        },
+        "kind": { "$ref": "#/$defs/RunKind" },
+        "config": {
+          "type": "object",
+          "description": "JSON-serializable inputs to the run. Free-form per kind.",
+          "additionalProperties": true
+        },
+        "seed": {
+          "description": "Integer RNG seed, or null if not meaningful.",
+          "oneOf": [{ "type": "integer" }, { "type": "null" }]
+        },
+        "status": { "$ref": "#/$defs/RunStatus" },
+        "summary": {
+          "type": "object",
+          "description": "Headline numbers safe to index without loading bulk artifacts.",
+          "additionalProperties": true
+        },
+        "created_at": {
+          "type": "string",
+          "description": "ISO-8601 UTC timestamp (seconds precision).",
+          "format": "date-time"
+        },
+        "pillar": {
+          "type": "string",
+          "description": "Free-form pillar tag for cross-pillar queries (finance, synthetic, worlds, events, nl_ts, eval)."
+        },
+        "artifact_paths": {
+          "type": "object",
+          "description": "Logical name -> path relative to the run directory. Preserved from RunArtifact for backward-compatible round-trips.",
+          "additionalProperties": { "type": "string" }
+        },
+        "provenance": {
+          "type": "object",
+          "description": "Reproducibility record. Accepts either the legacy synthetic shape or the extended Provenance shape (see #/$defs/Provenance).",
+          "additionalProperties": true
+        }
+      }
+    },
+    "ArtifactRecord": {
+      "type": "object",
+      "description": "File-level metadata for one artifact belonging to a run.",
+      "additionalProperties": false,
+      "required": ["run_id", "name", "path", "content_type", "created_at"],
+      "properties": {
+        "run_id": {
+          "type": "string",
+          "description": "FK to RunRecord.run_id.",
+          "pattern": "^[0-9a-f]{32}$"
+        },
+        "name": {
+          "type": "string",
+          "description": "Logical artifact name (scorecard, telemetry, real_parquet)."
+        },
+        "path": {
+          "type": "string",
+          "description": "Relative path inside the run directory."
+        },
+        "content_type": {
+          "type": "string",
+          "description": "MIME-ish descriptor (application/json, text/csv, application/x-parquet, application/x-jsonl)."
+        },
+        "size_bytes": {
+          "description": "Size in bytes; optional because stat() is sometimes deferred.",
+          "oneOf": [{ "type": "integer", "minimum": 0 }, { "type": "null" }]
+        },
+        "checksum": {
+          "description": "SHA-256 hex; optional because full-file hashes are expensive.",
+          "oneOf": [{ "type": "string" }, { "type": "null" }]
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO-8601 UTC timestamp."
+        }
+      }
+    },
+    "ScorecardSummary": {
+      "type": "object",
+      "description": "Condensed scorecard row. Full scorecard stays on disk as an artifact.",
+      "additionalProperties": false,
+      "required": ["run_id", "kind", "thresholds", "details"],
+      "properties": {
+        "run_id": {
+          "type": "string",
+          "description": "FK to RunRecord.run_id.",
+          "pattern": "^[0-9a-f]{32}$"
+        },
+        "kind": { "$ref": "#/$defs/ScorecardKind" },
+        "overall_score": {
+          "description": "Aggregate in [0, 1], or null when not normalized.",
+          "oneOf": [{ "type": "number" }, { "type": "null" }]
+        },
+        "passed": {
+          "description": "Gate pass/fail, or null when no gate was applied.",
+          "oneOf": [{ "type": "boolean" }, { "type": "null" }]
+        },
+        "thresholds": {
+          "type": "object",
+          "description": "Numeric thresholds used for the gate decision.",
+          "additionalProperties": true
+        },
+        "details": {
+          "type": "object",
+          "description": "Small nested metric snapshot; full detail on disk.",
+          "additionalProperties": true
+        }
+      }
+    },
+    "Provenance": {
+      "type": "object",
+      "description": "Cross-pillar reproducibility record. Superset of the synthetic shape — adds env for runtime environment capture.",
+      "additionalProperties": false,
+      "required": ["generator_name", "generator_version", "created_at"],
+      "properties": {
+        "source_id": {
+          "description": "Source dataset/corpus ID; null for worlds / eval runs without a single source.",
+          "oneOf": [{ "type": "string" }, { "type": "null" }]
+        },
+        "generator_name": {
+          "type": "string",
+          "description": "Name of the generator/runner."
+        },
+        "generator_version": {
+          "type": "string",
+          "description": "Semantic version bumped whenever output distribution changes."
+        },
+        "seed": {
+          "description": "RNG seed. Null for runs where a seed is not meaningful.",
+          "oneOf": [{ "type": "integer" }, { "type": "null" }]
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO-8601 UTC timestamp."
+        },
+        "params": {
+          "type": "object",
+          "description": "Generator hyperparameters. Must be JSON-serializable.",
+          "additionalProperties": true
+        },
+        "env": {
+          "type": "object",
+          "description": "Runtime environment: {python, node, platform, git_sha}. Free-form.",
+          "additionalProperties": true
+        }
+      }
+    },
+    "ScenarioSpec": {
+      "type": "object",
+      "description": "Scenario definition for worlds / simulation pillars.",
+      "additionalProperties": false,
+      "required": ["scenario_id", "name", "version", "engine"],
+      "properties": {
+        "scenario_id": {
+          "type": "string",
+          "description": "Stable scenario ID."
+        },
+        "name": {
+          "type": "string",
+          "description": "Human-readable display name."
+        },
+        "version": {
+          "type": "string",
+          "description": "Semantic version. Bump when engine behavior changes."
+        },
+        "engine": {
+          "type": "string",
+          "description": "Engine identifier (small_village, queue.mm1, boom_bust, ...)."
+        },
+        "params": {
+          "type": "object",
+          "description": "Default parameters for the engine.",
+          "additionalProperties": true
+        },
+        "metadata": {
+          "type": "object",
+          "description": "Free-form tags (author, references, notes).",
+          "additionalProperties": true
+        }
+      }
+    },
+    "DatasetSpec": {
+      "type": "object",
+      "description": "Dataset registration row. One per real or synthetic corpus.",
+      "additionalProperties": false,
+      "required": ["dataset_id", "name", "version", "source"],
+      "properties": {
+        "dataset_id": {
+          "type": "string",
+          "description": "Stable dataset ID (e.g. spy-2020-2024, synthetic:abc123)."
+        },
+        "name": {
+          "type": "string",
+          "description": "Human-readable display name."
+        },
+        "version": {
+          "type": "string",
+          "description": "Semantic or date version (v1.0, 2024-04-15)."
+        },
+        "source": {
+          "type": "string",
+          "description": "Filesystem path, URL, or synthetic-run pointer (synthetic:<run_id>)."
+        },
+        "schema_uri": {
+          "description": "Optional URI pointing at a JSON schema describing the dataset columns.",
+          "oneOf": [{ "type": "string" }, { "type": "null" }]
+        },
+        "n_rows": {
+          "description": "Row count; optional.",
+          "oneOf": [{ "type": "integer", "minimum": 0 }, { "type": "null" }]
+        },
+        "n_columns": {
+          "description": "Column count; optional.",
+          "oneOf": [{ "type": "integer", "minimum": 0 }, { "type": "null" }]
+        },
+        "checksum": {
+          "description": "SHA-256 hex of the source file(s); optional.",
+          "oneOf": [{ "type": "string" }, { "type": "null" }]
+        },
+        "metadata": {
+          "type": "object",
+          "description": "Free-form tags (pillar, tickers, date range, license).",
+          "additionalProperties": true
+        }
+      }
+    }
+  }
+}
