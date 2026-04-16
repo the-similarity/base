@@ -4,6 +4,7 @@ Covers determinism (same seed → identical output), provenance completeness,
 protocol conformance, shape/column handling for univariate + multiseries,
 and the regime-aware variant's fallback bookkeeping.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -144,9 +145,7 @@ def test_block_bootstrap_provenance_is_complete():
 
 def test_regime_bootstrap_provenance_records_params():
     real = _make_real()
-    gen = RegimeBlockBootstrapGenerator(
-        block_len=10, vol_window=15, vol_quantile=0.6
-    )
+    gen = RegimeBlockBootstrapGenerator(block_len=10, vol_window=15, vol_quantile=0.6)
     gen.fit(real)
     out = gen.sample(50, seed=2)
     assert out.provenance is not None

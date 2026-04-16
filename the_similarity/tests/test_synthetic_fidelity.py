@@ -5,6 +5,7 @@ family dicts populated, univariate handling) and the fail-closed path. We
 test against numpy arrays and pandas DataFrames to lock in the duck-typed
 input handling.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -57,7 +58,9 @@ def test_evaluate_returns_fidelity_report():
     rng = np.random.default_rng(0)
     r = rng.standard_normal((500, 2))
     s = rng.standard_normal((500, 2))
-    report = FidelityScorecard().evaluate(_dataset(r, ["a", "b"]), _dataset(s, ["a", "b"]))
+    report = FidelityScorecard().evaluate(
+        _dataset(r, ["a", "b"]), _dataset(s, ["a", "b"])
+    )
     assert isinstance(report, FidelityReport)
     assert 0.0 <= report.overall_score <= 1.0
 
@@ -73,7 +76,9 @@ def test_identical_distributions_score_high():
     # Use a different RNG seed so the samples differ but the distribution is
     # the same — the scorecard should still clear the default 0.7 gate.
     s = np.random.default_rng(43).standard_normal((2000, 2))
-    report = FidelityScorecard().evaluate(_dataset(r, ["a", "b"]), _dataset(s, ["a", "b"]))
+    report = FidelityScorecard().evaluate(
+        _dataset(r, ["a", "b"]), _dataset(s, ["a", "b"])
+    )
     assert report.passed is True
     assert report.overall_score >= 0.7
 
@@ -94,7 +99,14 @@ def test_marginal_dict_has_all_metrics_per_column():
     r = rng.standard_normal((500, 1))
     s = rng.standard_normal((500, 1))
     report = FidelityScorecard().evaluate(_dataset(r, ["x"]), _dataset(s, ["x"]))
-    for metric in ("ks", "wasserstein", "mean_diff", "std_diff", "skew_diff", "kurt_diff"):
+    for metric in (
+        "ks",
+        "wasserstein",
+        "mean_diff",
+        "std_diff",
+        "skew_diff",
+        "kurt_diff",
+    ):
         assert f"x__{metric}" in report.marginals
 
 
@@ -145,7 +157,9 @@ def test_cross_series_populated_for_multivariate():
     cov = np.array([[1.0, 0.8], [0.8, 1.0]])
     r = rng.multivariate_normal([0, 0], cov, size=1500)
     s = rng.standard_normal((1500, 2))
-    report = FidelityScorecard().evaluate(_dataset(r, ["a", "b"]), _dataset(s, ["a", "b"]))
+    report = FidelityScorecard().evaluate(
+        _dataset(r, ["a", "b"]), _dataset(s, ["a", "b"])
+    )
     assert report.cross_series is not None
     assert report.cross_series["corr_frobenius_diff"] > 0.5
 
@@ -162,7 +176,12 @@ def test_tail_metrics_present():
     report = FidelityScorecard().evaluate(_dataset(r, ["x"]), _dataset(s, ["x"]))
     for k in ("x__p01_ratio", "x__p99_ratio", "x__cvar05_diff", "x__cvar95_diff"):
         assert k in report.tails
-    for k in ("p01_ratio_mean", "p99_ratio_mean", "cvar05_mean_diff", "cvar95_mean_diff"):
+    for k in (
+        "p01_ratio_mean",
+        "p99_ratio_mean",
+        "cvar05_mean_diff",
+        "cvar95_mean_diff",
+    ):
         assert k in report.tails
 
 

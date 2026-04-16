@@ -62,6 +62,7 @@ JSON-serializable values — we do *not* run a coercion pass so that
 non-serializable values fail loudly at ``json.dumps`` rather than
 silently being converted.
 """
+
 from __future__ import annotations
 
 import json

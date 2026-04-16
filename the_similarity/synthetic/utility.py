@@ -31,6 +31,7 @@ Fail-closed invariants
 - Too-short inputs (fewer rows than ``LAGS + 2``) also fail closed with
   an explanatory sentinel in the report.
 """
+
 from __future__ import annotations
 
 import math
@@ -214,16 +215,28 @@ class UtilityScorecard:
         X_synth, y_synth = _make_lag_matrix(synth_y, self.LAGS)
 
         baseline = _fit_predict(
-            X_rtrain, y_rtrain, X_rtest, y_rtest,
-            alpha=self.RIDGE_ALPHA, seed=self.SEED,
+            X_rtrain,
+            y_rtrain,
+            X_rtest,
+            y_rtest,
+            alpha=self.RIDGE_ALPHA,
+            seed=self.SEED,
         )
         trts = _fit_predict(
-            X_rtrain, y_rtrain, X_synth, y_synth,
-            alpha=self.RIDGE_ALPHA, seed=self.SEED,
+            X_rtrain,
+            y_rtrain,
+            X_synth,
+            y_synth,
+            alpha=self.RIDGE_ALPHA,
+            seed=self.SEED,
         )
         tstr = _fit_predict(
-            X_synth, y_synth, X_rtest, y_rtest,
-            alpha=self.RIDGE_ALPHA, seed=self.SEED,
+            X_synth,
+            y_synth,
+            X_rtest,
+            y_rtest,
+            alpha=self.RIDGE_ALPHA,
+            seed=self.SEED,
         )
 
         baseline_mae = baseline["mae"]
