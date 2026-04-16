@@ -31,10 +31,12 @@ from the_similarity.platform.artifacts import (
     read_artifact,
     write_artifact,
 )
+from the_similarity.platform.registry import RunRegistry
 
 __all__ = [
     "RunArtifact",
     "RunKind",
+    "RunRegistry",
     "new_run_id",
     "read_artifact",
     "write_artifact",
