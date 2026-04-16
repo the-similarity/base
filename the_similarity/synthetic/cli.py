@@ -127,6 +127,19 @@ def build_parser() -> argparse.ArgumentParser:
             "of scorecard pass/fail."
         ),
     )
+    p.add_argument(
+        "--register",
+        action="store_true",
+        default=False,
+        help=(
+            "If set, register the resulting run in the platform registry via "
+            "the_similarity.platform.adapters.copies.register_copies_run. "
+            "Off by default for backward compatibility — opting in writes a "
+            "row to $THE_SIMILARITY_REGISTRY_DB (or "
+            "~/.the_similarity/registry.db) and also emits artifact.json "
+            "inside the run dir."
+        ),
+    )
     return p
 
 
@@ -494,6 +507,33 @@ def run(args: argparse.Namespace) -> int:
     write_scorecard(run_dir, scorecard)
     write_provenance(run_dir, synth.provenance)
     write_report(run_dir, scorecard, synth.provenance)
+
+    # Opt-in platform registration. Kept behind a flag so the CLI's
+    # default behavior is byte-identical to what pre-registry callers got.
+    # Import is deferred to the flag branch so the CLI doesn't gain an
+    # unconditional import of the registry (sqlite3 is cheap but the
+    # adapter package is layered above CLI).
+    if getattr(args, "register", False):
+        try:
+            from the_similarity.platform.adapters.copies import (
+                register_copies_run,
+            )
+            run_id = register_copies_run(
+                run_dir,
+                source_id=source_id,
+                n=args.n,
+                seed=args.seed,
+                generator=args.generator,
+            )
+            print(f"registry run_id: {run_id}")
+        except ImportError as exc:  # pragma: no cover - platform package always ships today
+            # We prefer a loud warning over a silent skip: the user asked
+            # for registration and the platform package is missing. The
+            # run itself still succeeded, so we don't raise.
+            print(
+                f"warning: --register requested but platform adapter unavailable: {exc}",
+                file=sys.stderr,
+            )
 
     passed = evaluate_thresholds(scorecard, args)
     print(f"run_dir: {run_dir}")
