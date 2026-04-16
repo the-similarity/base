@@ -39,7 +39,6 @@ ripser = {version = "^0.6", optional = true}
 persim = {version = "^0.3", optional = true}
 
 [tool.poetry.extras]
-api = ["fastapi", "uvicorn"]
 tda = ["ripser", "persim"]
 
 [tool.poetry.group.dev.dependencies]
