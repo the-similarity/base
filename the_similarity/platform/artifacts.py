@@ -107,6 +107,13 @@ class RunKind(str, Enum):
     WORLDS = "worlds"
     SWEEP = "sweep"
     EVAL = "eval"
+    # Pillar-specific additions for the extended platform spine. Additive
+    # only — existing rows in the registry with one of the original four
+    # values continue to deserialize correctly. The contracts module
+    # re-exports this enum for downstream callers.
+    FINANCE = "finance"
+    EVENTS = "events"
+    NL_TS = "nl_ts"
 
 
 # ---------------------------------------------------------------------------
