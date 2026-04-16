@@ -310,22 +310,34 @@ class DatasetSpecModel(BaseModel):
     in their config to keep runs reproducible across pipeline changes.
     """
 
+    # ``populate_by_name=True`` lets construction accept either the python
+    # attribute name (``schema_``) or the wire alias (``schema``).
+    # ``ser_by_alias``-aware responses are handled by FastAPI's default
+    # ``response_model`` serializer which uses by_alias on emit.
+    #
+    # Naming note: the wire contract uses ``schema`` (per Agent 1's spec)
+    # but ``schema`` collides with Pydantic v1's deprecated ``.schema()``
+    # method and triggers Pydantic v2 schema-build warnings on generic
+    # container attributes. We sidestep that by handling the alias at the
+    # serializer boundary (see :func:`_dataset_to_wire` /
+    # :func:`_dataset_from_wire`) rather than via ``Field(alias=...)``.
+    model_config = ConfigDict()
+
     dataset_id: str = Field(..., description="Primary key. Stable across refreshes.")
     name: str = Field(..., description="Human-readable display name.")
     description: Optional[str] = None
     path: Optional[str] = Field(
         None, description="Absolute or repo-relative path to the data source."
     )
-    schema_: Dict[str, Any] = Field(
+    # Stored on the python attr as ``columns`` to avoid the ``schema``
+    # collision. The wire boundary translates to/from the ``schema`` key.
+    columns: Dict[str, Any] = Field(
         default_factory=dict,
-        alias="schema",
-        description="Columns / dtypes / constraints as a free-form dict.",
+        description="Columns / dtypes / constraints as a free-form dict. "
+        "Wire key is 'schema' — translated at the router boundary.",
     )
     version: Optional[str] = None
     created_at: str = Field(..., description="ISO-8601 UTC creation timestamp.")
-
-    # Allow both 'schema' (wire) and 'schema_' (python attr) round-trips.
-    model_config = ConfigDict(populate_by_name=True)
 
 
 class HealthzResponse(BaseModel):
@@ -896,28 +908,60 @@ def get_scenario(
 # ---------------------------------------------------------------------------
 
 
-@router.get("/datasets", response_model=List[DatasetSpecModel])
+# ---------------------------------------------------------------------------
+# Dataset wire translation
+#
+# The external spec uses ``schema`` as the JSON key for the columns/dtypes
+# dict, but ``schema`` collides with Pydantic v1's ``BaseModel.schema()``
+# method and triggers v2 schema-build warnings on Dict-typed aliased
+# fields. We translate at the boundary:
+#   - Incoming: accept both ``schema`` (canonical wire) and ``columns``
+#     (python-native form).
+#   - Outgoing: always emit ``schema`` so API consumers match the spec.
+#
+# The companion SQLite column is ``schema_json`` regardless — the DB is an
+# implementation detail, not the public contract.
+# ---------------------------------------------------------------------------
+
+
+def _dataset_from_wire(raw: Dict[str, Any]) -> DatasetSpecModel:
+    """Build a DatasetSpecModel from a wire dict, accepting 'schema' alias."""
+    normalized = dict(raw)  # shallow copy — do not mutate caller's dict
+    if "schema" in normalized and "columns" not in normalized:
+        normalized["columns"] = normalized.pop("schema")
+    return DatasetSpecModel.model_validate(normalized)
+
+
+def _dataset_to_wire(model: DatasetSpecModel) -> Dict[str, Any]:
+    """Serialize to the wire shape with the canonical 'schema' key."""
+    payload = model.model_dump()
+    payload["schema"] = payload.pop("columns", {})
+    return payload
+
+
+@router.get("/datasets", response_model=List[Dict[str, Any]])
 def list_datasets(
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
     registry: RunRegistry = Depends(get_registry),
-) -> List[DatasetSpecModel]:
-    """List datasets newest-first."""
+) -> List[Dict[str, Any]]:
+    """List datasets newest-first — response uses the 'schema' wire key."""
     rows = registry._conn.execute(  # noqa: SLF001
         "SELECT dataset_id, name, description, path, schema_json, version, created_at "
         "FROM datasets ORDER BY created_at DESC LIMIT ? OFFSET ?",
         (limit, offset),
     ).fetchall()
     return [
-        DatasetSpecModel(
-            dataset_id=r[0],
-            name=r[1],
-            description=r[2],
-            path=r[3],
-            # alias='schema' on the model — construct via the python-attr name
-            schema_=json.loads(r[4]) if r[4] else {},
-            version=r[5],
-            created_at=r[6],
+        _dataset_to_wire(
+            DatasetSpecModel(
+                dataset_id=r[0],
+                name=r[1],
+                description=r[2],
+                path=r[3],
+                columns=json.loads(r[4]) if r[4] else {},
+                version=r[5],
+                created_at=r[6],
+            )
         )
         for r in rows
     ]
@@ -925,15 +969,28 @@ def list_datasets(
 
 @router.post(
     "/datasets",
-    response_model=DatasetSpecModel,
+    response_model=Dict[str, Any],
     status_code=status.HTTP_201_CREATED,
     responses={409: {"description": "dataset_id already exists."}},
 )
 def create_dataset(
-    body: DatasetSpecModel,
+    body: Dict[str, Any],
     registry: RunRegistry = Depends(get_registry),
-) -> DatasetSpecModel:
-    """Register a new dataset. ``dataset_id`` must be globally unique."""
+) -> Dict[str, Any]:
+    """Register a new dataset. ``dataset_id`` must be globally unique.
+
+    Accepts a raw dict (not a Pydantic model on the request) so the wire
+    alias (``schema``) bypasses Pydantic's alias warnings entirely.
+    Validation runs via :func:`_dataset_from_wire` which goes through the
+    Pydantic model — errors surface as FastAPI validation errors.
+    """
+    try:
+        model = _dataset_from_wire(body)
+    except Exception as exc:  # pragma: no cover - pydantic validation
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"invalid dataset body: {exc}",
+        ) from exc
     try:
         with registry._conn:  # noqa: SLF001
             registry._conn.execute(  # noqa: SLF001
@@ -941,33 +998,33 @@ def create_dataset(
                 "(dataset_id, name, description, path, schema_json, version, created_at) "
                 "VALUES (?, ?, ?, ?, ?, ?, ?)",
                 (
-                    body.dataset_id,
-                    body.name,
-                    body.description,
-                    body.path,
-                    json.dumps(body.schema_, separators=(",", ":")),
-                    body.version,
-                    body.created_at,
+                    model.dataset_id,
+                    model.name,
+                    model.description,
+                    model.path,
+                    json.dumps(model.columns, separators=(",", ":")),
+                    model.version,
+                    model.created_at,
                 ),
             )
     except sqlite3.IntegrityError as exc:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=f"dataset_id already exists: {body.dataset_id}",
+            detail=f"dataset_id already exists: {model.dataset_id}",
         ) from exc
-    return body
+    return _dataset_to_wire(model)
 
 
 @router.get(
     "/datasets/{dataset_id}",
-    response_model=DatasetSpecModel,
+    response_model=Dict[str, Any],
     responses={404: {"description": "dataset_id not found."}},
 )
 def get_dataset(
     dataset_id: str,
     registry: RunRegistry = Depends(get_registry),
-) -> DatasetSpecModel:
-    """Fetch a single dataset by id."""
+) -> Dict[str, Any]:
+    """Fetch a single dataset by id — response uses the 'schema' wire key."""
     row = registry._conn.execute(  # noqa: SLF001
         "SELECT dataset_id, name, description, path, schema_json, version, created_at "
         "FROM datasets WHERE dataset_id = ?",
@@ -978,14 +1035,16 @@ def get_dataset(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"dataset_id not found: {dataset_id}",
         )
-    return DatasetSpecModel(
-        dataset_id=row[0],
-        name=row[1],
-        description=row[2],
-        path=row[3],
-        schema_=json.loads(row[4]) if row[4] else {},
-        version=row[5],
-        created_at=row[6],
+    return _dataset_to_wire(
+        DatasetSpecModel(
+            dataset_id=row[0],
+            name=row[1],
+            description=row[2],
+            path=row[3],
+            columns=json.loads(row[4]) if row[4] else {},
+            version=row[5],
+            created_at=row[6],
+        )
     )
 
 
