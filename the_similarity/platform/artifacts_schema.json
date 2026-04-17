@@ -24,7 +24,7 @@
     "kind": {
       "type": "string",
       "description": "Which kind of run this is. Drives dispatch in consumers.",
-      "enum": ["copies", "worlds", "sweep", "eval"]
+      "enum": ["copies", "worlds", "sweep", "eval", "finance", "events", "nl_ts"]
     },
     "config": {
       "type": "object",
