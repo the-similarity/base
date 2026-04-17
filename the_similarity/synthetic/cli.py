@@ -564,10 +564,191 @@ def run(args: argparse.Namespace) -> int:
 
 
 def main(argv: Optional[list[str]] = None) -> int:
-    """CLI entry point. Returns a process exit code."""
+    """CLI entry point. Returns a process exit code.
+
+    Dispatches to the catalog subcommand handler when the first argument
+    is ``"catalog"``, otherwise falls through to the original pipeline
+    parser. This two-layer dispatch preserves backward compatibility: the
+    existing ``python -m the_similarity.synthetic.cli --input ...`` invocation
+    continues to work unchanged.
+    """
+    effective_argv = argv if argv is not None else sys.argv[1:]
+
+    # Dispatch to catalog subcommands when the first positional arg is "catalog"
+    if effective_argv and effective_argv[0] == "catalog":
+        return _catalog_main(effective_argv[1:])
+
     parser = build_parser()
     args = parser.parse_args(argv)
     return run(args)
+
+
+# ---------------------------------------------------------------------------
+# Catalog subcommands
+# ---------------------------------------------------------------------------
+
+
+def _catalog_build_parser() -> argparse.ArgumentParser:
+    """Build the argparse parser for catalog subcommands.
+
+    Supports three subcommands:
+    - ``catalog list`` — list registered synthetic datasets.
+    - ``catalog show <dataset_id>`` — print a dataset card.
+    - ``catalog register`` — register a synthetic run as a dataset.
+    """
+    p = argparse.ArgumentParser(
+        prog="python -m the_similarity.synthetic.cli catalog",
+        description="Manage the synthetic dataset catalog.",
+    )
+    sub = p.add_subparsers(dest="catalog_cmd")
+
+    # -- catalog list -------------------------------------------------------
+    list_p = sub.add_parser("list", help="List registered synthetic datasets.")
+    list_p.add_argument(
+        "--promoted-only",
+        action="store_true",
+        default=False,
+        help="Only show promoted datasets.",
+    )
+    list_p.add_argument(
+        "--db",
+        type=Path,
+        default=None,
+        help="Path to registry DB (default: $THE_SIMILARITY_REGISTRY_DB or "
+        "~/.the_similarity/registry.db).",
+    )
+
+    # -- catalog show -------------------------------------------------------
+    show_p = sub.add_parser("show", help="Print a dataset card.")
+    show_p.add_argument(
+        "dataset_id",
+        help="The dataset_id to look up.",
+    )
+    show_p.add_argument(
+        "--db",
+        type=Path,
+        default=None,
+        help="Path to registry DB.",
+    )
+
+    # -- catalog register ---------------------------------------------------
+    reg_p = sub.add_parser("register", help="Register a synthetic run as a dataset.")
+    reg_p.add_argument(
+        "--run-dir",
+        required=True,
+        type=Path,
+        help="Path to the completed run directory (must contain synth.parquet).",
+    )
+    reg_p.add_argument(
+        "--name",
+        required=True,
+        help="Human-readable dataset name.",
+    )
+    reg_p.add_argument(
+        "--version",
+        default="v1",
+        help="Dataset version string (default: v1).",
+    )
+    reg_p.add_argument(
+        "--run-id",
+        default=None,
+        help="Run ID to embed in source. Generated if omitted.",
+    )
+    reg_p.add_argument(
+        "--no-checksum",
+        action="store_true",
+        default=False,
+        help="Skip SHA-256 checksum computation (faster for large files).",
+    )
+    reg_p.add_argument(
+        "--db",
+        type=Path,
+        default=None,
+        help="Path to registry DB.",
+    )
+
+    return p
+
+
+def _resolve_db(db_arg: Optional[Path]) -> Path:
+    """Resolve the registry DB path from CLI arg, env var, or default.
+
+    Priority: CLI ``--db`` > ``$THE_SIMILARITY_REGISTRY_DB`` >
+    ``~/.the_similarity/registry.db``.
+    """
+    import os
+
+    if db_arg is not None:
+        return db_arg
+    env_val = os.environ.get("THE_SIMILARITY_REGISTRY_DB")
+    if env_val:
+        return Path(env_val)
+    return Path.home() / ".the_similarity" / "registry.db"
+
+
+def _catalog_main(argv: list[str]) -> int:
+    """Dispatch catalog subcommands. Returns exit code."""
+    from the_similarity.platform.artifacts import new_run_id as gen_run_id
+    from the_similarity.platform.registry import RunRegistry
+    from the_similarity.synthetic.catalog import (
+        get_dataset_card,
+        list_catalog,
+        register_synthetic_dataset,
+    )
+
+    parser = _catalog_build_parser()
+    args = parser.parse_args(argv)
+
+    if args.catalog_cmd is None:
+        parser.print_help()
+        return 2
+
+    db_path = _resolve_db(getattr(args, "db", None))
+
+    if args.catalog_cmd == "list":
+        with RunRegistry(db_path) as registry:
+            datasets = list_catalog(
+                registry, promoted_only=args.promoted_only
+            )
+        if not datasets:
+            print("No synthetic datasets found.")
+            return 0
+        for ds in datasets:
+            promoted_tag = ""
+            if ds.metadata.get("promoted", False):
+                promoted_tag = " [promoted]"
+            print(
+                f"{ds.dataset_id}  {ds.name}  v={ds.version}  "
+                f"rows={ds.n_rows}  cols={ds.n_columns}{promoted_tag}"
+            )
+        return 0
+
+    if args.catalog_cmd == "show":
+        with RunRegistry(db_path) as registry:
+            try:
+                card = get_dataset_card(args.dataset_id, registry)
+            except KeyError as exc:
+                print(f"Error: {exc}", file=sys.stderr)
+                return 1
+        print(json.dumps(card, indent=2, default=str))
+        return 0
+
+    if args.catalog_cmd == "register":
+        run_id = args.run_id or gen_run_id()
+        with RunRegistry(db_path) as registry:
+            dataset_id = register_synthetic_dataset(
+                run_id=run_id,
+                name=args.name,
+                version=args.version,
+                run_dir=args.run_dir,
+                registry=registry,
+                compute_checksum=not args.no_checksum,
+            )
+        print(f"registered: {dataset_id}")
+        return 0
+
+    parser.print_help()
+    return 2
 
 
 if __name__ == "__main__":  # pragma: no cover
