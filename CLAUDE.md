@@ -187,7 +187,7 @@ Three rules that prevent silent main breakage:
 - `the_similarity/io/` — I/O utilities
 - `vision/` — Product vision and roadmap docs
 
-## Current State (Phase 1-7 complete)
+## Current State (Phase 1-7 + Platform Spine)
 - All 9 methods + 2D variants (bempedelis_2d, emd_2d, wavelet_leaders_2d)
 - Tiered pipeline: SAX+MASS prefilter → DTW+Pearson → Tier 2 enrichment → final rank
 - Ensemble forecasting: Monte Carlo, regime-conditional, conformal
@@ -197,6 +197,10 @@ Three rules that prevent silent main breakage:
 - Obsidian research wiki (`obsidian_thesim/`) for LLM-maintained knowledge base
 - 1.13M+ rows of data, daily refresh via GitHub Actions
 - Next.js frontend with lightweight-charts, resizable split pane
+- Platform Spine (Batch 1) shipped 2026-04-17: unified contracts, registry, API, adapters for finance/copies/worlds
+- Synthetic data pipeline: block-bootstrap generation, fidelity/privacy/utility scorecards, CLI with registry integration
+- CI correctness infrastructure: main-health workflow, ci_local.sh throwaway-venv gate, platform smoke tests
+- Next: Batch 2 (Finance Operating Product)
 
 ## Coding Standards
 - **Claude Code Documentation Standard (MANDATORY)**:
