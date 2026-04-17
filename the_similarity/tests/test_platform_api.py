@@ -10,9 +10,9 @@ plus the fractal package and is outside the Python unit-test surface. We
 do hit the endpoint with a bogus scenario path to confirm input validation
 returns 400, which is enough to lock in the shape.
 """
+
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from typing import Iterator
 
@@ -20,8 +20,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from the_similarity.platform.api import create_app, get_registry
-from the_similarity.platform.api.main import ENV_DB_PATH
-from the_similarity.platform.artifacts import RunArtifact, RunKind, write_artifact
+from the_similarity.platform.artifacts import RunArtifact, RunKind
 from the_similarity.platform.registry import RunRegistry
 
 
@@ -347,7 +346,5 @@ def test_compare_404_when_either_run_missing(client: TestClient) -> None:
     with RunRegistry(client.db_path) as reg:  # type: ignore[attr-defined]
         reg.register(a)
 
-    resp = client.post(
-        "/compare", json={"run_id_a": a.run_id, "run_id_b": "missing"}
-    )
+    resp = client.post("/compare", json={"run_id_a": a.run_id, "run_id_b": "missing"})
     assert resp.status_code == 404

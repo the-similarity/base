@@ -4,6 +4,7 @@ Re-exports the stable contract types defined in :mod:`.contracts`. Downstream
 code should import from ``the_similarity.synthetic`` (not the submodule) so
 the implementation can move without breaking consumers.
 """
+
 from the_similarity.synthetic.contracts import (
     FidelityReport,
     GeneratorProtocol,

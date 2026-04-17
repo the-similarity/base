@@ -12,6 +12,7 @@ parallel test runs do not see each other's writes. The CLI tests also
 override ``THE_SIMILARITY_REGISTRY_DB`` via the subprocess env so the
 default ``~/.the_similarity/registry.db`` is never touched.
 """
+
 from __future__ import annotations
 
 import json
@@ -253,7 +254,9 @@ def test_context_manager_closes_connection(db_path: Path) -> None:
 # ---------------------------------------------------------------------------
 
 
-def _run_cli(*args: str, db_path: Path, env_extra: dict | None = None) -> subprocess.CompletedProcess:
+def _run_cli(
+    *args: str, db_path: Path, env_extra: dict | None = None
+) -> subprocess.CompletedProcess:
     """Invoke the CLI as a subprocess against an isolated DB.
 
     We pass ``--db`` explicitly (rather than relying on the env var) so the
@@ -408,19 +411,30 @@ def test_list_runs_filters_by_status(db_path: Path) -> None:
 def test_list_runs_filters_combine(db_path: Path) -> None:
     """Multiple filters AND together (kind + pillar + status)."""
     a = _make_run_record(
-        run_id="a" * 32, kind=RunKind.FINANCE, pillar="finance", status=RunStatus.SUCCEEDED,
+        run_id="a" * 32,
+        kind=RunKind.FINANCE,
+        pillar="finance",
+        status=RunStatus.SUCCEEDED,
     )
     b = _make_run_record(
-        run_id="b" * 32, kind=RunKind.FINANCE, pillar="finance", status=RunStatus.FAILED,
+        run_id="b" * 32,
+        kind=RunKind.FINANCE,
+        pillar="finance",
+        status=RunStatus.FAILED,
     )
     c = _make_run_record(
-        run_id="c" * 32, kind=RunKind.EVENTS, pillar="events", status=RunStatus.SUCCEEDED,
+        run_id="c" * 32,
+        kind=RunKind.EVENTS,
+        pillar="events",
+        status=RunStatus.SUCCEEDED,
     )
     with RunRegistry(db_path) as registry:
         for r in (a, b, c):
             registry.register_run(r)
         matches = registry.list_runs(
-            kind=RunKind.FINANCE, pillar="finance", status=RunStatus.SUCCEEDED,
+            kind=RunKind.FINANCE,
+            pillar="finance",
+            status=RunStatus.SUCCEEDED,
         )
     assert [r.run_id for r in matches] == [a.run_id]
 
@@ -472,8 +486,12 @@ def test_register_artifact_round_trip(db_path: Path) -> None:
 def test_register_artifact_upsert_same_name(db_path: Path) -> None:
     """Same (run_id, name) updates in place — no duplicate rows."""
     record = _make_run_record()
-    a1 = ArtifactRecord(run_id=record.run_id, name="scorecard", path="old.json", size_bytes=10)
-    a2 = ArtifactRecord(run_id=record.run_id, name="scorecard", path="new.json", size_bytes=42)
+    a1 = ArtifactRecord(
+        run_id=record.run_id, name="scorecard", path="old.json", size_bytes=10
+    )
+    a2 = ArtifactRecord(
+        run_id=record.run_id, name="scorecard", path="new.json", size_bytes=42
+    )
     with RunRegistry(db_path) as registry:
         registry.register_run(record)
         registry.register_artifact(a1)
@@ -512,8 +530,12 @@ def test_register_scorecard_round_trip(db_path: Path) -> None:
 def test_multiple_scorecards_per_run(db_path: Path) -> None:
     """(run_id, kind) composite PK allows many scorecards per run."""
     record = _make_run_record()
-    fid = ScorecardSummary(record.run_id, ScorecardKind.FIDELITY, overall_score=0.9, passed=True)
-    stat = ScorecardSummary(record.run_id, ScorecardKind.STATISTICAL, overall_score=0.7, passed=False)
+    fid = ScorecardSummary(
+        record.run_id, ScorecardKind.FIDELITY, overall_score=0.9, passed=True
+    )
+    stat = ScorecardSummary(
+        record.run_id, ScorecardKind.STATISTICAL, overall_score=0.7, passed=False
+    )
     with RunRegistry(db_path) as registry:
         registry.register_run(record)
         registry.register_scorecard(fid)
@@ -589,7 +611,9 @@ def test_delete_run_cascades_to_artifacts_and_scorecards(db_path: Path) -> None:
     """Deleting a run removes its artifacts AND scorecards."""
     record = _make_run_record()
     artifact = ArtifactRecord(run_id=record.run_id, name="telemetry", path="run.jsonl")
-    card = ScorecardSummary(record.run_id, ScorecardKind.FIDELITY, overall_score=0.9, passed=True)
+    card = ScorecardSummary(
+        record.run_id, ScorecardKind.FIDELITY, overall_score=0.9, passed=True
+    )
 
     with RunRegistry(db_path) as registry:
         registry.register_run(record)

@@ -1,22 +1,68 @@
-"""
-FastAPI application settings loaded from environment variables.
+"""FastAPI application settings loaded from environment variables.
 
-AI AGENT NOTES:
-- All config is driven by env vars with sensible defaults for local dev.
-- CORS origins default to localhost:3000 (Next.js) and localhost:8080 (fractal).
-- To add a new config value, add it as an attribute in `Settings.__init__()`.
-- The `settings` singleton at module scope is imported by `main.py` and other
-  modules that need configuration values at import time.
+Responsibilities
+----------------
+- Centralize every environment-var-driven knob used by ``app/main.py`` and
+  its routers so no module reads ``os.environ`` directly at request time.
+- Expose a module-level :data:`settings` singleton for import-time reads
+  (CORS origins, app version, etc.) and a helper :func:`resolve_registry_db`
+  for request-time reads that must honor late-binding env vars (tests set
+  ``THE_SIMILARITY_REGISTRY_DB`` via ``monkeypatch.setenv`` *after* this
+  module has imported, so the path must be re-resolved per request, not
+  snapshotted at import).
+
+Invariants
+----------
+- Defaults are local-dev friendly. Production deploys override via env vars.
+- :func:`resolve_registry_db` never raises on unset env: the default
+  ``~/.the_similarity/registry.db`` is always returned when no override is
+  present. Parent dir creation is the registry's responsibility, not ours.
 """
 
 from __future__ import annotations
 
 import os
+from pathlib import Path
+
+
+# ---------------------------------------------------------------------------
+# Canonical env-var names — exported so tests and routers reference a single
+# string literal rather than re-typing the key.
+# ---------------------------------------------------------------------------
+
+ENV_REGISTRY_DB = "THE_SIMILARITY_REGISTRY_DB"
+"""Env var name for the platform registry SQLite path (see /platform/*)."""
+
+# Default registry DB path — matches the platform API module
+# (``the_similarity/platform/api/main.py``) so both surfaces share one
+# registry file when neither process pins the env var.
+DEFAULT_REGISTRY_DB_PATH = Path("~/.the_similarity/registry.db")
 
 
 def split_csv(value: str) -> list[str]:
     """Split a comma-separated env var into a list, stripping whitespace."""
     return [item.strip() for item in value.split(",") if item.strip()]
+
+
+def resolve_registry_db() -> Path:
+    """Return the platform registry DB path per env-var precedence.
+
+    Resolved at call time — NOT at import — so tests that set
+    :data:`ENV_REGISTRY_DB` via ``monkeypatch.setenv`` after this module
+    imports still see the override.
+
+    Precedence
+    ----------
+    1. ``THE_SIMILARITY_REGISTRY_DB`` env var (absolute or user-relative).
+    2. Fallback ``~/.the_similarity/registry.db``.
+
+    Parent directory creation is deferred to the registry implementation
+    itself — this helper is pure path resolution.
+    """
+    override = os.environ.get(ENV_REGISTRY_DB)
+    if override:
+        return Path(override).expanduser()
+    return DEFAULT_REGISTRY_DB_PATH.expanduser()
 
 
 class Settings:
@@ -44,6 +90,11 @@ class Settings:
                 "http://localhost:3000,http://127.0.0.1:3000,http://localhost:8000,http://127.0.0.1:8000,http://localhost:8080,http://127.0.0.1:8080,http://localhost:8765,http://127.0.0.1:8765",
             )
         )
+
+        # Platform registry DB — captured at import for display/logging only.
+        # Routers MUST use :func:`resolve_registry_db` instead so test
+        # overrides via ``monkeypatch.setenv`` are honored.
+        self.registry_db_path = resolve_registry_db()
 
 
 # Module-level singleton — imported by main.py and other modules.

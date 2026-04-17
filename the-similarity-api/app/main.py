@@ -15,6 +15,7 @@ from app.streaming import handle_search_stream, handle_watch_stream
 from app.auth_routes import router as auth_router
 from app.alert_routes import router as alert_router
 from app.auth_deps import get_current_user
+from app.platform_routes import router as platform_router
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +34,11 @@ app.add_middleware(
 
 app.include_router(auth_router)
 app.include_router(alert_router)
+# Platform registry surface — read/write access to runs, artifacts,
+# scorecards, scenarios, and datasets. See ``app/platform_routes.py`` for
+# the full contract. Mounted under the ``/platform`` prefix (declared on
+# the router itself, not re-prefixed here).
+app.include_router(platform_router)
 
 
 @app.get("/health")

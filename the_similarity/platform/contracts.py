@@ -42,11 +42,12 @@ nested dicts. The registry persists the nested dicts as TEXT columns
 (``*_json``) via ``json.dumps`` — no binary blobs, so the DB remains
 inspectable via ``sqlite3 registry.db "select * from runs"``.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 # Single source of truth for the run-kind enum is
 # :mod:`the_similarity.platform.artifacts` — it was introduced first and

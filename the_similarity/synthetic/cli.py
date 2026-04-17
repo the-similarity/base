@@ -18,6 +18,7 @@ Exit code
   automatically on bad CLI args; pipeline exceptions surface as non-zero
   via Python's default ``SystemExit``).
 """
+
 from __future__ import annotations
 
 import argparse
@@ -197,7 +198,9 @@ def build_generator(name: str) -> "Any":
 
 def run_scorecards(
     real: SyntheticDataset, synth: SyntheticDataset
-) -> "tuple[Optional[FidelityReport], Optional[PrivacyReport], Optional[UtilityReport]]":
+) -> (
+    "tuple[Optional[FidelityReport], Optional[PrivacyReport], Optional[UtilityReport]]"
+):
     """Run Fidelity/Privacy/Utility scorecards, tolerating missing siblings.
 
     Each scorecard is imported and executed independently so one missing
@@ -212,6 +215,7 @@ def run_scorecards(
         from the_similarity.synthetic.fidelity import (  # type: ignore[import-not-found]
             FidelityScorecard,
         )
+
         fidelity = FidelityScorecard().evaluate(real, synth)
     except ImportError:
         print(_MISSING_DEPS_MSG.format(name="fidelity"), file=sys.stderr)
@@ -220,6 +224,7 @@ def run_scorecards(
         from the_similarity.synthetic.privacy import (  # type: ignore[import-not-found]
             PrivacyScorecard,
         )
+
         privacy = PrivacyScorecard().evaluate(real, synth)
     except ImportError:
         print(_MISSING_DEPS_MSG.format(name="privacy"), file=sys.stderr)
@@ -228,6 +233,7 @@ def run_scorecards(
         from the_similarity.synthetic.utility import (  # type: ignore[import-not-found]
             UtilityScorecard,
         )
+
         utility = UtilityScorecard().evaluate(real, synth)
     except ImportError:
         print(_MISSING_DEPS_MSG.format(name="utility"), file=sys.stderr)
@@ -259,7 +265,9 @@ def _df_from_dataset(ds: SyntheticDataset) -> "Any":
     return pd.DataFrame(arr, columns=cols, index=ds.index)
 
 
-def write_parquets(run_dir: Path, real: SyntheticDataset, synth: SyntheticDataset) -> None:
+def write_parquets(
+    run_dir: Path, real: SyntheticDataset, synth: SyntheticDataset
+) -> None:
     """Persist real and synthetic datasets side-by-side as parquet.
 
     We always materialize real too (instead of a path reference) so a run

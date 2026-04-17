@@ -30,9 +30,9 @@ Invariants
 - :meth:`fit` stores the real series as-is; generators here are
   non-parametric, so "fitting" is effectively caching.
 """
+
 from __future__ import annotations
 
-from dataclasses import asdict
 from typing import Any, Optional
 
 import numpy as np
@@ -234,9 +234,7 @@ class RegimeBlockBootstrapGenerator:
         if vol_window < 2:
             raise ValueError(f"vol_window must be >= 2, got {vol_window}")
         if not (0.0 < vol_quantile < 1.0):
-            raise ValueError(
-                f"vol_quantile must be in (0, 1), got {vol_quantile}"
-            )
+            raise ValueError(f"vol_quantile must be in (0, 1), got {vol_quantile}")
         if method != "rolling_vol":
             raise ValueError(
                 f"unsupported regime method {method!r}; only 'rolling_vol' "

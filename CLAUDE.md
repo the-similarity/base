@@ -100,6 +100,16 @@ When multiple agents run in parallel, they WILL conflict on files that every age
 - Test command: `python -m pytest the_similarity/tests/ -v`
 - Slow tests: `python -m pytest the_similarity/tests/ -v -m slow` (integration backtester tests)
 
+## CI Correctness (MANDATORY)
+
+Three rules that prevent silent main breakage:
+
+1. **Before `gh pr create`, run `scripts/ci_local.sh`.** This is the ONLY reliable signal that CI will pass. Local `pytest` in a polluted dev env lies — it picks up packages installed in past sessions that aren't in `pyproject.toml`. Never claim a PR is green without this script passing.
+
+2. **Never merge on local-green alone.** Before merging a PR, poll `gh pr view <N> --json statusCheckRollup` and require every check (Python Tests, Python Lint, Data Package Tests, Frontend Tests) to be `SUCCESS`. The orchestrator is the one enforcement point; agents cannot self-merge without the gate.
+
+3. **Main health is monitored.** `.github/workflows/main-health.yml` runs the full suite on main after every merge and daily at 07:00 UTC. If it opens an issue labeled `main-health-failure`, stop all parallel work until it's green again — merging new PRs on top of a red main compounds debt.
+
 ## Architecture
 
 ### Engine core

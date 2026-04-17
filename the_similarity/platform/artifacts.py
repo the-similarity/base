@@ -62,11 +62,12 @@ JSON-serializable values — we do *not* run a coercion pass so that
 non-serializable values fail loudly at ``json.dumps`` rather than
 silently being converted.
 """
+
 from __future__ import annotations
 
 import json
 import uuid
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path

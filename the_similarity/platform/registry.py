@@ -112,9 +112,9 @@ before. Internally, they adapt to the richer :class:`RunRecord` schema
 transparently — a ``RunArtifact`` corresponds to a ``RunRecord`` with
 ``status=SUCCEEDED`` and ``pillar=None``.
 """
+
 from __future__ import annotations
 
-import hashlib
 import json
 import sqlite3
 import uuid
@@ -155,19 +155,18 @@ CREATE TABLE IF NOT EXISTS runs (
 );
 """
 
-# Kind-ordered composite index covers the original list hot path. We keep
-# DESC ordering on created_at so SQLite can skip a sort for
-# `ORDER BY created_at DESC`.
+# Composite index on (kind, created_at DESC) covers the dominant read path:
+# `SELECT ... WHERE kind = ? ORDER BY created_at DESC LIMIT N` (the `list`
+# method's hot path). DESC ordering in the index spec lets SQLite skip a
+# sort step. We include kind=None queries by falling back to a plain
+# ORDER BY on the unindexed `created_at` column — acceptable because the
+# table is small (thousands of rows, not millions) for the foreseeable
+# future.
 _CREATE_IDX_RUNS_KIND_CREATED = (
-    "CREATE INDEX IF NOT EXISTS idx_runs_kind_created "
-    "ON runs (kind, created_at DESC);"
+    "CREATE INDEX IF NOT EXISTS idx_runs_kind_created ON runs (kind, created_at DESC);"
 )
-_CREATE_IDX_RUNS_PILLAR = (
-    "CREATE INDEX IF NOT EXISTS idx_runs_pillar ON runs (pillar);"
-)
-_CREATE_IDX_RUNS_STATUS = (
-    "CREATE INDEX IF NOT EXISTS idx_runs_status ON runs (status);"
-)
+_CREATE_IDX_RUNS_PILLAR = "CREATE INDEX IF NOT EXISTS idx_runs_pillar ON runs (pillar);"
+_CREATE_IDX_RUNS_STATUS = "CREATE INDEX IF NOT EXISTS idx_runs_status ON runs (status);"
 
 _CREATE_ARTIFACTS_SQL = """
 CREATE TABLE IF NOT EXISTS artifacts (
@@ -482,7 +481,9 @@ class RunRegistry:
             # `pillar`. Attempt to add each column; ignore the specific
             # OperationalError SQLite raises when the column already
             # exists so the migration is idempotent on repeated opens.
-            self._maybe_add_column("runs", "status", "TEXT NOT NULL DEFAULT 'succeeded'")
+            self._maybe_add_column(
+                "runs", "status", "TEXT NOT NULL DEFAULT 'succeeded'"
+            )
             self._maybe_add_column("runs", "pillar", "TEXT")
 
             # Sibling tables. All idempotent via IF NOT EXISTS.
@@ -612,7 +613,9 @@ class RunRegistry:
             params.append(pillar)
         if status is not None:
             clauses.append("status = ?")
-            params.append(status.value if isinstance(status, RunStatus) else str(status))
+            params.append(
+                status.value if isinstance(status, RunStatus) else str(status)
+            )
 
         sql = _RUN_COLUMNS_SQL
         if clauses:
