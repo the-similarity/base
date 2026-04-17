@@ -9,7 +9,6 @@ Covers:
 
 from __future__ import annotations
 
-import json
 import tempfile
 from pathlib import Path
 
@@ -82,7 +81,11 @@ class TestReviewArtifactSerialization:
             updated_at="2026-04-16T10:00:00Z",
         )
         restored = ReviewArtifact.from_dict(review.to_dict())
-        assert restored.realized_outcome == {"actual_return": 0.05, "hit": True, "notes": "rose 5%"}
+        assert restored.realized_outcome == {
+            "actual_return": 0.05,
+            "hit": True,
+            "notes": "rose 5%",
+        }
         assert restored.updated_at == "2026-04-16T10:00:00Z"
 
     def test_enum_serializes_to_string(self):
@@ -238,26 +241,32 @@ class TestRiskFlagDetection:
 
     def test_high_skip_rate(self):
         """Triggers when skip rate > 0.3."""
-        flags = detect_risk_flags({
-            "n_valid_trials": 10,
-            "n_skipped_trials": 10,  # 50% skip rate
-        })
+        flags = detect_risk_flags(
+            {
+                "n_valid_trials": 10,
+                "n_skipped_trials": 10,  # 50% skip rate
+            }
+        )
         assert HIGH_SKIP_RATE in flags
 
     def test_high_skip_rate_uses_n_trials(self):
         """Uses n_trials field if available instead of computing."""
-        flags = detect_risk_flags({
-            "n_skipped_trials": 4,
-            "n_trials": 10,  # 40% skip rate
-        })
+        flags = detect_risk_flags(
+            {
+                "n_skipped_trials": 4,
+                "n_trials": 10,  # 40% skip rate
+            }
+        )
         assert HIGH_SKIP_RATE in flags
 
     def test_high_skip_rate_boundary(self):
         """Exactly 30% skip rate should NOT flag."""
-        flags = detect_risk_flags({
-            "n_valid_trials": 70,
-            "n_skipped_trials": 30,
-        })
+        flags = detect_risk_flags(
+            {
+                "n_valid_trials": 70,
+                "n_skipped_trials": 30,
+            }
+        )
         assert HIGH_SKIP_RATE not in flags
 
     def test_poor_calibration_scalar(self):
@@ -267,17 +276,21 @@ class TestRiskFlagDetection:
 
     def test_poor_calibration_dict(self):
         """Triggers when mean of calibration dict values > 0.15."""
-        flags = detect_risk_flags({
-            "calibration": {"p10": 0.20, "p50": 0.25, "p90": 0.10},
-        })
+        flags = detect_risk_flags(
+            {
+                "calibration": {"p10": 0.20, "p50": 0.25, "p90": 0.10},
+            }
+        )
         # Mean = (0.20 + 0.25 + 0.10) / 3 = 0.183 > 0.15
         assert POOR_CALIBRATION in flags
 
     def test_good_calibration_dict(self):
         """Does not trigger when mean calibration is within threshold."""
-        flags = detect_risk_flags({
-            "calibration": {"p10": 0.05, "p50": 0.02, "p90": 0.08},
-        })
+        flags = detect_risk_flags(
+            {
+                "calibration": {"p10": 0.05, "p50": 0.02, "p90": 0.08},
+            }
+        )
         assert POOR_CALIBRATION not in flags
 
     def test_low_hit_rate(self):
@@ -527,14 +540,10 @@ class TestFinanceReviewAPI:
             "signal_summary": "s",
             "trust_decision": "REVIEW",
         }
-        resp1 = client.post(
-            f"/platform/runs/{self._test_run_id}/review", json=body
-        )
+        resp1 = client.post(f"/platform/runs/{self._test_run_id}/review", json=body)
         assert resp1.status_code == 201
 
-        resp2 = client.post(
-            f"/platform/runs/{self._test_run_id}/review", json=body
-        )
+        resp2 = client.post(f"/platform/runs/{self._test_run_id}/review", json=body)
         assert resp2.status_code == 409
 
     def test_create_review_missing_run_404(self, client):

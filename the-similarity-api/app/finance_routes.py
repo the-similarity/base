@@ -28,7 +28,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
-from typing import Any, Dict, Iterator, List, Optional
+from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
@@ -82,16 +82,12 @@ class ReviewUpdateRequest(BaseModel):
     status: Optional[str] = Field(
         None, description="New status: pending, approved, flagged, rejected."
     )
-    trust_decision: Optional[str] = Field(
-        None, description="Updated trust verdict."
-    )
+    trust_decision: Optional[str] = Field(None, description="Updated trust verdict.")
     notes: Optional[str] = Field(None, description="Updated reviewer notes.")
     realized_outcome: Optional[Dict[str, Any]] = Field(
         None, description="Post-hoc realized outcome data."
     )
-    risk_flags: Optional[List[str]] = Field(
-        None, description="Updated risk flags."
-    )
+    risk_flags: Optional[List[str]] = Field(None, description="Updated risk flags.")
 
 
 class ReviewResponse(BaseModel):
