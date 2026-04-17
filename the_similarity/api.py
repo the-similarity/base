@@ -507,6 +507,8 @@ def backtest(
     progress_fn=None,
     top_k: int = 10,
     feature_store=None,
+    register: bool = False,
+    source_id: str | None = None,
 ):
     """Run walk-forward backtest to validate the search pipeline.
 
@@ -521,9 +523,23 @@ def backtest(
         progress_fn: Optional callback(completed, total).
         top_k: Matches per trial.
         feature_store: Optional FeatureStore for caching expensive computations.
+        register: If True, register this run in the platform registry via
+            :func:`the_similarity.platform.adapters.finance.register_backtest_run`.
+            Off by default so this remains a non-breaking addition; opt-in
+            keeps the public API surface backwards-compatible. The run_id
+            lands on the returned report as ``report.run_id`` so callers can
+            reference it downstream (e.g. ``python -m the_similarity.platform
+            show <run_id>``). Registration is best-effort: an import error
+            (platform not installed) is swallowed, but a registry write
+            failure re-raises so callers see the DB problem.
+        source_id: Optional symbol / dataset label (e.g. ``"spy"``) written
+            into the registered run's provenance. Only meaningful when
+            ``register=True``.
 
     Returns:
-        BacktestReport with per-trial results and aggregate metrics.
+        BacktestReport with per-trial results and aggregate metrics. When
+        ``register=True``, the report is augmented with a ``run_id``
+        attribute pointing at the registry row.
     """
     from the_similarity.core.backtester import run_backtest as _run_backtest
 
@@ -533,7 +549,7 @@ def backtest(
         else np.asarray(history, dtype=np.float64)
     )
 
-    return _run_backtest(
+    report = _run_backtest(
         history=h_values,
         window_size=window_size,
         forward_bars=forward_bars,
@@ -544,6 +560,45 @@ def backtest(
         progress_fn=progress_fn,
         top_k=top_k,
     )
+
+    # Opt-in registration. We wrap the import in try/except so this module
+    # remains importable even if the platform package is ever unbundled
+    # (e.g. a slim install that drops SQLite). The underlying registry
+    # failure IS allowed to propagate — if the user asked for registration
+    # and the DB is broken, silently losing the row would be worse than a
+    # loud exception.
+    if register:
+        try:
+            from the_similarity.platform.adapters.finance import (
+                register_backtest_run,
+            )
+        except ImportError:  # pragma: no cover - platform package always ships today
+            return report
+        # Build a config dict that captures the exact backtest knobs used.
+        # The report itself doesn't carry n_trials/top_k (those are inputs,
+        # not aggregated outputs), so echoing them here keeps the registry
+        # self-describing.
+        run_id = register_backtest_run(
+            report,
+            config={
+                "window_size": window_size,
+                "forward_bars": forward_bars,
+                "n_trials": n_trials,
+                "top_k": top_k,
+            },
+            seed=seed,
+            source_id=source_id,
+        )
+        # Stamp run_id on the returned report. Using setattr (not a field)
+        # because BacktestReport is a frozen-ish dataclass we don't want to
+        # edit across packages. Downstream consumers that know about the
+        # registry can pick up the id without a schema change.
+        try:
+            setattr(report, "run_id", run_id)
+        except Exception:
+            # Some dataclasses are truly frozen; fall through silently.
+            pass
+    return report
 
 
 def ensemble_backtest(
