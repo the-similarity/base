@@ -31,6 +31,7 @@ test, not the runners.
 
 Every test runs against a fresh ``tmp_path`` SQLite DB. No shared state.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -49,7 +50,10 @@ from the_similarity.platform.registry import RunRegistry
 
 
 def _finance_artifact(
-    *, run_id: str = "1" * 32, seed: int = 42, created_at: str = "2026-04-15T18:30:00+00:00"
+    *,
+    run_id: str = "1" * 32,
+    seed: int = 42,
+    created_at: str = "2026-04-15T18:30:00+00:00",
 ) -> RunArtifact:
     """Build a synthetic **finance / eval** :class:`RunArtifact`.
 
@@ -93,7 +97,10 @@ def _finance_artifact(
 
 
 def _copies_artifact(
-    *, run_id: str = "2" * 32, seed: int = 7, created_at: str = "2026-04-15T18:44:00+00:00"
+    *,
+    run_id: str = "2" * 32,
+    seed: int = 7,
+    created_at: str = "2026-04-15T18:44:00+00:00",
 ) -> RunArtifact:
     """Build a synthetic **copies** :class:`RunArtifact`.
 
@@ -138,7 +145,10 @@ def _copies_artifact(
 
 
 def _worlds_artifact(
-    *, run_id: str = "3" * 32, seed: int = 1, created_at: str = "2026-04-15T19:00:00+00:00"
+    *,
+    run_id: str = "3" * 32,
+    seed: int = 1,
+    created_at: str = "2026-04-15T19:00:00+00:00",
 ) -> RunArtifact:
     """Build a synthetic **worlds** :class:`RunArtifact`.
 
@@ -176,7 +186,10 @@ def _worlds_artifact(
 
 
 def _sweep_artifact(
-    *, run_id: str = "4" * 32, seed: int | None = None, created_at: str = "2026-04-15T19:30:00+00:00"
+    *,
+    run_id: str = "4" * 32,
+    seed: int | None = None,
+    created_at: str = "2026-04-15T19:30:00+00:00",
 ) -> RunArtifact:
     """Build a synthetic **sweep** :class:`RunArtifact`.
 
@@ -322,10 +335,10 @@ def test_list_is_newest_first_across_pillars(
     rows = populated_registry.list()
     ordered = [row.kind for row in rows]
     assert ordered == [
-        RunKind.SWEEP,   # 2026-04-15T19:30
+        RunKind.SWEEP,  # 2026-04-15T19:30
         RunKind.WORLDS,  # 2026-04-15T19:00
         RunKind.COPIES,  # 2026-04-15T18:44
-        RunKind.EVAL,    # 2026-04-15T18:30
+        RunKind.EVAL,  # 2026-04-15T18:30
     ]
 
 
