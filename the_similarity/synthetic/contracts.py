@@ -147,11 +147,24 @@ class PrivacyReport:
     - `nn_leakage`: nearest-neighbour distance stats vs. real set (DCR, NNDR).
     - `memorization`: exact/near-exact copy counts.
     - `membership_proxy`: membership-inference proxy scores (e.g. AUC).
+    - `attribute_inference_risk`: per-column accuracy delta above random baseline
+      when predicting that column from all others using a shallow decision tree
+      trained on synthetic, evaluated on real. High deltas mean the synthetic
+      structure leaks attribute relationships.
+    - `holdout_leakage_ratio`: train_dcr / holdout_dcr. Values near 1.0 are
+      healthy (generator did not over-memorize training set); values >> 1 signal
+      that synthetic data clusters around the training split.
+    - `tail_exposure_rate`: fraction of real tail records (top/bottom 1%) that
+      have a near-neighbour (within 2 sigma) in synthetic data. Outlier
+      re-identification is a common privacy failure mode.
     """
 
     nn_leakage: dict[str, float] = field(default_factory=dict)
     memorization: dict[str, float] = field(default_factory=dict)
     membership_proxy: dict[str, float] = field(default_factory=dict)
+    attribute_inference_risk: dict[str, float] = field(default_factory=dict)
+    holdout_leakage_ratio: float = 1.0
+    tail_exposure_rate: float = 0.0
     overall_score: float = 0.0
     passed: bool = False
 
