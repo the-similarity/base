@@ -53,6 +53,7 @@ There is no version column today. The schema is:
 If we ever need a migration, add a ``schema_version`` table and bump it.
 For now the YAGNI approach wins.
 """
+
 from __future__ import annotations
 
 import json
@@ -88,8 +89,7 @@ CREATE TABLE IF NOT EXISTS runs (
 # table is small (thousands of rows, not millions) for the foreseeable
 # future.
 _CREATE_INDEX_SQL = (
-    "CREATE INDEX IF NOT EXISTS idx_runs_kind_created "
-    "ON runs (kind, created_at DESC);"
+    "CREATE INDEX IF NOT EXISTS idx_runs_kind_created ON runs (kind, created_at DESC);"
 )
 
 _UPSERT_SQL = """

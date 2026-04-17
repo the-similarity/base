@@ -11,13 +11,13 @@ Covers:
   ``reason_too_short`` sentinel instead of raising.
 - Determinism: two evaluations on identical inputs match bit-for-bit.
 """
+
 from __future__ import annotations
 
 import math
 
 import numpy as np
 import pandas as pd
-import pytest
 
 from the_similarity.synthetic import (
     Provenance,
@@ -86,7 +86,9 @@ def test_poor_synth_fails():
 
 def test_dataframe_input_uses_first_column():
     base = _ar1(500, seed=0)
-    df = pd.DataFrame({"target": base, "noise": np.random.default_rng(9).standard_normal(500)})
+    df = pd.DataFrame(
+        {"target": base, "noise": np.random.default_rng(9).standard_normal(500)}
+    )
     real = _mk(df)
     synth = _mk(pd.DataFrame({"target": _ar1(400, seed=1)}))
 

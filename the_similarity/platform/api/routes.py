@@ -31,16 +31,14 @@ Failure modes
 - 500 on runner subprocess / pipeline failure — the detail message carries
   the runner's stderr so debugging does not require tailing logs.
 """
+
 from __future__ import annotations
 
 import datetime as _dt
 import json
-import os
 import subprocess
-import sys
-from dataclasses import asdict
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import FileResponse
@@ -138,9 +136,7 @@ def list_runs(
     422 before reaching this handler.
     """
     artifacts = registry.list(kind=kind, limit=limit)
-    return RunListResponse(
-        runs=[RunArtifactModel.from_artifact(a) for a in artifacts]
-    )
+    return RunListResponse(runs=[RunArtifactModel.from_artifact(a) for a in artifacts])
 
 
 # ---------------------------------------------------------------------------
@@ -203,9 +199,8 @@ def _resolve_artifact_file(artifact: RunArtifact, name: str) -> Path:
         # resolves; still return it since there is no run_dir to enclose.
         return candidate
 
-    run_dir_hint = (
-        artifact.provenance.get("run_dir")
-        or artifact.artifact_paths.get("run_dir")
+    run_dir_hint = artifact.provenance.get("run_dir") or artifact.artifact_paths.get(
+        "run_dir"
     )
     if run_dir_hint is None:
         # Without a run_dir anchor we cannot reliably resolve a relative
@@ -311,9 +306,7 @@ def _run_copies_pipeline(req: CreateCopiesRunRequest) -> Path:
             detail=f"input_path does not exist: {input_path}",
         )
 
-    out_root = (
-        Path(req.out_dir).expanduser() if req.out_dir else _DEFAULT_COPIES_OUT
-    )
+    out_root = Path(req.out_dir).expanduser() if req.out_dir else _DEFAULT_COPIES_OUT
     out_root.mkdir(parents=True, exist_ok=True)
 
     run_dir = _new_run_dir(out_root, req.generator, req.seed)
@@ -547,10 +540,14 @@ def create_worlds_run(
     cmd = [
         "node",
         str(_WORLDS_RUNNER_JS),
-        "--scenario", str(scenario_path),
-        "--seed", str(req.seed),
-        "--steps", str(req.steps),
-        "--out", str(out_path),
+        "--scenario",
+        str(scenario_path),
+        "--seed",
+        str(req.seed),
+        "--steps",
+        str(req.steps),
+        "--out",
+        str(out_path),
         "--quiet",
     ]
     try:
@@ -660,9 +657,7 @@ def create_sweep_run(
     scorecard_payload: Dict[str, Any] = {}
     if scorecard_path.exists():
         try:
-            scorecard_payload = json.loads(
-                scorecard_path.read_text(encoding="utf-8")
-            )
+            scorecard_payload = json.loads(scorecard_path.read_text(encoding="utf-8"))
         except ValueError:
             scorecard_payload = {}
 

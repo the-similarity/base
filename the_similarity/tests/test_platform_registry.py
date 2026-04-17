@@ -12,6 +12,7 @@ parallel test runs do not see each other's writes. The CLI tests also
 override ``THE_SIMILARITY_REGISTRY_DB`` via the subprocess env so the
 default ``~/.the_similarity/registry.db`` is never touched.
 """
+
 from __future__ import annotations
 
 import json
@@ -244,7 +245,9 @@ def test_context_manager_closes_connection(db_path: Path) -> None:
 # ---------------------------------------------------------------------------
 
 
-def _run_cli(*args: str, db_path: Path, env_extra: dict | None = None) -> subprocess.CompletedProcess:
+def _run_cli(
+    *args: str, db_path: Path, env_extra: dict | None = None
+) -> subprocess.CompletedProcess:
     """Invoke the CLI as a subprocess against an isolated DB.
 
     We pass ``--db`` explicitly (rather than relying on the env var) so the
