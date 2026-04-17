@@ -16,6 +16,7 @@ from app.auth_routes import router as auth_router
 from app.alert_routes import router as alert_router
 from app.auth_deps import get_current_user
 from app.platform_routes import router as platform_router
+from app.finance_routes import router as finance_router
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +40,9 @@ app.include_router(alert_router)
 # the full contract. Mounted under the ``/platform`` prefix (declared on
 # the router itself, not re-prefixed here).
 app.include_router(platform_router)
+# Finance review surface — review artifacts for finance runs.
+# Mounted under the ``/platform`` prefix (declared on the router itself).
+app.include_router(finance_router)
 
 
 @app.get("/health")
