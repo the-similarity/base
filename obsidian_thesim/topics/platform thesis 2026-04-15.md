@@ -22,7 +22,7 @@ A bucket of tools competes on feature parity and gets out-built. A platform comp
 
 ## Where the MVP sits
 
-Data ✅ · World ✅ · Eval (partial — worlds side is live, customer-model harness is not) · Ops ❌ · Experience (CLI ✅, renderer ✅, API ❌, dashboard ❌).
+Data ✅ · World ✅ · Eval (partial — worlds side is live, customer-model harness is not) · Ops ✅ partial (unified artifact model, run registry, adapters — [[batch1 platform spine 2026-04-17|Batch 1]]) · Experience (CLI ✅, renderer ✅, API ✅ partial — `/platform/*` endpoints, dashboard ❌).
 
 ## Build order
 

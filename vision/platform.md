@@ -62,8 +62,8 @@ Longer: *"We're building the platform where synthetic datasets and synthetic wor
 - **Data Layer** — block-bootstrap + regime-aware copies, provenance, fidelity/privacy/utility scorecards. ✅ shipped.
 - **World Layer** — `small_village` headless runner, knobs, JSONL telemetry. ✅ shipped.
 - **Eval Layer** — sweep runner, regime coverage, controllability with permutation p-values. ✅ shipped for worlds; copies scorecards landed in Data Layer.
-- **Ops Layer** — ❌ not yet. Runs save to ad-hoc directories with no registry, no IDs, no cross-run comparison.
-- **Experience Layer** — CLI ✅, renderer ✅ (localhost), API ❌, dashboard ❌.
+- **Ops Layer** — ✅ partial — unified artifact model (`platform/contracts.py`), run registry (SQLite, `platform/registry.py`), finance/copies/worlds adapters (`platform/adapters/`). Landed in Batch 1 (2026-04-17, PRs #147--#151). Remaining: benchmark history, team/customer workspace management.
+- **Experience Layer** — CLI ✅, renderer ✅ (localhost), API ✅ partial — 15 REST endpoints under `/platform/*` (`the-similarity-api/app/platform_routes.py`, PR #150, 2026-04-17), dashboard ❌.
 
 ## Build-next priority order
 
