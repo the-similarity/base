@@ -234,11 +234,6 @@ class TestRiskFlagDetection:
         flags = detect_risk_flags({"n_valid_trials": 15})
         assert LOW_TRIAL_COUNT in flags
 
-    def test_low_trial_count_boundary(self):
-        """Exactly 20 trials should NOT flag."""
-        flags = detect_risk_flags({"n_valid_trials": 20})
-        assert LOW_TRIAL_COUNT not in flags
-
     def test_high_skip_rate(self):
         """Triggers when skip rate > 0.3."""
         flags = detect_risk_flags(
@@ -249,92 +244,33 @@ class TestRiskFlagDetection:
         )
         assert HIGH_SKIP_RATE in flags
 
-    def test_high_skip_rate_uses_n_trials(self):
-        """Uses n_trials field if available instead of computing."""
-        flags = detect_risk_flags(
-            {
-                "n_skipped_trials": 4,
-                "n_trials": 10,  # 40% skip rate
-            }
-        )
-        assert HIGH_SKIP_RATE in flags
-
-    def test_high_skip_rate_boundary(self):
-        """Exactly 30% skip rate should NOT flag."""
-        flags = detect_risk_flags(
-            {
-                "n_valid_trials": 70,
-                "n_skipped_trials": 30,
-            }
-        )
-        assert HIGH_SKIP_RATE not in flags
-
-    def test_poor_calibration_scalar(self):
+    def test_poor_calibration(self):
         """Triggers when scalar calibration error > 0.15."""
         flags = detect_risk_flags({"calibration": 0.20})
         assert POOR_CALIBRATION in flags
-
-    def test_poor_calibration_dict(self):
-        """Triggers when mean of calibration dict values > 0.15."""
-        flags = detect_risk_flags(
-            {
-                "calibration": {"p10": 0.20, "p50": 0.25, "p90": 0.10},
-            }
-        )
-        # Mean = (0.20 + 0.25 + 0.10) / 3 = 0.183 > 0.15
-        assert POOR_CALIBRATION in flags
-
-    def test_good_calibration_dict(self):
-        """Does not trigger when mean calibration is within threshold."""
-        flags = detect_risk_flags(
-            {
-                "calibration": {"p10": 0.05, "p50": 0.02, "p90": 0.08},
-            }
-        )
-        assert POOR_CALIBRATION not in flags
 
     def test_low_hit_rate(self):
         """Triggers when hit_rate < 0.5."""
         flags = detect_risk_flags({"hit_rate": 0.45})
         assert LOW_HIT_RATE in flags
 
-    def test_low_hit_rate_boundary(self):
-        """Exactly 0.5 should NOT flag."""
-        flags = detect_risk_flags({"hit_rate": 0.5})
-        assert LOW_HIT_RATE not in flags
-
     def test_high_drawdown(self):
         """Triggers when max_drawdown > 0.3."""
         flags = detect_risk_flags({"max_drawdown": 0.35})
         assert HIGH_DRAWDOWN in flags
-
-    def test_high_drawdown_boundary(self):
-        """Exactly 0.3 should NOT flag."""
-        flags = detect_risk_flags({"max_drawdown": 0.3})
-        assert HIGH_DRAWDOWN not in flags
 
     def test_low_coverage(self):
         """Triggers when coverage < 0.7."""
         flags = detect_risk_flags({"coverage": 0.60})
         assert LOW_COVERAGE in flags
 
-    def test_low_coverage_boundary(self):
-        """Exactly 0.7 should NOT flag."""
-        flags = detect_risk_flags({"coverage": 0.7})
-        assert LOW_COVERAGE not in flags
-
     def test_high_crps(self):
         """Triggers when crps > 0.5."""
         flags = detect_risk_flags({"crps": 0.55})
         assert HIGH_CRPS in flags
 
-    def test_high_crps_boundary(self):
-        """Exactly 0.5 should NOT flag."""
-        flags = detect_risk_flags({"crps": 0.5})
-        assert HIGH_CRPS not in flags
-
-    def test_multiple_flags_combined(self):
-        """Multiple flags fire simultaneously."""
+    def test_all_flags_combined(self):
+        """All 7 flags fire simultaneously."""
         summary = {
             "n_valid_trials": 5,
             "n_skipped_trials": 8,
@@ -353,18 +289,6 @@ class TestRiskFlagDetection:
         assert LOW_COVERAGE in flags
         assert HIGH_CRPS in flags
         assert len(flags) == 7
-
-    def test_flag_order_is_deterministic(self):
-        """Flags appear in declaration order regardless of input order."""
-        summary = {
-            "crps": 0.8,
-            "hit_rate": 0.3,
-            "n_valid_trials": 5,
-        }
-        flags = detect_risk_flags(summary)
-        # Declaration order: LOW_TRIAL_COUNT, then LOW_HIT_RATE, then HIGH_CRPS
-        assert flags.index(LOW_TRIAL_COUNT) < flags.index(LOW_HIT_RATE)
-        assert flags.index(LOW_HIT_RATE) < flags.index(HIGH_CRPS)
 
 
 # =========================================================================

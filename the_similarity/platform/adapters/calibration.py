@@ -1,5 +1,10 @@
 """Calibration artifact — per-percentile coverage analysis for finance runs.
 
+This artifact reformats data already available in
+``BacktestReport.calibration()``. It exists as a convenience for the
+platform registry surface. If maintaining two representations becomes
+a burden, delete this and read calibration directly from BacktestReport.
+
 A :class:`CalibrationArtifact` captures the detailed calibration picture
 for a backtest run: for each nominal percentile (e.g. P10, P25, P50,
 P75, P90), what was the expected coverage, what was actually observed,

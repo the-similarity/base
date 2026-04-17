@@ -1,3 +1,6 @@
+> [!warning] Status: placeholder
+> Review workflow is a schema only. No process drives status transitions yet.
+
 # Finance Review Workflow
 
 ## What it is

@@ -1,3 +1,6 @@
+> [!warning] Status: placeholder
+> Duplicates data from BacktestReport.calibration(). Exists for registry convenience.
+
 # Calibration Artifact
 
 ## What it is
