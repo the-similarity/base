@@ -10,12 +10,8 @@ Multiple synthetic generators exist (block bootstrap, regime bootstrap, Gaussian
 
 1. **Run N generators** on the same source dataset with the same sample size and seed.
 2. **Score each** with the three scorecards (fidelity, privacy, utility).
-3. **Rank** by a composite metric. Default composite:
-   ```
-   composite = fidelity_score + privacy_score - abs(utility_transfer_gap)
-   ```
-   All three dimensions are weighted equally. Higher composite = better.
-4. **Promote** the winner: mark it as the recommended generator for this source in the catalog.
+3. **Rank** by primary sort on fidelity_score descending, tiebreak by utility_gap ascending (lower gap = better utility transfer). Error-producing generators are ranked last.
+4. **Promote** the winner: register a `DatasetSpec` in the platform registry with `source="synthetic:<run_id>"` and `dataset_id="promoted:<dataset_name>"` for O(1) lookups.
 
 ## Design decisions
 
@@ -25,7 +21,10 @@ Multiple synthetic generators exist (block bootstrap, regime bootstrap, Gaussian
 
 ## Promotion semantics
 
-- "Promoted" means the generator name is stored in the catalog entry for the source dataset.
+- Promotion creates a `DatasetSpec` via `the_similarity/synthetic/promotion.py`.
+- `dataset_id` uses a hardcoded `"promoted:<dataset_name>"` prefix convention for O(1) lookups. This is a fragile convention, not a schema contract — see [[batch3 slop audit 2026-04-17]].
+- `source` is set to `"synthetic:<run_id>"` linking back to the winning run.
+- Only one dataset spec can be promoted per name at a time (upsert semantics).
 - Promotion is advisory — the user can override.
 - Re-running comparison with new generators or updated scorecards can change the promoted generator.
 

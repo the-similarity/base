@@ -59,7 +59,7 @@ Longer: *"We're building the platform where synthetic datasets and synthetic wor
 
 ## Where the current MVP sits on the platform
 
-- **Data Layer** — block-bootstrap + regime-aware copies, provenance, fidelity/privacy/utility scorecards. ✅ shipped.
+- **Data Layer** — 3 generators (block bootstrap, regime bootstrap, Gaussian copula), provenance, fidelity/privacy/utility scorecards (6 privacy heuristics), generator comparison + promotion, synthetic dataset catalog. ✅ shipped.
 - **World Layer** — `small_village` headless runner, knobs, JSONL telemetry. ✅ shipped.
 - **Eval Layer** — sweep runner, regime coverage, controllability with permutation p-values. ✅ shipped for worlds; copies scorecards landed in Data Layer.
 - **Ops Layer** — ✅ partial — unified artifact model (`platform/contracts.py`), run registry (SQLite, `platform/registry.py`), finance/copies/worlds adapters (`platform/adapters/`). Landed in Batch 1 (2026-04-17, PRs #147--#151). Remaining: benchmark history, team/customer workspace management.
