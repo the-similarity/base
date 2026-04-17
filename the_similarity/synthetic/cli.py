@@ -526,6 +526,7 @@ def run(args: argparse.Namespace) -> int:
             from the_similarity.platform.adapters.copies import (
                 register_copies_run,
             )
+
             run_id = register_copies_run(
                 run_dir,
                 source_id=source_id,
@@ -534,7 +535,9 @@ def run(args: argparse.Namespace) -> int:
                 generator=args.generator,
             )
             print(f"registry run_id: {run_id}")
-        except ImportError as exc:  # pragma: no cover - platform package always ships today
+        except (
+            ImportError
+        ) as exc:  # pragma: no cover - platform package always ships today
             # We prefer a loud warning over a silent skip: the user asked
             # for registration and the platform package is missing. The
             # run itself still succeeded, so we don't raise.

@@ -14,19 +14,17 @@ Why split tests across surfaces?
   want to exercise. We spin up a tiny stdlib http.server in a thread,
   point THE_SIMILARITY_API_URL at it, and inspect the POST payload.
 """
+
 from __future__ import annotations
 
 import json
-import os
 import shutil
 import socket
 import subprocess
-import sys
 import threading
-import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 import pytest
 
@@ -128,6 +126,7 @@ def test_finance_adapter_accepts_object_report(tmp_path: Path) -> None:
     """Duck-typed object with attributes mirrors the BacktestReport API —
     adapter must pull fields via getattr without touching numpy.
     """
+
     class _FakeReport:
         # We only set the fields the adapter projects; missing ones should
         # be silently skipped (returns None via getattr default).
@@ -289,7 +288,9 @@ class _CapturingHandler(BaseHTTPRequestHandler):
 
     captured: List[Dict[str, Any]] = []
 
-    def log_message(self, format: str, *args: Any) -> None:  # pragma: no cover - stderr noise
+    def log_message(
+        self, format: str, *args: Any
+    ) -> None:  # pragma: no cover - stderr noise
         # Suppress default stderr logging from BaseHTTPRequestHandler so
         # pytest output stays quiet.
         return
@@ -301,9 +302,7 @@ class _CapturingHandler(BaseHTTPRequestHandler):
             payload = json.loads(body.decode("utf-8")) if body else {}
         except json.JSONDecodeError:
             payload = {"_raw": body.decode("utf-8", errors="replace")}
-        _CapturingHandler.captured.append(
-            {"path": self.path, "payload": payload}
-        )
+        _CapturingHandler.captured.append({"path": self.path, "payload": payload})
         # Respond with 201 so the JS client treats the POST as success and
         # returns the run_id.
         resp = json.dumps({"ok": True}).encode("utf-8")
@@ -351,7 +350,9 @@ def _have_node() -> bool:
 
 
 @pytest.mark.skipif(not _have_node(), reason="node not installed")
-def test_worlds_adapter_posts_run_artifact(tmp_path: Path, capturing_server: str) -> None:
+def test_worlds_adapter_posts_run_artifact(
+    tmp_path: Path, capturing_server: str
+) -> None:
     """registerWorldRun POSTs a RunArtifact-shaped payload to the API.
 
     We skip the runner itself (that's covered elsewhere) and drive the
@@ -420,7 +421,9 @@ def test_worlds_adapter_posts_run_artifact(tmp_path: Path, capturing_server: str
         check=True,
     )
     run_id = proc.stdout.strip()
-    assert run_id and len(run_id) == 32, f"unexpected run_id output: {proc.stdout!r} stderr={proc.stderr!r}"
+    assert run_id and len(run_id) == 32, (
+        f"unexpected run_id output: {proc.stdout!r} stderr={proc.stderr!r}"
+    )
 
     # The server must have seen exactly one POST to /platform/runs with a
     # RunArtifact-shaped body.
@@ -498,4 +501,6 @@ def test_worlds_adapter_is_best_effort_on_server_down(tmp_path: Path) -> None:
         timeout=15,
         check=True,
     )
-    assert proc.stdout.strip() == "null", f"expected null on unreachable server, got {proc.stdout!r}"
+    assert proc.stdout.strip() == "null", (
+        f"expected null on unreachable server, got {proc.stdout!r}"
+    )

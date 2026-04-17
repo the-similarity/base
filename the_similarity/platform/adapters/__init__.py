@@ -22,6 +22,7 @@ The worlds adapter is the TypeScript-side counterpart; see
 adapters here and the JS adapter in the fractal package so each side depends
 only on its native language's stdlib.
 """
+
 from __future__ import annotations
 
 from the_similarity.platform.adapters.finance import register_backtest_run

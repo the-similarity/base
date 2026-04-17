@@ -22,9 +22,10 @@ Design notes
   clients can filter without a schema change. ``kind=RunKind.FINANCE``
   already carries the same information for Python consumers.
 """
+
 from __future__ import annotations
 
-from typing import Any, Dict, Mapping, Optional, Union
+from typing import Any, Dict, Mapping, Optional
 
 # Import the registry and artifact shapes lazily-safe: these are all pure
 # Python / stdlib so the import is cheap and safe at module load.

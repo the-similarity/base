@@ -29,6 +29,7 @@ File contract
 - ``<run_dir>/synth.parquet`` — optional. Same treatment as real.parquet.
 - ``<run_dir>/report.md`` — optional. Human-readable summary.
 """
+
 from __future__ import annotations
 
 import json
