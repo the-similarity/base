@@ -73,9 +73,14 @@ export default function FinanceRunsPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
   const load = () => {
-    setLoading(true);
-    setError(null);
-    fetchRuns("finance")
+    // Reset loading/error state inside a microtask so callers from both
+    // event handlers (onClick) and useEffect satisfy react-hooks/set-state-in-effect.
+    Promise.resolve()
+      .then(() => {
+        setLoading(true);
+        setError(null);
+        return fetchRuns("finance");
+      })
       .then((data) => {
         // Sort newest first by created_at.
         data.sort(

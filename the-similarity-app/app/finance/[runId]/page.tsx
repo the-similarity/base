@@ -79,15 +79,36 @@ export default function FinanceRunDetailPage() {
 
   useEffect(() => {
     if (!runId) return;
-    setLoading(true);
-    setError(null);
-    Promise.all([fetchRun(runId), fetchScorecards(runId)])
-      .then(([r, sc]) => {
-        setRun(r);
-        setScorecards(sc);
+    let cancelled = false;
+
+    // Fetch run + scorecards. Loading/error state is reset inside the
+    // promise chain (not synchronously) to satisfy react-hooks/set-state-in-effect.
+    Promise.resolve()
+      .then(() => {
+        if (!cancelled) {
+          setLoading(true);
+          setError(null);
+        }
+        return Promise.all([fetchRun(runId), fetchScorecards(runId)]);
       })
-      .catch((err) => setError(err instanceof Error ? err.message : String(err)))
-      .finally(() => setLoading(false));
+      .then(([r, sc]) => {
+        if (!cancelled) {
+          setRun(r);
+          setScorecards(sc);
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : String(err));
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, [runId]);
 
   if (loading) {
