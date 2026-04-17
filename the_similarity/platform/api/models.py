@@ -26,6 +26,7 @@ Request models deliberately leave runner-specific fields (``out_dir``,
 client does not care, while still allowing clients that orchestrate disk
 layout to pin paths.
 """
+
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Tuple
@@ -53,8 +54,12 @@ class RunArtifactModel(BaseModel):
     # value by default because RunKind is a str-backed enum.
     model_config = ConfigDict(use_enum_values=True)
 
-    run_id: str = Field(..., description="UUID4 hex (no dashes). Primary key in the registry.")
-    kind: RunKind = Field(..., description="Run kind — one of copies, worlds, sweep, eval.")
+    run_id: str = Field(
+        ..., description="UUID4 hex (no dashes). Primary key in the registry."
+    )
+    kind: RunKind = Field(
+        ..., description="Run kind — one of copies, worlds, sweep, eval."
+    )
     config: Dict[str, Any] = Field(
         ..., description="Run inputs (generator name + params, scenario, etc.)."
     )
@@ -66,10 +71,12 @@ class RunArtifactModel(BaseModel):
         description="Logical artifact name -> relative path inside the run dir.",
     )
     summary: Dict[str, Any] = Field(
-        ..., description="Headline numbers safe to index without loading bulk artifacts."
+        ...,
+        description="Headline numbers safe to index without loading bulk artifacts.",
     )
     provenance: Dict[str, Any] = Field(
-        ..., description="Reproducibility record (generator, version, seed, scenario...)."
+        ...,
+        description="Reproducibility record (generator, version, seed, scenario...).",
     )
     created_at: str = Field(
         ..., description="ISO-8601 UTC timestamp, seconds precision."

@@ -44,6 +44,7 @@ contracts module provides explicit interop helpers
 cleanly. Changing any existing field is a breaking change for
 registry rows, the HTTP API, and TS-side validators.
 """
+
 from __future__ import annotations
 
 from the_similarity.platform.artifacts import (
