@@ -1,3 +1,6 @@
+> [!warning] Status: placeholder
+> Trust score formula is uncalibrated. Weights are arbitrary. Do not rely on for decisions until validated against realized outcomes.
+
 # Trust Artifact
 
 ## What it is
