@@ -3,6 +3,7 @@
 Covers dataclass field shapes, asdict roundtrips, runtime_checkable Protocol
 behavior, and Scorecard.passed gate logic.
 """
+
 from __future__ import annotations
 
 import dataclasses

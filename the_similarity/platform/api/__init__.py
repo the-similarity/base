@@ -35,6 +35,7 @@ Exports
 - :func:`create_app`  — factory for fresh app instances (tests, embed).
 - :func:`get_registry` — dependency function; used in ``Depends`` wiring.
 """
+
 from __future__ import annotations
 
 from the_similarity.platform.api.main import app, create_app, get_registry
