@@ -32,7 +32,6 @@ Performance: n_trials=3 keeps each test under 30 s even on CI runners.
 from __future__ import annotations
 
 import os
-import tempfile
 from pathlib import Path
 
 import numpy as np
@@ -122,9 +121,7 @@ class TestFinanceOperatingBaseline:
             # -- registry-level assertions ----------------------------------
             with RunRegistry(_registry_db) as reg:
                 artifact = reg.get(run_id)
-                assert artifact is not None, (
-                    f"run_id {run_id} not found in registry"
-                )
+                assert artifact is not None, f"run_id {run_id} not found in registry"
 
                 # Kind must be FINANCE (not EVAL).
                 assert artifact.kind is RunKind.FINANCE
