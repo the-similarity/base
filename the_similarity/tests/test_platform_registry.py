@@ -487,10 +487,20 @@ def test_register_artifact_upsert_same_name(db_path: Path) -> None:
     """Same (run_id, name) updates in place — no duplicate rows."""
     record = _make_run_record()
     a1 = ArtifactRecord(
-        run_id=record.run_id, name="scorecard", path="old.json", size_bytes=10
+        run_id=record.run_id,
+        name="scorecard",
+        path="old.json",
+        content_type="application/json",
+        created_at="2026-01-01T00:00:00Z",
+        size_bytes=10,
     )
     a2 = ArtifactRecord(
-        run_id=record.run_id, name="scorecard", path="new.json", size_bytes=42
+        run_id=record.run_id,
+        name="scorecard",
+        path="new.json",
+        content_type="application/json",
+        created_at="2026-01-01T00:00:00Z",
+        size_bytes=42,
     )
     with RunRegistry(db_path) as registry:
         registry.register_run(record)
@@ -533,21 +543,21 @@ def test_multiple_scorecards_per_run(db_path: Path) -> None:
     fid = ScorecardSummary(
         record.run_id, ScorecardKind.FIDELITY, overall_score=0.9, passed=True
     )
-    stat = ScorecardSummary(
-        record.run_id, ScorecardKind.STATISTICAL, overall_score=0.7, passed=False
+    util = ScorecardSummary(
+        record.run_id, ScorecardKind.UTILITY, overall_score=0.7, passed=False
     )
     with RunRegistry(db_path) as registry:
         registry.register_run(record)
         registry.register_scorecard(fid)
-        registry.register_scorecard(stat)
+        registry.register_scorecard(util)
         rows = registry.get_scorecards(record.run_id)
-    assert {r.kind for r in rows} == {ScorecardKind.FIDELITY, ScorecardKind.STATISTICAL}
+    assert {r.kind for r in rows} == {ScorecardKind.FIDELITY, ScorecardKind.UTILITY}
 
 
 def test_scorecard_passed_none_preserved(db_path: Path) -> None:
     """A scorecard with ``passed=None`` must round-trip as None, not False."""
     record = _make_run_record()
-    card = ScorecardSummary(record.run_id, ScorecardKind.CUSTOM, passed=None)
+    card = ScorecardSummary(record.run_id, ScorecardKind.CALIBRATION, passed=None)
     with RunRegistry(db_path) as registry:
         registry.register_run(record)
         registry.register_scorecard(card)
@@ -610,7 +620,13 @@ def test_register_dataset_round_trip(db_path: Path) -> None:
 def test_delete_run_cascades_to_artifacts_and_scorecards(db_path: Path) -> None:
     """Deleting a run removes its artifacts AND scorecards."""
     record = _make_run_record()
-    artifact = ArtifactRecord(run_id=record.run_id, name="telemetry", path="run.jsonl")
+    artifact = ArtifactRecord(
+        run_id=record.run_id,
+        name="telemetry",
+        path="run.jsonl",
+        content_type="application/jsonl",
+        created_at="2026-01-01T00:00:00Z",
+    )
     card = ScorecardSummary(
         record.run_id, ScorecardKind.FIDELITY, overall_score=0.9, passed=True
     )
@@ -742,7 +758,13 @@ def test_migration_from_v0_schema(tmp_path: Path) -> None:
 
         # Sibling tables are usable — register then read.
         registry.register_artifact(
-            ArtifactRecord(run_id="legacy-0001", name="telemetry", path="run.jsonl")
+            ArtifactRecord(
+                run_id="legacy-0001",
+                name="telemetry",
+                path="run.jsonl",
+                content_type="application/jsonl",
+                created_at="2026-01-01T00:00:00Z",
+            )
         )
         assert len(registry.list_artifacts("legacy-0001")) == 1
 
