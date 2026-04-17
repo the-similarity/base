@@ -1,0 +1,191 @@
+name: Main Health
+
+# Continuous health check on the `main` branch.
+#
+# Why this exists:
+#   `pr-gate.yml` only runs on PRs. That means a PR can merge with a subtly
+#   broken dependency graph (e.g. a transitive dep installed in every local
+#   dev env but missing from pyproject.toml), and `main` then sits silently
+#   red for hours until the next PR triggers a fresh clean-room install.
+#   This workflow mirrors the pr-gate install/test exactly, on a schedule
+#   plus after every merge, and files a GitHub Issue on any failure so the
+#   orchestrator can halt parallel work until main is green again.
+#
+# Triggers:
+#   - push to main              → immediate post-merge smoke test
+#   - daily cron at 07:00 UTC   → catches upstream dep drift / flakes
+#   - workflow_dispatch         → manual re-run from the Actions UI
+
+on:
+  schedule:
+    - cron: "0 7 * * *"
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  # Only one main-health run at a time; newer runs cancel older ones so we
+  # always reflect the latest state of `main`.
+  group: main-health
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  # ── Ensure labels exist so the failure handler can apply them ────────
+  setup-labels:
+    name: Ensure Failure Labels
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create labels (idempotent)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          # --force makes these upserts — safe to run every invocation.
+          gh label create main-health-failure \
+            --repo "$REPO" \
+            --color "B60205" \
+            --description "Main branch health check failed" \
+            --force
+          gh label create automated \
+            --repo "$REPO" \
+            --color "0E8A16" \
+            --description "Opened by an automated workflow" \
+            --force
+
+  # ── Engine tests: mirror pr-gate's `python-tests` job exactly ────────
+  python-clean-install:
+    name: Python Clean Install + Tests
+    runs-on: ubuntu-latest
+    needs: [setup-labels]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies (no extras — mirrors pr-gate)
+        # IMPORTANT: do NOT add extras here. This job intentionally matches
+        # pr-gate's install surface. If this goes red, it means pr-gate will
+        # also go red for the next PR. That's the whole point.
+        run: |
+          pip install --upgrade pip
+          pip install -e .
+          pip install pytest pytest-cov
+
+      - name: Run engine tests
+        run: python -m pytest the_similarity/tests/ -v --tb=short
+
+  # ── Lint: mirror pr-gate's `python-lint` check ───────────────────────
+  ruff-lint:
+    name: Ruff Lint
+    runs-on: ubuntu-latest
+    needs: [setup-labels]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install ruff
+        run: pip install ruff
+
+      - name: Ruff check
+        run: ruff check the_similarity/
+
+  # ── API tests: best-effort smoke for the-similarity-api ──────────────
+  api-tests:
+    name: API Smoke Tests
+    runs-on: ubuntu-latest
+    needs: [setup-labels]
+    # `continue-on-error` at the job level means a missing pytest target
+    # here does NOT fail the workflow — we prefer partial signal over none.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -e .
+          pip install pytest httpx
+
+      - name: Run API tests (if present)
+        run: |
+          if [ -d the-similarity-api/tests ]; then
+            cd the-similarity-api && python -m pytest tests/ -v
+          else
+            echo "the-similarity-api/tests not found — skipping"
+          fi
+
+  # ── Failure handler: open/update a pinned issue ──────────────────────
+  on-failure:
+    name: File Failure Issue
+    runs-on: ubuntu-latest
+    # Depend on the real signal jobs only. `api-tests` is best-effort
+    # (continue-on-error) so we deliberately exclude it from the gate.
+    needs: [python-clean-install, ruff-lint]
+    if: failure()
+    steps:
+      - name: Open or update the pinned failure issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          SHA: ${{ github.sha }}
+          REF: ${{ github.ref_name }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          # De-duplicate: if a main-health-failure issue is already open,
+          # post a comment with the new run link instead of spamming new
+          # issues on every scheduled failure.
+          TODAY=$(date -u +%Y-%m-%d)
+          EXISTING=$(gh issue list \
+            --repo "$REPO" \
+            --label main-health-failure \
+            --state open \
+            --json number,title \
+            --jq '.[0].number // empty')
+
+          BODY=$(cat <<EOF
+          ## Main health check failed
+
+          - **Run:** $RUN_URL
+          - **Commit:** \`$SHA\`
+          - **Ref:** \`$REF\`
+          - **Triggered by:** \`$EVENT\`
+          - **UTC time:** $(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+          ### What to do
+          1. Stop merging new PRs on top of main until this is green.
+          2. Reproduce locally with \`./scripts/ci_local.sh\`.
+          3. Fix, PR, and let pr-gate verify before this clears.
+
+          This issue is auto-filed by \`.github/workflows/main-health.yml\`.
+          EOF
+          )
+
+          if [ -n "$EXISTING" ]; then
+            echo "Existing issue #$EXISTING open — commenting."
+            gh issue comment "$EXISTING" --repo "$REPO" --body "$BODY"
+          else
+            echo "No open failure issue — creating a new one."
+            gh issue create \
+              --repo "$REPO" \
+              --title "[main-health] failure $TODAY" \
+              --label main-health-failure \
+              --label automated \
+              --body "$BODY"
+          fi
