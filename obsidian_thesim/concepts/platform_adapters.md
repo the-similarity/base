@@ -1,19 +1,18 @@
 # Platform Adapters
 
-> 60-second onboarding. How finance / copies / worlds produce [[run_record]]s.
+Thin wrappers that lift existing pillar outputs into the shared
+[[platform_rest_api|Platform]] run registry without forcing each pillar to
+adopt the registry as a hard dependency.
 
-## What they are
+## Three adapters
 
-A **platform adapter** is the per-pillar code that takes a pillar-specific run output and maps it into a [[run_record]] for the [[platform_registry]]. Each pillar runner produces native outputs (pandas dataframes, JSONL streams, CSV scorecards); the adapter packages those into the unified artifact shape.
-
-## Current landed adapters (Batch 1)
-
-| Pillar | RunKind | Adapter site | Output source |
+| Adapter | Path | Wraps | Kind |
 |---|---|---|---|
-| Copies | `COPIES` | `the_similarity/platform/api/routes.py::create_copies_run` | `the_similarity.synthetic.cli` pipeline |
-| Worlds | `WORLDS` | `the_similarity/platform/api/routes.py::create_worlds_run` | Node subprocess → `runner.js` JSONL |
-| Sweep  | `SWEEP`  | `the_similarity/platform/api/routes.py::create_sweep_run`  | Node subprocess → `run-example-sweep.js` |
-| Eval (finance) | `EVAL` | manual today; adapter lives in test harness / backtester callers | `the_similarity.core.backtester` outputs |
+| **Finance** | `the_similarity/platform/adapters/finance.py` | `the_similarity/api.py::backtest` (`BacktestReport`) | `RunKind.FINANCE` |
+| **Copies** | `the_similarity/platform/adapters/copies.py` | `the_similarity/synthetic/cli.py` run dir (scorecard.json + provenance.json) | `RunKind.COPIES` |
+| **Worlds** | `the-similarity-fractal/src/platform/registry-client.js` | Headless runner JSONL output | `RunKind.WORLDS` |
+
+All three build a unified `RunArtifact` (see `the_similarity/platform/artifacts.py`) and land a row in the `RunRegistry` (SQLite at `~/.the_similarity/registry.db`, override with `$THE_SIMILARITY_REGISTRY_DB`).
 
 ## Adapter responsibilities (the contract)
 
@@ -28,11 +27,29 @@ Every adapter MUST:
 
 Step 6 is the invariant — an adapter that produces artifacts but does not register is invisible to the rest of the platform.
 
-## Why separate adapters rather than one runner
+## Opt-in wiring
 
-- **Language split.** Copies + eval are Python, worlds is TypeScript (Node subprocess). No single runner can be in-process for both.
-- **Pillar-specific provenance.** Finance needs `symbol/start/end`; worlds needs `scenario_name`; copies needs `source_id`. Forcing a union type would make every adapter uglier.
-- **Independent evolution.** Each pillar can ship scorecard revisions without coordinating; the artifact shape stays stable (see [[run_record]] field contract).
+Each host surface exposes the adapter behind a `--register` / `register=True` switch so default behavior is **byte-identical** to the pre-adapter version:
+
+- `the_similarity.api.backtest(..., register=True, source_id="spy")` — stamps `run_id` on the returned report.
+- `python -m the_similarity.synthetic.cli ... --register` — prints the run_id alongside the run dir.
+- `node src/sim/headless/runner.js ... --register [--api-url ...]` — best-effort POST to the Platform API.
+
+The worlds adapter is **best-effort**: a missing / unreachable API logs to stderr and the runner exits 0. Finance and copies adapters raise on DB errors because the caller explicitly asked for registration.
+
+## New `RunKind.FINANCE`
+
+Added to `RunKind` additively (enum values are stable public API). The JSON schema (`the_similarity/platform/artifacts_schema.json`) was updated to match so the TS side validates finance rows too.
+
+## Pillar label in summary
+
+The `RunArtifact` contract has no `pillar` field — we mirror the label into `summary["pillar"]` (`"finance"`, `"copies"`, `"worlds"`) so UI clients can filter without a schema change. `kind` carries the same information for Python consumers.
+
+## Worlds HTTP contract
+
+Client POSTs a full `RunArtifact`-shaped JSON to `POST /platform/runs`. The server side of this endpoint is owned by the Platform API agent; until it lands, the client gets a 404 and logs the skip (best-effort fallback keeps runners green).
+
+Default API URL: `http://localhost:8787` (matches `DEFAULT_PORT` in `the_similarity/platform/api/main.py`).
 
 ## Invariants
 
@@ -40,11 +57,21 @@ Step 6 is the invariant — an adapter that produces artifacts but does not regi
 - **Adapters never update the summary after registration.** To enrich, produce a new `RunRecord` with a new `run_id` (or, for same-id re-registration via eval, document the re-registration in provenance).
 - **Run dirs are immutable from the registry's perspective.** Moving a run dir invalidates the `provenance["run_dir"]` anchor and the artifact-streaming endpoint will 404.
 
-## Related
+## Tests
 
+`the_similarity/tests/test_platform_adapters.py` covers:
+
+1. Finance: dict + object + minimal report shapes, calibration keys stringified for JSON safety.
+2. Copies: full + parquet-less run dirs, missing-dir raises.
+3. Worlds: stdlib ThreadingHTTPServer captures the POST body; a second test proves ECONNREFUSED resolves to `null` so `--register` never breaks the runner.
+
+## Related notes
+
+- [[platform_rest_api]] — FastAPI surface (routes.py).
 - [[run_record]] — the output shape every adapter produces
 - [[platform_registry]] — where adapters register
-- [[platform_rest_api]] — the HTTP wrapping around adapters
+- [[finance_pilot]] — what finance backtests are trying to prove.
+- [[block_bootstrap_generator]] — primary copies generator today.
 - [[synthetic_contracts]] — the copies-side `Provenance` / `Scorecard` dataclasses adapters embed
 - `the_similarity/platform/api/routes.py`
 - `the_similarity/synthetic/cli.py`
