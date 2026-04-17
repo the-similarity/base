@@ -19,6 +19,7 @@ Coverage
 4. Backward compat — a dict in the legacy ``RunArtifact`` shape loads
    cleanly into ``RunRecord`` with sensible defaults.
 """
+
 from __future__ import annotations
 
 import json
@@ -481,9 +482,16 @@ def test_platform_schema_required_fields_match_dataclasses() -> None:
     # RunRecord: everything but artifact_paths/provenance (which have
     # defaults in the dataclass) must be required.
     required = set(data["$defs"]["RunRecord"]["required"])
-    assert {"run_id", "kind", "config", "seed", "status", "summary", "created_at", "pillar"}.issubset(
-        required
-    )
+    assert {
+        "run_id",
+        "kind",
+        "config",
+        "seed",
+        "status",
+        "summary",
+        "created_at",
+        "pillar",
+    }.issubset(required)
     # ArtifactRecord: run_id, name, path, content_type, created_at.
     required = set(data["$defs"]["ArtifactRecord"]["required"])
     assert {"run_id", "name", "path", "content_type", "created_at"}.issubset(required)

@@ -59,6 +59,7 @@ enum value. Unsafe changes: rename, remove, change the type of, or
 flip the optionality of any existing field. When in doubt, open an
 RFC in ``obsidian_thesim/topics/platform-contracts.md`` first.
 """
+
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
