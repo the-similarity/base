@@ -1,10 +1,7 @@
-"""Test package for the-similarity-api.
+"""Test package for the customer-facing FastAPI app (the-similarity-api).
 
-Tests here exercise the HTTP-layer integration between the platform
-spine (:mod:`the_similarity.platform`) and any API-layer wrappers that
-the ``the-similarity-api/app`` package may add on top. The Batch 1
-spine ships its FastAPI surface inside
-:mod:`the_similarity.platform.api`; these tests target that surface
-through ``fastapi.testclient.TestClient`` with a tmp-path SQLite DB so
-the real ``~/.the_similarity/registry.db`` is never touched.
+The package marker exists so ``python -m pytest tests/`` discovers tests
+through the canonical import path (``tests.test_platform_routes``) rather
+than the bare-filename path — this matters when fixtures in ``conftest.py``
+need to import helpers from sibling test modules.
 """

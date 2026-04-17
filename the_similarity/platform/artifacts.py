@@ -80,7 +80,7 @@ from typing import Any, Dict, Optional
 
 
 class RunKind(str, Enum):
-    """The four kinds of run the platform recognizes.
+    """The kinds of run the platform recognizes.
 
     Values are lowercase strings so they round-trip through JSON without a
     custom encoder. Inheriting from ``str`` makes ``RunKind.COPIES ==
@@ -102,12 +102,31 @@ class RunKind(str, Enum):
     EVAL:
         An evaluation-harness run — scores one or more existing runs
         (by `run_id`) and emits a scorecard artifact.
+    FINANCE:
+        A finance-pillar run (analogue retrieval, projector cones,
+        backtests over real market data).
+    EVENTS:
+        A world-events pillar run (event graph ingest, propagation
+        simulation, cross-series impact scoring).
+    NL_TS:
+        A natural-language-to-time-series pillar run (textual prompt
+        -> synthetic trajectory or retrieval index).
+
+    Adding new kinds is an additive change: older readers using
+    ``RunKind(str)`` construction will raise ``ValueError`` for
+    unknown values, so bump the schema's ``enum`` in lockstep with
+    any additions here. The JSON schema in ``artifacts_schema.json``
+    is the tripwire — ``test_schema_enumerates_all_run_kinds``
+    guards against divergence.
     """
 
     COPIES = "copies"
     WORLDS = "worlds"
     SWEEP = "sweep"
     EVAL = "eval"
+    FINANCE = "finance"
+    EVENTS = "events"
+    NL_TS = "nl_ts"
 
 
 # ---------------------------------------------------------------------------
