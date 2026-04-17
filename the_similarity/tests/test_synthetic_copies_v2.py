@@ -45,7 +45,8 @@ from the_similarity.synthetic.utility import UtilityScorecard
 
 _GaussianCopulaGenerator: Optional[type] = None
 try:
-    from the_similarity.synthetic.copies import (  # type: ignore[attr-defined]
+    # Agent 1 ships the copula in its own module (copula.py), not copies.py.
+    from the_similarity.synthetic.copula import (  # type: ignore[import-not-found]
         GaussianCopulaGenerator,
     )
 
