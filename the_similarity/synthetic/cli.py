@@ -44,7 +44,7 @@ from the_similarity.synthetic.contracts import (
 # ---------------------------------------------------------------------------
 
 
-GENERATOR_CHOICES = ("block_bootstrap", "regime_block_bootstrap")
+GENERATOR_CHOICES = ("block_bootstrap", "regime_block_bootstrap", "gaussian_copula")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -206,6 +206,16 @@ def build_generator(name: str) -> "Any":
         return BlockBootstrapGenerator()
     if name == "regime_block_bootstrap":
         return RegimeBlockBootstrapGenerator()
+
+    if name == "gaussian_copula":
+        try:
+            from the_similarity.synthetic.copula import (  # type: ignore[import-not-found]
+                GaussianCopulaGenerator,
+            )
+        except ImportError as exc:  # pragma: no cover
+            raise RuntimeError(_MISSING_DEPS_MSG.format(name="copula")) from exc
+        return GaussianCopulaGenerator()
+
     raise ValueError(f"Unknown generator {name!r}")
 
 
