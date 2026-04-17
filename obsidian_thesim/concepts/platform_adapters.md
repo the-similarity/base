@@ -14,6 +14,19 @@ adopt the registry as a hard dependency.
 
 All three build a unified `RunArtifact` (see `the_similarity/platform/artifacts.py`) and land a row in the `RunRegistry` (SQLite at `~/.the_similarity/registry.db`, override with `$THE_SIMILARITY_REGISTRY_DB`).
 
+## Adapter responsibilities (the contract)
+
+Every adapter MUST:
+
+1. **Run the pillar-native pipeline.** Produce whatever on-disk artifacts the pillar emits (parquet, JSONL, scorecard.json, etc.).
+2. **Anchor `run_dir`.** Compute a canonical output directory (e.g. `<kind>-<seed>-<YYYYMMDD-HHMMSS>`) and record it in `provenance["run_dir"]` so the HTTP artifact streamer can resolve relative paths.
+3. **Extract headline numbers** into `RunRecord.summary` — see [[scorecard_summary]] for canonical keys.
+4. **Build provenance** with `generator_name`, `generator_version`, `seed`, `created_at`, plus pillar-specific knobs (scenario name for worlds, source_id for copies, symbol/date-range for finance).
+5. **Call `write_artifact(run_dir, artifact)`** to materialize `artifact.json`.
+6. **Call `registry.register(artifact)`** to index the record.
+
+Step 6 is the invariant — an adapter that produces artifacts but does not register is invisible to the rest of the platform.
+
 ## Opt-in wiring
 
 Each host surface exposes the adapter behind a `--register` / `register=True` switch so default behavior is **byte-identical** to the pre-adapter version:
@@ -38,6 +51,12 @@ Client POSTs a full `RunArtifact`-shaped JSON to `POST /platform/runs`. The serv
 
 Default API URL: `http://localhost:8787` (matches `DEFAULT_PORT` in `the_similarity/platform/api/main.py`).
 
+## Invariants
+
+- **No adapter mutates another pillar's artifacts.** One adapter, one run_dir, one `artifact.json`.
+- **Adapters never update the summary after registration.** To enrich, produce a new `RunRecord` with a new `run_id` (or, for same-id re-registration via eval, document the re-registration in provenance).
+- **Run dirs are immutable from the registry's perspective.** Moving a run dir invalidates the `provenance["run_dir"]` anchor and the artifact-streaming endpoint will 404.
+
 ## Tests
 
 `the_similarity/tests/test_platform_adapters.py` covers:
@@ -49,5 +68,11 @@ Default API URL: `http://localhost:8787` (matches `DEFAULT_PORT` in `the_similar
 ## Related notes
 
 - [[platform_rest_api]] — FastAPI surface (routes.py).
+- [[run_record]] — the output shape every adapter produces
+- [[platform_registry]] — where adapters register
 - [[finance_pilot]] — what finance backtests are trying to prove.
 - [[block_bootstrap_generator]] — primary copies generator today.
+- [[synthetic_contracts]] — the copies-side `Provenance` / `Scorecard` dataclasses adapters embed
+- `the_similarity/platform/api/routes.py`
+- `the_similarity/synthetic/cli.py`
+- `the-similarity-fractal/src/sim/headless/runner.js`

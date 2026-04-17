@@ -31,3 +31,11 @@ from pathlib import Path
 _API_ROOT = Path(__file__).resolve().parent.parent
 if str(_API_ROOT) not in sys.path:
     sys.path.insert(0, str(_API_ROOT))
+
+# Walk two levels up from this file:
+#   conftest.py → tests/ → the-similarity-api/ → <repo root>
+# This lets tests import ``the_similarity.*`` from the in-tree package
+# without requiring a pip-installed wheel.
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
