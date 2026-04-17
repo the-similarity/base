@@ -410,14 +410,23 @@ def _compute_tail_exposure(
     if n_tail == 0:
         return {"n_tail_records": 0.0, "n_exposed": 0.0, "rate": 0.0}
 
-    # --- threshold: 2 sigma of the full real set ---
-    # Per-column std → L2 of the sigma vector gives an isotropic threshold
-    # that adapts to the data scale.
-    col_std = np.std(real, axis=0)
-    # Replace zero-std columns with a small epsilon so the threshold is
-    # well-defined even for constant features.
-    col_std = np.where(col_std > 0, col_std, 1e-12)
-    threshold = 2.0 * np.sqrt(np.sum(col_std ** 2))
+    # --- threshold: based on the real-to-real nearest-neighbour baseline ---
+    # We use the 5th percentile of real↔real NN distances as the "normal"
+    # spacing, then define "exposed" as a tail record having a synthetic
+    # neighbour closer than this baseline. This adapts to both data scale
+    # and density: for dense regions the threshold is tight, for sparse
+    # regions (where tails live) a match at baseline distance is suspicious.
+    if real.shape[0] >= 2:
+        real_to_real = _nn_min_distances(real, real, exclude_self=True)
+        threshold = float(np.percentile(real_to_real, 5))
+    else:
+        # Degenerate: single row, use a small epsilon.
+        col_std = np.std(real, axis=0)
+        col_std = np.where(col_std > 0, col_std, 1e-12)
+        threshold = 0.5 * np.sqrt(np.sum(col_std ** 2))
+    # Guard against zero threshold (all real rows identical).
+    if threshold <= 0:
+        threshold = 1e-12
 
     # --- check exposure via nearest-neighbour ---
     dists = _nn_min_distances(tail_records, synth, exclude_self=False)
@@ -581,8 +590,9 @@ class PrivacyScorecard:
 
         # --- Weighted risk aggregation ---
         # Each sub-metric is converted to a risk in [0, 1] then weighted.
-        # The overall score = 1 - weighted_risk, clipped to [0, 1].
-        # Fail-closed: any single high-risk sub-metric drags the score down.
+        # The overall score = 1 - max(worst_risk, weighted_risk).
+        # Fail-closed: any single high-risk sub-metric (>= 0.8) drives the
+        # score via the max() term, preventing dilution by low-risk metrics.
         risk_values = {
             "nn_leakage": _nn_risk(nn_leakage["leakage_ratio"]),
             "memorization": float(np.clip(memorization["near_dupe_frac"], 0.0, 1.0)),
@@ -596,7 +606,13 @@ class PrivacyScorecard:
         weighted_risk = sum(
             _RISK_WEIGHTS[k] * risk_values[k] for k in _RISK_WEIGHTS
         )
-        overall_score = float(np.clip(1.0 - weighted_risk, 0.0, 1.0))
+        # Fail-closed guard: the worst single risk still caps the score.
+        # This preserves the original invariant where one catastrophic
+        # sub-metric (e.g. 100% memorization) cannot be hidden by good
+        # scores on the other five metrics.
+        worst_risk = max(risk_values.values()) if risk_values else 1.0
+        effective_risk = max(weighted_risk, worst_risk)
+        overall_score = float(np.clip(1.0 - effective_risk, 0.0, 1.0))
         passed = overall_score >= self.passed_threshold
 
         report = PrivacyReport(
