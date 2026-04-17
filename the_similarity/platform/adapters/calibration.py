@@ -21,8 +21,8 @@ when registration is enabled.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from dataclasses import dataclass
+from typing import Any, Dict, List
 
 from the_similarity.platform.artifacts import iso_now
 
@@ -138,14 +138,11 @@ def build_calibration_artifact(
     observed_coverage = [obs for _, obs in sorted_items]
     expected_coverage = [p / 100.0 for p in percentiles]
     calibration_errors = [
-        abs(obs - exp)
-        for obs, exp in zip(observed_coverage, expected_coverage)
+        abs(obs - exp) for obs, exp in zip(observed_coverage, expected_coverage)
     ]
 
     mean_error = (
-        sum(calibration_errors) / len(calibration_errors)
-        if calibration_errors
-        else 0.0
+        sum(calibration_errors) / len(calibration_errors) if calibration_errors else 0.0
     )
     max_error = max(calibration_errors) if calibration_errors else 0.0
 

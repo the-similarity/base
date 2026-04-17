@@ -264,9 +264,11 @@ def register_backtest_run(
     )
 
     trust_artifact = build_trust_artifact(resolved_run_id, summary)
-    calibration_artifact = build_calibration_artifact(
-        resolved_run_id, summary.get("calibration", {})
-    )
+    # CalibrationArtifact is built but its data lives in the registry's
+    # artifact metadata row (calibration_artifact_record below). We call
+    # build_calibration_artifact only to validate the calibration data is
+    # well-formed; the result is not persisted beyond the metadata row.
+    build_calibration_artifact(resolved_run_id, summary.get("calibration", {}))
 
     # Build artifact records for trust.json and calibration.json so the
     # registry's artifacts table knows about them. These are metadata-only

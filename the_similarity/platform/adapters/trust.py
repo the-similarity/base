@@ -43,9 +43,9 @@ enabled.
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 from the_similarity.platform.artifacts import iso_now
 
@@ -191,9 +191,9 @@ def compute_decision(
     -------
     TrustDecision
     """
-    if (
-        trust_score >= _TRUST_SCORE_TRUSTED_MIN
-        and calibration_grade in ("excellent", "good")
+    if trust_score >= _TRUST_SCORE_TRUSTED_MIN and calibration_grade in (
+        "excellent",
+        "good",
     ):
         return TrustDecision.TRUSTED
     if trust_score >= _TRUST_SCORE_REVIEW_MIN or calibration_grade == "fair":
@@ -223,9 +223,7 @@ def _generate_reasoning(
     ]
 
     if decision == TrustDecision.TRUSTED:
-        parts.append(
-            "Run meets all quality thresholds and is approved for use."
-        )
+        parts.append("Run meets all quality thresholds and is approved for use.")
     elif decision == TrustDecision.REVIEW:
         # Explain why it needs review.
         reasons = []
@@ -235,9 +233,7 @@ def _generate_reasoning(
             )
         if calibration_grade not in ("excellent", "good"):
             reasons.append(f"calibration grade is {calibration_grade}")
-        parts.append(
-            "Run requires manual review: " + "; ".join(reasons) + "."
-        )
+        parts.append("Run requires manual review: " + "; ".join(reasons) + ".")
     else:
         parts.append(
             "Run is rejected due to insufficient quality. "
