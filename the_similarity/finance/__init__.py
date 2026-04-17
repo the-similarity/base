@@ -1,34 +1,46 @@
-"""Finance subpackage — review artifacts, risk flags, and signal summaries.
+"""Finance subpackage — benchmarks, sweeps, review artifacts, risk flags, and signal summaries.
 
-This package provides the structured artifact layer for the finance pillar's
-operating product. It sits between the raw backtest outputs (see
-``the_similarity/core/backtester.py``) and the customer-facing API (see
-``the-similarity-api/app/platform_routes.py``).
+This package provides:
 
-Key components
---------------
-:class:`ReviewArtifact`
-    A human-or-agent review decision on a finance run. Captures the
-    reviewer's verdict (approved / flagged / rejected), risk flags,
-    signal summary, and optional post-hoc realized outcomes.
+1. **Benchmark & sweep tooling** — CLI and programmatic interfaces for running
+   walk-forward backtests on financial data and sweeping across parameter
+   combinations (symbols, window sizes, seeds).
 
-:class:`ReviewStatus`
-    Enum for the review lifecycle: PENDING -> APPROVED / FLAGGED / REJECTED.
+2. **Review artifact layer** — Structured artifacts that sit between the raw
+   backtest outputs (see ``the_similarity/core/backtester.py``) and the
+   customer-facing API (see ``the-similarity-api/app/platform_routes.py``).
 
-:func:`detect_risk_flags`
-    Auto-detects risk conditions from a BacktestReport summary dict.
+Modules
+-------
+- ``benchmark`` — Single-run benchmark CLI and runner.
+- ``sweep`` — Cartesian-product sweep across symbols x window_sizes x seeds.
+- ``review`` — ReviewArtifact and ReviewStatus for review lifecycle.
+- ``risk_flags`` — Auto-detect risk conditions from BacktestReport summaries.
+- ``signal_summary`` — One-line human-readable summaries of finance runs.
 
-:func:`generate_signal_summary`
-    Produces a one-line human-readable summary of what a finance run found.
+CLI usage::
+
+    # Single benchmark
+    python -m the_similarity.finance.benchmark run --symbol SPY --n-trials 50
+
+    # Multi-symbol sweep
+    python -m the_similarity.finance.benchmark sweep --symbols SPY,QQQ --window-sizes 30,60
+
+    # Shortcut (routes to benchmark CLI)
+    python -m the_similarity.finance
 """
 
+from the_similarity.finance.benchmark import run_benchmark
 from the_similarity.finance.review import ReviewArtifact, ReviewStatus
 from the_similarity.finance.risk_flags import detect_risk_flags
 from the_similarity.finance.signal_summary import generate_signal_summary
+from the_similarity.finance.sweep import run_sweep
 
 __all__ = [
     "ReviewArtifact",
     "ReviewStatus",
     "detect_risk_flags",
     "generate_signal_summary",
+    "run_benchmark",
+    "run_sweep",
 ]
