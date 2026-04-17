@@ -472,6 +472,22 @@ class TestFinanceReviewAPI:
         except ImportError:
             pytest.skip("FastAPI TestClient not available")
 
+        # The `app` package lives in `the-similarity-api/app/` which is
+        # outside the normal Python path when running from the repo root.
+        # Add it so the import succeeds in test environments.
+        import sys
+        from pathlib import Path
+
+        api_dir = Path(__file__).resolve().parents[2] / "the-similarity-api"
+        api_str = str(api_dir)
+        if api_str not in sys.path:
+            sys.path.insert(0, api_str)
+
+        try:
+            from app.main import app as _app  # noqa: F811
+        except ImportError:
+            pytest.skip("the-similarity-api app module not importable")
+
         from the_similarity.platform.registry import RunRegistry
         from the_similarity.platform.artifacts import RunKind, iso_now, new_run_id
 
@@ -495,8 +511,7 @@ class TestFinanceReviewAPI:
         registry.register_run(record)
         registry.close()
 
-        # Import the app and override the registry dependency.
-        from app.main import app
+        # Override the registry dependency.
         from app.platform_routes import get_registry
 
         def _override_registry():
@@ -506,10 +521,10 @@ class TestFinanceReviewAPI:
             finally:
                 r.close()
 
-        app.dependency_overrides[get_registry] = _override_registry
-        client = TestClient(app)
+        _app.dependency_overrides[get_registry] = _override_registry
+        client = TestClient(_app)
         yield client
-        app.dependency_overrides.clear()
+        _app.dependency_overrides.clear()
 
     def test_create_review(self, client):
         """POST /platform/runs/{run_id}/review creates a review."""
