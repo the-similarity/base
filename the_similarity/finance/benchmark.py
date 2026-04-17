@@ -31,7 +31,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import sys
 import time
 from pathlib import Path
@@ -119,8 +118,7 @@ def _load_symbol_data(symbol: str, timeframe: str = "daily") -> np.ndarray:
 
     # Fallback: synthetic data
     print(
-        f"  No data found for {symbol}/{timeframe}, using synthetic data "
-        f"(1500 bars)",
+        f"  No data found for {symbol}/{timeframe}, using synthetic data (1500 bars)",
         file=sys.stderr,
     )
     return _build_synthetic_history()
@@ -299,8 +297,8 @@ def _format_summary_md(result: Dict[str, Any]) -> str:
         "",
         "## Parameters",
         "",
-        f"| Parameter | Value |",
-        f"|-----------|-------|",
+        "| Parameter | Value |",
+        "|-----------|-------|",
         f"| Symbol | {result['symbol']} |",
         f"| Timeframe | {result['timeframe']} |",
         f"| Window Size | {result['window_size']} |",
@@ -310,8 +308,8 @@ def _format_summary_md(result: Dict[str, Any]) -> str:
         "",
         "## Results",
         "",
-        f"| Metric | Value |",
-        f"|--------|-------|",
+        "| Metric | Value |",
+        "|--------|-------|",
         f"| Hit Rate | {result['hit_rate']:.1%} |",
         f"| CRPS | {result['crps']:.4f} |",
         f"| Mean Absolute Error | {result['mean_error']:.4f} |",
@@ -342,9 +340,7 @@ def _format_summary_md(result: Dict[str, Any]) -> str:
             observed = calib[p_str]
             expected = p / 100.0
             delta = observed - expected
-            lines.append(
-                f"| P{p} | {observed:.1%} | {expected:.0%} | {delta:+.1%} |"
-            )
+            lines.append(f"| P{p} | {observed:.1%} | {expected:.0%} | {delta:+.1%} |")
         lines.append("")
 
     # Run ID if registered
@@ -387,8 +383,10 @@ def _print_summary_table(result: Dict[str, Any]) -> None:
     print("=" * 60)
     print(f"  Finance Benchmark: {result['symbol']}")
     print("=" * 60)
-    print(f"  window_size={result['window_size']}  forward_bars={result['forward_bars']}"
-          f"  n_trials={result['n_trials']}  seed={result['seed']}")
+    print(
+        f"  window_size={result['window_size']}  forward_bars={result['forward_bars']}"
+        f"  n_trials={result['n_trials']}  seed={result['seed']}"
+    )
     print("-" * 60)
     print(f"  hit_rate          : {result['hit_rate']:.1%}")
     print(f"  crps              : {result['crps']:.4f}")
@@ -400,7 +398,9 @@ def _print_summary_table(result: Dict[str, Any]) -> None:
     print(f"  max_drawdown      : {result['max_drawdown']:.4f}")
     sh = result.get("sharpe")
     print(f"  sharpe(ann.)      : {_fmt_optional(sh, '.3f')}")
-    print(f"  valid/skipped     : {result['n_valid_trials']}/{result['n_skipped_trials']}")
+    print(
+        f"  valid/skipped     : {result['n_valid_trials']}/{result['n_skipped_trials']}"
+    )
     print(f"  elapsed           : {result['elapsed_seconds']}s")
 
     run_id = result.get("run_id")

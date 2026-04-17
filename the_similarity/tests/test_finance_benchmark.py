@@ -17,7 +17,6 @@ import json
 import os
 import subprocess
 import sys
-import tempfile
 from pathlib import Path
 
 import pytest
@@ -26,6 +25,7 @@ import pytest
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def tmp_out(tmp_path: Path) -> str:
@@ -243,7 +243,10 @@ class TestCLI:
             timeout=10,
         )
         assert result.returncode == 0
-        assert "finance benchmark" in result.stdout.lower() or "benchmark" in result.stdout.lower()
+        assert (
+            "finance benchmark" in result.stdout.lower()
+            or "benchmark" in result.stdout.lower()
+        )
 
     def test_run_help_exits_zero(self) -> None:
         """CLI run --help exits with code 0."""
@@ -259,7 +262,13 @@ class TestCLI:
     def test_sweep_help_exits_zero(self) -> None:
         """CLI sweep --help exits with code 0."""
         result = subprocess.run(
-            [sys.executable, "-m", "the_similarity.finance.benchmark", "sweep", "--help"],
+            [
+                sys.executable,
+                "-m",
+                "the_similarity.finance.benchmark",
+                "sweep",
+                "--help",
+            ],
             capture_output=True,
             text=True,
             timeout=10,

@@ -108,9 +108,7 @@ def run_sweep(
                 # calibrated probability forecasts. Bounded [0, 1].
                 crps_val = result.get("crps", 1.0)
                 hit_val = result.get("hit_rate", 0.5)
-                result["trust_score"] = round(
-                    hit_val * (1.0 - min(crps_val, 1.0)), 4
-                )
+                result["trust_score"] = round(hit_val * (1.0 - min(crps_val, 1.0)), 4)
 
                 results.append(result)
 
