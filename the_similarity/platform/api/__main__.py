@@ -5,6 +5,7 @@ the module-level ``app`` instance. All logic lives in :mod:`main` so this
 file stays trivially forwardable; keeping it this terse avoids the
 "python -m" path diverging from the app factory the tests exercise.
 """
+
 from __future__ import annotations
 
 from the_similarity.platform.api.main import main

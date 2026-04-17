@@ -12,6 +12,7 @@ The MVP spec (`vision/synthetic_copies_worlds_eval_mvp.md`) names these:
 We accept either naming for data and scorecard/eval to avoid churn if the CLI
 picks one vs. the other.
 """
+
 from __future__ import annotations
 
 import csv
@@ -125,14 +126,12 @@ def test_cli_runs_on_tiny_csv(tmp_path: Path):
         out_dir, ("scorecard.json", "eval.json", "manifest.json")
     )
     assert score_artifact is not None, (
-        f"No scorecard/eval json in {out_dir}; "
-        f"contents: {list(out_dir.rglob('*'))}"
+        f"No scorecard/eval json in {out_dir}; contents: {list(out_dir.rglob('*'))}"
     )
 
     report_artifact = _find_any(out_dir, ("report.md", "eval.md", "README.md"))
     assert report_artifact is not None, (
-        f"No report.md/eval.md in {out_dir}; "
-        f"contents: {list(out_dir.rglob('*'))}"
+        f"No report.md/eval.md in {out_dir}; contents: {list(out_dir.rglob('*'))}"
     )
 
 
@@ -163,13 +162,19 @@ def test_cli_strict_mode_exits_one_on_threshold_miss(tmp_path: Path):
 
     result = _run_cli(
         [
-            "--input", str(in_csv),
-            "--n", "100",
-            "--out", str(out_dir),
+            "--input",
+            str(in_csv),
+            "--n",
+            "100",
+            "--out",
+            str(out_dir),
             "--strict",
-            "--threshold-fidelity", "1.0",
-            "--threshold-privacy", "1.0",
-            "--threshold-utility", "0.0",
+            "--threshold-fidelity",
+            "1.0",
+            "--threshold-privacy",
+            "1.0",
+            "--threshold-utility",
+            "0.0",
         ],
         cwd=tmp_path,
     )

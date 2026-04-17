@@ -19,6 +19,7 @@ Invariants
   We duck-type and never mutate the inputs.
 - The scorecard is stateless; a single instance may evaluate many pairs.
 """
+
 from __future__ import annotations
 
 import math
@@ -92,7 +93,14 @@ def _marginal_metrics(
         r = _finite(real[:, i])
         s = _finite(synth[:, i])
         if r.size < 2 or s.size < 2:
-            for key in ("ks", "wasserstein", "mean_diff", "std_diff", "skew_diff", "kurt_diff"):
+            for key in (
+                "ks",
+                "wasserstein",
+                "mean_diff",
+                "std_diff",
+                "skew_diff",
+                "kurt_diff",
+            ):
                 out[f"{name}__{key}"] = float("nan")
             continue
         ks = stats.ks_2samp(r, s).statistic
@@ -182,20 +190,30 @@ def _temporal_metrics(
                 continue
             ar = _acf(r, lag)
             asyn = _acf(s, lag)
-            d = abs(ar - asyn) if math.isfinite(ar) and math.isfinite(asyn) else float("nan")
+            d = (
+                abs(ar - asyn)
+                if math.isfinite(ar) and math.isfinite(asyn)
+                else float("nan")
+            )
             out[f"{name}__acf_lag{lag}_diff"] = d
             if math.isfinite(d):
                 acf_diffs.append(d)
             if include_pacf:
                 pr = _pacf_lag(r, lag)
                 ps = _pacf_lag(s, lag)
-                pd_ = abs(pr - ps) if math.isfinite(pr) and math.isfinite(ps) else float("nan")
+                pd_ = (
+                    abs(pr - ps)
+                    if math.isfinite(pr) and math.isfinite(ps)
+                    else float("nan")
+                )
                 out[f"{name}__pacf_lag{lag}_diff"] = pd_
                 if math.isfinite(pd_):
                     pacf_diffs.append(pd_)
     out["acf_mean_diff"] = float(np.mean(acf_diffs)) if acf_diffs else float("nan")
     if include_pacf:
-        out["pacf_mean_diff"] = float(np.mean(pacf_diffs)) if pacf_diffs else float("nan")
+        out["pacf_mean_diff"] = (
+            float(np.mean(pacf_diffs)) if pacf_diffs else float("nan")
+        )
     return out
 
 
@@ -302,8 +320,12 @@ def _tail_metrics(
             cvar_diffs_hi.append(cvar_hi)
     out["p01_ratio_mean"] = float(np.mean(ratios_p01)) if ratios_p01 else float("nan")
     out["p99_ratio_mean"] = float(np.mean(ratios_p99)) if ratios_p99 else float("nan")
-    out["cvar05_mean_diff"] = float(np.mean(cvar_diffs_lo)) if cvar_diffs_lo else float("nan")
-    out["cvar95_mean_diff"] = float(np.mean(cvar_diffs_hi)) if cvar_diffs_hi else float("nan")
+    out["cvar05_mean_diff"] = (
+        float(np.mean(cvar_diffs_lo)) if cvar_diffs_lo else float("nan")
+    )
+    out["cvar95_mean_diff"] = (
+        float(np.mean(cvar_diffs_hi)) if cvar_diffs_hi else float("nan")
+    )
     return out
 
 
@@ -328,7 +350,9 @@ def _marginal_score(marginals: dict[str, float]) -> float:
     # KS is already in [0, 1]; we use it directly (1 - KS) averaged across
     # columns. It's the most robust nonparametric summary and avoids the need
     # to pick a sensitivity constant.
-    ks_vals = [v for k, v in marginals.items() if k.endswith("__ks") and math.isfinite(v)]
+    ks_vals = [
+        v for k, v in marginals.items() if k.endswith("__ks") and math.isfinite(v)
+    ]
     if not ks_vals:
         return float("nan")
     return float(1.0 - np.mean(ks_vals))
@@ -412,7 +436,9 @@ class FidelityScorecard:
         include_pacf: bool = True,
         temporal_lags: tuple[int, ...] = (1, 5, 10),
     ) -> None:
-        self.threshold = self.__class__.threshold if threshold is None else float(threshold)
+        self.threshold = (
+            self.__class__.threshold if threshold is None else float(threshold)
+        )
         self.weights = dict(self.default_weights)
         if weights:
             self.weights.update({k: float(v) for k, v in weights.items()})
@@ -442,7 +468,11 @@ class FidelityScorecard:
 
         marginals = _marginal_metrics(r_arr, s_arr, columns)
         temporal = _temporal_metrics(
-            r_arr, s_arr, columns, lags=self.temporal_lags, include_pacf=self.include_pacf
+            r_arr,
+            s_arr,
+            columns,
+            lags=self.temporal_lags,
+            include_pacf=self.include_pacf,
         )
         cross = _cross_series_metrics(r_arr, s_arr)
         tails = _tail_metrics(r_arr, s_arr, columns)

@@ -6,6 +6,7 @@ TypeScript worlds side, and every downstream consumer. If you find yourself
 editing one of these tests, pause: the registry agent and the TS worlds side
 are keyed on this exact shape.
 """
+
 from __future__ import annotations
 
 import json

@@ -33,6 +33,7 @@ Enabled for all origins (``*``) in MVP so the local Next.js UI on
 ``localhost:3000`` (or any dev origin) can call the API without a proxy.
 We will lock this down before deploying beyond dev.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -163,17 +164,13 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--host",
         default=None,
-        help=(
-            f"Host interface (default ${ENV_HOST} or {DEFAULT_HOST})."
-        ),
+        help=(f"Host interface (default ${ENV_HOST} or {DEFAULT_HOST})."),
     )
     parser.add_argument(
         "--port",
         type=int,
         default=None,
-        help=(
-            f"TCP port (default ${ENV_PORT} or {DEFAULT_PORT})."
-        ),
+        help=(f"TCP port (default ${ENV_PORT} or {DEFAULT_PORT})."),
     )
     parser.add_argument(
         "--reload",
@@ -201,7 +198,9 @@ def _resolve_port(cli_value: Optional[int]) -> int:
     return DEFAULT_PORT
 
 
-def main(argv: Optional[list[str]] = None) -> None:  # pragma: no cover - serves a socket
+def main(
+    argv: Optional[list[str]] = None,
+) -> None:  # pragma: no cover - serves a socket
     """Launch uvicorn against this module's ``app`` instance.
 
     Not covered by unit tests because it binds a socket; the smoke test is
