@@ -1,5 +1,10 @@
 """Trust artifact — captures the trust decision for a finance run.
 
+UNCALIBRATED PLACEHOLDER — the trust score formula
+(0.4*hit_rate + 0.3*coverage + 0.3*(1-crps)) has no empirical basis.
+It has not been validated against realized outcomes. Do not use for
+production decisions until calibrated against real data.
+
 A :class:`TrustArtifact` evaluates the quality of a backtest run through
 a composite ``trust_score`` and a ``calibration_grade``, then renders an
 actionable ``decision`` (TRUSTED / REVIEW / REJECTED) so downstream
@@ -48,6 +53,11 @@ from enum import Enum
 from typing import Any, Dict
 
 from the_similarity.platform.artifacts import iso_now
+
+# The trust score weights and decision thresholds below have NO empirical
+# validation. They were chosen to "look reasonable" but have never been
+# calibrated against realized trading outcomes.
+UNCALIBRATED = True
 
 
 # ---------------------------------------------------------------------------
@@ -119,6 +129,7 @@ def compute_trust_score(
     # Clamp CRPS to [0, 1] for inversion. CRPS can exceed 1 for poorly
     # calibrated forecasts but the trust formula needs a bounded input.
     crps_inv = 1.0 - min(crps, 1.0)
+    # WARNING: arbitrary weights, not validated against realized outcomes.
     return (
         _WEIGHT_HIT_RATE * hit_rate
         + _WEIGHT_COVERAGE * coverage
@@ -283,6 +294,7 @@ class TrustArtifact:
     thresholds: Dict[str, Any]
     reasoning: str
     created_at: str
+    uncalibrated: bool = True
 
     # -- serialization --------------------------------------------------------
 
@@ -297,6 +309,7 @@ class TrustArtifact:
             "thresholds": self.thresholds,
             "reasoning": self.reasoning,
             "created_at": self.created_at,
+            "uncalibrated": self.uncalibrated,
         }
 
     @classmethod
@@ -311,6 +324,7 @@ class TrustArtifact:
             thresholds=d["thresholds"],
             reasoning=d["reasoning"],
             created_at=d["created_at"],
+            uncalibrated=d.get("uncalibrated", True),
         )
 
 
@@ -371,10 +385,12 @@ def build_trust_artifact(
         thresholds=thresholds,
         reasoning=reasoning,
         created_at=iso_now(),
+        uncalibrated=True,
     )
 
 
 __all__ = [
+    "UNCALIBRATED",
     "TrustArtifact",
     "TrustDecision",
     "build_trust_artifact",
