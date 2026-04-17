@@ -96,7 +96,7 @@ When multiple agents run in parallel, they WILL conflict on files that every age
 - If batch merging is unavoidable, merge in dependency order and resolve MOC/shared-file conflicts between each merge.
 
 ## Tests
-- 347 tests across 30 test files. All must pass before shipping.
+- 754 tests across 54 test files. All must pass before shipping.
 - Test command: `python -m pytest the_similarity/tests/ -v`
 - Slow tests: `python -m pytest the_similarity/tests/ -v -m slow` (integration backtester tests)
 
