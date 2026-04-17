@@ -22,6 +22,7 @@ the JSON schema in `artifacts_schema.json` is generated to match. Changing
 either is a breaking change for downstream consumers (registry DB rows, TS
 validators). Extend via additive, optional fields only.
 """
+
 from __future__ import annotations
 
 from the_similarity.platform.artifacts import (

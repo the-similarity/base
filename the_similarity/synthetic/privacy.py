@@ -37,6 +37,7 @@ Design choices
   deep shadow models, no heavy MIA harness — the point is a fast gate, not a
   publishable attack.
 """
+
 from __future__ import annotations
 
 from dataclasses import replace
@@ -205,9 +206,7 @@ def _compute_memorization(
     }
 
 
-def _compute_membership_proxy(
-    real: np.ndarray, synth: np.ndarray
-) -> dict[str, float]:
+def _compute_membership_proxy(real: np.ndarray, synth: np.ndarray) -> dict[str, float]:
     """Shadow-model-free membership inference proxy.
 
     We split ``real`` in half: the first half pretends to be the training

@@ -9,6 +9,7 @@ These tests assert attack behaviour with controlled inputs:
 - The scorecard satisfies :class:`ScorecardProtocol` structurally.
 - Univariate payloads and pandas DataFrames are accepted.
 """
+
 from __future__ import annotations
 
 import numpy as np
