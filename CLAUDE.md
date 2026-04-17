@@ -134,6 +134,35 @@ Three rules that prevent silent main breakage:
 - `the_similarity/core/explainer.py` — Match explainability
 - `the_similarity/core/auth.py` — Authentication
 
+### Platform layer (`the_similarity/platform/`)
+- `contracts.py` — Unified platform contracts: RunRecord, ArtifactRecord, ScorecardSummary, Provenance, ScenarioSpec, DatasetSpec + enums (RunKind, RunStatus, ScorecardKind)
+- `artifacts.py` — RunArtifact on-disk format + RunKind enum + read/write helpers
+- `artifacts_schema.json` / `platform_schema.json` — Draft-07 JSON schemas for TS consumers
+- `registry.py` — SQLite-backed RunRegistry (WAL mode): runs, artifacts, scorecards, scenarios, datasets tables. CRUD + filters + cascade delete.
+- `adapters/` — `finance.py` (backtest → RunRecord), `copies.py` (run dir → RunRecord), register into registry
+- `api/` — Standalone FastAPI surface over registry (port 8787): /healthz, /runs, /runs/{id}/artifacts, /compare, etc.
+- `__main__.py` — CLI: `python -m the_similarity.platform list/show/compare`
+
+### Synthetic data (`the_similarity/synthetic/`)
+- `contracts.py` — SyntheticDataset, Provenance, FidelityReport, PrivacyReport, UtilityReport, Scorecard
+- `copies.py` — BlockBootstrapGenerator, RegimeBlockBootstrapGenerator
+- `fidelity.py` — FidelityScorecard (KS, Wasserstein, ACF/PACF, tails, CVaR)
+- `privacy.py` — PrivacyScorecard (DCR, memorization, membership-inference proxy)
+- `utility.py` — UtilityScorecard (TRTS/TSTR Ridge forecasting, transfer gap)
+- `cli.py` — `python -m the_similarity.synthetic.cli --input --n --seed --out [--register] [--strict]`
+- `demos/` — sample.csv fixture + README
+
+### Customer-facing API (`the-similarity-api/app/`)
+- `main.py` — FastAPI app: search, dashboard, auth, alerts + platform routes
+- `platform_routes.py` — `/platform/*` endpoints (runs, artifacts, scorecards, scenarios, datasets CRUD)
+- `settings.py` — Registry DB path resolution
+
+### Synthetic worlds (`the-similarity-fractal/`)
+- `src/sim/headless/runner.js` — Headless world runner, JSONL telemetry output, `--register` flag
+- `src/eval/` — Sweep runner, regime coverage, controllability (permutation p-values)
+- `src/platform/registry-client.js` — HTTP client for registering world runs
+- `scenarios/small_village.json` — 20-agent 64x64 torus scenario
+
 ### TradingView Pine Script mirror (`tradingview/`)
 - `tradingview/similarity_indicator.pine` — Indicator: analogue search + weighted top-K forecast cone
 - `tradingview/similarity_strategy.pine` — Strategy: P50 signals, P10/P75 exits, professional risk layer (ATR pads, time stops, HTF filter)
@@ -142,6 +171,15 @@ Three rules that prevent silent main breakage:
 ### 3D visualization
 - `the_similarity/core/terrain_generator.py` — Fractal terrain engine
 - `the_similarity/core/terrain_params.py` — Terrain configuration
+
+### CI / Infrastructure
+- `.github/workflows/pr-gate.yml` — PR tests + lint + review agent + auto-merge
+- `.github/workflows/main-health.yml` — Daily + post-merge clean-install test on main
+- `.github/workflows/branch-reaper.yml` — Automated stale branch cleanup
+- `.github/workflows/ci.yml` — Core CI pipeline
+- `.github/workflows/refresh-data.yml` — Daily data refresh via GitHub Actions
+- `scripts/ci_local.sh` — Throwaway-venv CI mirror for agents (MANDATORY before PR)
+- `scripts/smoke_platform_spine.sh` — End-to-end platform smoke test
 
 ### Other
 - `the_similarity/viz/` — Plotting (plotter.py)
