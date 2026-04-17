@@ -175,3 +175,105 @@ def test_report_is_value_object(real_multivariate, rng):
     r1.nn_leakage["median_dcr"] = -999.0
     r2 = card.evaluate(_ds(real_multivariate), _ds(synth))
     assert r2.nn_leakage["median_dcr"] != -999.0
+
+
+# ---------------------------------------------------------------------------
+# Attribute inference risk
+# ---------------------------------------------------------------------------
+
+
+def test_attribute_inference_runs_without_error(real_multivariate, rng):
+    """Attribute inference should complete on a small multivariate dataset."""
+    synth = rng.normal(size=real_multivariate.shape)
+    report = PrivacyScorecard().evaluate(
+        _ds(real_multivariate, "real"), _ds(synth, "indep")
+    )
+    # Must return a dict with one entry per column.
+    assert isinstance(report.attribute_inference_risk, dict)
+    assert len(report.attribute_inference_risk) == real_multivariate.shape[1]
+    # All deltas must be non-negative floats.
+    for col, delta in report.attribute_inference_risk.items():
+        assert isinstance(delta, float)
+        assert 0.0 <= delta <= 1.0, f"Column {col} delta {delta} out of range"
+
+
+def test_attribute_inference_empty_on_univariate(rng):
+    """Univariate data has < 2 features — attribute inference should be empty."""
+    real_1d = rng.normal(size=(100,))
+    synth_1d = rng.normal(size=(100,))
+    report = PrivacyScorecard().evaluate(_ds(real_1d), _ds(synth_1d))
+    assert report.attribute_inference_risk == {}
+
+
+# ---------------------------------------------------------------------------
+# Holdout leakage check
+# ---------------------------------------------------------------------------
+
+
+def test_holdout_leakage_ratio_is_positive_float(real_multivariate, rng):
+    """Holdout leakage ratio should be a positive finite float."""
+    synth = rng.normal(size=real_multivariate.shape)
+    report = PrivacyScorecard().evaluate(
+        _ds(real_multivariate, "real"), _ds(synth, "indep")
+    )
+    assert isinstance(report.holdout_leakage_ratio, float)
+    assert report.holdout_leakage_ratio > 0.0
+    assert np.isfinite(report.holdout_leakage_ratio)
+
+
+def test_holdout_leakage_copy_attack(real_multivariate):
+    """Copy attack: synth = real should produce ratio near 1 or below (the
+    synthetic rows are equidistant to train and holdout since they ARE the
+    real data)."""
+    report = PrivacyScorecard().evaluate(
+        _ds(real_multivariate, "real"), _ds(real_multivariate.copy(), "copy")
+    )
+    # For a copy attack the ratio is data-dependent but must be finite.
+    assert np.isfinite(report.holdout_leakage_ratio)
+
+
+# ---------------------------------------------------------------------------
+# Tail exposure rate
+# ---------------------------------------------------------------------------
+
+
+def test_tail_exposure_rate_between_zero_and_one(real_multivariate, rng):
+    """Tail exposure rate must be in [0, 1]."""
+    synth = rng.normal(size=real_multivariate.shape)
+    report = PrivacyScorecard().evaluate(
+        _ds(real_multivariate, "real"), _ds(synth, "indep")
+    )
+    assert isinstance(report.tail_exposure_rate, float)
+    assert 0.0 <= report.tail_exposure_rate <= 1.0
+
+
+def test_tail_exposure_copy_attack_high(real_multivariate):
+    """Copy attack should expose most/all tail records."""
+    report = PrivacyScorecard().evaluate(
+        _ds(real_multivariate, "real"), _ds(real_multivariate.copy(), "copy")
+    )
+    # All tail records should have a near-neighbour (themselves).
+    assert report.tail_exposure_rate >= 0.8
+
+
+# ---------------------------------------------------------------------------
+# Overall score with new heuristics
+# ---------------------------------------------------------------------------
+
+
+def test_overall_score_still_in_unit_interval(real_multivariate, rng):
+    """Overall score must remain in [0, 1] with the new weighted scheme."""
+    synth = rng.normal(size=real_multivariate.shape)
+    report = PrivacyScorecard().evaluate(
+        _ds(real_multivariate, "real"), _ds(synth, "indep")
+    )
+    assert 0.0 <= report.overall_score <= 1.0
+
+
+def test_overall_score_copy_attack_low(real_multivariate):
+    """Copy attack should still produce a low overall score."""
+    report = PrivacyScorecard().evaluate(
+        _ds(real_multivariate, "real"), _ds(real_multivariate.copy(), "copy")
+    )
+    assert report.overall_score <= 0.3
+    assert report.passed is False
