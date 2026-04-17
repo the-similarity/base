@@ -96,7 +96,7 @@ When multiple agents run in parallel, they WILL conflict on files that every age
 - If batch merging is unavoidable, merge in dependency order and resolve MOC/shared-file conflicts between each merge.
 
 ## Tests
-- 347 tests across 30 test files. All must pass before shipping.
+- 754 tests across 54 test files. All must pass before shipping.
 - Test command: `python -m pytest the_similarity/tests/ -v`
 - Slow tests: `python -m pytest the_similarity/tests/ -v -m slow` (integration backtester tests)
 
@@ -134,6 +134,35 @@ Three rules that prevent silent main breakage:
 - `the_similarity/core/explainer.py` — Match explainability
 - `the_similarity/core/auth.py` — Authentication
 
+### Platform layer (`the_similarity/platform/`)
+- `contracts.py` — Unified platform contracts: RunRecord, ArtifactRecord, ScorecardSummary, Provenance, ScenarioSpec, DatasetSpec + enums (RunKind, RunStatus, ScorecardKind)
+- `artifacts.py` — RunArtifact on-disk format + RunKind enum + read/write helpers
+- `artifacts_schema.json` / `platform_schema.json` — Draft-07 JSON schemas for TS consumers
+- `registry.py` — SQLite-backed RunRegistry (WAL mode): runs, artifacts, scorecards, scenarios, datasets tables. CRUD + filters + cascade delete.
+- `adapters/` — `finance.py` (backtest → RunRecord), `copies.py` (run dir → RunRecord), register into registry
+- `api/` — Standalone FastAPI surface over registry (port 8787): /healthz, /runs, /runs/{id}/artifacts, /compare, etc.
+- `__main__.py` — CLI: `python -m the_similarity.platform list/show/compare`
+
+### Synthetic data (`the_similarity/synthetic/`)
+- `contracts.py` — SyntheticDataset, Provenance, FidelityReport, PrivacyReport, UtilityReport, Scorecard
+- `copies.py` — BlockBootstrapGenerator, RegimeBlockBootstrapGenerator
+- `fidelity.py` — FidelityScorecard (KS, Wasserstein, ACF/PACF, tails, CVaR)
+- `privacy.py` — PrivacyScorecard (DCR, memorization, membership-inference proxy)
+- `utility.py` — UtilityScorecard (TRTS/TSTR Ridge forecasting, transfer gap)
+- `cli.py` — `python -m the_similarity.synthetic.cli --input --n --seed --out [--register] [--strict]`
+- `demos/` — sample.csv fixture + README
+
+### Customer-facing API (`the-similarity-api/app/`)
+- `main.py` — FastAPI app: search, dashboard, auth, alerts + platform routes
+- `platform_routes.py` — `/platform/*` endpoints (runs, artifacts, scorecards, scenarios, datasets CRUD)
+- `settings.py` — Registry DB path resolution
+
+### Synthetic worlds (`the-similarity-fractal/`)
+- `src/sim/headless/runner.js` — Headless world runner, JSONL telemetry output, `--register` flag
+- `src/eval/` — Sweep runner, regime coverage, controllability (permutation p-values)
+- `src/platform/registry-client.js` — HTTP client for registering world runs
+- `scenarios/small_village.json` — 20-agent 64x64 torus scenario
+
 ### TradingView Pine Script mirror (`tradingview/`)
 - `tradingview/similarity_indicator.pine` — Indicator: analogue search + weighted top-K forecast cone
 - `tradingview/similarity_strategy.pine` — Strategy: P50 signals, P10/P75 exits, professional risk layer (ATR pads, time stops, HTF filter)
@@ -143,13 +172,22 @@ Three rules that prevent silent main breakage:
 - `the_similarity/core/terrain_generator.py` — Fractal terrain engine
 - `the_similarity/core/terrain_params.py` — Terrain configuration
 
+### CI / Infrastructure
+- `.github/workflows/pr-gate.yml` — PR tests + lint + review agent + auto-merge
+- `.github/workflows/main-health.yml` — Daily + post-merge clean-install test on main
+- `.github/workflows/branch-reaper.yml` — Automated stale branch cleanup
+- `.github/workflows/ci.yml` — Core CI pipeline
+- `.github/workflows/refresh-data.yml` — Daily data refresh via GitHub Actions
+- `scripts/ci_local.sh` — Throwaway-venv CI mirror for agents (MANDATORY before PR)
+- `scripts/smoke_platform_spine.sh` — End-to-end platform smoke test
+
 ### Other
 - `the_similarity/viz/` — Plotting (plotter.py)
 - `the_similarity/contracts/` — Data contracts
 - `the_similarity/io/` — I/O utilities
 - `vision/` — Product vision and roadmap docs
 
-## Current State (Phase 1-7 complete)
+## Current State (Phase 1-7 + Platform Spine)
 - All 9 methods + 2D variants (bempedelis_2d, emd_2d, wavelet_leaders_2d)
 - Tiered pipeline: SAX+MASS prefilter → DTW+Pearson → Tier 2 enrichment → final rank
 - Ensemble forecasting: Monte Carlo, regime-conditional, conformal
@@ -159,6 +197,10 @@ Three rules that prevent silent main breakage:
 - Obsidian research wiki (`obsidian_thesim/`) for LLM-maintained knowledge base
 - 1.13M+ rows of data, daily refresh via GitHub Actions
 - Next.js frontend with lightweight-charts, resizable split pane
+- Platform Spine (Batch 1) shipped 2026-04-17: unified contracts, registry, API, adapters for finance/copies/worlds
+- Synthetic data pipeline: block-bootstrap generation, fidelity/privacy/utility scorecards, CLI with registry integration
+- CI correctness infrastructure: main-health workflow, ci_local.sh throwaway-venv gate, platform smoke tests
+- Next: Batch 2 (Finance Operating Product)
 
 ## Coding Standards
 - **Claude Code Documentation Standard (MANDATORY)**:
