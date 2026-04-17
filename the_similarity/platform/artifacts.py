@@ -80,7 +80,7 @@ from typing import Any, Dict, Optional
 
 
 class RunKind(str, Enum):
-    """The run kinds the platform recognizes.
+    """The kinds of run the platform recognizes.
 
     Values are lowercase strings so they round-trip through JSON without a
     custom encoder. Inheriting from ``str`` makes ``RunKind.COPIES ==
@@ -103,22 +103,30 @@ class RunKind(str, Enum):
         An evaluation-harness run — scores one or more existing runs
         (by `run_id`) and emits a scorecard artifact.
     FINANCE:
-        A walk-forward similarity-search backtest — produced by
-        ``the_similarity.api.backtest``. Summary carries headline
-        hit_rate / CRPS / calibration so the registry CLI surfaces the
-        same fields as the in-process ``BacktestReport.summary()``.
+        A finance-pillar run (analogue retrieval, projector cones,
+        backtests over real market data).
+    EVENTS:
+        A world-events pillar run (event graph ingest, propagation
+        simulation, cross-series impact scoring).
+    NL_TS:
+        A natural-language-to-time-series pillar run (textual prompt
+        -> synthetic trajectory or retrieval index).
+
+    Adding new kinds is an additive change: older readers using
+    ``RunKind(str)`` construction will raise ``ValueError`` for
+    unknown values, so bump the schema's ``enum`` in lockstep with
+    any additions here. The JSON schema in ``artifacts_schema.json``
+    is the tripwire — ``test_schema_enumerates_all_run_kinds``
+    guards against divergence.
     """
 
     COPIES = "copies"
     WORLDS = "worlds"
     SWEEP = "sweep"
     EVAL = "eval"
-    # FINANCE: a walk-forward backtest of the similarity-search pipeline over
-    # a real price series. Added additively after the original four kinds so
-    # downstream readers that pin to the original set still decode safely —
-    # the enum lookup fails loud on unknown values, which is the fail-closed
-    # behavior we want for code that has not learned about FINANCE yet.
     FINANCE = "finance"
+    EVENTS = "events"
+    NL_TS = "nl_ts"
 
 
 # ---------------------------------------------------------------------------
