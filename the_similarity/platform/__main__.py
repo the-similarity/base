@@ -29,6 +29,7 @@ DB path resolution (in order)
 The default lives under the user's home so it survives across worktrees and
 across project clones — the registry is meant to outlive any single check-out.
 """
+
 from __future__ import annotations
 
 import argparse

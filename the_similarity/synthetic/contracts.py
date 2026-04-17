@@ -18,6 +18,7 @@ Design invariants
   NaNs or a scorecard raising must surface `passed=False` with diagnostics in
   the metric dicts, not a silent pass.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
