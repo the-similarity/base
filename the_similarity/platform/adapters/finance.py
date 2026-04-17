@@ -14,9 +14,13 @@ Design notes
 - **Best-effort**: registration failures are the caller's problem. Finance
   backtests already persist whatever the user cares about in-memory; losing
   a registry row is an ops inconvenience, not a data-loss event.
-- **No file writing**: unlike copies/worlds, the finance pillar is fully
-  in-process — there is no per-run directory on disk. ``artifact_paths`` is
-  therefore empty and the registry row is the canonical record.
+- **Trust + Calibration artifacts**: when ``register=True`` in
+  :func:`the_similarity.api.backtest`, this adapter computes and registers
+  a :class:`~the_similarity.platform.adapters.trust.TrustArtifact` and a
+  :class:`~the_similarity.platform.adapters.calibration.CalibrationArtifact`
+  alongside the run. These provide structured quality gates and per-
+  percentile calibration diagnostics without requiring downstream consumers
+  to re-derive the metrics.
 - **Pillar label**: the :class:`RunArtifact` contract has no ``pillar``
   field; we mirror the label into ``summary["pillar"] = "finance"`` so UI
   clients can filter without a schema change. ``kind=RunKind.FINANCE``
@@ -113,6 +117,35 @@ def _coerce_report(report: Any) -> Dict[str, Any]:
     return out
 
 
+def _enrich_summary(summary: Dict[str, Any]) -> Dict[str, Any]:
+    """Add computed trust_score and calibration_grade to the summary.
+
+    Enriches the summary dict in-place with:
+
+    - ``trust_score``: composite 0..1 score derived from:
+      ``0.4 * hit_rate + 0.3 * coverage + 0.3 * (1 - min(crps, 1))``
+    - ``calibration_grade``: "excellent" / "good" / "fair" / "poor"
+      based on mean absolute calibration error across percentiles.
+
+    These are convenience fields so the registry's summary column carries
+    the quality signal without requiring a join to the trust artifact.
+    """
+    from the_similarity.platform.adapters.trust import (
+        compute_calibration_grade,
+        compute_trust_score,
+    )
+
+    hit_rate = float(summary.get("hit_rate", 0.0) or 0.0)
+    coverage = float(summary.get("coverage", 0.0) or 0.0)
+    crps_val = float(summary.get("crps", 0.0) or 0.0)
+    calibration = summary.get("calibration", {})
+
+    summary["trust_score"] = compute_trust_score(hit_rate, coverage, crps_val)
+    summary["calibration_grade"] = compute_calibration_grade(calibration or {})
+
+    return summary
+
+
 # ---------------------------------------------------------------------------
 # Public adapter
 # ---------------------------------------------------------------------------
@@ -128,6 +161,17 @@ def register_backtest_run(
     source_id: Optional[str] = None,
 ) -> str:
     """Register a finance backtest run in the platform registry.
+
+    In addition to the base :class:`RunArtifact`, this adapter also
+    computes and registers:
+
+    - A :class:`~the_similarity.platform.adapters.trust.TrustArtifact`
+      (``trust.json`` artifact record) with the trust decision.
+    - A :class:`~the_similarity.platform.adapters.calibration.CalibrationArtifact`
+      (``calibration.json`` artifact record) with per-percentile detail.
+    - A :class:`~the_similarity.platform.contracts.ScorecardSummary`
+      with ``kind=BACKTEST`` containing ``trust_score`` and
+      ``calibration_grade``.
 
     Parameters
     ----------
@@ -169,6 +213,11 @@ def register_backtest_run(
     # CLI's one-line listing preview, which is the 90% case we optimize for.
     summary["pillar"] = "finance"
 
+    # Enrich summary with computed trust_score + calibration_grade so
+    # the headline numbers are available in the registry without joining
+    # to the trust artifact.
+    _enrich_summary(summary)
+
     # Build config dict with sensible defaults — callers may pass None and
     # still get a valid JSON object rather than a null in the DB.
     config_payload: Dict[str, Any] = dict(config) if config else {}
@@ -187,25 +236,89 @@ def register_backtest_run(
     if source_id is not None:
         provenance["source_id"] = source_id
 
+    resolved_run_id = run_id or new_run_id()
+
     artifact = RunArtifact(
-        run_id=run_id or new_run_id(),
+        run_id=resolved_run_id,
         kind=RunKind.FINANCE,
         config=config_payload,
         seed=seed,
         # Finance runs are fully in-process; no on-disk artifact files.
-        # An empty dict is semantically "nothing to stream" rather than
-        # None, which keeps the schema validator happy (required field).
+        # Trust and calibration artifacts are registered as metadata rows
+        # in the artifacts table, not as files on disk.
         artifact_paths={},
         summary=summary,
         provenance=provenance,
         created_at=iso_now(),
     )
 
+    # Build trust + calibration artifacts from the enriched summary.
+    from the_similarity.platform.adapters.trust import build_trust_artifact
+    from the_similarity.platform.adapters.calibration import (
+        build_calibration_artifact,
+    )
+    from the_similarity.platform.contracts import (
+        ArtifactRecord,
+        ScorecardKind,
+        ScorecardSummary,
+    )
+
+    trust_artifact = build_trust_artifact(resolved_run_id, summary)
+    # CalibrationArtifact is built but its data lives in the registry's
+    # artifact metadata row (calibration_artifact_record below). We call
+    # build_calibration_artifact only to validate the calibration data is
+    # well-formed; the result is not persisted beyond the metadata row.
+    build_calibration_artifact(resolved_run_id, summary.get("calibration", {}))
+
+    # Build artifact records for trust.json and calibration.json so the
+    # registry's artifacts table knows about them. These are metadata-only
+    # (no on-disk file) — the content lives in the registry's JSON columns.
+    trust_artifact_record = ArtifactRecord(
+        run_id=resolved_run_id,
+        name="trust",
+        path="trust.json",
+        content_type="application/json",
+        created_at=iso_now(),
+    )
+    calibration_artifact_record = ArtifactRecord(
+        run_id=resolved_run_id,
+        name="calibration",
+        path="calibration.json",
+        content_type="application/json",
+        created_at=iso_now(),
+    )
+
+    # Build a ScorecardSummary with kind=BACKTEST that carries the
+    # trust_score + calibration_grade for quick grid display.
+    scorecard = ScorecardSummary(
+        run_id=resolved_run_id,
+        kind=ScorecardKind.BACKTEST,
+        overall_score=trust_artifact.trust_score,
+        passed=trust_artifact.decision.value == "trusted",
+        thresholds=trust_artifact.thresholds,
+        details={
+            "trust_score": trust_artifact.trust_score,
+            "calibration_grade": trust_artifact.calibration_grade,
+            "decision": trust_artifact.decision.value,
+            "hit_rate": summary.get("hit_rate"),
+            "coverage": summary.get("coverage"),
+            "crps": summary.get("crps"),
+            "mean_error": summary.get("mean_error"),
+        },
+    )
+
     # Two code paths: caller-provided registry (tests, long-running CLIs)
     # vs self-managed (one-shot programmatic use). In the self-managed
     # path we open + close inside a with-block to avoid leaking FDs.
     if registry is not None:
-        return registry.register(artifact)
+        _register_all(
+            registry,
+            artifact,
+            trust_artifact_record,
+            calibration_artifact_record,
+            scorecard,
+        )
+        return resolved_run_id
 
     # db_path=None lets RunRegistry apply its own defaults (env var +
     # ~/.the_similarity/registry.db fallback). We only need to supply a
@@ -226,7 +339,36 @@ def register_backtest_run(
         )
 
     with RunRegistry(resolved) as r:
-        return r.register(artifact)
+        _register_all(
+            r,
+            artifact,
+            trust_artifact_record,
+            calibration_artifact_record,
+            scorecard,
+        )
+    return resolved_run_id
+
+
+def _register_all(
+    registry: RunRegistry,
+    artifact: RunArtifact,
+    trust_artifact_record: Any,
+    calibration_artifact_record: Any,
+    scorecard: Any,
+) -> None:
+    """Register the run, artifact metadata, and scorecard in one place.
+
+    Centralizes the multi-step registration so both the caller-provided
+    and self-managed registry paths share identical write logic. Each
+    step is idempotent (upsert semantics) so retries are safe.
+    """
+    # 1. Register the base run artifact (creates the runs row).
+    registry.register(artifact)
+    # 2. Register the trust + calibration artifact metadata rows.
+    registry.register_artifact(trust_artifact_record)
+    registry.register_artifact(calibration_artifact_record)
+    # 3. Register the backtest scorecard summary.
+    registry.register_scorecard(scorecard)
 
 
 __all__ = ["register_backtest_run"]

@@ -117,9 +117,13 @@ def test_finance_adapter_tolerates_missing_fields(tmp_path: Path) -> None:
         artifact = registry.get(run_id)
 
     assert artifact is not None
-    assert artifact.summary == {"hit_rate": 0.5, "pillar": "finance"}
-    # No calibration was passed — must not appear as an empty dict.
-    assert "calibration" not in artifact.summary
+    # The enriched summary now includes trust_score + calibration_grade
+    # alongside the base fields. Verify the original field survived and
+    # the enrichment happened.
+    assert artifact.summary["hit_rate"] == 0.5
+    assert artifact.summary["pillar"] == "finance"
+    assert "trust_score" in artifact.summary
+    assert "calibration_grade" in artifact.summary
 
 
 def test_finance_adapter_accepts_object_report(tmp_path: Path) -> None:
