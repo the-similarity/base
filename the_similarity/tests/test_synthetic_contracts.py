@@ -54,6 +54,9 @@ def test_privacy_report_fields():
         "nn_leakage",
         "memorization",
         "membership_proxy",
+        "attribute_inference_risk",
+        "holdout_leakage_ratio",
+        "tail_exposure_rate",
         "overall_score",
         "passed",
     }

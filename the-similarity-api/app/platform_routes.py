@@ -1048,8 +1048,89 @@ def get_dataset(
     )
 
 
+# ---------------------------------------------------------------------------
+# /platform/datasets/{dataset_id}/card
+# ---------------------------------------------------------------------------
+
+
+class DatasetCardModel(BaseModel):
+    """Rich dataset card — richer than the raw DatasetSpec.
+
+    Surfaces generation method, scorecard summary, privacy status,
+    and file paths in a single response for UI dataset-detail views.
+    """
+
+    dataset_id: str
+    name: str
+    version: str
+    source: str
+    n_rows: Optional[int] = None
+    n_columns: Optional[int] = None
+    checksum: Optional[str] = None
+    source_run_id: Optional[str] = None
+    generation_method: str = "unknown"
+    scorecard_summary: Dict[str, Any] = Field(default_factory=dict)
+    privacy_status: str = "unknown"
+    file_paths: Dict[str, str] = Field(default_factory=dict)
+    promoted: bool = False
+
+
+@router.get(
+    "/datasets/{dataset_id}/card",
+    response_model=DatasetCardModel,
+    responses={404: {"description": "dataset_id not found."}},
+)
+def get_dataset_card(
+    dataset_id: str,
+    registry: RunRegistry = Depends(get_registry),
+) -> DatasetCardModel:
+    """Return a rich dataset card for a registered dataset.
+
+    The card combines the raw :class:`DatasetSpec` fields with scorecard
+    summary highlights, privacy status, and file paths extracted from
+    the dataset's metadata. This is the endpoint the UI's dataset detail
+    view should hit — it provides everything needed for a single-request
+    render without client-side joins.
+
+    Falls back to a basic card (no scorecard/privacy info) for datasets
+    that were registered without metadata (e.g. non-synthetic datasets).
+    """
+    try:
+        from the_similarity.synthetic.catalog import (
+            get_dataset_card as _get_card,
+        )
+
+        card = _get_card(dataset_id, registry)
+        return DatasetCardModel(**card)
+    except KeyError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"dataset_id not found: {dataset_id}",
+        )
+    except ImportError:
+        # If the catalog module is not available, fall back to a basic card
+        # built from the raw dataset row.
+        row = registry._conn.execute(  # noqa: SLF001
+            "SELECT dataset_id, name, description, path, schema_json, version, created_at "
+            "FROM datasets WHERE dataset_id = ?",
+            (dataset_id,),
+        ).fetchone()
+        if row is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"dataset_id not found: {dataset_id}",
+            )
+        return DatasetCardModel(
+            dataset_id=row[0],
+            name=row[1],
+            version=row[5] or "",
+            source="",
+        )
+
+
 __all__ = [
     "ArtifactRecordModel",
+    "DatasetCardModel",
     "DatasetSpecModel",
     "HealthzResponse",
     "RunCreateResponse",

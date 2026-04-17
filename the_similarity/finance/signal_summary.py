@@ -1,8 +1,7 @@
-"""Signal summary generator for finance runs.
-
-Produces a one-line human-readable summary of what a finance run found,
-suitable for inclusion in a :class:`ReviewArtifact.signal_summary` field,
-Slack notifications, or dashboard widgets.
+"""Template-based signal summary — formats backtest metrics into a
+human-readable one-liner. This is string formatting, not intelligence.
+Future: replace with LLM-generated summaries that incorporate market
+context.
 
 The template is:
     "{symbol} {window_size}-bar window found {n_valid_trials} analogues

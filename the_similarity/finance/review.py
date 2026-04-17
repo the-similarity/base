@@ -1,5 +1,9 @@
 """ReviewArtifact — structured review decision for a finance run.
 
+PLACEHOLDER — ReviewArtifact defines the schema for human/agent review
+of finance runs, but no workflow currently drives status transitions.
+No human reviews anything yet. This is a schema waiting for a process.
+
 A :class:`ReviewArtifact` captures a human-or-agent review decision on a
 finance run (identified by ``run_id``). It is the bridge between automated
 risk analysis (see :mod:`the_similarity.finance.risk_flags`) and the
@@ -34,6 +38,10 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from the_similarity.platform.artifacts import iso_now
+
+# No workflow currently drives status transitions. This module defines
+# the schema but nothing acts on it yet.
+PLACEHOLDER = True
 
 
 class ReviewStatus(str, Enum):
