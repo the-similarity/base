@@ -65,7 +65,7 @@ from the_similarity.platform.contracts import (
     ScorecardKind,
     ScorecardSummary,
 )
-from the_similarity.platform.registry import RunRegistry
+from the_similarity.platform.registry import RunRegistry, derive_run_id
 
 __all__ = [
     # Legacy artifact shape
@@ -85,4 +85,6 @@ __all__ = [
     "ScenarioSpec",
     "ScorecardKind",
     "ScorecardSummary",
+    # Registry helpers
+    "derive_run_id",
 ]
