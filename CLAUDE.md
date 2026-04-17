@@ -110,6 +110,16 @@ Three rules that prevent silent main breakage:
 
 3. **Main health is monitored.** `.github/workflows/main-health.yml` runs the full suite on main after every merge and daily at 07:00 UTC. If it opens an issue labeled `main-health-failure`, stop all parallel work until it's green again — merging new PRs on top of a red main compounds debt.
 
+### CI Minutes Budget
+GitHub Actions free tier: 2,000 min/month. Each PR Gate run costs ~15 min (4 parallel jobs × 3-5 min). A 5-agent batch with rebases can burn 900+ min in one session.
+
+Rules:
+1. **Agents run `scripts/ci_local.sh` as the primary gate.** This costs zero CI minutes and mirrors CI exactly.
+2. **Do NOT use `gh api update-branch` for rebases.** Each triggers a full CI run. Instead, merge main locally: `git fetch origin main && git merge origin/main --no-edit && git push`.
+3. **One CI run per PR.** Agent pushes final commit → CI runs once → merge. No intermediate pushes.
+4. **When CI budget is tight (>70% used), admin-merge on `ci_local.sh` green.** CI becomes a safety net, not a blocking gate.
+5. **Check budget before starting a batch:** review GitHub billing page or ask the user.
+
 ## Architecture
 
 ### Engine core
