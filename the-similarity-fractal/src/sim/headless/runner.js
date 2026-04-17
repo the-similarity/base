@@ -31,7 +31,8 @@
 import { createWorld, stepWorld, summarizeWorld } from './world.js';
 import { loadScenario } from './scenario.js';
 import { TelemetryWriter } from './telemetry.js';
-import { basename } from 'node:path';
+import { basename, dirname, resolve as resolvePath } from 'node:path';
+import { registerWorldRun } from '../../platform/registry-client.js';
 
 /**
  * Parse a minimal GNU-style flag set. Deliberately hand-rolled to avoid
@@ -39,7 +40,12 @@ import { basename } from 'node:path';
  * do not silently become no-ops.
  */
 function parseArgs(argv) {
-  const out = { includeState: false, stateEvery: 0, quiet: false };
+  const out = {
+    includeState: false,
+    stateEvery: 0,
+    quiet: false,
+    register: false,
+  };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     switch (a) {
@@ -51,6 +57,11 @@ function parseArgs(argv) {
       case '--include-state': out.includeState = true; break;
       case '--state-every':   out.stateEvery = Number(argv[++i]); break;
       case '--quiet':      out.quiet = true; break;
+      // --register is best-effort: POST to the platform registry after the
+      // simulation finishes. A missing or unreachable API server is logged
+      // to stderr and ignored; the runner still exits 0.
+      case '--register':   out.register = true; break;
+      case '--api-url':    out.apiUrl = argv[++i]; break;
       case '-h':
       case '--help':       out.help = true; break;
       default:
@@ -72,6 +83,10 @@ function printHelp() {
   --out <path>        JSONL output path
   --include-state     dump per-agent state every tick
   --state-every <n>   dump per-agent state every n ticks
+  --register          POST the finished run to the platform registry
+                      (best-effort; warns on failure, exit 0)
+  --api-url <url>     platform API base URL (default: $THE_SIMILARITY_API_URL
+                      or http://localhost:8787)
   --quiet             no stdout progress
 
 Exit codes: 0 ok, 1 arg error, 2 runtime error
@@ -167,7 +182,39 @@ async function main() {
     await writer.close();
     process.exit(2);
   } finally {
+    // Must close before reading back for registration — the writer flushes
+    // asynchronously and partial reads would miss the final summary line.
     await writer.close();
+  }
+
+  // Post-run registration. Guarded by --register so default behavior is
+  // byte-identical to the pre-adapter runner. Any failure here is logged
+  // and swallowed: the simulation already succeeded and the JSONL file
+  // is the primary artifact — a missing registry row is an ops
+  // inconvenience, not a data-loss event.
+  if (args.register) {
+    try {
+      const absOut = resolvePath(outPath);
+      const runId = await registerWorldRun({
+        runDir: dirname(absOut),
+        jsonlPath: absOut,
+        scenario: args.scenario,
+        seed,
+        steps,
+        apiUrl: args.apiUrl,
+        log: (msg) => process.stderr.write(`${msg}\n`),
+      });
+      if (runId) {
+        log(`[worlds] registered run_id=${runId}`);
+      } else {
+        log('[worlds] registration skipped (see stderr for reason)');
+      }
+    } catch (err) {
+      // Defensive: registerWorldRun already traps errors internally. If
+      // a new failure mode slips through we STILL want the process to
+      // exit 0 — the simulation output is intact on disk.
+      process.stderr.write(`[worlds] registration error (ignored): ${err.message}\n`);
+    }
   }
 }
 
