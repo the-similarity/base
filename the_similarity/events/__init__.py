@@ -1,17 +1,9 @@
-"""Event forecast evaluation — scorecard, calibration, and platform integration.
+"""Events package — event graph, feature extraction, analogue retrieval, and evaluation.
 
-This package provides probabilistic forecast scoring for binary event
-questions (e.g. "Will X happen by date Y?"). The primary entrypoint is
-:class:`~the_similarity.events.scorecard.EventScorecard`, which computes
-Brier scores, calibration diagnostics, resolution, and log-likelihood
-from a set of predicted probabilities and observed outcomes.
-
-Modules
--------
-scorecard
-    Core evaluation logic: ``EventScorecard.evaluate()`` -> ``EventScoreReport``.
-eval_adapter
-    Platform integration: register an ``EventScoreReport`` as a
-    :class:`~the_similarity.platform.contracts.ScorecardSummary` in the
-    unified registry.
+This package provides:
+- ``features``: Convert raw event dicts to fixed-length feature vectors.
+- ``event_graph``: In-memory graph of EventNodes with cosine-similarity search.
+- ``retrieval``: Sliding-window analogue retrieval over historical event streams.
+- ``scorecard``: Probabilistic forecast evaluation (Brier, calibration, resolution, log score).
+- ``eval_adapter``: Platform registry integration for event evaluation results.
 """

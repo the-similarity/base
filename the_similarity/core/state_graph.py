@@ -6,7 +6,7 @@ on top of StateVector objects. All graph algorithms use numpy + scipy
 (no networkx dependency) to keep the dependency footprint minimal.
 
 Lifecycle:
-    1. Create StateVector instances (from state_space.py, Agent 1's module).
+    1. Create StateVector instances (from state_space.py, the canonical owner).
     2. Call build_knn_graph() or build_transition_graph() to produce a StateGraph.
     3. Query the graph: adjacency(), clusters(), shortest_path().
     4. Serialize with to_dict() / from_dict() for API transport.
@@ -27,35 +27,18 @@ Code path: the_similarity/core/state_graph.py
 from __future__ import annotations
 
 import heapq
-import json
 from dataclasses import dataclass, field
 from typing import Any
 
 import numpy as np
 
 # ---------------------------------------------------------------------------
-# StateVector — minimal definition for decoupling from Agent 1's state_space.py.
-# Once state_space.py lands, replace this with:
-#     from the_similarity.core.state_space import StateVector
-# The only fields consumed by graph code are .values (float array) and .kind (str).
+# StateVector — canonical definition lives in state_space.py (Agent 1's module).
+# This module re-exports it so existing consumers can still do:
+#     from the_similarity.core.state_graph import StateVector
 # ---------------------------------------------------------------------------
 
-
-@dataclass
-class StateVector:
-    """Minimal state vector for graph construction.
-
-    Attributes:
-        values: 1-D numeric embedding of the state.  Must be the same
-                dimensionality across all vectors fed into a single graph.
-        kind:   Domain label (e.g. "finance", "worlds", "synthetic").
-                Used by cross-domain neighbor queries to filter by origin.
-        meta:   Optional metadata dict (ticker, timestamp, scenario id, etc.).
-    """
-
-    values: np.ndarray
-    kind: str = "default"
-    meta: dict[str, Any] | None = None
+from the_similarity.core.state_space import StateVector
 
 
 # ---------------------------------------------------------------------------
@@ -223,7 +206,8 @@ def _pairwise_distances(vectors: list[StateVector]) -> np.ndarray:
     consider chunked or approximate approaches.
     """
     # Stack all value arrays into (n, d) matrix
-    mat = np.array([v.values for v in vectors], dtype=np.float64)
+    # .vector is the canonical field name from state_space.StateVector
+    mat = np.array([v.vector for v in vectors], dtype=np.float64)
     # ||a - b||^2 = ||a||^2 + ||b||^2 - 2 a . b
     sq_norms = np.sum(mat ** 2, axis=1)
     # (n,) + (n,1) - 2*(n,n)  → broadcast to (n,n)
@@ -318,9 +302,10 @@ def build_transition_graph(
     edges: list[tuple[int, int, float]] = []
     for i in range(len(vectors) - 1):
         # Euclidean distance between consecutive states
+        # .vector is the canonical field name from state_space.StateVector
         d = float(np.linalg.norm(
-            np.asarray(vectors[i].values, dtype=np.float64)
-            - np.asarray(vectors[i + 1].values, dtype=np.float64)
+            np.asarray(vectors[i].vector, dtype=np.float64)
+            - np.asarray(vectors[i + 1].vector, dtype=np.float64)
         ))
         edges.append((i, i + 1, d))
 
@@ -354,18 +339,19 @@ def find_cross_domain_neighbors(
         are positions in graph.nodes.  Sorted by (source_idx, distance).
     """
     # Partition nodes by kind
-    source_indices = [i for i, v in enumerate(graph.nodes) if v.kind == source_kind]
-    target_indices = [i for i, v in enumerate(graph.nodes) if v.kind == target_kind]
+    # .source_kind is the canonical field name from state_space.StateVector
+    source_indices = [i for i, v in enumerate(graph.nodes) if v.source_kind == source_kind]
+    target_indices = [i for i, v in enumerate(graph.nodes) if v.source_kind == target_kind]
 
     if not source_indices or not target_indices:
         return []
 
     # Build matrices for vectorized distance computation
     source_mat = np.array(
-        [graph.nodes[i].values for i in source_indices], dtype=np.float64
+        [graph.nodes[i].vector for i in source_indices], dtype=np.float64
     )
     target_mat = np.array(
-        [graph.nodes[i].values for i in target_indices], dtype=np.float64
+        [graph.nodes[i].vector for i in target_indices], dtype=np.float64
     )
 
     # Pairwise distances: (|source|, |target|)
@@ -406,11 +392,14 @@ def to_dict(graph: StateGraph) -> dict[str, Any]:
     nodes = []
     for v in graph.nodes:
         node_d: dict[str, Any] = {
-            "values": v.values.tolist() if isinstance(v.values, np.ndarray) else list(v.values),
-            "kind": v.kind,
+            # Serialize canonical field names from state_space.StateVector
+            "vector": v.vector.tolist() if isinstance(v.vector, np.ndarray) else list(v.vector),
+            "source_kind": v.source_kind,
+            "source_id": v.source_id,
+            "label": v.label,
         }
-        if v.meta is not None:
-            node_d["meta"] = v.meta
+        if v.metadata:
+            node_d["metadata"] = v.metadata
         nodes.append(node_d)
 
     edges = [{"i": i, "j": j, "distance": d} for i, j, d in graph.edges]
@@ -430,9 +419,11 @@ def from_dict(data: dict[str, Any]) -> StateGraph:
     nodes = []
     for nd in data["nodes"]:
         nodes.append(StateVector(
-            values=np.array(nd["values"], dtype=np.float64),
-            kind=nd.get("kind", "default"),
-            meta=nd.get("meta"),
+            vector=np.array(nd["vector"], dtype=np.float64),
+            source_id=nd.get("source_id", ""),
+            source_kind=nd.get("source_kind", "default"),
+            label=nd.get("label", ""),
+            metadata=nd.get("metadata", {}),
         ))
 
     edges = [(e["i"], e["j"], e["distance"]) for e in data["edges"]]

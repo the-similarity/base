@@ -24,10 +24,20 @@ from the_similarity.core.state_graph import (
 
 
 def _make_vectors(n: int = 10, dim: int = 4, kind: str = "default", seed: int = 42) -> list[StateVector]:
-    """Generate *n* random StateVectors of given dimensionality."""
+    """Generate *n* random StateVectors of given dimensionality.
+
+    Uses canonical StateVector fields from state_space.py:
+    vector (not values), source_kind (not kind), metadata (not meta).
+    """
     rng = np.random.default_rng(seed)
     return [
-        StateVector(values=rng.standard_normal(dim), kind=kind, meta={"idx": i})
+        StateVector(
+            vector=rng.standard_normal(dim),
+            source_id=f"test-{i}",
+            source_kind=kind,
+            label=f"test-{kind}-{i}",
+            metadata={"idx": i},
+        )
         for i in range(n)
     ]
 
@@ -120,9 +130,9 @@ class TestClusters:
     def test_clusters_disconnected_graph(self):
         """Two isolated clusters should produce 2 components."""
         # Cluster A: near origin
-        a = [StateVector(values=np.array([0.0, 0.0]) + np.random.default_rng(i).standard_normal(2) * 0.01) for i in range(3)]
+        a = [StateVector(vector=np.array([0.0, 0.0]) + np.random.default_rng(i).standard_normal(2) * 0.01, source_id=f"a-{i}", source_kind="default", label=f"a-{i}") for i in range(3)]
         # Cluster B: far away
-        b = [StateVector(values=np.array([100.0, 100.0]) + np.random.default_rng(i + 100).standard_normal(2) * 0.01) for i in range(3)]
+        b = [StateVector(vector=np.array([100.0, 100.0]) + np.random.default_rng(i + 100).standard_normal(2) * 0.01, source_id=f"b-{i}", source_kind="default", label=f"b-{i}") for i in range(3)]
         vectors = a + b
         # k=2 within each cluster — should form 2 components
         graph = build_knn_graph(vectors, k=2)
@@ -161,8 +171,8 @@ class TestShortestPath:
     def test_shortest_path_no_path(self):
         """Disconnected nodes → empty path."""
         # Manually build a graph with 2 disconnected nodes
-        v1 = StateVector(values=np.array([0.0, 0.0]))
-        v2 = StateVector(values=np.array([1.0, 1.0]))
+        v1 = StateVector(vector=np.array([0.0, 0.0]), source_id="v1", source_kind="default", label="v1")
+        v2 = StateVector(vector=np.array([1.0, 1.0]), source_id="v2", source_kind="default", label="v2")
         graph = StateGraph(nodes=[v1, v2], edges=[])
         path = graph.shortest_path(0, 1)
         assert path == []
@@ -217,8 +227,8 @@ class TestCrossDomainNeighbors:
         bridges = find_cross_domain_neighbors(graph, "finance", "worlds", k=2)
         assert len(bridges) > 0
         for src_idx, tgt_idx, dist in bridges:
-            assert graph.nodes[src_idx].kind == "finance"
-            assert graph.nodes[tgt_idx].kind == "worlds"
+            assert graph.nodes[src_idx].source_kind == "finance"
+            assert graph.nodes[tgt_idx].source_kind == "worlds"
             assert dist >= 0.0
 
     def test_cross_domain_empty_when_no_target(self):
@@ -266,12 +276,12 @@ class TestSerialization:
 
         # Values should be close
         for orig, rest in zip(graph.nodes, restored.nodes):
-            np.testing.assert_array_almost_equal(orig.values, rest.values)
-            assert orig.kind == rest.kind
+            np.testing.assert_array_almost_equal(orig.vector, rest.vector)
+            assert orig.source_kind == rest.source_kind
 
     def test_meta_preserved(self):
-        v = StateVector(values=np.array([1.0, 2.0]), kind="test", meta={"ticker": "SPY"})
+        v = StateVector(vector=np.array([1.0, 2.0]), source_id="spy-1", source_kind="test", label="SPY test", metadata={"ticker": "SPY"})
         graph = StateGraph(nodes=[v], edges=[])
         d = to_dict(graph)
         restored = from_dict(d)
-        assert restored.nodes[0].meta == {"ticker": "SPY"}
+        assert restored.nodes[0].metadata == {"ticker": "SPY"}
