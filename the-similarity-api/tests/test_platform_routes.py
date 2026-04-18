@@ -277,7 +277,12 @@ def test_artifacts_404_on_unknown_run(client: TestClient) -> None:
 
 
 def test_artifacts_create_list_get(client: TestClient) -> None:
-    """POST + list + GET round-trip for artifact rows."""
+    """POST + list + GET round-trip for artifact rows.
+
+    The ``checksum`` key is the registry-truth field name for the
+    integrity hash. An earlier draft of the route used ``sha256``;
+    that drift has been reconciled in favour of the registry column.
+    """
     run = _sample_run_payload()
     assert client.post("/platform/runs", json=run).status_code == 201
 
@@ -287,7 +292,7 @@ def test_artifacts_create_list_get(client: TestClient) -> None:
         "path": "scorecard.json",
         "content_type": "application/json",
         "size_bytes": 1234,
-        "sha256": "deadbeef" * 8,
+        "checksum": "deadbeef" * 8,
         "created_at": "2026-04-15T10:00:00+00:00",
     }
     resp = client.post(

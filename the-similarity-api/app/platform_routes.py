@@ -72,6 +72,13 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.settings import resolve_registry_db
 from the_similarity.platform.artifacts import RunArtifact, RunKind
+from the_similarity.platform.contracts import (
+    ArtifactRecord,
+    DatasetSpec,
+    ScenarioSpec,
+    ScorecardKind,
+    ScorecardSummary,
+)
 from the_similarity.platform.registry import RunRegistry
 
 
@@ -235,11 +242,21 @@ class RunCreateResponse(BaseModel):
 class ArtifactRecordModel(BaseModel):
     """Metadata row for a single logical artifact inside a run.
 
-    Mirrors Agent 1's ``ArtifactRecord`` dataclass. Distinct from the
-    ``artifact_paths`` dict on :class:`RunRecordModel`: each row here
-    describes ONE named artifact in detail (size, content type, checksum),
-    whereas ``artifact_paths`` is a compact name->path lookup for the
-    UI. Runs with many artifacts emit N :class:`ArtifactRecordModel` rows.
+    Mirrors :class:`the_similarity.platform.contracts.ArtifactRecord`
+    field-for-field so the API's wire contract is registry-truth. Each
+    row describes ONE named artifact in detail (size, content type,
+    checksum), whereas ``RunRecordModel.artifact_paths`` is a compact
+    name->path lookup for the UI. Runs with many artifacts emit N
+    :class:`ArtifactRecordModel` rows.
+
+    Field-name lock-in
+    ------------------
+    The integrity-hash field is named ``checksum`` (SHA-256 hex)
+    because that is the column name on the registry's ``artifacts``
+    table. An earlier drafting of this model used ``sha256``; that was
+    schema drift and is now resolved. Any TS consumer that still sends
+    ``sha256`` will get a Pydantic validation error — the rename is
+    deliberate so callers converge on the registry-truth field name.
     """
 
     run_id: str = Field(..., description="Parent run_id.")
@@ -251,8 +268,12 @@ class ArtifactRecordModel(BaseModel):
     size_bytes: Optional[int] = Field(
         None, ge=0, description="File size in bytes, if measurable."
     )
-    sha256: Optional[str] = Field(
-        None, description="Optional SHA-256 hex digest for integrity checks."
+    checksum: Optional[str] = Field(
+        None,
+        description=(
+            "Optional SHA-256 hex digest for integrity checks. "
+            "Matches the registry ``artifacts.checksum`` column name."
+        ),
     )
     created_at: str = Field(..., description="ISO-8601 UTC creation timestamp.")
 
@@ -365,64 +386,26 @@ class HealthzResponse(BaseModel):
 # opening a second connection per request.
 # ---------------------------------------------------------------------------
 
-_EXT_SCHEMA_SQL = [
-    """
-    CREATE TABLE IF NOT EXISTS artifacts (
-        run_id       TEXT NOT NULL,
-        name         TEXT NOT NULL,
-        path         TEXT NOT NULL,
-        content_type TEXT,
-        size_bytes   INTEGER,
-        sha256       TEXT,
-        created_at   TEXT NOT NULL,
-        PRIMARY KEY (run_id, name)
-    );
-    """,
-    """
-    CREATE TABLE IF NOT EXISTS scorecards (
-        run_id        TEXT NOT NULL,
-        name          TEXT NOT NULL,
-        passed        INTEGER,
-        overall_score REAL,
-        metrics_json  TEXT NOT NULL,
-        created_at    TEXT NOT NULL,
-        PRIMARY KEY (run_id, name)
-    );
-    """,
-    """
-    CREATE TABLE IF NOT EXISTS scenarios (
-        scenario_id     TEXT PRIMARY KEY,
-        name            TEXT NOT NULL,
-        description     TEXT,
-        pillar          TEXT,
-        parameters_json TEXT NOT NULL,
-        created_at      TEXT NOT NULL
-    );
-    """,
-    """
-    CREATE TABLE IF NOT EXISTS datasets (
-        dataset_id  TEXT PRIMARY KEY,
-        name        TEXT NOT NULL,
-        description TEXT,
-        path        TEXT,
-        schema_json TEXT NOT NULL,
-        version     TEXT,
-        created_at  TEXT NOT NULL
-    );
-    """,
-]
+def _ensure_ext_schema(conn: sqlite3.Connection) -> None:  # pragma: no cover
+    """Deprecated no-op retained for API backward compatibility.
 
+    The registry-truth schema (``artifacts``, ``scorecards``,
+    ``scenarios``, ``datasets``) is created by
+    :class:`RunRegistry._init_schema` on first connect. Earlier
+    revisions of this router maintained *companion* tables with drifted
+    column names (``sha256``, ``metrics_json``, ``parameters_json``,
+    ``schema_json``) here; that drift caused silent schema conflicts
+    against the registry's DDL. We now delegate every CRUD call to the
+    registry's ``register_*``/``list_*`` methods, so no companion
+    tables exist and no DDL needs to fire on request setup.
 
-def _ensure_ext_schema(conn: sqlite3.Connection) -> None:
-    """Create the companion tables if missing. Idempotent.
-
-    Invoked on every dependency call because the registry opens a fresh
-    connection per request. The ``CREATE TABLE IF NOT EXISTS`` pattern
-    means this is a no-op after the first call per-DB-file.
+    The function is kept as a no-op so the test fixture in
+    ``the-similarity-api/tests/test_platform_routes.py`` (which
+    imports and calls it) does not break while we migrate.
     """
-    with conn:
-        for ddl in _EXT_SCHEMA_SQL:
-            conn.execute(ddl)
+    # Intentionally empty — see docstring. Signature preserved for
+    # downstream importers.
+    del conn
 
 
 # ---------------------------------------------------------------------------
@@ -610,24 +593,27 @@ def list_artifacts(
     Returns an empty list (not 404) when the run exists but has no
     artifact rows — empty is a valid state for a freshly registered run.
     The 404 branch fires only when the parent run itself is missing.
+
+    Implementation note
+    -------------------
+    Delegates to :meth:`RunRegistry.list_artifacts` so the route reads
+    through the same code path the registry persists. The dataclass
+    returned carries the registry-truth ``checksum`` column; we map it
+    directly onto :attr:`ArtifactRecordModel.checksum` with no renaming.
     """
     _require_run(registry, run_id)
-    rows = registry._conn.execute(  # noqa: SLF001 — intentional reach-in
-        "SELECT run_id, name, path, content_type, size_bytes, sha256, created_at "
-        "FROM artifacts WHERE run_id = ? ORDER BY name",
-        (run_id,),
-    ).fetchall()
+    records = registry.list_artifacts(run_id)
     return [
         ArtifactRecordModel(
-            run_id=r[0],
-            name=r[1],
-            path=r[2],
-            content_type=r[3],
-            size_bytes=r[4],
-            sha256=r[5],
-            created_at=r[6],
+            run_id=a.run_id,
+            name=a.name,
+            path=a.path,
+            content_type=a.content_type,
+            size_bytes=a.size_bytes,
+            checksum=a.checksum,
+            created_at=a.created_at,
         )
-        for r in rows
+        for a in records
     ]
 
 
@@ -652,6 +638,14 @@ def create_artifact(
        422 via FastAPI validation below (check runs before insert).
     2. The parent run must exist.
     3. ``(run_id, name)`` is the composite PK — duplicate insert is 409.
+
+    Implementation note
+    -------------------
+    :meth:`RunRegistry.register_artifact` is an *upsert* by design (the
+    registry sees partial-then-enriched registrations as a normal path).
+    The route, however, treats POST as creation — so we pre-flight via
+    :meth:`RunRegistry.list_artifacts` to surface duplicates as 409
+    before the upsert silently replaces the existing row.
     """
     if body.run_id != run_id:
         raise HTTPException(
@@ -659,27 +653,31 @@ def create_artifact(
             detail=f"body.run_id={body.run_id!r} does not match URL run_id={run_id!r}",
         )
     _require_run(registry, run_id)
-    try:
-        with registry._conn:  # noqa: SLF001 — intentional reach-in
-            registry._conn.execute(  # noqa: SLF001
-                "INSERT INTO artifacts "
-                "(run_id, name, path, content_type, size_bytes, sha256, created_at) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?)",
-                (
-                    body.run_id,
-                    body.name,
-                    body.path,
-                    body.content_type,
-                    body.size_bytes,
-                    body.sha256,
-                    body.created_at,
-                ),
-            )
-    except sqlite3.IntegrityError as exc:
+    # Pre-flight duplicate check — the registry upserts on (run_id, name)
+    # so we must detect an existing row ourselves to honour the router's
+    # POST = creation contract.
+    existing_names = {a.name for a in registry.list_artifacts(run_id)}
+    if body.name in existing_names:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"artifact already exists: run_id={run_id}, name={body.name}",
-        ) from exc
+        )
+    # ``ArtifactRecord.content_type`` is typed as ``str`` in the contract
+    # but the underlying SQLite column is nullable; runners that omit it
+    # pass ``None``. We forward the value unchanged — Python's dataclass
+    # runtime does not enforce annotations, and the registry row handles
+    # ``NULL`` correctly on round-trip.
+    registry.register_artifact(
+        ArtifactRecord(
+            run_id=body.run_id,
+            name=body.name,
+            path=body.path,
+            content_type=body.content_type,  # type: ignore[arg-type]
+            size_bytes=body.size_bytes,
+            checksum=body.checksum,
+            created_at=body.created_at,
+        )
+    )
     return body
 
 
@@ -699,26 +697,30 @@ def get_artifact(
     ``the_similarity/platform/api/routes.py::get_run_artifact`` covers
     that path. Here we return only the registry row for UI consumers
     (sidebar listings, hash verification workflows).
+
+    Implementation note
+    -------------------
+    The registry exposes only a ``list_artifacts(run_id)`` bulk accessor
+    (no per-name getter); we filter the list in Python. The list is
+    tiny in practice (one run emits a handful of named artifacts) so an
+    O(n) scan is cheaper than adding a second SELECT-by-name to the
+    registry surface.
     """
     _require_run(registry, run_id)
-    row = registry._conn.execute(  # noqa: SLF001
-        "SELECT run_id, name, path, content_type, size_bytes, sha256, created_at "
-        "FROM artifacts WHERE run_id = ? AND name = ?",
-        (run_id, name),
-    ).fetchone()
-    if row is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"artifact not found: run_id={run_id}, name={name}",
-        )
-    return ArtifactRecordModel(
-        run_id=row[0],
-        name=row[1],
-        path=row[2],
-        content_type=row[3],
-        size_bytes=row[4],
-        sha256=row[5],
-        created_at=row[6],
+    for artifact in registry.list_artifacts(run_id):
+        if artifact.name == name:
+            return ArtifactRecordModel(
+                run_id=artifact.run_id,
+                name=artifact.name,
+                path=artifact.path,
+                content_type=artifact.content_type,
+                size_bytes=artifact.size_bytes,
+                checksum=artifact.checksum,
+                created_at=artifact.created_at,
+            )
+    raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail=f"artifact not found: run_id={run_id}, name={name}",
     )
 
 
