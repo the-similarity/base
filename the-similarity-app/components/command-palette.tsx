@@ -4,9 +4,12 @@
  * Command palette (Cmd+K / slash) — quick navigation between surfaces
  * and toggling theme/tweaks. Filters items as you type, supports
  * arrow-key navigation and Enter to select.
+ *
+ * Uses a key-based remount pattern to reset state on open, avoiding
+ * setState-in-effect and ref-during-render lint issues.
  */
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 
 interface CommandPaletteProps {
   open: boolean;
@@ -25,16 +28,18 @@ const items = [
   { k: "Toggle Tweaks", v: "tweaks", hint: "Shift T" },
 ];
 
+/** Wrapper that controls mounting via open prop */
 export function CommandPalette({ open, onClose, onNav }: CommandPaletteProps) {
+  if (!open) return null;
+  return <CommandPaletteInner onClose={onClose} onNav={onNav} />;
+}
+
+/** Inner component — always starts fresh (no stale state from prev open) */
+function CommandPaletteInner({ onClose, onNav }: Omit<CommandPaletteProps, "open">) {
   const [q, setQ] = useState("");
   const [idx, setIdx] = useState(0);
 
   const filtered = items.filter(i => i.k.toLowerCase().includes(q.toLowerCase()));
-
-  // Reset state when opening
-  useEffect(() => { if (open) { setQ(""); setIdx(0); } }, [open]);
-
-  if (!open) return null;
 
   const choose = (v: string) => { onNav(v); onClose(); };
 

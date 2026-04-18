@@ -12,7 +12,7 @@
  * The chart uses a ResizeObserver to adapt to container width changes.
  */
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import { DataPoint, ConePoint, fmtDate, fmtDateShort } from "../../lib/data";
 
 /** Analog overlay data shape — price window + after path + pinned state */
@@ -70,6 +70,14 @@ export function LineChart({
   const ref = useRef<HTMLDivElement>(null);
   const [w, setW] = useState(800);
 
+  // Drag state ref — must be declared before any early return
+  const dragRef = useRef<{
+    mode: "move" | "left" | "right";
+    startX: number;
+    origStart: number;
+    origLen: number;
+  } | null>(null);
+
   // Track container width for responsive SVG viewBox
   useEffect(() => {
     if (!ref.current) return;
@@ -82,11 +90,41 @@ export function LineChart({
   const plotW = Math.max(100, w - padL - padR);
   const plotH = height - padT - padB;
 
-  // Visible slice of the series
+  // ── Drag interaction (effect must be above early return) ───────────
+  useEffect(() => {
+    const mm = (e: MouseEvent) => {
+      if (!dragRef.current) return;
+      const dx = e.clientX - dragRef.current.startX;
+      const dIdx = Math.round((dx / plotW) * (viewEnd - viewStart));
+      if (dragRef.current.mode === "move") {
+        const ns = Math.max(viewStart + 1, Math.min(viewEnd - win.len - forecastHorizon - 5,
+          dragRef.current.origStart + dIdx));
+        onWindowChange({ start: ns, len: win.len });
+      } else if (dragRef.current.mode === "left") {
+        const ne = dragRef.current.origStart + dragRef.current.origLen;
+        const ns = Math.max(viewStart + 1, Math.min(ne - 20, dragRef.current.origStart + dIdx));
+        onWindowChange({ start: ns, len: ne - ns });
+      } else if (dragRef.current.mode === "right") {
+        const ns = dragRef.current.origStart;
+        const newLen = Math.max(20, Math.min(viewEnd - ns - forecastHorizon - 5,
+          dragRef.current.origLen + dIdx));
+        onWindowChange({ start: ns, len: newLen });
+      }
+    };
+    const mu = () => { dragRef.current = null; };
+    globalThis.addEventListener("mousemove", mm);
+    globalThis.addEventListener("mouseup", mu);
+    return () => {
+      globalThis.removeEventListener("mousemove", mm);
+      globalThis.removeEventListener("mouseup", mu);
+    };
+  }, [win, viewStart, viewEnd, plotW, forecastHorizon, onWindowChange]);
+
+  // ── Early return for empty visible slice ───────────────────────────
   const vis = series.slice(viewStart, viewEnd);
   if (!vis.length) return <div ref={ref} />;
 
-  // Compute price range (min/max) including cone and analog overlays
+  // ── Compute price range ───────────────────────────────────────────
   let minP = Infinity, maxP = -Infinity;
   vis.forEach(d => { if (d.p < minP) minP = d.p; if (d.p > maxP) maxP = d.p; });
 
@@ -143,47 +181,10 @@ export function LineChart({
   const winX2 = xOf(win.start + win.len - 1);
   const winW = Math.max(2, winX2 - winX1);
 
-  // ── Drag interaction ──────────────────────────────────────────────
-  const dragRef = useRef<{
-    mode: "move" | "left" | "right";
-    startX: number;
-    origStart: number;
-    origLen: number;
-  } | null>(null);
-
   const onMouseDown = (e: React.MouseEvent, mode: "move" | "left" | "right") => {
     dragRef.current = { mode, startX: e.clientX, origStart: win.start, origLen: win.len };
     e.preventDefault();
   };
-
-  useEffect(() => {
-    const mm = (e: MouseEvent) => {
-      if (!dragRef.current) return;
-      const dx = e.clientX - dragRef.current.startX;
-      const dIdx = Math.round((dx / plotW) * (viewEnd - viewStart));
-      if (dragRef.current.mode === "move") {
-        const ns = Math.max(viewStart + 1, Math.min(viewEnd - win.len - forecastHorizon - 5,
-          dragRef.current.origStart + dIdx));
-        onWindowChange({ start: ns, len: win.len });
-      } else if (dragRef.current.mode === "left") {
-        const ne = dragRef.current.origStart + dragRef.current.origLen;
-        const ns = Math.max(viewStart + 1, Math.min(ne - 20, dragRef.current.origStart + dIdx));
-        onWindowChange({ start: ns, len: ne - ns });
-      } else if (dragRef.current.mode === "right") {
-        const ns = dragRef.current.origStart;
-        const newLen = Math.max(20, Math.min(viewEnd - ns - forecastHorizon - 5,
-          dragRef.current.origLen + dIdx));
-        onWindowChange({ start: ns, len: newLen });
-      }
-    };
-    const mu = () => { dragRef.current = null; };
-    globalThis.addEventListener("mousemove", mm);
-    globalThis.addEventListener("mouseup", mu);
-    return () => {
-      globalThis.removeEventListener("mousemove", mm);
-      globalThis.removeEventListener("mouseup", mu);
-    };
-  }, [win, viewStart, viewEnd, plotW, forecastHorizon, onWindowChange]);
 
   // Crosshair hover
   const onMove = (e: React.MouseEvent) => {
