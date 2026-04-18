@@ -244,7 +244,11 @@ export default function Dashboard() {
         .prudent-root.prudent-dark {
           /* Warm near-black dark theme. The panel bg has a hint of
              warmth (#17191C) rather than pure neutral to avoid the cold
-             "inverted screenshot" look of naive dark modes. */
+             "inverted screenshot" look of naive dark modes. Card borders
+             are a tick lighter than card bg so edges stay visible.
+
+             Selection overrides to a soft blue wash (not solid accent) so
+             dense numeric tables don't flash blinding when selected. */
           --app-bg: #0E0F11;
           --sidebar: #131518;
           --panel: #17191C;
@@ -257,10 +261,16 @@ export default function Dashboard() {
           --ink: #F5F6F8;
           --accent-soft: #1E3A8A;
           --accent-mid: #60A5FA;
+          --accent-ink: #93C5FD;
           --warm-soft: #7C2D12;
           --rail: #0A0B0D;
           --rail-ink: #6B7280;
           --rail-active: #1F2328;
+          --green: #22C55E;
+        }
+        .prudent-root.prudent-dark ::selection {
+          background: var(--accent-soft);
+          color: var(--ink);
         }
         .prudent-root *, .prudent-root *::before, .prudent-root *::after {
           box-sizing: border-box;
@@ -1974,6 +1984,11 @@ function RhymeHeatmap({
   // outline) so the grid still reads as a continuous canvas instead of a
   // ghostly outline on white. Higher steps ramp through tailwind blue-50 →
   // blue-500 so the darkest cells are legible on a white panel.
+  //
+  // We use rgba(59,130,246,α) rather than `var(--accent) / α` because Safari
+  // color-mix() support on older targets is inconsistent. In dark mode the
+  // alpha values paint correctly over the dark panel — the blue hue stays
+  // recognisable because its saturation is high.
   const STEP_BG = [
     "rgba(59,130,246,0.06)",   // 0 — ghost
     "rgba(59,130,246,0.16)",   // 1 — faint
