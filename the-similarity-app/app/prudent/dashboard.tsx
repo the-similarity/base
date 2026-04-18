@@ -814,20 +814,51 @@ function TopBar() {
         alignItems: "center",
         justifyContent: "space-between",
         fontSize: 13,
+        paddingBottom: 2,
       }}
     >
-      <div style={{ display: "flex", alignItems: "center", gap: 8, color: "var(--muted)" }}>
-        <button style={{ color: "var(--faint)" }}>←</button>
-        <button style={{ color: "var(--faint)" }}>→</button>
-        <span style={{ marginLeft: 4 }}>Thread</span>
-        <span style={{ color: "var(--faint)" }}>/</span>
+      <div style={{ display: "flex", alignItems: "center", gap: 6, color: "var(--muted)" }}>
+        <button
+          style={{ color: "var(--faint)", padding: "4px 6px", borderRadius: 5 }}
+          aria-label="Back"
+        >
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <path d="M10 3.5L5.5 8l4.5 4.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
+        <button
+          style={{ color: "var(--faint)", padding: "4px 6px", borderRadius: 5 }}
+          aria-label="Forward"
+        >
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <path d="M6 3.5L10.5 8 6 12.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
+        {/* Breadcrumb: "Analytics" chip › current page chip. Matching the
+            reference where the current page chip has an icon + bold label. */}
+        <span
+          style={{
+            marginLeft: 4,
+            padding: "4px 10px",
+            borderRadius: 6,
+            background: "var(--hover)",
+            color: "var(--muted)",
+            fontWeight: 500,
+          }}
+        >
+          Analytics
+        </span>
+        <span style={{ color: "var(--faint)", fontSize: 14, lineHeight: 1 }}>›</span>
         <span
           style={{
             color: "var(--ink)",
             fontWeight: 500,
             display: "inline-flex",
             alignItems: "center",
-            gap: 6,
+            gap: 7,
+            padding: "4px 10px 4px 8px",
+            borderRadius: 6,
+            background: "var(--hover)",
           }}
         >
           <span
@@ -842,21 +873,31 @@ function TopBar() {
           Today · Wed Apr 17
         </span>
       </div>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, color: "var(--muted)" }}>
-        <button style={{ padding: "6px 8px" }} title="Search">
+      <div style={{ display: "flex", alignItems: "center", gap: 4, color: "var(--muted)" }}>
+        <button
+          style={{
+            padding: "6px 8px",
+            borderRadius: 6,
+          }}
+          title="Search"
+        >
           <SvgIcon path="M7 3a4 4 0 014 4 4 4 0 01-4 4 4 4 0 01-4-4 4 4 0 014-4zm3 7l3 3" />
         </button>
-        <button style={{ padding: "6px 8px", position: "relative" }} title="Notifications">
+        <button
+          style={{ padding: "6px 8px", position: "relative", borderRadius: 6 }}
+          title="Notifications"
+        >
           <SvgIcon path="M3.5 11h9l-1-2V6a3.5 3.5 0 00-7 0v3l-1 2zM6 12a2 2 0 004 0" />
           <span
             style={{
               position: "absolute",
-              top: 4,
+              top: 3,
               right: 4,
-              width: 6,
-              height: 6,
+              width: 7,
+              height: 7,
               background: "var(--warm)",
               borderRadius: "50%",
+              border: "1.5px solid var(--panel)",
             }}
           />
         </button>
@@ -865,8 +906,9 @@ function TopBar() {
             width: 28,
             height: 28,
             borderRadius: "50%",
-            background: "linear-gradient(135deg, #d0732b, #4c63d9)",
+            background: "linear-gradient(135deg, #F97316 0%, #3B82F6 100%)",
             border: "1px solid var(--line-mid)",
+            marginLeft: 4,
           }}
         />
       </div>
@@ -902,27 +944,46 @@ function PageHeader({ events }: { events: Event[] }) {
           display: "flex",
           alignItems: "flex-end",
           justifyContent: "space-between",
-          marginBottom: 12,
+          marginBottom: 16,
+          gap: 12,
         }}
       >
-        <div>
+        <div style={{ minWidth: 0 }}>
           <h1
             style={{
-              fontSize: 22,
+              fontSize: 30,
               fontWeight: 600,
-              letterSpacing: "-0.01em",
+              letterSpacing: "-0.02em",
               color: "var(--ink)",
               margin: 0,
+              lineHeight: 1.1,
             }}
           >
             Today
           </h1>
-          <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2 }}>
-            Narrative parsed at 9:47 am · {events.length} events · baseline valence 50
+          <div
+            style={{
+              fontSize: 13,
+              color: "var(--muted)",
+              marginTop: 6,
+              fontWeight: 400,
+            }}
+          >
+            Narrative parsed at 9:47 am ·{" "}
+            <span className="tnum" style={{ color: "var(--ink)", fontWeight: 500 }}>
+              {events.length}
+            </span>{" "}
+            events · baseline valence{" "}
+            <span className="tnum" style={{ color: "var(--ink)", fontWeight: 500 }}>
+              50
+            </span>
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <Chip label="Default" caret />
+          {/* Primary CTA — orange #F97316 per reference. Hover darkens to the
+              strong variant; keep the plus sign as a crisp glyph rather than
+              an emoji to avoid platform-specific rendering. */}
           <button
             style={{
               display: "flex",
@@ -930,13 +991,17 @@ function PageHeader({ events }: { events: Event[] }) {
               gap: 6,
               background: "var(--warm)",
               color: "#fff",
-              padding: "8px 12px",
-              borderRadius: 7,
+              padding: "9px 14px",
+              borderRadius: 8,
               fontSize: 13,
               fontWeight: 500,
+              boxShadow: "0 1px 2px rgba(234,88,12,0.20), inset 0 -1px 0 rgba(0,0,0,0.08)",
             }}
           >
-            <span style={{ fontSize: 14, lineHeight: 1 }}>＋</span> Add view
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M6 2v8M2 6h8" strokeLinecap="round" />
+            </svg>
+            Add view
           </button>
         </div>
       </div>
@@ -953,6 +1018,9 @@ function PageHeader({ events }: { events: Event[] }) {
   );
 }
 
+// A small filter/control chip. Size, radius and weight are intentionally
+// smaller than the primary CTA so the chips recede visually while still being
+// interactive. 7px radius matches the reference's softer chip corners.
 function Chip({ label, caret, active }: { label: string; caret?: boolean; active?: boolean }) {
   return (
     <button
@@ -960,17 +1028,22 @@ function Chip({ label, caret, active }: { label: string; caret?: boolean; active
         display: "inline-flex",
         alignItems: "center",
         gap: 6,
-        padding: "6px 10px",
+        padding: "6px 11px",
         fontSize: 12,
-        background: "var(--panel)",
+        background: active ? "var(--hover)" : "var(--panel)",
         border: "1px solid var(--line-mid)",
         borderRadius: 7,
         color: active ? "var(--ink)" : "var(--muted)",
         fontWeight: 500,
+        lineHeight: 1.2,
       }}
     >
       {label}
-      {caret && <span style={{ fontSize: 9, opacity: 0.7 }}>▾</span>}
+      {caret && (
+        <svg width="9" height="9" viewBox="0 0 9 9" fill="none" stroke="currentColor" strokeWidth="1.3" style={{ opacity: 0.7 }}>
+          <path d="M2 3.5L4.5 6 7 3.5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      )}
     </button>
   );
 }
@@ -982,7 +1055,7 @@ function DateChip({ from, to }: { from: string; to: string }) {
         display: "inline-flex",
         alignItems: "center",
         gap: 8,
-        padding: "6px 10px",
+        padding: "6px 11px",
         fontSize: 12,
         background: "var(--panel)",
         border: "1px solid var(--line-mid)",
@@ -998,7 +1071,9 @@ function DateChip({ from, to }: { from: string; to: string }) {
       <span>{from}</span>
       <span style={{ color: "var(--faint)" }}>→</span>
       <span>{to}</span>
-      <span style={{ fontSize: 9, opacity: 0.5, marginLeft: 2 }}>▾</span>
+      <svg width="9" height="9" viewBox="0 0 9 9" fill="none" stroke="currentColor" strokeWidth="1.3" style={{ opacity: 0.55, marginLeft: 2 }}>
+        <path d="M2 3.5L4.5 6 7 3.5" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
     </div>
   );
 }
