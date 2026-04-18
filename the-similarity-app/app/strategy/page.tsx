@@ -27,15 +27,15 @@ interface StrategyTemplate {
 }
 
 const METHODS = [
-  "DTW",
-  "Pearson",
-  "SAX",
-  "Matrix Profile",
-  "Bempedelis",
-  "Koopman",
-  "Wavelet",
-  "EMD",
-  "TDA",
+  "Shape",
+  "Dynamics",
+  "Prefilter",
+  "Profile",
+  "Scaling",
+  "Engine",
+  "Rhythm",
+  "Decomposition",
+  "Topology",
 ] as const;
 
 const templates: StrategyTemplate[] = [
@@ -47,8 +47,8 @@ const templates: StrategyTemplate[] = [
     params: ["High confidence", "Trend-following", "Wide stops"],
     defaults: { minConfidence: 72, forecastThreshold: 0.035, maxSignals: 5 },
     weights: {
-      DTW: 0.9, Pearson: 0.7, SAX: 0.5, "Matrix Profile": 0.8,
-      Bempedelis: 0.6, Koopman: 0.9, Wavelet: 0.4, EMD: 0.5, TDA: 0.3,
+      Shape: 0.9, Dynamics: 0.7, Prefilter: 0.5, Profile: 0.8,
+      Scaling: 0.6, Engine: 0.9, Rhythm: 0.4, Decomposition: 0.5, Topology: 0.3,
     },
   },
   {
@@ -59,8 +59,8 @@ const templates: StrategyTemplate[] = [
     params: ["Tight stops", "Counter-trend", "High frequency"],
     defaults: { minConfidence: 65, forecastThreshold: 0.020, maxSignals: 8 },
     weights: {
-      DTW: 0.6, Pearson: 0.9, SAX: 0.7, "Matrix Profile": 0.5,
-      Bempedelis: 0.8, Koopman: 0.4, Wavelet: 0.9, EMD: 0.8, TDA: 0.7,
+      Shape: 0.6, Dynamics: 0.9, Prefilter: 0.7, Profile: 0.5,
+      Scaling: 0.8, Engine: 0.4, Rhythm: 0.9, Decomposition: 0.8, Topology: 0.7,
     },
   },
   {
@@ -71,8 +71,8 @@ const templates: StrategyTemplate[] = [
     params: ["Low frequency", "Large targets", "Regime-aware"],
     defaults: { minConfidence: 80, forecastThreshold: 0.050, maxSignals: 3 },
     weights: {
-      DTW: 0.7, Pearson: 0.5, SAX: 0.9, "Matrix Profile": 0.9,
-      Bempedelis: 0.7, Koopman: 0.8, Wavelet: 0.6, EMD: 0.4, TDA: 0.9,
+      Shape: 0.7, Dynamics: 0.5, Prefilter: 0.9, Profile: 0.9,
+      Scaling: 0.7, Engine: 0.8, Rhythm: 0.6, Decomposition: 0.4, Topology: 0.9,
     },
   },
 ];
@@ -86,27 +86,27 @@ function generateMockSignals(
 ): Signal[] {
   const base: { [key: string]: Signal[] } = {
     momentum: [
-      { type: "LONG", confidence: 89, entry: 4521.30, stopLoss: 4485.10, takeProfit: 4612.50, reason: "Strong uptrend continuation — DTW match 0.94 with Nov 2023 rally", window: "60d" },
-      { type: "LONG", confidence: 82, entry: 4498.75, stopLoss: 4462.00, takeProfit: 4576.20, reason: "Koopman eigenvalue > 0.98, forward evolution bullish", window: "45d" },
-      { type: "SHORT", confidence: 76, entry: 4550.00, stopLoss: 4582.30, takeProfit: 4478.60, reason: "Momentum exhaustion detected — wavelet decomposition divergence", window: "30d" },
-      { type: "LONG", confidence: 74, entry: 4510.20, stopLoss: 4478.90, takeProfit: 4589.40, reason: "Matrix profile motif match — pre-breakout pattern from Q2 2024", window: "90d" },
-      { type: "LONG", confidence: 71, entry: 4535.60, stopLoss: 4506.10, takeProfit: 4604.80, reason: "SAX word frequency spike — bullish regime transition", window: "60d" },
-      { type: "SHORT", confidence: 68, entry: 4568.40, stopLoss: 4598.20, takeProfit: 4502.70, reason: "TDA persistence diagram anomaly at resistance", window: "45d" },
+      { type: "LONG", confidence: 89, entry: 4521.30, stopLoss: 4485.10, takeProfit: 4612.50, reason: "Strong uptrend continuation — Shape match 0.94 with Nov 2023 rally", window: "60d" },
+      { type: "LONG", confidence: 82, entry: 4498.75, stopLoss: 4462.00, takeProfit: 4576.20, reason: "Engine eigenvalue > 0.98, forward evolution bullish", window: "45d" },
+      { type: "SHORT", confidence: 76, entry: 4550.00, stopLoss: 4582.30, takeProfit: 4478.60, reason: "Momentum exhaustion detected — Rhythm decomposition divergence", window: "30d" },
+      { type: "LONG", confidence: 74, entry: 4510.20, stopLoss: 4478.90, takeProfit: 4589.40, reason: "Profile motif match — pre-breakout pattern from Q2 2024", window: "90d" },
+      { type: "LONG", confidence: 71, entry: 4535.60, stopLoss: 4506.10, takeProfit: 4604.80, reason: "Prefilter frequency spike — bullish regime transition", window: "60d" },
+      { type: "SHORT", confidence: 68, entry: 4568.40, stopLoss: 4598.20, takeProfit: 4502.70, reason: "Topology persistence diagram anomaly at resistance", window: "45d" },
     ],
     "mean-reversion": [
-      { type: "SHORT", confidence: 84, entry: 4580.20, stopLoss: 4602.10, takeProfit: 4538.90, reason: "2.3 std deviation above 20d mean — Pearson snapback pattern", window: "15d" },
-      { type: "LONG", confidence: 81, entry: 4412.50, stopLoss: 4392.80, takeProfit: 4458.30, reason: "EMD intrinsic mode suggests oversold bottom", window: "20d" },
-      { type: "SHORT", confidence: 78, entry: 4572.60, stopLoss: 4591.40, takeProfit: 4541.20, reason: "Wavelet leader exponent declining — mean reversion imminent", window: "10d" },
-      { type: "LONG", confidence: 75, entry: 4435.80, stopLoss: 4418.50, takeProfit: 4472.10, reason: "Bempedelis distance metric at extremum", window: "25d" },
-      { type: "SHORT", confidence: 72, entry: 4561.30, stopLoss: 4578.90, takeProfit: 4532.70, reason: "Transfer entropy reversal from VIX to SPX", window: "15d" },
-      { type: "LONG", confidence: 69, entry: 4445.20, stopLoss: 4428.60, takeProfit: 4479.80, reason: "Pearson correlation flip — historical mean convergence", window: "20d" },
-      { type: "SHORT", confidence: 66, entry: 4555.40, stopLoss: 4572.00, takeProfit: 4528.60, reason: "SAX symbolic distance at 95th percentile", window: "10d" },
-      { type: "LONG", confidence: 63, entry: 4450.90, stopLoss: 4435.20, takeProfit: 4482.10, reason: "TDA Wasserstein distance contraction", window: "30d" },
+      { type: "SHORT", confidence: 84, entry: 4580.20, stopLoss: 4602.10, takeProfit: 4538.90, reason: "2.3 std deviation above 20d mean — Dynamics snapback pattern", window: "15d" },
+      { type: "LONG", confidence: 81, entry: 4412.50, stopLoss: 4392.80, takeProfit: 4458.30, reason: "Decomposition intrinsic mode suggests oversold bottom", window: "20d" },
+      { type: "SHORT", confidence: 78, entry: 4572.60, stopLoss: 4591.40, takeProfit: 4541.20, reason: "Rhythm leader exponent declining — mean reversion imminent", window: "10d" },
+      { type: "LONG", confidence: 75, entry: 4435.80, stopLoss: 4418.50, takeProfit: 4472.10, reason: "Scaling distance metric at extremum", window: "25d" },
+      { type: "SHORT", confidence: 72, entry: 4561.30, stopLoss: 4578.90, takeProfit: 4532.70, reason: "Carry reversal from VIX to SPX", window: "15d" },
+      { type: "LONG", confidence: 69, entry: 4445.20, stopLoss: 4428.60, takeProfit: 4479.80, reason: "Dynamics correlation flip — historical mean convergence", window: "20d" },
+      { type: "SHORT", confidence: 66, entry: 4555.40, stopLoss: 4572.00, takeProfit: 4528.60, reason: "Prefilter symbolic distance at 95th percentile", window: "10d" },
+      { type: "LONG", confidence: 63, entry: 4450.90, stopLoss: 4435.20, takeProfit: 4482.10, reason: "Topology distance contraction", window: "30d" },
     ],
     breakout: [
-      { type: "LONG", confidence: 92, entry: 4560.00, stopLoss: 4518.50, takeProfit: 4685.20, reason: "Range compression (Bollinger BW 0.02) + SAX rare-word breakout", window: "120d" },
-      { type: "LONG", confidence: 86, entry: 4545.30, stopLoss: 4498.70, takeProfit: 4648.90, reason: "Matrix profile discord — regime shift detected", window: "90d" },
-      { type: "SHORT", confidence: 83, entry: 4590.50, stopLoss: 4638.20, takeProfit: 4492.30, reason: "TDA birth-death pair at critical level — breakdown pattern", window: "60d" },
+      { type: "LONG", confidence: 92, entry: 4560.00, stopLoss: 4518.50, takeProfit: 4685.20, reason: "Range compression (Bollinger BW 0.02) + Prefilter rare-word breakout", window: "120d" },
+      { type: "LONG", confidence: 86, entry: 4545.30, stopLoss: 4498.70, takeProfit: 4648.90, reason: "Profile discord — regime shift detected", window: "90d" },
+      { type: "SHORT", confidence: 83, entry: 4590.50, stopLoss: 4638.20, takeProfit: 4492.30, reason: "Topology birth-death pair at critical level — breakdown pattern", window: "60d" },
     ],
   };
 

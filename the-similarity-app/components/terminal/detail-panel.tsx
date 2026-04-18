@@ -12,15 +12,15 @@ const METHOD_COLORS_CAMEL: Record<string, string> =
   );
 
 const METHOD_DESCRIPTIONS: Record<string, string> = {
-  dtw: "Shape alignment",
-  pearsonWarped: "Correlation post-warp",
-  bempedelisR2: "Self-similarity fit",
-  bempedelisSmoothness: "Transform smoothness",
-  koopman: "Dynamical similarity",
-  waveletSpectrum: "Fractal spectrum",
-  emd: "Multi-scale match",
-  tda: "Topological structure",
-  transferEntropy: "Predictive information",
+  dtw: "Structural alignment",
+  pearsonWarped: "Temporal co-movement",
+  bempedelisR2: "Power-law fit",
+  bempedelisSmoothness: "Scaling smoothness",
+  koopman: "Dynamical signature",
+  waveletSpectrum: "Multiscale texture",
+  emd: "Trend & residual match",
+  tda: "Geometric persistence",
+  transferEntropy: "Predictive transfer",
 };
 
 // Default weights for computing weighted contribution
