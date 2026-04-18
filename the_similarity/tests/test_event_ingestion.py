@@ -55,7 +55,7 @@ def _make_event(**overrides) -> Event:
 def _make_series(events=None, **overrides) -> EventSeries:
     """Create a minimal valid EventSeries."""
     defaults = {
-        "events": events or [_make_event()],
+        "events": events if events is not None else [_make_event()],
         "name": "test_series",
         "version": "1.0.0",
         "provenance": {"generator_name": "test"},
@@ -161,7 +161,7 @@ class TestValidation:
         """An EventSeries with no events produces a warning."""
         series = _make_series(events=[])
         warnings = validate_events(series)
-        assert any("no events" in w.lower() for w in warnings)
+        assert any("no events" in w for w in warnings)
 
     def test_missing_required_field_warns(self) -> None:
         """An event with an empty title produces a warning."""
