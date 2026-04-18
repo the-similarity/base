@@ -3,8 +3,8 @@
  *
  * Ported from the HTML prototype's data.jsx. Generates ~30 years of synthetic
  * "SPX-like" daily closes with regime changes, then provides a 9-lens scoring
- * engine (DTW, Pearson, Bempedelis, Wavelet, Koopman, EMD, TDA, Transfer-E,
- * Stability) plus analog finding and forecast cone construction.
+ * engine (9 lenses: Shape, Dynamics, Scaling, Rhythm, Engine, Decomposition,
+ * Topology, Carry, Consensus) plus analog finding and forecast cone construction.
  *
  * Uses a seeded PRNG for deterministic output — no randomness at runtime.
  */
@@ -34,17 +34,20 @@ export interface DataPoint {
   r: number;
 }
 
-/** 9-lens score bundle for a single analog match */
+/** 9-lens score bundle for a single analog match.
+ * Keys are opaque lens identifiers (lens1..lens9) to protect the engine's
+ * internal method names from being exposed in the UI or network traffic.
+ */
 export interface LensScores {
-  dtw: number;
-  pearson: number;
-  bempedelis: number;
-  wavelet: number;
-  koopman: number;
-  emd: number;
-  tda: number;
-  te: number;
-  stability: number;
+  lens1: number;  // Shape (structural alignment)
+  lens2: number;  // Dynamics (temporal co-movement)
+  lens3: number;  // Scaling (power-law structure)
+  lens4: number;  // Rhythm (multiscale texture)
+  lens5: number;  // Engine (dynamical signature)
+  lens6: number;  // Decomposition (trend & residual)
+  lens7: number;  // Topology (geometric persistence)
+  lens8: number;  // Carry (predictive transfer)
+  lens9: number;  // Consensus (cross-lens agreement)
 }
 
 /** A single analog match result */
@@ -294,22 +297,22 @@ export function scoreMatch(qp: number[], mp: number[]): { lenses: LensScores; co
   const te = Math.max(0, Math.abs(lag));
 
   const lenses: LensScores = {
-    dtw: dtwScore,
-    pearson,
-    bempedelis: clip01(bempedelis),
-    wavelet: clip01(wavelet),
-    koopman: clip01(koopman),
-    emd: clip01(emdScore),
-    tda: clip01(tda),
-    te: clip01(te * 1.4),
-    stability: 0, // computed below
+    lens1: dtwScore,        // Shape
+    lens2: pearson,         // Dynamics
+    lens3: clip01(bempedelis), // Scaling
+    lens4: clip01(wavelet),    // Rhythm
+    lens5: clip01(koopman),    // Engine
+    lens6: clip01(emdScore),   // Decomposition
+    lens7: clip01(tda),        // Topology
+    lens8: clip01(te * 1.4),   // Carry
+    lens9: 0, // Consensus — computed below
   };
 
-  // 9th lens: stability = mean - 0.35*std of the other 8
-  const arr = Object.values(lenses).slice(0, 8); // exclude stability placeholder
+  // 9th lens: consensus = mean - 0.35*std of the other 8
+  const arr = Object.values(lenses).slice(0, 8); // exclude consensus placeholder
   const mean = arr.reduce((a, b) => a + b, 0) / arr.length;
   const variance = arr.reduce((a, b) => a + (b - mean) ** 2, 0) / arr.length;
-  lenses.stability = clip01(mean - 0.35 * Math.sqrt(variance));
+  lenses.lens9 = clip01(mean - 0.35 * Math.sqrt(variance));
 
   const composite = Object.values(lenses).reduce((a, b) => a + b, 0) / 9;
   return { lenses, composite };
@@ -335,11 +338,11 @@ function analogLabel(d: Date): string {
 
 function analogNote(l: LensScores): string {
   const parts: string[] = [];
-  if (l.dtw > 0.7) parts.push("strong shape alignment");
-  if (l.pearson > 0.75) parts.push("linear co-movement");
-  if (l.koopman > 0.7) parts.push("same dynamic engine");
-  if (l.tda > 0.7) parts.push("matching topology");
-  if (l.te > 0.5) parts.push("predictive carry");
+  if (l.lens1 > 0.7) parts.push("strong shape alignment");
+  if (l.lens2 > 0.75) parts.push("temporal co-movement");
+  if (l.lens5 > 0.7) parts.push("dynamical signature match");
+  if (l.lens7 > 0.7) parts.push("geometric persistence");
+  if (l.lens8 > 0.5) parts.push("predictive carry");
   if (!parts.length) parts.push("mixed-quality match");
   return parts.slice(0, 2).join(" \u00B7 ");
 }
@@ -441,14 +444,17 @@ export function fmtPct(x: number, dig = 1): string {
 }
 
 // ── Lens definitions ────────────────────────────────────────────────────
+// Keys are opaque identifiers (lens1..lens9). Display names are vague but
+// real-sounding — they describe the *kind* of similarity measured without
+// revealing the underlying algorithm (DTW, Koopman, TDA, etc.).
 export const LENS_DEFS = [
-  { key: "dtw" as const, name: "DTW", q: "Shape, time-warped" },
-  { key: "pearson" as const, name: "Pearson", q: "Linear co-movement" },
-  { key: "bempedelis" as const, name: "Bempedelis", q: "Power-law scaling" },
-  { key: "wavelet" as const, name: "Wavelet", q: "Multifractal rhythm" },
-  { key: "koopman" as const, name: "Koopman", q: "Dynamic engine" },
-  { key: "emd" as const, name: "EMD", q: "Trend + rhythm" },
-  { key: "tda" as const, name: "TDA", q: "Topology" },
-  { key: "te" as const, name: "Transfer-E", q: "Predictive carry" },
-  { key: "stability" as const, name: "Stability", q: "Cross-lens agreement" },
+  { key: "lens1" as const, name: "Shape",         q: "Structural alignment" },
+  { key: "lens2" as const, name: "Dynamics",      q: "Temporal co-movement" },
+  { key: "lens3" as const, name: "Scaling",       q: "Power-law structure" },
+  { key: "lens4" as const, name: "Rhythm",        q: "Multiscale texture" },
+  { key: "lens5" as const, name: "Engine",        q: "Dynamical signature" },
+  { key: "lens6" as const, name: "Decomposition", q: "Trend & residual" },
+  { key: "lens7" as const, name: "Topology",      q: "Geometric persistence" },
+  { key: "lens8" as const, name: "Carry",         q: "Predictive transfer" },
+  { key: "lens9" as const, name: "Consensus",     q: "Cross-lens agreement" },
 ];

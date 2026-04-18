@@ -1,3 +1,11 @@
+/**
+ * Scoring method identifiers and display metadata.
+ *
+ * The engine uses internal method names (dtw, koopman, etc.) in its API
+ * responses. These are mapped to opaque "lens" identifiers for the UI so
+ * that the engine's method names are never visible to end users.
+ */
+
 export const METHODS = [
   "dtw", "pearson_warped", "bempedelis_r2", "bempedelis_smoothness",
   "koopman", "wavelet_spectrum", "emd", "tda", "transfer_entropy",
@@ -20,16 +28,19 @@ export const METHOD_COLORS: Record<string, string> = {
   transfer_entropy: "#b5b5b5",
 };
 
+// User-facing labels: obscured names that describe the *kind* of similarity
+// without revealing the algorithm. Used in score breakdown bars, detail panels,
+// and anywhere a method name is shown to the user.
 export const METHOD_LABELS: Record<string, string> = {
-  dtw: "DTW",
-  pearson_warped: "Pearson",
-  bempedelis_r2: "Bemp R²",
-  bempedelis_smoothness: "Bemp Smooth",
-  koopman: "Koopman",
-  wavelet_spectrum: "Wavelet",
-  emd: "EMD",
-  tda: "TDA",
-  transfer_entropy: "TE",
+  dtw: "Shape",
+  pearson_warped: "Dynamics",
+  bempedelis_r2: "Scaling R\u00B2",
+  bempedelis_smoothness: "Scaling Smooth",
+  koopman: "Engine",
+  wavelet_spectrum: "Rhythm",
+  emd: "Decomposition",
+  tda: "Topology",
+  transfer_entropy: "Carry",
 };
 
 // Camel-case keyed version for use with ScoreBreakdown fields

@@ -86,7 +86,7 @@ export function RepresentSurface() {
 export function SimulateSurface() {
   const scenarios = [
     { name: "2008-analog stress", kind: "Retrieved", body: "Project the next 60 days under the 5 highest-scoring pre-GFC analogs. P50 drawdown \u22128.4%, P10 \u221217.2%.", horizon: "60d", analogs: 5, cone: "\u221217.2% / \u22128.4% / +2.1%" },
-    { name: "Vol-regime shift", kind: "Latent", body: "Koopman modes forced into high-vol basin. Evaluate holdings over 250 days with conditional cone.", horizon: "250d", analogs: 18, cone: "\u221222.8% / +3.1% / +19.4%" },
+    { name: "Vol-regime shift", kind: "Latent", body: "Engine modes forced into high-vol basin. Evaluate holdings over 250 days with conditional cone.", horizon: "250d", analogs: 18, cone: "\u221222.8% / +3.1% / +19.4%" },
     { name: "Narrative: soft-landing", kind: "NL\u2192TS", body: "Translate editorial prose into temporal structure, then match analogs. Used for scenario briefing.", horizon: "120d", analogs: 11, cone: "\u22123.1% / +5.7% / +12.3%" },
     { name: "Synthetic counterfactual", kind: "Worlds", body: "Replay Q4 2018 under 12 controlled parameter sweeps. Compare policy impact envelopes.", horizon: "90d", analogs: 12, cone: "\u221211.9% / \u22122.4% / +6.8%" },
   ];
@@ -267,10 +267,10 @@ export function RenderSurface() {
 export function DecideSurface() {
   const signals = [
     ["Apr 17 2026", "Reduce SPX delta", "From analog set dominated by late-\u201818 and \u201807", "60d", "0.82", "open", "pos"],
-    ["Apr 14 2026", "Hedge credit / long vol", "Cone widens past 3\u03C3 in week 2; TDA flags regime pivot", "120d", "0.71", "open", "warn"],
-    ["Apr 09 2026", "Rotate into commodities", "Koopman mode alignment with 2005-era HG", "180d", "0.64", "open", "pos"],
-    ["Apr 02 2026", "Trim BTC exposure", "Low trust score; wavelet disagrees w/ DTW", "45d", "0.51", "closed", "neg"],
-    ["Mar 28 2026", "Enter JPY long", "Transfer-entropy carry strong across 4 analogs", "90d", "0.76", "realized", "pos"],
+    ["Apr 14 2026", "Hedge credit / long vol", "Cone widens past 3\u03C3 in week 2; Topology flags regime pivot", "120d", "0.71", "open", "warn"],
+    ["Apr 09 2026", "Rotate into commodities", "Engine mode alignment with 2005-era HG", "180d", "0.64", "open", "pos"],
+    ["Apr 02 2026", "Trim BTC exposure", "Low trust score; Rhythm disagrees w/ Shape", "45d", "0.51", "closed", "neg"],
+    ["Mar 28 2026", "Enter JPY long", "Carry lens strong across 4 analogs", "90d", "0.76", "realized", "pos"],
   ];
   return (
     <div className="surface">

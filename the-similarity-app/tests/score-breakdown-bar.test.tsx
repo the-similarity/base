@@ -42,7 +42,7 @@ describe("ScoreBreakdownBar", () => {
       <ScoreBreakdownBar breakdown={{ dtw: 0.3 }} />
     );
     const segment = container.querySelector(".score-bar-segment");
-    expect(segment?.getAttribute("title")).toContain("DTW");
+    expect(segment?.getAttribute("title")).toContain("Shape");
     expect(segment?.getAttribute("title")).toContain("0.300");
   });
 
