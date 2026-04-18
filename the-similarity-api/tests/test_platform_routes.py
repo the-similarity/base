@@ -360,16 +360,22 @@ def test_artifact_post_url_body_run_id_mismatch_422(client: TestClient) -> None:
 
 
 def test_scorecards_create_and_list(client: TestClient) -> None:
-    """Scorecards POST + list round-trip, including metrics dict."""
+    """Scorecards POST + list round-trip, including thresholds + details.
+
+    Wire shape matches the registry-truth contract:
+    :class:`the_similarity.platform.contracts.ScorecardSummary` —
+    ``kind`` (enum) + ``thresholds`` + ``details`` rather than the
+    earlier-drafted ``name`` + ``metrics`` pair.
+    """
     run = _sample_run_payload()
     client.post("/platform/runs", json=run)
     scorecard = {
         "run_id": run["run_id"],
-        "name": "fidelity",
+        "kind": "fidelity",
         "passed": True,
         "overall_score": 0.87,
-        "metrics": {"ks": 0.02, "acf_mae": 0.015},
-        "created_at": "2026-04-15T10:00:00+00:00",
+        "thresholds": {"ks_max": 0.1, "acf_mae_max": 0.05},
+        "details": {"ks": 0.02, "acf_mae": 0.015},
     }
     resp = client.post(
         f"/platform/runs/{run['run_id']}/scorecards", json=scorecard
@@ -378,10 +384,41 @@ def test_scorecards_create_and_list(client: TestClient) -> None:
 
     listing = client.get(f"/platform/runs/{run['run_id']}/scorecards").json()
     assert len(listing) == 1
-    assert listing[0]["name"] == "fidelity"
+    assert listing[0]["kind"] == "fidelity"
     assert listing[0]["passed"] is True
     assert listing[0]["overall_score"] == 0.87
-    assert listing[0]["metrics"] == {"ks": 0.02, "acf_mae": 0.015}
+    assert listing[0]["thresholds"] == {"ks_max": 0.1, "acf_mae_max": 0.05}
+    assert listing[0]["details"] == {"ks": 0.02, "acf_mae": 0.015}
+
+
+def test_scorecard_duplicate_kind_returns_409(client: TestClient) -> None:
+    """Second POST of same (run_id, kind) pair surfaces as 409.
+
+    The registry upserts on the composite PK; the router pre-flights a
+    ``get_scorecards`` lookup so creation vs. update semantics stay
+    distinct at the HTTP layer.
+    """
+    run = _sample_run_payload()
+    client.post("/platform/runs", json=run)
+    scorecard = {
+        "run_id": run["run_id"],
+        "kind": "fidelity",
+        "passed": True,
+        "overall_score": 0.87,
+        "thresholds": {},
+        "details": {"ks": 0.02},
+    }
+    assert (
+        client.post(
+            f"/platform/runs/{run['run_id']}/scorecards", json=scorecard
+        ).status_code
+        == 201
+    )
+    dup = client.post(
+        f"/platform/runs/{run['run_id']}/scorecards", json=scorecard
+    )
+    assert dup.status_code == 409
+    assert "fidelity" in dup.json()["detail"]
 
 
 def test_scorecards_list_404_on_unknown_run(client: TestClient) -> None:

@@ -279,29 +279,63 @@ class ArtifactRecordModel(BaseModel):
 
 
 class ScorecardSummaryModel(BaseModel):
-    """Scorecard readout for a run — mirrors Agent 1's ``ScorecardSummary``.
+    """Scorecard readout for a run — mirrors the registry's ``scorecards`` table.
 
     Decoupled from :class:`RunRecordModel.summary` because a single run may
     carry multiple scorecards (fidelity, privacy, utility, or evaluation
     scorecards from different harnesses). Each row is one scorecard.
+
+    Field-name lock-in
+    ------------------
+    Matches :class:`the_similarity.platform.contracts.ScorecardSummary`
+    field-for-field:
+
+    - ``kind`` (not ``name``) — one of :class:`ScorecardKind`
+      (``fidelity``, ``privacy``, ``utility``, ``controllability``,
+      ``calibration``, ``backtest``). Composite primary key with
+      ``run_id`` in the registry.
+    - ``details`` (not ``metrics``) — condensed metric snapshot
+      matching the registry's ``details_json`` column.
+    - ``thresholds`` — numeric gate configuration, stored in the
+      registry's ``thresholds_json`` column.
+
+    An earlier draft of this model used ``name`` / ``metrics`` and
+    added a ``created_at`` field. The registry carries no ``created_at``
+    on scorecards (the parent run's timestamp is authoritative), so
+    that field has been removed from the wire contract.
     """
 
+    model_config = ConfigDict(use_enum_values=True)
+
     run_id: str = Field(..., description="Parent run_id.")
-    name: str = Field(
+    kind: ScorecardKind = Field(
         ...,
-        description="Scorecard name — 'fidelity', 'privacy', 'utility', etc.",
-    )
-    passed: Optional[bool] = Field(
-        None, description="Gate decision if the scorecard emits one."
+        description=(
+            "Scorecard kind — one of fidelity, privacy, utility, "
+            "controllability, calibration, backtest. Composite PK with "
+            "run_id in the registry."
+        ),
     )
     overall_score: Optional[float] = Field(
         None, description="Aggregate score in [0, 1] (higher is better)."
     )
-    metrics: Dict[str, Any] = Field(
-        default_factory=dict,
-        description="Metric-name -> value map, free-form per scorecard kind.",
+    passed: Optional[bool] = Field(
+        None, description="Gate decision if the scorecard emits one."
     )
-    created_at: str = Field(..., description="ISO-8601 UTC creation timestamp.")
+    thresholds: Dict[str, Any] = Field(
+        default_factory=dict,
+        description=(
+            "Numeric thresholds used for the gate (matches the registry's "
+            "``thresholds_json`` column)."
+        ),
+    )
+    details: Dict[str, Any] = Field(
+        default_factory=dict,
+        description=(
+            "Condensed metric snapshot. Full detail lives on-disk as an "
+            "artifact; matches the registry's ``details_json`` column."
+        ),
+    )
 
 
 class ScenarioSpecModel(BaseModel):
@@ -738,24 +772,27 @@ def list_scorecards(
     run_id: str,
     registry: RunRegistry = Depends(get_registry),
 ) -> List[ScorecardSummaryModel]:
-    """Every scorecard summary row registered for ``run_id``."""
+    """Every scorecard summary row registered for ``run_id``.
+
+    Implementation note
+    -------------------
+    Delegates to :meth:`RunRegistry.get_scorecards` so the wire shape
+    tracks the registry row shape one-for-one (``kind``, ``thresholds``,
+    ``details``). The registry handles INTEGER->bool coercion for the
+    ``passed`` column internally.
+    """
     _require_run(registry, run_id)
-    rows = registry._conn.execute(  # noqa: SLF001
-        "SELECT run_id, name, passed, overall_score, metrics_json, created_at "
-        "FROM scorecards WHERE run_id = ? ORDER BY name",
-        (run_id,),
-    ).fetchall()
+    summaries = registry.get_scorecards(run_id)
     return [
         ScorecardSummaryModel(
-            run_id=r[0],
-            name=r[1],
-            # SQLite stores booleans as 0/1 integers; normalize to bool or None.
-            passed=(bool(r[2]) if r[2] is not None else None),
-            overall_score=r[3],
-            metrics=json.loads(r[4]) if r[4] else {},
-            created_at=r[5],
+            run_id=s.run_id,
+            kind=s.kind,
+            overall_score=s.overall_score,
+            passed=s.passed,
+            thresholds=s.thresholds,
+            details=s.details,
         )
-        for r in rows
+        for s in summaries
     ]
 
 
@@ -773,33 +810,43 @@ def create_scorecard(
     body: ScorecardSummaryModel,
     registry: RunRegistry = Depends(get_registry),
 ) -> ScorecardSummaryModel:
-    """Register a scorecard summary under ``run_id``."""
+    """Register a scorecard summary under ``run_id``.
+
+    Implementation note
+    -------------------
+    :meth:`RunRegistry.register_scorecard` is an upsert on the composite
+    ``(run_id, kind)`` primary key. The router treats POST as creation,
+    so we pre-flight via :meth:`RunRegistry.get_scorecards` to surface
+    an existing row as a 409 rather than silently replacing it.
+    """
     if body.run_id != run_id:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=f"body.run_id={body.run_id!r} does not match URL run_id={run_id!r}",
         )
     _require_run(registry, run_id)
-    try:
-        with registry._conn:  # noqa: SLF001
-            registry._conn.execute(  # noqa: SLF001
-                "INSERT INTO scorecards "
-                "(run_id, name, passed, overall_score, metrics_json, created_at) "
-                "VALUES (?, ?, ?, ?, ?, ?)",
-                (
-                    body.run_id,
-                    body.name,
-                    None if body.passed is None else int(body.passed),
-                    body.overall_score,
-                    json.dumps(body.metrics, separators=(",", ":")),
-                    body.created_at,
-                ),
-            )
-    except sqlite3.IntegrityError as exc:
+    # ``body.kind`` may be either a ``ScorecardKind`` or a bare string
+    # depending on whether Pydantic's ``use_enum_values=True`` emitted
+    # the raw string at validation time. Normalize here so we compare
+    # and persist the enum uniformly.
+    kind_value = body.kind.value if isinstance(body.kind, ScorecardKind) else body.kind
+    kind_enum = ScorecardKind(kind_value)
+    existing_kinds = {s.kind.value for s in registry.get_scorecards(run_id)}
+    if kind_enum.value in existing_kinds:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=f"scorecard already exists: run_id={run_id}, name={body.name}",
-        ) from exc
+            detail=f"scorecard already exists: run_id={run_id}, kind={kind_enum.value}",
+        )
+    registry.register_scorecard(
+        ScorecardSummary(
+            run_id=body.run_id,
+            kind=kind_enum,
+            thresholds=body.thresholds,
+            details=body.details,
+            overall_score=body.overall_score,
+            passed=body.passed,
+        )
+    )
     return body
 
 
