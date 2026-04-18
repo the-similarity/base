@@ -490,7 +490,13 @@ export default function Dashboard() {
           color: var(--text);
           -webkit-font-smoothing: antialiased;
           font-feature-settings: 'cv11','ss01','cv03';
-          min-height: 100vh;
+          /* Own scroll container. The workstation's globals.css pins
+             body { overflow: hidden } for the Bloomberg-terminal layout,
+             so /prudent needs its own scrollable viewport. The sidebar's
+             position: sticky; top: 0 sticks relative to this container. */
+          height: 100vh;
+          overflow-y: auto;
+          overflow-x: hidden;
         }
         .prudent-root.prudent-dark {
           /* Warm near-black dark theme. The panel bg has a hint of
