@@ -45,12 +45,12 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 try:
-    from the_similarity.platform.state_space import StateIndex  # Agent 1
+    from the_similarity.core.state_space import StateIndex  # Agent 1 — canonical owner
 except ImportError:
     StateIndex = None  # type: ignore[assignment,misc]
 
 try:
-    from the_similarity.platform.state_graph import StateGraph  # Agent 2
+    from the_similarity.core.state_graph import StateGraph  # Agent 2 — graph layer
 except ImportError:
     StateGraph = None  # type: ignore[assignment,misc]
 
