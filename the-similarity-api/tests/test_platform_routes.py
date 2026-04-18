@@ -526,17 +526,29 @@ def test_datasets_empty_list(client: TestClient) -> None:
 
 
 def test_datasets_crud(client: TestClient) -> None:
-    """POST + list + GET + duplicate guard for datasets."""
+    """POST + list + GET + duplicate guard for datasets.
+
+    Wire shape tracks the registry-truth contract
+    :class:`the_similarity.platform.contracts.DatasetSpec`:
+    ``source`` (not ``path``), ``schema_uri`` (a URI, not an inline
+    schema dict), ``n_rows`` / ``n_columns`` / ``checksum``, and
+    free-form ``metadata``. Display hints like ``description`` live
+    inside ``metadata`` now.
+    """
     body = {
         "dataset_id": "spy-daily",
         "name": "SPY daily bars",
-        "description": "S&P 500 ETF daily close, 1993-2026.",
-        "path": "the-similarity-data/data/equities/SPY/1d.parquet",
-        # Alias 'schema' is the wire key; python attr is 'schema_'. Pydantic
-        # accepts either because model_config sets populate_by_name=True.
-        "schema": {"columns": ["open", "high", "low", "close", "volume"]},
         "version": "2026.04",
-        "created_at": "2026-04-15T10:00:00+00:00",
+        "source": "the-similarity-data/data/equities/SPY/1d.parquet",
+        "schema_uri": "file://the-similarity-data/schemas/ohlcv.json",
+        "n_rows": 8_192,
+        "n_columns": 5,
+        "checksum": "deadbeef" * 8,
+        "metadata": {
+            "description": "S&P 500 ETF daily close, 1993-2026.",
+            "pillar": "finance",
+            "columns": ["open", "high", "low", "close", "volume"],
+        },
     }
     assert client.post("/platform/datasets", json=body).status_code == 201
     # Duplicate POST → 409.
@@ -546,8 +558,13 @@ def test_datasets_crud(client: TestClient) -> None:
     listing = client.get("/platform/datasets").json()
     assert len(listing) == 1
     assert listing[0]["dataset_id"] == "spy-daily"
-    # Response uses the 'schema' wire key (alias).
-    assert listing[0]["schema"]["columns"] == [
+    # Registry-truth fields round-trip verbatim.
+    assert listing[0]["source"] == body["source"]
+    assert listing[0]["schema_uri"] == body["schema_uri"]
+    assert listing[0]["n_rows"] == 8_192
+    assert listing[0]["n_columns"] == 5
+    assert listing[0]["checksum"] == body["checksum"]
+    assert listing[0]["metadata"]["columns"] == [
         "open",
         "high",
         "low",
@@ -558,6 +575,7 @@ def test_datasets_crud(client: TestClient) -> None:
     # GET by id returns the full record.
     fetched = client.get("/platform/datasets/spy-daily").json()
     assert fetched["version"] == "2026.04"
+    assert fetched["metadata"]["description"] == "S&P 500 ETF daily close, 1993-2026."
 
     # Unknown id → 404.
     assert client.get("/platform/datasets/unknown").status_code == 404

@@ -399,41 +399,74 @@ class ScenarioSpecModel(BaseModel):
 
 
 class DatasetSpecModel(BaseModel):
-    """Registered dataset — mirrors Agent 1's ``DatasetSpec``.
+    """Registered dataset — mirrors the registry's ``datasets`` table.
 
-    A :class:`DatasetSpec` describes a corpus available to the platform
-    (path, schema, version). Runs reference datasets by ``dataset_id``
-    in their config to keep runs reproducible across pipeline changes.
+    A dataset describes a corpus available to the platform (source
+    path/URL, schema, version, checksum). Runs reference datasets by
+    ``dataset_id`` in their config to keep runs reproducible across
+    pipeline changes.
+
+    Field-name lock-in
+    ------------------
+    Matches :class:`the_similarity.platform.contracts.DatasetSpec`
+    field-for-field:
+
+    - ``source`` (not ``path``) — filesystem path, URL, or
+      ``synthetic:<run_id>`` pointer. The registry's column is
+      ``source TEXT NOT NULL``; this is the load-bearing address.
+    - ``schema_uri`` (not a ``schema`` dict) — optional URI to a JSON
+      schema document describing the columns. Holding only the URI
+      keeps the registry row compact; full schema bytes stay on disk.
+    - ``n_rows`` / ``n_columns`` — lazy scan outputs, optional.
+    - ``checksum`` — optional SHA-256 hex of the source file(s).
+    - ``metadata`` (replaces ``description``/``created_at``) — free-form
+      tags (pillar, tickers, date range, license). Display hints like
+      a human description live here now.
+
+    An earlier draft exposed ``description`` / ``path`` / ``schema``
+    (dict) / ``created_at``; none of those match the registry and the
+    ``schema`` alias forced a translation shim at every boundary. The
+    drift is now resolved in favour of the registry columns. Consumers
+    that carried a schema dict should move it to an artifact on disk
+    and point ``schema_uri`` at the artifact URL.
     """
-
-    # ``populate_by_name=True`` lets construction accept either the python
-    # attribute name (``schema_``) or the wire alias (``schema``).
-    # ``ser_by_alias``-aware responses are handled by FastAPI's default
-    # ``response_model`` serializer which uses by_alias on emit.
-    #
-    # Naming note: the wire contract uses ``schema`` (per Agent 1's spec)
-    # but ``schema`` collides with Pydantic v1's deprecated ``.schema()``
-    # method and triggers Pydantic v2 schema-build warnings on generic
-    # container attributes. We sidestep that by handling the alias at the
-    # serializer boundary (see :func:`_dataset_to_wire` /
-    # :func:`_dataset_from_wire`) rather than via ``Field(alias=...)``.
-    model_config = ConfigDict()
 
     dataset_id: str = Field(..., description="Primary key. Stable across refreshes.")
     name: str = Field(..., description="Human-readable display name.")
-    description: Optional[str] = None
-    path: Optional[str] = Field(
-        None, description="Absolute or repo-relative path to the data source."
+    version: str = Field(
+        ..., description="Semantic version (``v1.0``, ``2024-04-15``)."
     )
-    # Stored on the python attr as ``columns`` to avoid the ``schema``
-    # collision. The wire boundary translates to/from the ``schema`` key.
-    columns: Dict[str, Any] = Field(
+    source: str = Field(
+        ...,
+        description=(
+            "Filesystem path, URL, or ``synthetic:<run_id>`` pointer. "
+            "Matches the registry's ``source`` column."
+        ),
+    )
+    schema_uri: Optional[str] = Field(
+        None,
+        description=(
+            "Optional URI to a JSON schema describing the columns. "
+            "Matches the registry's ``schema_uri`` column — a URI, "
+            "not an inline schema dict."
+        ),
+    )
+    n_rows: Optional[int] = Field(
+        None, ge=0, description="Row count — populated lazily after a scan."
+    )
+    n_columns: Optional[int] = Field(
+        None, ge=0, description="Column count — populated lazily after a scan."
+    )
+    checksum: Optional[str] = Field(
+        None, description="Optional SHA-256 hex of the source file(s)."
+    )
+    metadata: Dict[str, Any] = Field(
         default_factory=dict,
-        description="Columns / dtypes / constraints as a free-form dict. "
-        "Wire key is 'schema' — translated at the router boundary.",
+        description=(
+            "Free-form tags (pillar, tickers, date range, license, "
+            "description). Matches the registry's ``metadata_json`` column."
+        ),
     )
-    version: Optional[str] = None
-    created_at: str = Field(..., description="ISO-8601 UTC creation timestamp.")
 
 
 class HealthzResponse(BaseModel):
@@ -1009,143 +1042,108 @@ def get_scenario(
 # ---------------------------------------------------------------------------
 
 
-# ---------------------------------------------------------------------------
-# Dataset wire translation
-#
-# The external spec uses ``schema`` as the JSON key for the columns/dtypes
-# dict, but ``schema`` collides with Pydantic v1's ``BaseModel.schema()``
-# method and triggers v2 schema-build warnings on Dict-typed aliased
-# fields. We translate at the boundary:
-#   - Incoming: accept both ``schema`` (canonical wire) and ``columns``
-#     (python-native form).
-#   - Outgoing: always emit ``schema`` so API consumers match the spec.
-#
-# The companion SQLite column is ``schema_json`` regardless — the DB is an
-# implementation detail, not the public contract.
-# ---------------------------------------------------------------------------
+def _dataset_to_model(spec: DatasetSpec) -> DatasetSpecModel:
+    """Project a registry :class:`DatasetSpec` to the wire model.
+
+    Kept as a helper so list/get handlers stay short and the
+    dataclass-to-model translation lives in one place. No alias
+    translation is required anymore — the wire contract tracks the
+    registry columns directly.
+    """
+    return DatasetSpecModel(
+        dataset_id=spec.dataset_id,
+        name=spec.name,
+        version=spec.version,
+        source=spec.source,
+        schema_uri=spec.schema_uri,
+        n_rows=spec.n_rows,
+        n_columns=spec.n_columns,
+        checksum=spec.checksum,
+        metadata=spec.metadata,
+    )
 
 
-def _dataset_from_wire(raw: Dict[str, Any]) -> DatasetSpecModel:
-    """Build a DatasetSpecModel from a wire dict, accepting 'schema' alias."""
-    normalized = dict(raw)  # shallow copy — do not mutate caller's dict
-    if "schema" in normalized and "columns" not in normalized:
-        normalized["columns"] = normalized.pop("schema")
-    return DatasetSpecModel.model_validate(normalized)
-
-
-def _dataset_to_wire(model: DatasetSpecModel) -> Dict[str, Any]:
-    """Serialize to the wire shape with the canonical 'schema' key."""
-    payload = model.model_dump()
-    payload["schema"] = payload.pop("columns", {})
-    return payload
-
-
-@router.get("/datasets", response_model=List[Dict[str, Any]])
+@router.get("/datasets", response_model=List[DatasetSpecModel])
 def list_datasets(
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
     registry: RunRegistry = Depends(get_registry),
-) -> List[Dict[str, Any]]:
-    """List datasets newest-first — response uses the 'schema' wire key."""
-    rows = registry._conn.execute(  # noqa: SLF001
-        "SELECT dataset_id, name, description, path, schema_json, version, created_at "
-        "FROM datasets ORDER BY created_at DESC LIMIT ? OFFSET ?",
-        (limit, offset),
-    ).fetchall()
-    return [
-        _dataset_to_wire(
-            DatasetSpecModel(
-                dataset_id=r[0],
-                name=r[1],
-                description=r[2],
-                path=r[3],
-                columns=json.loads(r[4]) if r[4] else {},
-                version=r[5],
-                created_at=r[6],
-            )
-        )
-        for r in rows
-    ]
+) -> List[DatasetSpecModel]:
+    """List registered datasets.
+
+    Ordering is ``name ASC`` (registry default — the ``datasets`` table
+    has no ``created_at`` column). Python-side pagination applies
+    offset/limit to the full list because the registry does not expose
+    either knob directly.
+    """
+    specs = registry.list_datasets()
+    sliced = specs[offset : offset + limit]
+    return [_dataset_to_model(s) for s in sliced]
 
 
 @router.post(
     "/datasets",
-    response_model=Dict[str, Any],
+    response_model=DatasetSpecModel,
     status_code=status.HTTP_201_CREATED,
     responses={409: {"description": "dataset_id already exists."}},
 )
 def create_dataset(
-    body: Dict[str, Any],
+    body: DatasetSpecModel,
     registry: RunRegistry = Depends(get_registry),
-) -> Dict[str, Any]:
+) -> DatasetSpecModel:
     """Register a new dataset. ``dataset_id`` must be globally unique.
 
-    Accepts a raw dict (not a Pydantic model on the request) so the wire
-    alias (``schema``) bypasses Pydantic's alias warnings entirely.
-    Validation runs via :func:`_dataset_from_wire` which goes through the
-    Pydantic model — errors surface as FastAPI validation errors.
+    Implementation note
+    -------------------
+    :meth:`RunRegistry.register_dataset` upserts on ``dataset_id``; the
+    router pre-flights a ``list_datasets`` scan so a duplicate id
+    surfaces as a 409 rather than silently replacing the existing row.
     """
-    try:
-        model = _dataset_from_wire(body)
-    except Exception as exc:  # pragma: no cover - pydantic validation
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"invalid dataset body: {exc}",
-        ) from exc
-    try:
-        with registry._conn:  # noqa: SLF001
-            registry._conn.execute(  # noqa: SLF001
-                "INSERT INTO datasets "
-                "(dataset_id, name, description, path, schema_json, version, created_at) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?)",
-                (
-                    model.dataset_id,
-                    model.name,
-                    model.description,
-                    model.path,
-                    json.dumps(model.columns, separators=(",", ":")),
-                    model.version,
-                    model.created_at,
-                ),
-            )
-    except sqlite3.IntegrityError as exc:
+    existing_ids = {d.dataset_id for d in registry.list_datasets()}
+    if body.dataset_id in existing_ids:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=f"dataset_id already exists: {model.dataset_id}",
-        ) from exc
-    return _dataset_to_wire(model)
+            detail=f"dataset_id already exists: {body.dataset_id}",
+        )
+    registry.register_dataset(
+        DatasetSpec(
+            dataset_id=body.dataset_id,
+            name=body.name,
+            version=body.version,
+            source=body.source,
+            schema_uri=body.schema_uri,
+            n_rows=body.n_rows,
+            n_columns=body.n_columns,
+            checksum=body.checksum,
+            metadata=body.metadata,
+        )
+    )
+    return body
 
 
 @router.get(
     "/datasets/{dataset_id}",
-    response_model=Dict[str, Any],
+    response_model=DatasetSpecModel,
     responses={404: {"description": "dataset_id not found."}},
 )
 def get_dataset(
     dataset_id: str,
     registry: RunRegistry = Depends(get_registry),
-) -> Dict[str, Any]:
-    """Fetch a single dataset by id — response uses the 'schema' wire key."""
-    row = registry._conn.execute(  # noqa: SLF001
-        "SELECT dataset_id, name, description, path, schema_json, version, created_at "
-        "FROM datasets WHERE dataset_id = ?",
-        (dataset_id,),
-    ).fetchone()
-    if row is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"dataset_id not found: {dataset_id}",
-        )
-    return _dataset_to_wire(
-        DatasetSpecModel(
-            dataset_id=row[0],
-            name=row[1],
-            description=row[2],
-            path=row[3],
-            columns=json.loads(row[4]) if row[4] else {},
-            version=row[5],
-            created_at=row[6],
-        )
+) -> DatasetSpecModel:
+    """Fetch a single dataset by id.
+
+    Implementation note
+    -------------------
+    No per-id accessor on the registry — we linear-scan list_datasets.
+    The table is small (dozens of rows); if this becomes a hot path,
+    add a dedicated ``get_dataset`` method to the registry.
+    """
+    for spec in registry.list_datasets():
+        if spec.dataset_id == dataset_id:
+            return _dataset_to_model(spec)
+    raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail=f"dataset_id not found: {dataset_id}",
     )
 
 
@@ -1209,23 +1207,24 @@ def get_dataset_card(
             detail=f"dataset_id not found: {dataset_id}",
         )
     except ImportError:
-        # If the catalog module is not available, fall back to a basic card
-        # built from the raw dataset row.
-        row = registry._conn.execute(  # noqa: SLF001
-            "SELECT dataset_id, name, description, path, schema_json, version, created_at "
-            "FROM datasets WHERE dataset_id = ?",
-            (dataset_id,),
-        ).fetchone()
-        if row is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"dataset_id not found: {dataset_id}",
-            )
-        return DatasetCardModel(
-            dataset_id=row[0],
-            name=row[1],
-            version=row[5] or "",
-            source="",
+        # If the catalog module is not available, fall back to a basic
+        # card built from the registry-truth ``DatasetSpec`` row. No raw
+        # SQL — delegate to ``list_datasets`` so the column set tracks
+        # the registry automatically.
+        for spec in registry.list_datasets():
+            if spec.dataset_id == dataset_id:
+                return DatasetCardModel(
+                    dataset_id=spec.dataset_id,
+                    name=spec.name,
+                    version=spec.version,
+                    source=spec.source,
+                    n_rows=spec.n_rows,
+                    n_columns=spec.n_columns,
+                    checksum=spec.checksum,
+                )
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"dataset_id not found: {dataset_id}",
         )
 
 
