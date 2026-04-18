@@ -3,21 +3,33 @@
 /**
  * The Retrieve workstation — the main interactive view.
  *
- * Three-column layout: 260px sidebar (query definition, window controls,
- * pinned analogs, notebook), fluid center (header metrics, chart card,
- * trust strip, analog strip), and 320px right panel (9-lens radar + bars,
- * lens reading narrative).
+ * Three-column layout: 260px sidebar (dataset selector, query definition,
+ * window controls, pinned analogs, notebook), fluid center (header metrics,
+ * chart card, trust strip, analog strip), and 320px right panel (9-lens
+ * radar + bars, lens reading narrative).
  *
- * The query window position drives everything: when the user drags it,
- * analogs are re-ranked and the forecast cone redraws.
+ * Data flow:
+ * 1. On mount, check API availability via isApiAvailable()
+ * 2. If API is up, fetch catalog + default series (stocks/spy/1d)
+ * 3. On query window drag end (debounced 500ms), run search via API
+ * 4. Map API response to workstation formats (analogs, cone, lenses)
+ * 5. If API is down, fall back to synthetic SERIES + findAnalogs()
+ *
+ * The "offline — synthetic data" badge appears in the status bar when
+ * the fallback engine is active.
  */
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import {
   SERIES, LENS_DEFS, findAnalogs, buildCone,
   fmtDate, fmtDateShort, fmtPct,
-  LensScores,
+  type LensScores, type AnalogMatch, type ConePoint, type DataPoint,
 } from "../../lib/data";
+import {
+  isApiAvailable, fetchCatalog, fetchSeries, searchApi,
+  mapMatchesToAnalogs, mapForecastToCone, mapScoreBreakdownToLenses,
+} from "../../lib/api";
+import type { CatalogItem } from "../../lib/types";
 import { LineChart, AnalogOverlay } from "./line-chart";
 import { LensRadar } from "./lens-radar";
 import { LensBars } from "./lens-bars";
@@ -37,30 +49,191 @@ interface WorkstationProps {
   onSettings: (s: WorkstationSettings) => void;
 }
 
+/**
+ * Group catalog items by asset class for the dataset selector dropdown.
+ * Returns a map like { "stocks": [item1, item2], "crypto": [item3] }.
+ */
+function groupByAssetClass(items: CatalogItem[]): Record<string, CatalogItem[]> {
+  const groups: Record<string, CatalogItem[]> = {};
+  for (const item of items) {
+    const key = item.assetClass;
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(item);
+  }
+  return groups;
+}
+
+/** Convert a DatasetSeries-style response into DataPoint[] for the chart. */
+function seriesToDataPoints(values: number[], dates: string[]): DataPoint[] {
+  return values.map((p, i) => {
+    const d = dates[i] ? new Date(dates[i]) : new Date(1995, 0, 3 + i);
+    return {
+      t: d.getTime(),
+      d,
+      p,
+      r: i > 0 ? Math.log(p / values[i - 1]) : 0,
+    };
+  });
+}
+
 export function Workstation({ settings, onSettings }: WorkstationProps) {
-  const N = SERIES.length;
-  const [windowState, setWindowState] = useState({ start: N - 240, len: 120 });
-  const [viewRange, setViewRange] = useState({ start: N - 900, end: N - 30 });
+  // ── Data source state ──────────────────────────────────────────────
+  const [isOnline, setIsOnline] = useState<boolean | null>(null); // null = checking
+  const [catalog, setCatalog] = useState<CatalogItem[]>([]);
+  const [activeDataset, setActiveDataset] = useState("stocks/spy/1d");
+  const [loadedSeries, setLoadedSeries] = useState<DataPoint[]>(SERIES);
+  const [loadedDates, setLoadedDates] = useState<string[]>([]);
+  const [loadedValues, setLoadedValues] = useState<number[]>([]);
+  const [datasetOpen, setDatasetOpen] = useState(false);
+
+  // ── Search state ───────────────────────────────────────────────────
+  const [searching, setSearching] = useState(false);
+  const [apiAnalogs, setApiAnalogs] = useState<AnalogMatch[] | null>(null);
+  const [apiCone, setApiCone] = useState<ConePoint[] | null>(null);
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
+
+  // ── Window state ───────────────────────────────────────────────────
+  const N = loadedSeries.length;
+  const [windowState, setWindowState] = useState({ start: Math.max(0, N - 240), len: 120 });
+  const [viewRange, setViewRange] = useState({ start: Math.max(0, N - 900), end: Math.max(0, N - 30) });
   const [pinned, setPinned] = useState<Set<string>>(new Set());
   const [hoverAnalog, setHoverAnalog] = useState<string | null>(null);
   const [crosshairIdx, setCrosshairIdx] = useState<number | null>(null);
   const [trustOpen, setTrustOpen] = useState(false);
 
-  // Re-run analog search when query window changes
-  const { analogs, cone } = useMemo(() => {
+  // ── Check API availability on mount ────────────────────────────────
+  useEffect(() => {
+    let cancelled = false;
+    async function check() {
+      const available = await isApiAvailable();
+      if (!cancelled) {
+        setIsOnline(available);
+        if (available) {
+          // Load catalog
+          try {
+            const cat = await fetchCatalog();
+            if (!cancelled) setCatalog(cat);
+          } catch {
+            // Catalog load failed — stay online but with empty catalog
+          }
+        }
+      }
+    }
+    check();
+    return () => { cancelled = true; };
+  }, []);
+
+  // ── Load series when dataset changes and API is online ─────────────
+  useEffect(() => {
+    if (!isOnline) return;
+    let cancelled = false;
+
+    async function load() {
+      const parts = activeDataset.split("/");
+      if (parts.length !== 3) return;
+      const [assetClass, symbol, timeframe] = parts;
+
+      try {
+        const res = await fetchSeries(assetClass, symbol, timeframe);
+        if (cancelled) return;
+
+        const dp = seriesToDataPoints(res.values, res.dates);
+        setLoadedSeries(dp);
+        setLoadedDates(res.dates);
+        setLoadedValues(res.values);
+
+        // Reset window to reasonable defaults for the new series
+        const newN = dp.length;
+        setWindowState({ start: Math.max(0, newN - 240), len: Math.min(120, Math.floor(newN / 3)) });
+        setViewRange({ start: Math.max(0, newN - 900), end: Math.max(0, newN - 30) });
+        // Clear previous search results
+        setApiAnalogs(null);
+        setApiCone(null);
+      } catch (err) {
+        console.warn("Failed to load series, falling back to synthetic:", err);
+        setIsOnline(false);
+      }
+    }
+    load();
+    return () => { cancelled = true; };
+  }, [isOnline, activeDataset]);
+
+  // ── Debounced API search on window change ──────────────────────────
+  const runApiSearch = useCallback(async () => {
+    if (!isOnline || loadedValues.length < 10) return;
+
+    // Abort any in-flight search
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+
+    setSearching(true);
+    try {
+      const queryValues = loadedValues.slice(windowState.start, windowState.start + windowState.len);
+      if (queryValues.length < 2) return;
+
+      const result = await searchApi({
+        queryValues,
+        historyValues: loadedValues,
+        topK: settings.kAnalogs || 6,
+        forwardBars: settings.horizon || 60,
+      }, controller.signal);
+
+      if (controller.signal.aborted) return;
+
+      // Map API response to workstation formats
+      const analogs = mapMatchesToAnalogs(result, loadedDates, loadedValues, windowState.len);
+      setApiAnalogs(analogs);
+
+      if (result.forecast) {
+        const lastP = loadedValues[windowState.start + windowState.len - 1] ?? 1;
+        const cone = mapForecastToCone(result.forecast, lastP);
+        setApiCone(cone);
+      }
+    } catch (err) {
+      if (err instanceof Error && err.name === "AbortError") return;
+      console.warn("API search failed, using synthetic fallback:", err);
+      // Don't flip isOnline off for transient errors — just use synthetic for this search
+      setApiAnalogs(null);
+      setApiCone(null);
+    } finally {
+      setSearching(false);
+    }
+  }, [isOnline, loadedValues, loadedDates, windowState.start, windowState.len, settings.kAnalogs, settings.horizon]);
+
+  // Debounce search: 500ms after window change
+  useEffect(() => {
+    if (!isOnline) return;
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    searchTimerRef.current = setTimeout(() => {
+      runApiSearch();
+    }, 500);
+    return () => {
+      if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    };
+  }, [runApiSearch, isOnline]);
+
+  // ── Synthetic fallback analogs + cone ──────────────────────────────
+  const syntheticResult = useMemo(() => {
+    if (isOnline && apiAnalogs !== null) return null; // Using API data
     const anal = findAnalogs(windowState.start, windowState.len,
       { k: settings.kAnalogs || 6, horizon: settings.horizon || 60 });
-    const lastP = SERIES[windowState.start + windowState.len - 1].p;
+    const lastP = loadedSeries[windowState.start + windowState.len - 1]?.p ?? 1;
     const c = buildCone(anal, settings.horizon || 60, lastP);
     return { analogs: anal, cone: c };
-  }, [windowState.start, windowState.len, settings.kAnalogs, settings.horizon]);
+  }, [isOnline, apiAnalogs, windowState.start, windowState.len, settings.kAnalogs, settings.horizon, loadedSeries]);
+
+  // ── Resolved analogs and cone (API or synthetic) ───────────────────
+  const analogs = (isOnline && apiAnalogs) ? apiAnalogs : (syntheticResult?.analogs ?? []);
+  const cone = (isOnline && apiCone) ? apiCone : (syntheticResult?.cone ?? []);
 
   // Composite lenses = mean across top analogs
   const compLenses = useMemo(() => {
     const keys = LENS_DEFS.map(d => d.key);
     const out: Record<string, number> = {};
     keys.forEach(k => {
-      out[k] = analogs.reduce((s, a) => s + (a.lenses[k] || 0), 0) / (analogs.length || 1);
+      out[k] = analogs.reduce((s, a) => s + (a.lenses[k as keyof LensScores] || 0), 0) / (analogs.length || 1);
     });
     return out as unknown as LensScores;
   }, [analogs]);
@@ -68,7 +241,7 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
   // Cone endpoint statistics for the header metrics
   const coneStats = useMemo(() => {
     if (!cone || !cone.length) return null;
-    const lastP = SERIES[windowState.start + windowState.len - 1].p;
+    const lastP = loadedSeries[windowState.start + windowState.len - 1]?.p ?? 1;
     const final = cone[cone.length - 1];
     return {
       horizon: cone.length,
@@ -77,7 +250,7 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
       p90Return: final.p90 / lastP - 1,
       width: (final.p90 - final.p10) / lastP,
     };
-  }, [cone, windowState]);
+  }, [cone, windowState, loadedSeries]);
 
   // Filter analog overlays based on settings
   const analogOverlays = useMemo((): AnalogOverlay[] => {
@@ -97,21 +270,82 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
 
   // Query metadata for sidebar
   const queryMeta = useMemo(() => {
-    const startD = SERIES[windowState.start].d;
-    const endD = SERIES[windowState.start + windowState.len - 1].d;
-    const startP = SERIES[windowState.start].p;
-    const endP = SERIES[windowState.start + windowState.len - 1].p;
-    return { startD, endD, startP, endP, ret: endP / startP - 1 };
-  }, [windowState]);
+    const startD = loadedSeries[windowState.start]?.d ?? new Date();
+    const endD = loadedSeries[windowState.start + windowState.len - 1]?.d ?? new Date();
+    const startP = loadedSeries[windowState.start]?.p ?? 0;
+    const endP = loadedSeries[windowState.start + windowState.len - 1]?.p ?? 0;
+    return { startD, endD, startP, endP, ret: startP ? (endP / startP - 1) : 0 };
+  }, [windowState, loadedSeries]);
+
+  // Dataset label for display
+  const datasetLabel = useMemo(() => {
+    const parts = activeDataset.split("/");
+    if (parts.length === 3) return `${parts[1].toUpperCase()} \u00B7 ${parts[2]}`;
+    return "SPX \u00B7 daily";
+  }, [activeDataset]);
+
+  // Grouped catalog for dropdown
+  const groupedCatalog = useMemo(() => groupByAssetClass(catalog), [catalog]);
 
   return (
     <div className="workstation">
       {/* ── LEFT SIDEBAR ─────────────────────────────────────── */}
       <aside className="side">
+        {/* Dataset selector */}
+        <div className="side__section">
+          <div className="side__header">
+            <span className="label">Dataset</span>
+            {isOnline === false && (
+              <span className="mono" style={{ fontSize: 9, color: "var(--negative)", letterSpacing: ".04em" }}>
+                offline &mdash; synthetic data
+              </span>
+            )}
+            {isOnline === null && (
+              <span className="mono" style={{ fontSize: 9, color: "var(--ink-3)" }}>checking...</span>
+            )}
+          </div>
+          <button
+            className="chip"
+            style={{ width: "100%", justifyContent: "space-between", display: "flex", padding: "6px 10px" }}
+            onClick={() => setDatasetOpen(o => !o)}
+          >
+            <span className="mono" style={{ fontSize: 11 }}>{datasetLabel}</span>
+            <span style={{ fontSize: 9 }}>{datasetOpen ? "\u25B2" : "\u25BC"}</span>
+          </button>
+          {datasetOpen && catalog.length > 0 && (
+            <div className="saved-list" style={{ maxHeight: 200, overflow: "auto", marginTop: 4 }}>
+              {Object.entries(groupedCatalog).map(([assetClass, items]) => (
+                <div key={assetClass}>
+                  <div className="label" style={{ fontSize: 9, color: "var(--ink-3)", margin: "6px 0 2px", textTransform: "uppercase", letterSpacing: ".12em" }}>
+                    {assetClass}
+                  </div>
+                  {items.map(item => {
+                    const id = `${item.assetClass}/${item.symbol}/${item.timeframe}`;
+                    return (
+                      <div
+                        key={id}
+                        className="saved"
+                        style={{ cursor: "pointer", fontWeight: id === activeDataset ? 600 : 400 }}
+                        onClick={() => { setActiveDataset(id); setDatasetOpen(false); }}
+                      >
+                        <span className="saved__name">{item.symbol.toUpperCase()}</span>
+                        <span className="saved__score" style={{ fontSize: 10 }}>{item.timeframe}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+          )}
+          {datasetOpen && catalog.length === 0 && isOnline && (
+            <div style={{ fontSize: 11, color: "var(--ink-3)", padding: "6px 0" }}>No datasets in catalog</div>
+          )}
+        </div>
+
         <div className="side__section">
           <div className="side__header">
             <span className="label">Query</span>
-            <span className="mono" style={{ fontSize: 10.5, color: "var(--ink-3)" }}>SPX &middot; daily</span>
+            <span className="mono" style={{ fontSize: 10.5, color: "var(--ink-3)" }}>{datasetLabel}</span>
           </div>
           <div className="side__row"><span className="k">Window start</span><span className="v">{fmtDate(queryMeta.startD)}</span></div>
           <div className="side__row"><span className="k">Window end</span><span className="v">{fmtDate(queryMeta.endD)}</span></div>
@@ -225,18 +459,32 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
           <div className="chart-card">
             <div className="chart-card__head">
               <div className="chart-card__title">
-                <span className="t">SPX &middot; full history</span>
-                <span className="sub">30 years &middot; 7,500 daily closes</span>
+                <span className="t">{datasetLabel} &middot; full history</span>
+                <span className="sub">{loadedSeries.length.toLocaleString()} bars</span>
               </div>
               <div className="chart-card__legend">
                 <span className="legend-dot"><i />Query</span>
                 <span className="legend-dot analog"><i />Analogs ({analogOverlays.length})</span>
                 <span className="legend-dot cone"><i />P10&ndash;P90 cone</span>
+                {searching && (
+                  <span className="mono" style={{ fontSize: 10, color: "var(--ink-3)", marginLeft: 8 }}>
+                    searching...
+                  </span>
+                )}
               </div>
             </div>
-            <div className="chart-card__body">
+            <div className="chart-card__body" style={{ position: "relative" }}>
+              {searching && (
+                <div style={{
+                  position: "absolute", inset: 0, display: "flex", alignItems: "center",
+                  justifyContent: "center", background: "var(--bg-card)", opacity: 0.6, zIndex: 10,
+                  pointerEvents: "none",
+                }}>
+                  <span className="mono" style={{ fontSize: 12, color: "var(--ink-2)" }}>Searching...</span>
+                </div>
+              )}
               <LineChart
-                series={SERIES}
+                series={loadedSeries}
                 viewStart={viewRange.start}
                 viewEnd={viewRange.end}
                 window={windowState}
@@ -330,6 +578,11 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
 
         {/* Analog strip */}
         <div className="strip">
+          {searching && analogs.length === 0 && (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "100%", padding: 32 }}>
+              <span className="mono" style={{ fontSize: 12, color: "var(--ink-3)" }}>Searching for analogs...</span>
+            </div>
+          )}
           {analogs.map(a => (
             <div key={a.id} className="analog-card"
               data-pinned={pinned.has(a.id) ? "true" : undefined}
@@ -373,13 +626,12 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
           <div className="side__header"><span className="label">Lens reading</span></div>
           <div style={{ fontSize: 12.5, color: "var(--ink-2)", lineHeight: 1.6 }}>
             <p style={{ margin: "0 0 10px" }}>
-              <b style={{ color: "var(--ink)", fontWeight: 500 }}>High agreement</b> on DTW + Koopman
-              suggests the current window shares both a <em>visual shape</em> and an <em>underlying dynamical engine</em>
-              with its top analogs.
+              <b style={{ color: "var(--ink)", fontWeight: 500 }}>High agreement on Shape + Engine lenses</b> suggests
+              structural and dynamical alignment with top analogs.
             </p>
             <p style={{ margin: 0 }}>
-              <b style={{ color: "var(--ink)", fontWeight: 500 }}>Weakest lens:</b> Transfer entropy &mdash;
-              the predictive carry is real but modest. Treat P50 as a center of mass, not a target.
+              <b style={{ color: "var(--ink)", fontWeight: 500 }}>Weakest lens:</b> Carry &mdash;
+              the predictive transfer is real but modest. Treat P50 as a center of mass, not a target.
             </p>
           </div>
         </div>
