@@ -1,0 +1,89 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://thesimilarity.dev/schemas/scenario.json",
+  "title": "Synthetic World Scenario",
+  "description": "Defines a reproducible world configuration for the headless runner. Each scenario pins a world geometry, agent count, and simulation parameters so runs are deterministic given a seed.",
+  "type": "object",
+  "required": ["name", "world", "params"],
+  "additionalProperties": true,
+  "properties": {
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Unique identifier for the scenario. Used as the preset name in --preset <name> and in output file naming."
+    },
+    "description": {
+      "type": "string",
+      "description": "Human-readable summary of what this scenario tests or demonstrates."
+    },
+    "seed": {
+      "type": "integer",
+      "minimum": 0,
+      "default": 42,
+      "description": "Default PRNG seed. CLI --seed overrides this value. Controls agent placement, food spawns, and all stochastic decisions."
+    },
+    "steps": {
+      "type": "integer",
+      "minimum": 1,
+      "default": 500,
+      "description": "Default number of simulation ticks. CLI --steps overrides this value."
+    },
+    "world": {
+      "type": "object",
+      "required": ["size", "initial_population"],
+      "additionalProperties": false,
+      "description": "World geometry and initial agent count.",
+      "properties": {
+        "size": {
+          "type": "integer",
+          "minimum": 8,
+          "maximum": 1024,
+          "default": 64,
+          "description": "Side length of the square torus grid. Total cells = size^2. Larger worlds spread agents thinner (density = initial_population / size^2)."
+        },
+        "initial_population": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10000,
+          "default": 20,
+          "description": "Number of agents spawned at tick 0. Each starts at a random grid cell with energy = 1.0."
+        }
+      }
+    },
+    "params": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Simulation knobs that control agent behavior and environment dynamics.",
+      "properties": {
+        "energy_decay": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0,
+          "default": 0.01,
+          "description": "Energy lost per tick per agent, regardless of movement. Higher values create harsher survival pressure. Range [0, 1]: 0.005 = gentle, 0.01 = moderate, 0.05 = brutal."
+        },
+        "move_speed": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10,
+          "default": 1,
+          "description": "Maximum cells an agent can move per tick (Manhattan distance). 0 = stationary, 1 = normal, >1 = fast scouts."
+        },
+        "food_spawn_rate": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0,
+          "default": 0.1,
+          "description": "Probability per tick that a new food item spawns at a random empty cell. Controls resource abundance. Range [0, 1]: 0.02 = scarce, 0.1 = moderate, 0.5 = abundant."
+        },
+        "food_energy": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 10.0,
+          "default": 0.3,
+          "description": "Energy gained when an agent consumes a food item. Higher values make each food encounter more impactful."
+        }
+      }
+    }
+  }
+}
