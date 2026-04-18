@@ -144,19 +144,22 @@ export default function Dashboard() {
       <div style={{ display: "flex", minHeight: "100vh", background: "var(--app-bg)" }}>
         <Sidebar nav={nav} setNav={setNav} onCompose={() => setComposerOpen(true)} />
         <main
+          // 24px horizontal padding matches the reference grid. We use an
+          // inline gap of 18px between cards so the layout feels airy without
+          // wasting the canvas on very wide viewports.
           style={{
             flex: 1,
-            padding: "16px 20px 24px 20px",
+            padding: "18px 24px 28px 24px",
             display: "flex",
             flexDirection: "column",
-            gap: 16,
+            gap: 18,
             minWidth: 0,
           }}
         >
           <TopBar />
           <PageHeader events={events} />
 
-          <div style={{ display: "grid", gridTemplateColumns: "340px 1fr", gap: 14 }}>
+          <div className="prudent-grid-top">
             <KeyMetrics
               series={series}
               events={events}
@@ -175,7 +178,7 @@ export default function Dashboard() {
             />
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 14 }}>
+          <div className="prudent-grid-mid">
             <RhymeHeatmap history={history} rhymeStart={rhyme?.startIdx} />
             <TagDonut events={events} />
           </div>
@@ -282,6 +285,34 @@ export default function Dashboard() {
         .prudent-root .serif { font-family: var(--serif); }
         .prudent-root .tnum { font-variant-numeric: tabular-nums; }
         .prudent-root ::selection { background: var(--accent); color: #fff; }
+
+        /* Top grid: metrics column + chart. 340px left column works above
+           1280px; below that we stack so the chart isn't squeezed into a
+           sliver. The heatmap/donut mid grid follows the same principle. */
+        .prudent-root .prudent-grid-top {
+          display: grid;
+          grid-template-columns: 340px 1fr;
+          gap: 18px;
+        }
+        .prudent-root .prudent-grid-mid {
+          display: grid;
+          grid-template-columns: 1.4fr 1fr;
+          gap: 18px;
+        }
+        @media (max-width: 1280px) {
+          .prudent-root .prudent-grid-top {
+            grid-template-columns: 1fr;
+          }
+          .prudent-root .prudent-grid-mid {
+            grid-template-columns: 1fr;
+          }
+        }
+
+        /* Subtle hover affordance on all nav-ish buttons so the cursor never
+           feels stuck on a dead label. */
+        .prudent-root button:hover:not(:disabled) {
+          filter: brightness(0.98);
+        }
       `}</style>
     </div>
   );
@@ -1486,7 +1517,7 @@ function DayTrajectory({
         background: "var(--panel)",
         border: "1px solid var(--line)",
         borderRadius: 10,
-        padding: "14px 16px 16px 16px",
+        padding: "16px 18px 18px 18px",
         minWidth: 0,
       }}
     >
@@ -1495,23 +1526,24 @@ function DayTrajectory({
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          marginBottom: 6,
+          marginBottom: 8,
+          gap: 12,
         }}
       >
-        <div>
+        <div style={{ minWidth: 0 }}>
           <div style={{ fontSize: 14, fontWeight: 600 }}>Valence over time</div>
           <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 3 }}>
             Integrated trajectory · 5-min resolution · today vs comparison
           </div>
         </div>
-        <div style={{ display: "flex", gap: 6 }}>
+        <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
           <button
             onClick={() => setCompare(compareMode === "rhyme" ? "yesterday" : "rhyme")}
             style={{
               display: "flex",
               alignItems: "center",
-              gap: 6,
-              padding: "6px 10px",
+              gap: 7,
+              padding: "6px 11px",
               fontSize: 12,
               background: "var(--panel)",
               border: "1px solid var(--line-mid)",
@@ -1520,15 +1552,29 @@ function DayTrajectory({
               fontWeight: 500,
             }}
           >
-            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.3">
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 12 12"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.4"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
               <path d="M2 4h8l-2-2M10 8H2l2 2" />
             </svg>
-            Compare ·{" "}
-            {compareMode === "yesterday"
-              ? "Yesterday"
-              : compareMode === "rhyme"
-                ? "Rhyming week"
-                : "None"}
+            <span style={{ color: "var(--muted)" }}>Compare ·</span>
+            <span style={{ color: "var(--ink)", fontWeight: 500 }}>
+              {compareMode === "yesterday"
+                ? "Yesterday"
+                : compareMode === "rhyme"
+                  ? "Rhyming week"
+                  : "None"}
+            </span>
+            <svg width="8" height="8" viewBox="0 0 9 9" fill="none" stroke="currentColor" strokeWidth="1.3" style={{ opacity: 0.6 }}>
+              <path d="M2 3.5L4.5 6 7 3.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
           </button>
           <Chip label="Share" />
         </div>
@@ -2357,7 +2403,7 @@ function ThreadRibbon({
         background: "var(--panel)",
         border: "1px solid var(--line)",
         borderRadius: 10,
-        padding: "14px 16px",
+        padding: "16px 18px 18px 18px",
       }}
     >
       <div
@@ -2365,13 +2411,16 @@ function ThreadRibbon({
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          marginBottom: 10,
+          marginBottom: 12,
+          gap: 12,
         }}
       >
-        <div>
+        <div style={{ minWidth: 0, flex: 1 }}>
           <div style={{ fontSize: 14, fontWeight: 600 }}>Thread · 30 days</div>
-          <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>
+          <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 3 }}>
             {hoverIdx !== null ? (
+              // Serif italic pull-quote surfaces the hovered day's narrative
+              // — tiny but important UX hint that the graph has text under it.
               <span
                 className="serif"
                 style={{
@@ -2379,6 +2428,7 @@ function ThreadRibbon({
                   fontStyle: "italic",
                   fontSize: 13,
                   color: "var(--ink)",
+                  letterSpacing: "-0.005em",
                 }}
               >
                 day −{history[hoverIdx].day} — &ldquo;{history[hoverIdx].text.slice(0, 70)}…&rdquo;
@@ -2388,7 +2438,7 @@ function ThreadRibbon({
             )}
           </div>
         </div>
-        <div style={{ display: "flex", gap: 6 }}>
+        <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
           <Chip label="30d" active />
           <Chip label="90d" />
           <Chip label="YTD" />
@@ -2791,19 +2841,22 @@ function Footer() {
       style={{
         display: "flex",
         justifyContent: "space-between",
-        padding: "10px 4px 0 4px",
+        padding: "14px 2px 0 2px",
         borderTop: "1px solid var(--line)",
         fontSize: 11,
         color: "var(--faint)",
+        marginTop: 4,
       }}
     >
-      <div style={{ display: "flex", gap: 16 }}>
+      <div style={{ display: "flex", gap: 18 }}>
         <span>Privacy</span>
         <span>Terms</span>
         <span>Help Center</span>
         <span>Feedback</span>
       </div>
-      <div>© 2026 The Similarity · engine v0.3</div>
+      <div className="mono" style={{ letterSpacing: "0.02em" }}>
+        © 2026 The Similarity · engine v0.3
+      </div>
     </div>
   );
 }
