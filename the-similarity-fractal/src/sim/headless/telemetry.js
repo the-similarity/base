@@ -31,6 +31,17 @@ import { dirname } from 'node:path';
 const GENERATOR_NAME = 'the-similarity-fractal-headless';
 const GENERATOR_VERSION = '0.1.0';
 
+/**
+ * Telemetry format version. Bumped when the JSONL schema changes in a
+ * backward-incompatible way (new required fields, renamed keys, etc.).
+ * Downstream consumers should check this field and bail if > their supported
+ * version, or adapt gracefully for minor bumps.
+ *
+ * 2.0: Added population_density, food_per_agent, energy_variance to tick
+ *      metrics. Added telemetry_version field to provenance line.
+ */
+const TELEMETRY_VERSION = '2.0';
+
 export class TelemetryWriter {
   constructor(outPath) {
     this.outPath = outPath;
@@ -50,6 +61,7 @@ export class TelemetryWriter {
   writeProvenance({ seed, scenario, params, durationSteps }) {
     this._write({
       type: 'provenance',
+      telemetry_version: TELEMETRY_VERSION,
       seed,
       generator_name: GENERATOR_NAME,
       version: GENERATOR_VERSION,
