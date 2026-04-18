@@ -1,0 +1,64 @@
+"use client";
+
+/**
+ * Command palette (Cmd+K / slash) — quick navigation between surfaces
+ * and toggling theme/tweaks. Filters items as you type, supports
+ * arrow-key navigation and Enter to select.
+ */
+
+import { useState, useEffect } from "react";
+
+interface CommandPaletteProps {
+  open: boolean;
+  onClose: () => void;
+  onNav: (v: string) => void;
+}
+
+const items = [
+  { k: "Go to Retrieve", v: "retrieve", hint: "G R" },
+  { k: "Go to Represent", v: "represent", hint: "G E" },
+  { k: "Go to Simulate", v: "simulate", hint: "G S" },
+  { k: "Go to Evaluate", v: "evaluate", hint: "G V" },
+  { k: "Go to Render", v: "render", hint: "G N" },
+  { k: "Go to Decide", v: "decide", hint: "G D" },
+  { k: "Toggle theme", v: "theme", hint: "T" },
+  { k: "Toggle Tweaks", v: "tweaks", hint: "Shift T" },
+];
+
+export function CommandPalette({ open, onClose, onNav }: CommandPaletteProps) {
+  const [q, setQ] = useState("");
+  const [idx, setIdx] = useState(0);
+
+  const filtered = items.filter(i => i.k.toLowerCase().includes(q.toLowerCase()));
+
+  // Reset state when opening
+  useEffect(() => { if (open) { setQ(""); setIdx(0); } }, [open]);
+
+  if (!open) return null;
+
+  const choose = (v: string) => { onNav(v); onClose(); };
+
+  return (
+    <div className="cmdk-overlay" onClick={onClose}>
+      <div className="cmdk" onClick={e => e.stopPropagation()}>
+        <input className="cmdk__input" autoFocus placeholder="Type a command or surface\u2026"
+          value={q} onChange={e => { setQ(e.target.value); setIdx(0); }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && filtered[idx]) choose(filtered[idx].v);
+            if (e.key === "ArrowDown") { e.preventDefault(); setIdx(i => Math.min(filtered.length - 1, i + 1)); }
+            if (e.key === "ArrowUp") { e.preventDefault(); setIdx(i => Math.max(0, i - 1)); }
+            if (e.key === "Escape") onClose();
+          }} />
+        <div className="cmdk__list">
+          {filtered.map((it, i) => (
+            <div key={it.v} className="cmdk__item" data-active={i === idx ? "true" : undefined}
+              onMouseEnter={() => setIdx(i)} onClick={() => choose(it.v)}>
+              <span>{it.k}</span>
+              <span className="label">{it.hint}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
