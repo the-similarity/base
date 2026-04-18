@@ -373,13 +373,12 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
           <div className="side__header"><span className="label">Lens reading</span></div>
           <div style={{ fontSize: 12.5, color: "var(--ink-2)", lineHeight: 1.6 }}>
             <p style={{ margin: "0 0 10px" }}>
-              <b style={{ color: "var(--ink)", fontWeight: 500 }}>High agreement</b> on DTW + Koopman
-              suggests the current window shares both a <em>visual shape</em> and an <em>underlying dynamical engine</em>
-              with its top analogs.
+              <b style={{ color: "var(--ink)", fontWeight: 500 }}>High agreement on Shape + Engine lenses</b> suggests
+              structural and dynamical alignment with top analogs.
             </p>
             <p style={{ margin: 0 }}>
-              <b style={{ color: "var(--ink)", fontWeight: 500 }}>Weakest lens:</b> Transfer entropy &mdash;
-              the predictive carry is real but modest. Treat P50 as a center of mass, not a target.
+              <b style={{ color: "var(--ink)", fontWeight: 500 }}>Weakest lens:</b> Carry &mdash;
+              the predictive transfer is real but modest. Treat P50 as a center of mass, not a target.
             </p>
           </div>
         </div>
