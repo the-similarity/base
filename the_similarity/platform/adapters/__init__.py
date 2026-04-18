@@ -27,8 +27,16 @@ from __future__ import annotations
 
 from the_similarity.platform.adapters.finance import register_backtest_run
 from the_similarity.platform.adapters.copies import register_copies_run
+from the_similarity.platform.adapters.worlds import (
+    register_world_run,
+    register_scenario_preset,
+    sync_all_presets,
+)
 
 __all__ = [
     "register_backtest_run",
     "register_copies_run",
+    "register_scenario_preset",
+    "register_world_run",
+    "sync_all_presets",
 ]
