@@ -2456,50 +2456,78 @@ function HistorySvg({
           strokeDasharray="3 3"
         />
         {rhymeStart !== null && rhymeStart !== undefined && (
-          <rect
-            x={pad.l + rhymeStart * bw}
-            y={pad.t - 4}
-            width={bw * 7}
-            height={H + 8}
-            fill="var(--warm)"
-            opacity="0.08"
-          />
-        )}
-        {rhymeStart !== null && rhymeStart !== undefined && (
-          <rect
-            x={pad.l + rhymeStart * bw}
-            y={pad.t - 4}
-            width={bw * 7}
-            height={H + 8}
-            fill="none"
-            stroke="var(--warm)"
-            strokeWidth="1"
-            strokeDasharray="3 2"
-            opacity="0.6"
-          />
+          // Warm-tone highlight band behind the rhyming 7-day window. The
+          // outline is a subtle rounded rect (not the dashed stroke used
+          // previously) so it reads as a delicate backdrop instead of a
+          // warning box.
+          <>
+            <rect
+              x={pad.l + rhymeStart * bw}
+              y={pad.t - 6}
+              width={bw * 7}
+              height={H + 12}
+              fill="var(--warm)"
+              opacity="0.09"
+              rx="6"
+            />
+            <rect
+              x={pad.l + rhymeStart * bw}
+              y={pad.t - 6}
+              width={bw * 7}
+              height={H + 12}
+              fill="none"
+              stroke="var(--warm-strong)"
+              strokeWidth="1"
+              opacity="0.28"
+              rx="6"
+            />
+          </>
         )}
         <path d={areaD} fill="url(#prudentThreadGrad)" />
-        <path d={d} fill="none" stroke="var(--accent)" strokeWidth="1.5" />
+        <path d={d} fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" />
         {pts.map((p) => (
           <g key={p.i} onMouseEnter={() => onHover(p.i)} onMouseLeave={() => onHover(null)}>
             <rect x={pad.l + p.i * bw} y={pad.t} width={bw} height={H} fill="transparent" />
             <circle
               cx={p.x}
               cy={p.y}
-              r={p.d.day === 0 ? 4 : hoverIdx === p.i ? 3.5 : 2}
+              r={p.d.day === 0 ? 4.5 : hoverIdx === p.i ? 3.5 : 2}
               fill={p.d.day === 0 ? "var(--accent)" : "var(--panel)"}
               stroke="var(--accent)"
-              strokeWidth="1.3"
+              strokeWidth={p.d.day === 0 ? 2 : 1.4}
             />
           </g>
         ))}
-        <text x={pad.l} y={h - 4} fontSize="10" fill="var(--faint)">
+        <text
+          x={pad.l}
+          y={h - 4}
+          fontSize="10"
+          fill="var(--faint)"
+          className="mono"
+          fontWeight="500"
+        >
           30d
         </text>
-        <text x={pad.l + W / 2} y={h - 4} textAnchor="middle" fontSize="10" fill="var(--faint)">
+        <text
+          x={pad.l + W / 2}
+          y={h - 4}
+          textAnchor="middle"
+          fontSize="10"
+          fill="var(--faint)"
+          className="mono"
+          fontWeight="500"
+        >
           15d
         </text>
-        <text x={pad.l + W} y={h - 4} textAnchor="end" fontSize="10" fill="var(--faint)">
+        <text
+          x={pad.l + W}
+          y={h - 4}
+          textAnchor="end"
+          fontSize="10"
+          fill="var(--faint)"
+          className="mono"
+          fontWeight="500"
+        >
           today
         </text>
       </svg>
@@ -2569,91 +2597,154 @@ function ComposerModal({ text, setText, onClose, events }: ComposerProps) {
             ✕
           </button>
         </div>
-        <div style={{ padding: "16px 20px" }}>
+        <div style={{ padding: "18px 22px" }}>
+          {/* Newsreader serif textarea — italic placeholder, generous
+              line-height so the journal feels literary, not technical. The
+              15-line min keeps the first screen clean of chrome. */}
           <textarea
             ref={ref}
             value={text}
             onChange={(e) => setText(e.target.value)}
-            placeholder="How did today go, minute by minute?"
+            placeholder="How did today go, minute by minute…"
             rows={8}
             style={{
               width: "100%",
               fontFamily: "var(--serif)",
-              fontSize: 18,
-              lineHeight: 1.55,
+              fontSize: 19,
+              lineHeight: 1.6,
               color: "var(--ink)",
               resize: "vertical",
-              minHeight: 180,
+              minHeight: 200,
+              letterSpacing: "-0.005em",
             }}
           />
-          <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px dashed var(--line)" }}>
+          <div
+            style={{
+              marginTop: 18,
+              paddingTop: 16,
+              borderTop: "1px solid var(--line)",
+            }}
+          >
             <div
               className="mono"
               style={{
                 fontSize: 10,
-                letterSpacing: "0.1em",
+                letterSpacing: "0.08em",
                 color: "var(--muted)",
                 fontWeight: 600,
-                marginBottom: 8,
+                marginBottom: 12,
                 textTransform: "uppercase",
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
               }}
             >
-              Parsed · {events.length} events
+              <span>Parsed</span>
+              <span
+                style={{
+                  background: "var(--accent-soft)",
+                  color: "var(--accent-ink)",
+                  padding: "2px 7px",
+                  borderRadius: 10,
+                  fontSize: 10,
+                  fontWeight: 600,
+                  letterSpacing: "0.02em",
+                }}
+              >
+                {events.length} events
+              </span>
             </div>
-            <div style={{ fontSize: 13, lineHeight: 2, color: "var(--muted)" }}>
+            <div
+              style={{
+                fontSize: 13.5,
+                lineHeight: 2.1,
+                color: "var(--muted)",
+                fontFamily: "var(--serif)",
+                fontStyle: "italic",
+              }}
+            >
               {events.length === 0 && (
-                <span style={{ color: "var(--faint)" }}>No anchors detected yet.</span>
-              )}
-              {events.map((ev, i) => (
-                <span key={i} style={{ marginRight: 6 }}>
-                  <span
-                    style={{
-                      borderBottom: `2px solid ${ev.delta > 0 ? "var(--green)" : "var(--warm)"}`,
-                      color: "var(--ink)",
-                      padding: "0 2px",
-                    }}
-                  >
-                    {ev.text.replace(/[.?!,]+$/, "").slice(0, 36)}
-                    {ev.text.length > 36 ? "…" : ""}
-                  </span>
-                  <span
-                    className="mono"
-                    style={{
-                      fontSize: 10,
-                      padding: "1px 5px",
-                      borderRadius: 3,
-                      background: ev.delta > 0 ? "rgba(61,138,95,0.12)" : "rgba(208,115,43,0.12)",
-                      color: ev.delta > 0 ? "var(--green)" : "var(--warm)",
-                      marginLeft: 4,
-                      fontWeight: 600,
-                    }}
-                  >
-                    {ev.delta > 0 ? "+" : ""}
-                    {ev.delta.toFixed(0)}
-                  </span>
+                <span style={{ color: "var(--faint)" }}>
+                  No anchors detected yet — keep writing, the engine finds them as
+                  you type.
                 </span>
-              ))}
+              )}
+              {events.map((ev, i) => {
+                const positive = ev.delta > 0;
+                const stroke = positive ? "var(--green)" : "var(--warm-strong)";
+                const bg = positive
+                  ? "rgba(22,163,74,0.10)"
+                  : "rgba(234,88,12,0.10)";
+                return (
+                  <span
+                    key={i}
+                    style={{
+                      marginRight: 8,
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 4,
+                    }}
+                  >
+                    <span
+                      style={{
+                        borderBottom: `2px solid ${stroke}`,
+                        color: "var(--ink)",
+                        padding: "0 3px 1px 3px",
+                        fontStyle: "normal",
+                        fontFamily: "var(--serif)",
+                      }}
+                    >
+                      {ev.text.replace(/[.?!,]+$/, "").slice(0, 40)}
+                      {ev.text.length > 40 ? "…" : ""}
+                    </span>
+                    <span
+                      className="mono tnum"
+                      style={{
+                        fontSize: 10,
+                        padding: "2px 6px",
+                        borderRadius: 10,
+                        background: bg,
+                        color: stroke,
+                        fontWeight: 600,
+                        fontStyle: "normal",
+                        letterSpacing: "-0.01em",
+                      }}
+                    >
+                      {positive ? "+" : ""}
+                      {ev.delta.toFixed(0)}
+                    </span>
+                  </span>
+                );
+              })}
             </div>
           </div>
         </div>
         <div
           style={{
-            padding: "12px 20px",
+            padding: "14px 22px",
             borderTop: "1px solid var(--line)",
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
           }}
         >
-          <div className="mono" style={{ fontSize: 10, color: "var(--faint)" }}>
-            {text.length} chars · {events.length} events
+          <div
+            className="mono"
+            style={{
+              fontSize: 10.5,
+              color: "var(--faint)",
+              letterSpacing: "0.02em",
+            }}
+          >
+            <span className="tnum">{text.length}</span> chars ·{" "}
+            <span className="tnum">{events.length}</span> events
           </div>
           <div style={{ display: "flex", gap: 8 }}>
             <button
               onClick={onClose}
               style={{
                 fontSize: 13,
-                padding: "7px 14px",
+                padding: "8px 14px",
                 borderRadius: 7,
                 border: "1px solid var(--line-mid)",
                 color: "var(--muted)",
@@ -2665,14 +2756,23 @@ function ComposerModal({ text, setText, onClose, events }: ComposerProps) {
               onClick={onClose}
               style={{
                 fontSize: 13,
-                padding: "7px 14px",
+                padding: "8px 16px",
                 borderRadius: 7,
                 background: "var(--ink)",
                 color: "var(--app-bg)",
                 fontWeight: 500,
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 8,
               }}
             >
-              Log to thread ↵
+              Log to thread
+              <span
+                className="mono"
+                style={{ fontSize: 11, opacity: 0.55, letterSpacing: "0.02em" }}
+              >
+                ↵
+              </span>
             </button>
           </div>
         </div>
@@ -2714,8 +2814,10 @@ interface TweaksPanelProps {
 }
 
 function TweaksPanel({ tweaks, setTweak }: TweaksPanelProps) {
+  // Generic text-label option group (theme / compare). Accent is rendered
+  // separately as color swatches because a HEX chip reads faster than a word.
   const opts = <K extends keyof Tweaks>(key: K, choices: readonly Tweaks[K][]) => (
-    <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+    <div style={{ display: "flex", gap: 3, flexWrap: "wrap" }}>
       {choices.map((c) => (
         <button
           key={String(c)}
@@ -2723,11 +2825,14 @@ function TweaksPanel({ tweaks, setTweak }: TweaksPanelProps) {
           className="mono"
           style={{
             fontSize: 10,
-            padding: "4px 8px",
+            padding: "4px 9px",
             border: `1px solid ${tweaks[key] === c ? "var(--ink)" : "var(--line-mid)"}`,
             background: tweaks[key] === c ? "var(--ink)" : "transparent",
             color: tweaks[key] === c ? "var(--app-bg)" : "var(--muted)",
             borderRadius: 5,
+            fontWeight: 500,
+            letterSpacing: "0.02em",
+            transition: "background 100ms ease, color 100ms ease",
           }}
         >
           {String(c)}
@@ -2735,69 +2840,102 @@ function TweaksPanel({ tweaks, setTweak }: TweaksPanelProps) {
       ))}
     </div>
   );
+
+  // Accent-specific chooser — each option is a small filled color chip rather
+  // than the accent name. Reads at a glance when you're A/B-ing palettes.
+  const accentChoices: Accent[] = ["blue", "ember", "teal", "plum"];
+  const accentSwatches = (
+    <div style={{ display: "flex", gap: 6 }}>
+      {accentChoices.map((c) => {
+        const active = tweaks.accent === c;
+        return (
+          <button
+            key={c}
+            onClick={() => setTweak("accent", c)}
+            aria-label={`accent ${c}`}
+            style={{
+              width: 22,
+              height: 22,
+              borderRadius: "50%",
+              background: ACCENT_HEX[c],
+              border: `2px solid ${active ? "var(--ink)" : "transparent"}`,
+              boxShadow: active
+                ? "0 0 0 2px var(--panel), 0 0 0 3px rgba(20,22,26,0.25)"
+                : "inset 0 0 0 1px rgba(0,0,0,0.08)",
+              cursor: "pointer",
+              padding: 0,
+              transition: "transform 120ms ease",
+              transform: active ? "scale(1.05)" : "scale(1)",
+            }}
+          />
+        );
+      })}
+    </div>
+  );
+
   return (
     <div
       style={{
         position: "fixed",
-        bottom: 18,
-        right: 18,
-        width: 268,
+        bottom: 16,
+        right: 16,
+        width: 248,
         zIndex: 60,
         background: "var(--panel)",
         border: "1px solid var(--line-mid)",
-        borderRadius: 10,
-        padding: 14,
-        boxShadow: "0 20px 40px -18px rgba(0,0,0,0.35)",
+        borderRadius: 8,
+        padding: "12px 14px 14px 14px",
+        boxShadow: "0 16px 32px -16px rgba(0,0,0,0.32)",
       }}
     >
-      <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 12 }}>Tweaks</div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-        <div>
-          <div
-            className="mono"
-            style={{
-              fontSize: 10,
-              color: "var(--muted)",
-              marginBottom: 5,
-              textTransform: "uppercase",
-              letterSpacing: "0.08em",
-            }}
-          >
-            accent
-          </div>
-          {opts("accent", ["blue", "ember", "teal", "plum"] as const)}
-        </div>
-        <div>
-          <div
-            className="mono"
-            style={{
-              fontSize: 10,
-              color: "var(--muted)",
-              marginBottom: 5,
-              textTransform: "uppercase",
-              letterSpacing: "0.08em",
-            }}
-          >
-            theme
-          </div>
-          {opts("theme", ["light", "dark"] as const)}
-        </div>
-        <div>
-          <div
-            className="mono"
-            style={{
-              fontSize: 10,
-              color: "var(--muted)",
-              marginBottom: 5,
-              textTransform: "uppercase",
-              letterSpacing: "0.08em",
-            }}
-          >
-            compare
-          </div>
-          {opts("compare", ["rhyme", "yesterday", "none"] as const)}
-        </div>
+      <div
+        style={{
+          fontSize: 11,
+          fontWeight: 600,
+          marginBottom: 10,
+          letterSpacing: "0.06em",
+          textTransform: "uppercase",
+          color: "var(--muted)",
+        }}
+        className="mono"
+      >
+        Tweaks
       </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <TweakRow label="accent">{accentSwatches}</TweakRow>
+        <TweakRow label="theme">{opts("theme", ["light", "dark"] as const)}</TweakRow>
+        <TweakRow label="compare">{opts("compare", ["rhyme", "yesterday", "none"] as const)}</TweakRow>
+      </div>
+    </div>
+  );
+}
+
+// A single row in the Tweaks panel: left-aligned label, right-aligned control.
+// Kept compact (justified-between) so the panel stays visually calm.
+function TweakRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 10,
+      }}
+    >
+      <div
+        className="mono"
+        style={{
+          fontSize: 9.5,
+          color: "var(--muted)",
+          textTransform: "uppercase",
+          letterSpacing: "0.08em",
+          fontWeight: 600,
+          minWidth: 50,
+        }}
+      >
+        {label}
+      </div>
+      {children}
     </div>
   );
 }
