@@ -1,0 +1,16 @@
+{
+  "name": "sparse",
+  "description": "10 agents on a 256x256 torus with low food spawn (0.02). Tests survival in resource-scarce, spread-out worlds: agents must cover large distances between food items, and population collapse is likely without lucky spawn patterns.",
+  "seed": 42,
+  "steps": 500,
+  "world": {
+    "size": 256,
+    "initial_population": 10
+  },
+  "params": {
+    "energy_decay": 0.01,
+    "move_speed": 1,
+    "food_spawn_rate": 0.02,
+    "food_energy": 0.3
+  }
+}

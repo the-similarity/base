@@ -1,0 +1,16 @@
+{
+  "name": "stress_test",
+  "description": "100 agents on a 128x128 torus with aggressive energy decay (0.05). Designed to test population collapse dynamics: most agents die within the first 200 ticks, revealing whether survivors cluster near food or spread thin.",
+  "seed": 42,
+  "steps": 1000,
+  "world": {
+    "size": 128,
+    "initial_population": 100
+  },
+  "params": {
+    "energy_decay": 0.05,
+    "move_speed": 1,
+    "food_spawn_rate": 0.1,
+    "food_energy": 0.3
+  }
+}

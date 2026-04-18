@@ -141,6 +141,31 @@ def _cmd_show(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_sync_scenarios(args: argparse.Namespace) -> int:
+    """Scan a directory of scenario JSONs and register each as a ScenarioSpec."""
+    from the_similarity.platform.adapters.worlds import sync_all_presets
+
+    scenarios_dir = Path(args.dir).expanduser()
+    if not scenarios_dir.exists() or not scenarios_dir.is_dir():
+        print(
+            f"error: scenarios directory not found: {scenarios_dir}",
+            file=sys.stderr,
+        )
+        return 1
+
+    with RunRegistry(_resolve_db_path(args.db)) as registry:
+        ids = sync_all_presets(scenarios_dir, registry=registry)
+
+    if not ids:
+        print("No scenario JSON files found.", file=sys.stderr)
+        return 0
+
+    for sid in ids:
+        print(sid)
+    print(f"\nSynced {len(ids)} scenario(s).", file=sys.stderr)
+    return 0
+
+
 def _cmd_compare(args: argparse.Namespace) -> int:
     """Pretty-print the summary diff between two runs."""
     with RunRegistry(_resolve_db_path(args.db)) as registry:
@@ -210,6 +235,17 @@ def _build_parser() -> argparse.ArgumentParser:
     p_compare.add_argument("run_id_a", help="First run_id.")
     p_compare.add_argument("run_id_b", help="Second run_id.")
     p_compare.set_defaults(func=_cmd_compare)
+
+    p_sync = sub.add_parser(
+        "sync-scenarios",
+        help="Scan a directory of scenario JSONs and register them.",
+    )
+    p_sync.add_argument(
+        "--dir",
+        required=True,
+        help="Path to the directory containing scenario JSON files.",
+    )
+    p_sync.set_defaults(func=_cmd_sync_scenarios)
 
     return parser
 
