@@ -1814,14 +1814,28 @@ function RhymeHeatmap({
     return `${hr}${suf}`;
   });
 
-  const accent = "#4c63d9";
-  const colorFor = (v: number) => {
-    if (v < 0.15) return { bg: "transparent", border: "var(--line-mid)", text: "var(--faint)" };
-    if (v < 0.35) return { bg: "rgba(76,99,217,0.12)", border: "transparent", text: "var(--ink)" };
-    if (v < 0.55) return { bg: "rgba(76,99,217,0.30)", border: "transparent", text: "var(--ink)" };
-    if (v < 0.75) return { bg: "rgba(76,99,217,0.55)", border: "transparent", text: "#fff" };
-    return { bg: accent, border: "transparent", text: "#fff" };
+  // Five intensity steps, mapped from normalized valence-intensity ∈ [0,1].
+  // Step 0 is the empty state — a barely-there filled chip (NOT a dashed
+  // outline) so the grid still reads as a continuous canvas instead of a
+  // ghostly outline on white. Higher steps ramp through tailwind blue-50 →
+  // blue-500 so the darkest cells are legible on a white panel.
+  const STEP_BG = [
+    "rgba(59,130,246,0.06)",   // 0 — ghost
+    "rgba(59,130,246,0.16)",   // 1 — faint
+    "rgba(59,130,246,0.32)",   // 2 — soft
+    "rgba(59,130,246,0.58)",   // 3 — medium
+    "rgba(59,130,246,1.0)",    // 4 — solid
+  ];
+  const stepFor = (v: number): number => {
+    if (v < 0.15) return 0;
+    if (v < 0.35) return 1;
+    if (v < 0.55) return 2;
+    if (v < 0.75) return 3;
+    return 4;
   };
+  // At step 3 we switch the label color to white so contrast stays readable.
+  const stepText = (step: number): string =>
+    step >= 3 ? "#fff" : step === 0 ? "var(--faint)" : "var(--ink)";
 
   return (
     <section
@@ -1829,7 +1843,7 @@ function RhymeHeatmap({
         background: "var(--panel)",
         border: "1px solid var(--line)",
         borderRadius: 10,
-        padding: "14px 16px 14px 16px",
+        padding: "14px 16px 16px 16px",
         minWidth: 0,
       }}
     >
@@ -1838,34 +1852,56 @@ function RhymeHeatmap({
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          marginBottom: 10,
+          marginBottom: 12,
+          gap: 12,
         }}
       >
         <div>
           <div style={{ fontSize: 14, fontWeight: 600 }}>Busiest valence</div>
-          <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>
+          <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 3 }}>
             Last 7 days · hour-of-day intensity
           </div>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "var(--muted)" }}>
+        <div
+          style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}
+        >
+          {/* Legend — same 5-step swatches as the grid cells, each a tiny
+              rounded square so the ramp reads as a mini version of the map. */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              fontSize: 10.5,
+              color: "var(--muted)",
+              fontVariantNumeric: "tabular-nums",
+            }}
+          >
             <span>0</span>
-            <div style={{ display: "flex" }}>
-              {[0.08, 0.2, 0.4, 0.65, 1].map((s, i) => (
-                <div key={i} style={{ width: 14, height: 10, background: `rgba(76,99,217,${s})` }} />
+            <div style={{ display: "flex", gap: 2 }}>
+              {STEP_BG.map((bg, i) => (
+                <div
+                  key={i}
+                  style={{
+                    width: 12,
+                    height: 12,
+                    background: bg,
+                    borderRadius: 3,
+                  }}
+                />
               ))}
             </div>
             <span>100</span>
           </div>
-          <Chip label="New chats" caret />
+          <Chip label="All workspaces" caret />
         </div>
       </div>
 
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "36px repeat(12, 1fr)",
-          gap: 4,
+          gridTemplateColumns: "42px repeat(12, 1fr)",
+          gap: 5,
           alignItems: "center",
         }}
       >
@@ -1875,34 +1911,39 @@ function RhymeHeatmap({
             <div
               style={{
                 fontSize: 11,
-                color: isRhymeRow(ri) ? "var(--warm)" : "var(--muted)",
+                color: isRhymeRow(ri) ? "var(--warm-strong)" : "var(--muted)",
                 fontWeight: isRhymeRow(ri) ? 600 : 500,
                 textAlign: "right",
-                paddingRight: 6,
+                paddingRight: 8,
+                letterSpacing: "0.01em",
               }}
             >
               {days[ri]}
             </div>
             {row.map((cell, ci) => {
-              const c = colorFor(cell.v);
+              const step = stepFor(cell.v);
               const val = Math.round(cell.v * 10);
               return (
                 <div
                   key={ci}
                   style={{
-                    aspectRatio: "1.4",
-                    background: c.bg,
-                    border:
-                      c.border === "transparent" ? "1px solid transparent" : `1px dashed ${c.border}`,
-                    color: c.text,
-                    borderRadius: 5,
+                    aspectRatio: "1.3",
+                    background: STEP_BG[step],
+                    color: stepText(step),
+                    borderRadius: 7,
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
                     fontSize: 11,
-                    fontWeight: 500,
+                    fontWeight: step >= 3 ? 600 : 500,
                     fontVariantNumeric: "tabular-nums",
-                    boxShadow: isRhymeRow(ri) ? "inset 0 0 0 1px var(--warm-soft)" : "none",
+                    // Rhyming rows get a soft warm outline — no longer the
+                    // dashed inset; this looks like a highlight band rather
+                    // than a warning state.
+                    boxShadow: isRhymeRow(ri)
+                      ? "inset 0 0 0 1.5px rgba(249,115,22,0.45)"
+                      : "none",
+                    transition: "transform 120ms ease",
                   }}
                 >
                   {val}
@@ -1915,12 +1956,14 @@ function RhymeHeatmap({
         {hours.map((h, i) => (
           <div
             key={i}
+            className="mono"
             style={{
               fontSize: 9.5,
               color: "var(--faint)",
               textAlign: "center",
-              paddingTop: 4,
+              paddingTop: 6,
               fontVariantNumeric: "tabular-nums",
+              fontWeight: 500,
             }}
           >
             {h}
@@ -1933,25 +1976,48 @@ function RhymeHeatmap({
           style={{
             display: "flex",
             alignItems: "center",
-            gap: 8,
-            marginTop: 12,
-            padding: "8px 10px",
-            borderRadius: 7,
-            background: "rgba(208,115,43,0.08)",
-            border: "1px solid rgba(208,115,43,0.25)",
+            gap: 10,
+            marginTop: 14,
+            padding: "10px 12px",
+            borderRadius: 8,
+            // Warm ember band — bg is tailwind orange-50, border orange-200.
+            background: "rgba(249,115,22,0.07)",
+            border: "1px solid rgba(249,115,22,0.22)",
             fontSize: 12,
             color: "var(--ink)",
           }}
         >
-          <span style={{ fontSize: 14 }}>↻</span>
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 16 16"
+            fill="none"
+            stroke="var(--warm-strong)"
+            strokeWidth="1.6"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M3 8a5 5 0 019-3L13 6M13 8a5 5 0 01-9 3L3 10" />
+            <path d="M13 3v3h-3M3 13v-3h3" />
+          </svg>
           <span style={{ fontWeight: 500 }}>
-            This week rhymes with day −{history[rhymeStart].day} → −{history[rhymeStart + 6]?.day}.
+            This week rhymes with day −{history[rhymeStart].day} → −
+            {history[rhymeStart + 6]?.day}.
           </span>
-          <span style={{ color: "var(--muted)" }} className="tnum">
+          <span style={{ color: "var(--muted)", fontWeight: 500 }} className="tnum">
             RMSE 0.41 · cosine 0.88
           </span>
           <span style={{ flex: 1 }} />
-          <button style={{ fontSize: 11, fontWeight: 600, color: "var(--warm)" }}>Explore →</button>
+          <button
+            style={{
+              fontSize: 11,
+              fontWeight: 600,
+              color: "var(--warm-strong)",
+              letterSpacing: "0.01em",
+            }}
+          >
+            Explore →
+          </button>
         </div>
       )}
     </section>
