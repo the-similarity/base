@@ -7,6 +7,12 @@ The template is:
     "{symbol} {window_size}-bar window found {n_valid_trials} analogues
      with {hit_rate:.0%} hit rate, calibration {grade}, CRPS {crps:.2f}"
 
+The ``{grade}`` slot uses the canonical finance-UX letter scale
+(A/B/C/D/F). See
+:func:`the_similarity.platform.adapters.trust.compute_calibration_grade`
+for the authoritative threshold map — this module mirrors that contract
+so a run's UI badge and its one-line signal summary always agree.
+
 All fields are optional — missing fields are gracefully replaced with
 ``"N/A"`` so the summary always produces a readable string even from
 partial data.
@@ -18,13 +24,21 @@ from typing import Any, Dict
 
 
 def _calibration_grade(calibration: Any) -> str:
-    """Convert a calibration metric into a human-readable grade.
+    """Convert a calibration metric into a human-readable letter grade.
 
     Grading scale (mean absolute calibration error):
-    - < 0.05: "excellent"
-    - < 0.10: "good"
-    - < 0.15: "fair"
-    - >= 0.15: "poor"
+    - < 0.03: "A"
+    - < 0.06: "B"
+    - < 0.10: "C"
+    - < 0.15: "D"
+    - >= 0.15: "F"
+
+    Thresholds mirror
+    :func:`the_similarity.platform.adapters.trust.compute_calibration_grade`.
+    We do NOT import that helper directly because it expects a
+    ``{percentile_str: observed_coverage}`` dict whereas this helper
+    also accepts a single float (mean error) for backwards compatibility
+    with the summary-only call sites.
 
     Parameters
     ----------
@@ -47,15 +61,19 @@ def _calibration_grade(calibration: Any) -> str:
     else:
         return "N/A"
 
-    # Grading thresholds aligned with risk_flags.MAX_CALIBRATION_ERROR = 0.15.
-    if cal_error < 0.05:
-        return "excellent"
+    # Thresholds must stay in lock-step with trust.compute_calibration_grade.
+    # If you change one, change the other — the test suite will catch
+    # drift via test_finance_run_standardization.py.
+    if cal_error < 0.03:
+        return "A"
+    elif cal_error < 0.06:
+        return "B"
     elif cal_error < 0.10:
-        return "good"
+        return "C"
     elif cal_error < 0.15:
-        return "fair"
+        return "D"
     else:
-        return "poor"
+        return "F"
 
 
 def generate_signal_summary(run_config: Dict[str, Any], metrics: Dict[str, Any]) -> str:
@@ -87,7 +105,7 @@ def generate_signal_summary(run_config: Dict[str, Any], metrics: Dict[str, Any])
     ...     {"symbol": "SPY", "window_size": 60},
     ...     {"n_valid_trials": 8, "hit_rate": 0.72, "calibration": 0.08, "crps": 0.31},
     ... )
-    'SPY 60-bar window found 8 analogues with 72% hit rate, calibration good, CRPS 0.31'
+    'SPY 60-bar window found 8 analogues with 72% hit rate, calibration C, CRPS 0.31'
     """
     # Extract fields with graceful fallbacks.
     symbol = run_config.get("symbol", "N/A")

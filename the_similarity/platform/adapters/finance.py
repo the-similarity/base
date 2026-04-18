@@ -124,8 +124,10 @@ def _enrich_summary(summary: Dict[str, Any]) -> Dict[str, Any]:
 
     - ``trust_score``: composite 0..1 score derived from:
       ``0.4 * hit_rate + 0.3 * coverage + 0.3 * (1 - min(crps, 1))``
-    - ``calibration_grade``: "excellent" / "good" / "fair" / "poor"
-      based on mean absolute calibration error across percentiles.
+    - ``calibration_grade``: letter grade ``"A"`` / ``"B"`` / ``"C"`` /
+      ``"D"`` / ``"F"`` based on mean absolute calibration error across
+      percentiles. See :func:`the_similarity.platform.adapters.trust.compute_calibration_grade`
+      for the threshold map.
 
     These are convenience fields so the registry's summary column carries
     the quality signal without requiring a join to the trust artifact.
