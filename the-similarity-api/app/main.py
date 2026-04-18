@@ -17,6 +17,7 @@ from app.alert_routes import router as alert_router
 from app.auth_deps import get_current_user
 from app.platform_routes import router as platform_router
 from app.finance_routes import router as finance_router
+from app.state_routes import router as state_router
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +44,9 @@ app.include_router(platform_router)
 # Finance review surface — review artifacts for finance runs.
 # Mounted under the ``/platform`` prefix (declared on the router itself).
 app.include_router(finance_router)
+# State-space query surface — 3D projection, nearest neighbors, clusters,
+# transitions, and cross-domain correspondences. See ``app/state_routes.py``.
+app.include_router(state_router)
 
 
 @app.get("/health")
