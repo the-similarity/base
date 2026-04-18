@@ -10,7 +10,10 @@
  *   npm run sim:headless -- --scenario scenarios/small_village.json --out runs/foo.jsonl
  *
  * Flags:
- *   --scenario <path>    (required) path to a scenario JSON file
+ *   --scenario <path>    path to a scenario JSON file
+ *   --preset <name>      shorthand for --scenario scenarios/<name>.json
+ *   --list-scenarios     print available preset scenarios and exit
+ *   --param key=value    override a scenario param (repeatable)
  *   --seed <int>         override scenario.seed (default: scenario.seed or 42)
  *   --steps <int>        override scenario.steps (number of ticks to run)
  *   --duration <int>     alias for --steps
@@ -29,7 +32,8 @@
  */
 
 import { createWorld, stepWorld, summarizeWorld } from './world.js';
-import { loadScenario } from './scenario.js';
+import { loadScenario as loadScenarioLegacy } from './scenario.js';
+import { loadScenario, listPresets, mergeOverrides } from '../scenario-loader.js';
 import { TelemetryWriter } from './telemetry.js';
 import { basename, dirname, resolve as resolvePath } from 'node:path';
 import { registerWorldRun } from '../../platform/registry-client.js';
@@ -45,11 +49,14 @@ function parseArgs(argv) {
     stateEvery: 0,
     quiet: false,
     register: false,
+    listScenarios: false,
+    paramOverrides: {},  // key=value pairs from --param flags
   };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     switch (a) {
       case '--scenario':   out.scenario = argv[++i]; break;
+      case '--preset':     out.preset = argv[++i]; break;
       case '--seed':       out.seed = Number(argv[++i]); break;
       case '--steps':
       case '--duration':   out.steps = Number(argv[++i]); break;
@@ -57,6 +64,18 @@ function parseArgs(argv) {
       case '--include-state': out.includeState = true; break;
       case '--state-every':   out.stateEvery = Number(argv[++i]); break;
       case '--quiet':      out.quiet = true; break;
+      case '--list-scenarios': out.listScenarios = true; break;
+      // --param key=value — repeatable flag to override scenario params.
+      // Multiple --param flags accumulate into paramOverrides.
+      case '--param': {
+        const kv = argv[++i];
+        if (!kv || !kv.includes('=')) {
+          throw new Error(`--param requires key=value format, got: ${kv}`);
+        }
+        const eqIdx = kv.indexOf('=');
+        out.paramOverrides[kv.slice(0, eqIdx)] = kv.slice(eqIdx + 1);
+        break;
+      }
       // --register is best-effort: POST to the platform registry after the
       // simulation finishes. A missing or unreachable API server is logged
       // to stderr and ignored; the runner still exits 0.
@@ -77,17 +96,20 @@ function printHelp() {
   process.stdout.write(
 `Headless synthetic-worlds runner
 
-  --scenario <path>   (required) scenario JSON
-  --seed <int>        override scenario seed
-  --steps <int>       number of ticks (alias: --duration)
-  --out <path>        JSONL output path
-  --include-state     dump per-agent state every tick
-  --state-every <n>   dump per-agent state every n ticks
-  --register          POST the finished run to the platform registry
-                      (best-effort; warns on failure, exit 0)
-  --api-url <url>     platform API base URL (default: $THE_SIMILARITY_API_URL
-                      or http://localhost:8787)
-  --quiet             no stdout progress
+  --scenario <path>     scenario JSON file path
+  --preset <name>       shorthand for --scenario scenarios/<name>.json
+  --list-scenarios      print available preset scenarios and exit
+  --param key=value     override a scenario param (repeatable)
+  --seed <int>          override scenario seed
+  --steps <int>         number of ticks (alias: --duration)
+  --out <path>          JSONL output path
+  --include-state       dump per-agent state every tick
+  --state-every <n>     dump per-agent state every n ticks
+  --register            POST the finished run to the platform registry
+                        (best-effort; warns on failure, exit 0)
+  --api-url <url>       platform API base URL (default: $THE_SIMILARITY_API_URL
+                        or http://localhost:8787)
+  --quiet               no stdout progress
 
 Exit codes: 0 ok, 1 arg error, 2 runtime error
 `);
@@ -105,17 +127,56 @@ async function main() {
 
   if (args.help) { printHelp(); process.exit(0); }
 
-  if (!args.scenario) {
-    process.stderr.write('error: --scenario is required\n');
+  // --list-scenarios: print available presets and exit
+  if (args.listScenarios) {
+    try {
+      const presets = listPresets();
+      if (presets.length === 0) {
+        process.stdout.write('No scenario presets found.\n');
+      } else {
+        process.stdout.write('Available scenario presets:\n\n');
+        for (const p of presets) {
+          process.stdout.write(`  ${p.name.padEnd(20)} ${p.description}\n`);
+        }
+        process.stdout.write(`\nUsage: node runner.js --preset <name>\n`);
+      }
+    } catch (e) {
+      process.stderr.write(`error: ${e.message}\n`);
+      process.exit(1);
+    }
+    process.exit(0);
+  }
+
+  // Resolve scenario path: --preset is shorthand for --scenario scenarios/<name>.json
+  let scenarioPath = args.scenario;
+  if (args.preset) {
+    if (args.scenario) {
+      process.stderr.write('error: --preset and --scenario are mutually exclusive\n');
+      process.exit(1);
+    }
+    // Resolve relative to the scenarios/ directory at repo root
+    scenarioPath = resolvePath(
+      dirname(new URL(import.meta.url).pathname),
+      '../../../scenarios',
+      `${args.preset}.json`
+    );
+  }
+
+  if (!scenarioPath) {
+    process.stderr.write('error: --scenario or --preset is required\n');
     printHelp();
     process.exit(1);
   }
 
-  // Load + merge CLI overrides. CLI always wins over scenario file values so
-  // sweeps can pin seed/steps from the shell without editing JSON.
+  // Load + validate + merge CLI overrides. CLI always wins over scenario file
+  // values so sweeps can pin seed/steps from the shell without editing JSON.
   let scenario;
   try {
-    scenario = loadScenario(args.scenario);
+    scenario = loadScenario(scenarioPath);
+    // Apply --param overrides if any were provided
+    if (Object.keys(args.paramOverrides).length > 0) {
+      scenario = mergeOverrides(scenario, args.paramOverrides);
+    }
   } catch (e) {
     process.stderr.write(`error: ${e.message}\n`);
     process.exit(1);
@@ -129,7 +190,7 @@ async function main() {
   // Default output path mirrors the input scenario name so batch runs are
   // easy to correlate with their source config.
   const outPath = args.out
-    ?? `runs/${basename(args.scenario, '.json')}-seed${seed}.jsonl`;
+    ?? `runs/${basename(scenarioPath, '.json')}-seed${seed}.jsonl`;
 
   const log = args.quiet ? () => {} : (msg) => process.stdout.write(`${msg}\n`);
 
