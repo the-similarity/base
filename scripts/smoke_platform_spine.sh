@@ -88,6 +88,11 @@ cleanup() {
     wait "$CUSTOMER_UVICORN_PID" 2>/dev/null || true
   fi
   rm -f "$REGISTRY_DB" "$REGISTRY_DB-journal" "$REGISTRY_DB-wal" "$REGISTRY_DB-shm"
+  # CRUD-block curl bodies — harmless if they never existed, `rm -f`
+  # swallows the ENOENT. Explicit list (not a glob) so we never sweep
+  # files outside our namespace.
+  rm -f /tmp/smoke-artifact-post /tmp/smoke-scorecard-post \
+        /tmp/smoke-scenario-post /tmp/smoke-dataset-post
   rm -rf "$TMP_DIR"
   if [[ $rc -eq 0 ]]; then
     echo "[smoke] OK"
