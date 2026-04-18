@@ -4,16 +4,25 @@
  *
  * Why this shape:
  *   - The regex engine in `engine.ts#parseNarrative` is synchronous and
- *     fast enough to run on every keystroke. We run it inline so the
- *     caller always has a non-empty state on the first render.
+ *     fast enough to run on every keystroke. We run it inline (via
+ *     `useMemo`) so the caller always has a non-empty state on the
+ *     first render, without ever touching setState from an effect.
  *   - The Claude-backed server route (`/api/prudent/parse`) is slower
  *     (up to ~8s) but produces higher quality events. We fire that in
- *     the background, debounced, and swap the state when a 'claude'
- *     response arrives. If the API returns 'regex' (because the server
- *     has no ANTHROPIC_API_KEY or the model errored), we keep the
- *     already-present regex state unchanged.
+ *     the background, debounced, and store only the "override" in
+ *     state. The final state returned to the caller is derived — if
+ *     the override matches the current text, we return it; otherwise
+ *     we return the regex result for the current text.
  *   - A change in `text` cancels any in-flight API request via
  *     AbortController to avoid late responses clobbering fresher state.
+ *
+ * State shape rationale:
+ *   - We do NOT mirror `text` into state (that would require a setState
+ *     in an effect — an anti-pattern that causes cascading renders).
+ *     Instead, the final ParseState is recomputed on every render from
+ *     the current `text` + the latest API override. This is effectively
+ *     free because React only re-renders on state/prop changes and the
+ *     derivation is O(1) once the regex useMemo has cached.
  *
  * Integration (future follow-up PR — Team B):
  *   dashboard.tsx currently does:
@@ -32,7 +41,7 @@
  *   - `source === 'idle'` only on the empty-text initial state, before
  *     any parsing has happened.
  *   - AbortController attached to every fetch; aborted requests don't
- *     update state.
+ *     update the override state.
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -66,12 +75,15 @@ const DEFAULT_DEBOUNCE_MS = 350;
 const API_URL = "/api/prudent/parse";
 
 /**
- * Synchronously compute the regex result for a given text. Memoized via
- * useMemo in the hook body so re-renders don't re-run the regex unless
- * `text` changed.
+ * The override stored in state when the API returns a Claude-quality
+ * result. The `text` field is the narrative the override was computed
+ * for — we compare against the current `text` prop before honoring
+ * the override so stale overrides never leak into a newer state.
  */
-function regexParse(text: string): { events: Event[]; series: Point[] } {
-  return parseNarrative(text);
+interface ApiOverride {
+  text: string;
+  events: Event[];
+  series: Point[];
 }
 
 export function useParsedNarrative(
@@ -82,40 +94,21 @@ export function useParsedNarrative(
 
   // Immediate regex pass, memoized on text. This is what the caller
   // sees on the very first render — guaranteed non-empty as long as
-  // the text has parseable content.
-  const regexResult = useMemo(() => regexParse(text), [text]);
+  // the text has parseable content. React caches this between renders
+  // so re-renders don't re-run the regex unless `text` changed.
+  const regexResult = useMemo(() => parseNarrative(text), [text]);
 
-  // Initial state. When text is empty we mark source='idle' so the
-  // caller can distinguish "no parse yet" from "regex produced empty".
-  const [state, setState] = useState<ParseState>(() => ({
-    events: regexResult.events,
-    series: regexResult.series,
-    source: text.trim() ? "regex" : "idle",
-    loading: false,
-    error: null,
-  }));
+  // The API override — null until the server returns a Claude result
+  // for the current text. We reconcile against `text` on every render
+  // so a stale override (from a prior `text`) is invisible to the
+  // caller.
+  const [override, setOverride] = useState<ApiOverride | null>(null);
 
-  // Keep the displayed regex result in sync with `text` even before
-  // the debounced API call fires. Without this, typing would show the
-  // FIRST parse forever until the API answered.
-  useEffect(() => {
-    // If we already have an 'api' result for this exact text, don't
-    // clobber it with regex — the API wins and we should keep showing
-    // its output. This branch is rare in practice because `text`
-    // changing invalidates any prior API result in the next effect.
-    setState((prev) => {
-      if (prev.source === "api" && prev.events === regexResult.events) {
-        return prev;
-      }
-      return {
-        events: regexResult.events,
-        series: regexResult.series,
-        source: text.trim() ? "regex" : "idle",
-        loading: prev.loading,
-        error: null,
-      };
-    });
-  }, [regexResult, text]);
+  // Loading / error flags for the background fetch. These are
+  // independent of the override content so flipping them doesn't
+  // churn the events/series references.
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Ref to the current AbortController so a new text change can cancel
   // the previous in-flight fetch. Stored in a ref rather than state
@@ -126,20 +119,27 @@ export function useParsedNarrative(
     // Don't fire the API for empty input — the regex produces the
     // correct empty-series output and there's nothing for Claude to
     // analyze.
-    if (!text.trim()) return;
+    if (!text.trim()) {
+      // If the previous text wasn't empty, make sure any in-flight
+      // fetch is aborted so it doesn't post a stale override into
+      // state.
+      abortRef.current?.abort();
+      return;
+    }
 
     // Schedule the API call after the debounce window. Using
     // setTimeout rather than any external debounce lib so the hook
     // has zero new dependencies.
     const timer = setTimeout(() => {
       // Cancel any previous in-flight request. AbortError in the fetch
-      // .catch() below is handled silently — we only replace state
-      // with responses from non-aborted requests.
+      // .catch() below is handled silently — we only act on responses
+      // from non-aborted requests.
       abortRef.current?.abort();
       const controller = new AbortController();
       abortRef.current = controller;
 
-      setState((prev) => ({ ...prev, loading: true, error: null }));
+      setLoading(true);
+      setError(null);
 
       fetch(API_URL, {
         method: "POST",
@@ -158,20 +158,13 @@ export function useParsedNarrative(
           // result silently. The newer request will own the final
           // state update.
           if (controller.signal.aborted) return;
-          // Only replace state when the API genuinely upgraded to
-          // Claude. A `regex` response from the API is equivalent to
-          // what we already show, so we just clear `loading`.
+          // Only install an override when the API genuinely upgraded
+          // to Claude. A `regex` response from the API is equivalent
+          // to what we already show, so we just clear `loading`.
           if (data.source === "claude") {
-            setState({
-              events: data.events,
-              series: data.series,
-              source: "api",
-              loading: false,
-              error: null,
-            });
-          } else {
-            setState((prev) => ({ ...prev, loading: false, error: null }));
+            setOverride({ text, events: data.events, series: data.series });
           }
+          setLoading(false);
         })
         .catch((err: unknown) => {
           // AbortError from a superseded request is expected — just
@@ -179,7 +172,8 @@ export function useParsedNarrative(
           // surface them if desired.
           if (controller.signal.aborted) return;
           const message = err instanceof Error ? err.message : String(err);
-          setState((prev) => ({ ...prev, loading: false, error: message }));
+          setError(message);
+          setLoading(false);
         });
     }, debounceMs);
 
@@ -191,5 +185,35 @@ export function useParsedNarrative(
     };
   }, [text, debounceMs]);
 
-  return state;
+  // Derive the final state from the current `text`, the regex result,
+  // and the API override. This is pure — no setState here, no cascading
+  // renders. If the override matches the current text, it wins;
+  // otherwise the regex result is displayed.
+  return useMemo<ParseState>(() => {
+    if (!text.trim()) {
+      return {
+        events: regexResult.events,
+        series: regexResult.series,
+        source: "idle",
+        loading,
+        error,
+      };
+    }
+    if (override && override.text === text) {
+      return {
+        events: override.events,
+        series: override.series,
+        source: "api",
+        loading,
+        error,
+      };
+    }
+    return {
+      events: regexResult.events,
+      series: regexResult.series,
+      source: "regex",
+      loading,
+      error,
+    };
+  }, [text, regexResult, override, loading, error]);
 }
