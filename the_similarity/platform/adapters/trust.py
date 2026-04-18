@@ -15,9 +15,9 @@ Decision logic
 --------------
 ::
 
-    trust_score >= 0.7 AND calibration_grade in (excellent, good) -> TRUSTED
-    trust_score >= 0.5 OR  calibration_grade == fair              -> REVIEW
-    else                                                          -> REJECTED
+    trust_score >= 0.7 AND calibration_grade in (A, B) -> TRUSTED
+    trust_score >= 0.5 OR  calibration_grade == C      -> REVIEW
+    else                                               -> REJECTED
 
 Trust score formula
 -------------------
@@ -29,14 +29,23 @@ All three components are in [0, 1]. The weights reflect relative
 importance: directional accuracy (40%), interval coverage (30%),
 probabilistic calibration quality via CRPS inversion (30%).
 
-Calibration grade
------------------
-Based on mean absolute calibration error across all percentiles:
+Calibration grade (letter contract)
+-----------------------------------
+Based on mean absolute calibration error across all percentiles. The
+finance UX contract is a classic 5-tier letter scale:
 
-- **excellent**: mean_abs_error < 0.05
-- **good**:      mean_abs_error < 0.10
-- **fair**:      mean_abs_error < 0.20
-- **poor**:      mean_abs_error >= 0.20
+- **A**: mean_abs_error < 0.03  (excellent — cone widths match reality)
+- **B**: mean_abs_error < 0.06  (good — minor drift, usable)
+- **C**: mean_abs_error < 0.10  (fair — cone slightly off, inspect)
+- **D**: mean_abs_error < 0.15  (marginal — review before acting)
+- **F**: mean_abs_error >= 0.15 (unreliable — do not use)
+
+Rationale: letter grades are the universal finance-UX idiom (S&P bond
+ratings, academic scorecards, investor decks). Qualitative labels
+(excellent/good/fair/poor) conflate "ok" with "good" in UI copy and
+cannot express a 5-tier scale without awkward compound labels. See
+``obsidian_thesim/concepts/finance_trust_grades.md`` for the full
+decision record.
 
 Serialization
 -------------
@@ -87,13 +96,37 @@ _WEIGHT_COVERAGE: float = 0.3
 _WEIGHT_CRPS_INV: float = 0.3
 
 # Calibration grade thresholds (mean absolute calibration error).
-_GRADE_EXCELLENT_MAX: float = 0.05
-_GRADE_GOOD_MAX: float = 0.10
-_GRADE_FAIR_MAX: float = 0.20
+#
+# These upper bounds are EXCLUSIVE — an error equal to the bound rolls
+# over to the next grade. The thresholds are locked-in by:
+#   * the finance UX contract documented in
+#     ``obsidian_thesim/concepts/finance_trust_grades.md``;
+#   * the schema expectation in ``tests/test_finance_operating.py``
+#     line 233-240 which requires grades to be one of A/B/C/D/F.
+#
+# Do NOT relax these without updating the concept note AND every
+# consumer (UI, signal summary, risk flags, review workflow).
+_GRADE_A_MAX: float = 0.03
+_GRADE_B_MAX: float = 0.06
+_GRADE_C_MAX: float = 0.10
+_GRADE_D_MAX: float = 0.15
 
 # Trust decision thresholds.
 _TRUST_SCORE_TRUSTED_MIN: float = 0.7
 _TRUST_SCORE_REVIEW_MIN: float = 0.5
+
+# Valid calibration grade values — the canonical finance-UX letter set.
+# Consumers should reference this constant rather than inlining the
+# string literals so a schema change is caught at import time.
+VALID_GRADES: tuple[str, ...] = ("A", "B", "C", "D", "F")
+
+# Grade buckets that pass the TRUSTED gate (top tier). Matches the
+# "A or B" rule in the module docstring.
+_TRUSTED_GRADES: frozenset[str] = frozenset({"A", "B"})
+
+# Grade bucket that qualifies for REVIEW regardless of trust_score.
+# Matches the "C triggers review" rule in the module docstring.
+_REVIEW_GRADE: str = "C"
 
 
 # ---------------------------------------------------------------------------
@@ -138,7 +171,19 @@ def compute_trust_score(
 
 
 def compute_calibration_grade(calibration: Dict[str, float]) -> str:
-    """Assign a calibration grade from per-percentile calibration data.
+    """Assign a calibration letter grade from per-percentile calibration data.
+
+    Letter-grade scale (finance-UX contract):
+
+    - **A**: mean_abs_error < 0.03
+    - **B**: mean_abs_error < 0.06
+    - **C**: mean_abs_error < 0.10
+    - **D**: mean_abs_error < 0.15
+    - **F**: mean_abs_error >= 0.15
+
+    Empty or malformed calibration data fail closed to ``"F"`` — the UI
+    must never render a missing grade as "pass". See
+    ``obsidian_thesim/concepts/finance_trust_grades.md`` for the rationale.
 
     Parameters
     ----------
@@ -150,12 +195,18 @@ def compute_calibration_grade(calibration: Dict[str, float]) -> str:
     Returns
     -------
     str
-        One of ``"excellent"``, ``"good"``, ``"fair"``, ``"poor"``.
+        One of ``"A"``, ``"B"``, ``"C"``, ``"D"``, ``"F"``. See
+        :data:`VALID_GRADES`.
     """
+    # Fail-closed default: empty or unparseable calibration produces "F".
+    # This is intentional — a missing/broken calibration must never be
+    # rendered as an A-grade run in a trading UI.
     if not calibration:
-        return "poor"
+        return "F"
 
     # Compute per-percentile absolute errors: |observed - expected|.
+    # Non-numeric keys (e.g. "foo") are silently skipped so malformed
+    # payloads degrade gracefully instead of crashing the adapter.
     errors = []
     for p_str, observed in calibration.items():
         try:
@@ -165,18 +216,23 @@ def compute_calibration_grade(calibration: Dict[str, float]) -> str:
         errors.append(abs(observed - expected))
 
     if not errors:
-        return "poor"
+        return "F"
 
     mean_abs_error = sum(errors) / len(errors)
 
-    if mean_abs_error < _GRADE_EXCELLENT_MAX:
-        return "excellent"
-    elif mean_abs_error < _GRADE_GOOD_MAX:
-        return "good"
-    elif mean_abs_error < _GRADE_FAIR_MAX:
-        return "fair"
+    # Strict less-than comparisons match the EXCLUSIVE upper bounds
+    # declared at module scope. A boundary value (e.g. exactly 0.03)
+    # rolls over to the next lower grade.
+    if mean_abs_error < _GRADE_A_MAX:
+        return "A"
+    elif mean_abs_error < _GRADE_B_MAX:
+        return "B"
+    elif mean_abs_error < _GRADE_C_MAX:
+        return "C"
+    elif mean_abs_error < _GRADE_D_MAX:
+        return "D"
     else:
-        return "poor"
+        return "F"
 
 
 def compute_decision(
@@ -187,27 +243,38 @@ def compute_decision(
 
     Decision logic::
 
-        trust_score >= 0.7 AND grade in (excellent, good) -> TRUSTED
-        trust_score >= 0.5 OR  grade == fair              -> REVIEW
-        else                                              -> REJECTED
+        trust_score >= 0.7 AND grade in (A, B) -> TRUSTED
+        trust_score >= 0.5 OR  grade == C      -> REVIEW
+        else                                   -> REJECTED
+
+    The rule is intentionally asymmetric: a top-tier trust_score alone
+    is NOT enough for TRUSTED — the cone must also be well-calibrated
+    (grade A or B). Conversely, a moderate trust_score (>= 0.5) OR a
+    C-grade cone is enough to warrant human REVIEW rather than outright
+    REJECTION. This mirrors how a trader would triage signals: check
+    the number, then check the envelope.
 
     Parameters
     ----------
     trust_score:
         Composite score in [0, 1] from :func:`compute_trust_score`.
     calibration_grade:
-        Grade string from :func:`compute_calibration_grade`.
+        Letter grade from :func:`compute_calibration_grade` — one of
+        ``"A"``, ``"B"``, ``"C"``, ``"D"``, ``"F"``.
 
     Returns
     -------
     TrustDecision
     """
-    if trust_score >= _TRUST_SCORE_TRUSTED_MIN and calibration_grade in (
-        "excellent",
-        "good",
+    if (
+        trust_score >= _TRUST_SCORE_TRUSTED_MIN
+        and calibration_grade in _TRUSTED_GRADES
     ):
         return TrustDecision.TRUSTED
-    if trust_score >= _TRUST_SCORE_REVIEW_MIN or calibration_grade == "fair":
+    if (
+        trust_score >= _TRUST_SCORE_REVIEW_MIN
+        or calibration_grade == _REVIEW_GRADE
+    ):
         return TrustDecision.REVIEW
     return TrustDecision.REJECTED
 
@@ -236,20 +303,23 @@ def _generate_reasoning(
     if decision == TrustDecision.TRUSTED:
         parts.append("Run meets all quality thresholds and is approved for use.")
     elif decision == TrustDecision.REVIEW:
-        # Explain why it needs review.
+        # Explain why it needs review. We reference the letter grade
+        # directly (A/B/C/D/F) so the reasoning string matches what the
+        # UI renders elsewhere — no translation layer between the
+        # structured grade and the human-readable reason.
         reasons = []
         if trust_score < _TRUST_SCORE_TRUSTED_MIN:
             reasons.append(
                 f"trust score below {_TRUST_SCORE_TRUSTED_MIN:.1f} threshold"
             )
-        if calibration_grade not in ("excellent", "good"):
+        if calibration_grade not in _TRUSTED_GRADES:
             reasons.append(f"calibration grade is {calibration_grade}")
         parts.append("Run requires manual review: " + "; ".join(reasons) + ".")
     else:
         parts.append(
             "Run is rejected due to insufficient quality. "
             f"Trust score {trust_score:.3f} is below the review threshold "
-            f"of {_TRUST_SCORE_REVIEW_MIN:.1f} and calibration is {calibration_grade}."
+            f"of {_TRUST_SCORE_REVIEW_MIN:.1f} and calibration grade is {calibration_grade}."
         )
 
     return " ".join(parts)
@@ -271,7 +341,8 @@ class TrustArtifact:
     trust_score:
         Composite quality score in [0, 1]. See :func:`compute_trust_score`.
     calibration_grade:
-        One of ``"excellent"``, ``"good"``, ``"fair"``, ``"poor"``.
+        One of ``"A"``, ``"B"``, ``"C"``, ``"D"``, ``"F"``. See
+        :data:`VALID_GRADES` for the canonical tuple.
     metrics_snapshot:
         Dict of all metrics at evaluation time (hit_rate, crps, coverage,
         mean_error, etc.). Frozen snapshot — the originating
@@ -362,13 +433,16 @@ def build_trust_artifact(
     decision = compute_decision(trust_score, cal_grade)
 
     # Record the thresholds used for the decision so the artifact is
-    # self-describing / auditable.
+    # self-describing / auditable. Keys are namespaced with the grade
+    # letter so downstream schema consumers can reason about each bucket
+    # independently (A/B/C/D boundaries) without parsing the name.
     thresholds = {
         "trust_score_trusted_min": _TRUST_SCORE_TRUSTED_MIN,
         "trust_score_review_min": _TRUST_SCORE_REVIEW_MIN,
-        "calibration_excellent_max": _GRADE_EXCELLENT_MAX,
-        "calibration_good_max": _GRADE_GOOD_MAX,
-        "calibration_fair_max": _GRADE_FAIR_MAX,
+        "calibration_grade_a_max": _GRADE_A_MAX,
+        "calibration_grade_b_max": _GRADE_B_MAX,
+        "calibration_grade_c_max": _GRADE_C_MAX,
+        "calibration_grade_d_max": _GRADE_D_MAX,
         "trust_weight_hit_rate": _WEIGHT_HIT_RATE,
         "trust_weight_coverage": _WEIGHT_COVERAGE,
         "trust_weight_crps_inv": _WEIGHT_CRPS_INV,
@@ -391,6 +465,7 @@ def build_trust_artifact(
 
 __all__ = [
     "UNCALIBRATED",
+    "VALID_GRADES",
     "TrustArtifact",
     "TrustDecision",
     "build_trust_artifact",
