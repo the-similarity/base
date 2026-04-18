@@ -275,9 +275,38 @@ CUSTOMER_BASE="http://$API_HOST:$CUSTOMER_API_PORT/platform"
 # shellcheck disable=SC2317
 ok() { echo "[smoke]   ✓ $*"; }
 
-# Helper: call python and exit-1 with a tagged error on failure. Used
-# by every CRUD block to pretty-print the failing JSON alongside the
-# assertion that tripped.
+# Counter for CRUD-block failures. Each sub-resource block records a
+# pass/fail, prints it alongside the assertion output, and at the end of
+# the script we exit non-zero iff any block failed. This design lets
+# reviewers see which specific CRUD blocks still drift from registry
+# truth rather than stopping at the first one — valuable when the
+# reconciliation PR lands partial fixes across sub-resources.
+CRUD_FAILURES=0
+CRUD_PASS_BLOCKS=""
+CRUD_FAIL_BLOCKS=""
+
+# Helper: run a curl command and capture both body + HTTP status in one
+# call. Prints the pair to stdout in the form "<status>\t<body>" so the
+# caller can split on tab. We bypass `curl -f` because a 4xx/5xx is a
+# valid failure signal we want to observe, not an abort trigger.
+curl_json() {
+  local method="$1" url="$2" body="${3:-}"
+  if [[ -n "$body" ]]; then
+    curl -s -o /tmp/smoke-body -w '%{http_code}' \
+      -X "$method" -H "Content-Type: application/json" \
+      -d "$body" "$url"
+  else
+    curl -s -o /tmp/smoke-body -w '%{http_code}' \
+      -X "$method" "$url"
+  fi
+  echo
+  cat /tmp/smoke-body
+  echo
+}
+
+# Helper: evaluate a python expression against a JSON payload. Returns 0
+# on success, 1 on any assertion / parse failure. Stdout from the python
+# block is captured and echoed on failure for quick debugging.
 assert_json() {
   local tag="$1" payload="$2" expr="$3"
   if ! echo "$payload" | python -c "
@@ -289,11 +318,126 @@ except Exception as exc:
     sys.exit(1)
 $expr
 "; then
-    echo "[smoke] ERROR: $tag failed"
+    echo "[smoke] ASSERT FAIL: $tag"
     echo "--- payload ---"
     echo "$payload"
-    exit 1
+    return 1
+  fi
+  return 0
+}
+
+# Per-block wrapper: takes a block name + a body function, runs the body
+# with errexit temporarily OFF so one failing assertion does not short-
+# circuit the remaining blocks. Records the outcome in CRUD_FAILURES
+# and the pass/fail block-name lists for the final summary.
+run_crud_block() {
+  local name="$1"; shift
+  echo "[smoke] ── $name CRUD ──"
+  set +e
+  (
+    set -e
+    "$@"
+  )
+  local rc=$?
+  set -e
+  if [[ "$rc" -ne 0 ]]; then
+    echo "[smoke] BLOCK FAIL: $name (rc=$rc)"
+    CRUD_FAILURES=$((CRUD_FAILURES + 1))
+    CRUD_FAIL_BLOCKS="$CRUD_FAIL_BLOCKS $name"
+  else
+    echo "[smoke] BLOCK PASS: $name"
+    CRUD_PASS_BLOCKS="$CRUD_PASS_BLOCKS $name"
   fi
 }
 
-# -- step 7: cleanup handled by the trap ----------------------------------
+# -- step 6a: artifacts CRUD ----------------------------------------------
+# Registry-truth schema (see `registry.py` _CREATE_ARTIFACTS_SQL):
+#   run_id, name, path, content_type, size_bytes, checksum, created_at
+# Field is `checksum` — NOT `sha256`. Routes currently ship `sha256`;
+# after reconciliation they will accept `checksum`.
+
+artifacts_crud_body() {
+  local artifact_name="forecast-parquet-smoke"
+  # Deterministic SHA-256 of an empty string — stable, readable,
+  # semantically meaningless. Consumers MUST NOT rely on this exact value.
+  local artifact_checksum="e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  local artifact_created_at="2026-04-15T18:31:00+00:00"
+
+  local body
+  body=$(cat <<JSON
+{
+  "run_id": "$FINANCE_ID",
+  "name": "$artifact_name",
+  "path": "forecast.parquet",
+  "content_type": "application/x-parquet",
+  "size_bytes": 12345,
+  "checksum": "$artifact_checksum",
+  "created_at": "$artifact_created_at"
+}
+JSON
+)
+
+  local post_status post_body
+  post_status=$(curl -s -o /tmp/smoke-artifact-post -w '%{http_code}' \
+    -X POST -H "Content-Type: application/json" \
+    -d "$body" \
+    "$CUSTOMER_BASE/runs/$FINANCE_ID/artifacts")
+  post_body=$(cat /tmp/smoke-artifact-post)
+  echo "[smoke] POST /platform/runs/$FINANCE_ID/artifacts → HTTP $post_status"
+  if [[ "$post_status" != "200" && "$post_status" != "201" ]]; then
+    echo "[smoke] ERROR: artifact POST returned HTTP $post_status"
+    echo "--- body ---"
+    echo "$post_body"
+    return 1
+  fi
+  assert_json "artifact POST" "$post_body" "
+assert data.get('run_id') == '$FINANCE_ID', data
+assert data.get('name') == '$artifact_name', data
+# Registry-truth requires 'checksum' — the router may still echo 'sha256'
+# until the reconciliation PR lands. We fail loud if the router returns
+# the legacy name so the drift is visible.
+assert data.get('checksum') == '$artifact_checksum', data
+print('[smoke]   ✓ artifact POST shape matches registry-truth (checksum)')
+"
+
+  local list_body
+  list_body=$(curl -sf "$CUSTOMER_BASE/runs/$FINANCE_ID/artifacts")
+  echo "[smoke] GET  /platform/runs/$FINANCE_ID/artifacts → (list)"
+  assert_json "artifact list" "$list_body" "
+assert isinstance(data, list), data
+names = [row.get('name') for row in data]
+assert '$artifact_name' in names, f'missing artifact name: {names}'
+row = next(r for r in data if r.get('name') == '$artifact_name')
+assert row.get('checksum') == '$artifact_checksum', row
+print('[smoke]   ✓ artifact list contains row with registry-truth checksum')
+"
+
+  local get_body
+  get_body=$(curl -sf "$CUSTOMER_BASE/runs/$FINANCE_ID/artifacts/$artifact_name")
+  echo "[smoke] GET  /platform/runs/$FINANCE_ID/artifacts/$artifact_name"
+  assert_json "artifact GET" "$get_body" "
+assert data.get('run_id') == '$FINANCE_ID', data
+assert data.get('name') == '$artifact_name', data
+assert data.get('checksum') == '$artifact_checksum', data
+print('[smoke]   ✓ artifact GET round-trips with registry-truth fields')
+"
+  # DELETE is NOT exposed by platform_routes.py as of 2026-04-18. See
+  # PR description for follow-up.
+}
+
+run_crud_block "artifacts" artifacts_crud_body
+
+# -- step 7: final summary ------------------------------------------------
+# Print a rolled-up pass/fail summary and exit non-zero iff any CRUD
+# block failed. Cleanup (killing uvicorns, removing the DB) happens
+# unconditionally in the trap.
+echo
+echo "[smoke] ── CRUD summary ──"
+echo "[smoke]   pass: $CRUD_PASS_BLOCKS"
+echo "[smoke]   fail: $CRUD_FAIL_BLOCKS"
+if [[ "$CRUD_FAILURES" -gt 0 ]]; then
+  echo "[smoke] $CRUD_FAILURES CRUD block(s) failed — see log above."
+  exit 1
+fi
+
+# -- cleanup handled by the trap ------------------------------------------
