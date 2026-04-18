@@ -339,22 +339,63 @@ class ScorecardSummaryModel(BaseModel):
 
 
 class ScenarioSpecModel(BaseModel):
-    """Platform scenario definition — mirrors Agent 1's ``ScenarioSpec``.
+    """Platform scenario definition — mirrors the registry's ``scenarios`` table.
 
     A scenario is the reproducible input to a worlds/sweep run. Two runs
     with the same scenario_id are expected to be comparable.
+
+    Field-name lock-in
+    ------------------
+    Tracks :class:`the_similarity.platform.contracts.ScenarioSpec`
+    field-for-field:
+
+    - ``version`` — semantic version bumped when engine behaviour changes.
+    - ``engine`` — engine identifier (``"small_village"``, ``"boom_bust"``,
+      ``"queue.mm1"``); the worlds runner dispatches on this.
+    - ``params`` (not ``parameters``) — default parameter block; run
+      configs override selectively. Stored in the registry's
+      ``params_json`` column.
+    - ``metadata`` (replaces ``description``/``pillar``/``created_at``) —
+      free-form tags for filtering / UI. Stored in ``metadata_json``.
+
+    An earlier draft used ``description`` / ``pillar`` / ``parameters``
+    / ``created_at``; none of those columns exist on the registry's
+    ``scenarios`` table, so that drift has been resolved in favour of
+    the registry fields. Consumers that still want a display
+    description or pillar tag should place the value inside
+    ``metadata`` (e.g. ``{"description": "...", "pillar": "finance"}``).
     """
 
     scenario_id: str = Field(..., description="Primary key. Stable across runs.")
     name: str = Field(..., description="Human-readable display name.")
-    description: Optional[str] = None
-    pillar: Optional[str] = Field(
-        None, description="Product pillar this scenario belongs to."
+    version: str = Field(
+        ...,
+        description=(
+            "Semantic version (``v1.0``, ``2024-04-15``) — bump when the "
+            "engine behaviour changes."
+        ),
     )
-    parameters: Dict[str, Any] = Field(
-        default_factory=dict, description="Scenario inputs (seed grid, bounds, etc.)."
+    engine: str = Field(
+        ...,
+        description=(
+            "Engine identifier the worlds runner dispatches on "
+            "(``small_village``, ``boom_bust``, ``queue.mm1``, ...)."
+        ),
     )
-    created_at: str = Field(..., description="ISO-8601 UTC creation timestamp.")
+    params: Dict[str, Any] = Field(
+        default_factory=dict,
+        description=(
+            "Default scenario parameters; run configs override selectively. "
+            "Matches the registry's ``params_json`` column."
+        ),
+    )
+    metadata: Dict[str, Any] = Field(
+        default_factory=dict,
+        description=(
+            "Free-form tags (authors, references, pillar, description). "
+            "Matches the registry's ``metadata_json`` column."
+        ),
+    )
 
 
 class DatasetSpecModel(BaseModel):
@@ -855,37 +896,48 @@ def create_scorecard(
 # ---------------------------------------------------------------------------
 
 
+def _scenario_to_model(spec: ScenarioSpec) -> ScenarioSpecModel:
+    """Project a registry :class:`ScenarioSpec` to the wire model.
+
+    Kept as a helper so list/get handlers stay short and the
+    dataclass-to-model translation lives in one place.
+    """
+    return ScenarioSpecModel(
+        scenario_id=spec.scenario_id,
+        name=spec.name,
+        version=spec.version,
+        engine=spec.engine,
+        params=spec.params,
+        metadata=spec.metadata,
+    )
+
+
 @router.get("/scenarios", response_model=List[ScenarioSpecModel])
 def list_scenarios(
-    pillar: Optional[str] = Query(None, description="Filter by product pillar."),
+    engine: Optional[str] = Query(
+        None,
+        description=(
+            "Filter by engine identifier (e.g. ``small_village``, "
+            "``boom_bust``). Replaces the earlier ``pillar`` filter "
+            "which had no matching column on the registry."
+        ),
+    ),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
     registry: RunRegistry = Depends(get_registry),
 ) -> List[ScenarioSpecModel]:
-    """List scenarios newest-first with optional pillar filter."""
-    if pillar is None:
-        rows = registry._conn.execute(  # noqa: SLF001
-            "SELECT scenario_id, name, description, pillar, parameters_json, created_at "
-            "FROM scenarios ORDER BY created_at DESC LIMIT ? OFFSET ?",
-            (limit, offset),
-        ).fetchall()
-    else:
-        rows = registry._conn.execute(  # noqa: SLF001
-            "SELECT scenario_id, name, description, pillar, parameters_json, created_at "
-            "FROM scenarios WHERE pillar = ? ORDER BY created_at DESC LIMIT ? OFFSET ?",
-            (pillar, limit, offset),
-        ).fetchall()
-    return [
-        ScenarioSpecModel(
-            scenario_id=r[0],
-            name=r[1],
-            description=r[2],
-            pillar=r[3],
-            parameters=json.loads(r[4]) if r[4] else {},
-            created_at=r[5],
-        )
-        for r in rows
-    ]
+    """List registered scenarios.
+
+    The registry's :meth:`RunRegistry.list_scenarios` returns every row
+    ordered by ``name ASC`` (stable for deterministic UI grids). We
+    apply ``engine`` filtering + Python-side pagination here because
+    the registry does not expose either knob directly.
+    """
+    specs = registry.list_scenarios()
+    if engine is not None:
+        specs = [s for s in specs if s.engine == engine]
+    sliced = specs[offset : offset + limit]
+    return [_scenario_to_model(s) for s in sliced]
 
 
 @router.post(
@@ -898,27 +950,30 @@ def create_scenario(
     body: ScenarioSpecModel,
     registry: RunRegistry = Depends(get_registry),
 ) -> ScenarioSpecModel:
-    """Register a new scenario. ``scenario_id`` must be globally unique."""
-    try:
-        with registry._conn:  # noqa: SLF001
-            registry._conn.execute(  # noqa: SLF001
-                "INSERT INTO scenarios "
-                "(scenario_id, name, description, pillar, parameters_json, created_at) "
-                "VALUES (?, ?, ?, ?, ?, ?)",
-                (
-                    body.scenario_id,
-                    body.name,
-                    body.description,
-                    body.pillar,
-                    json.dumps(body.parameters, separators=(",", ":")),
-                    body.created_at,
-                ),
-            )
-    except sqlite3.IntegrityError as exc:
+    """Register a new scenario. ``scenario_id`` must be globally unique.
+
+    Implementation note
+    -------------------
+    :meth:`RunRegistry.register_scenario` is an upsert; the router
+    pre-flights a ``list_scenarios`` scan so a duplicate ``scenario_id``
+    surfaces as a 409 rather than silently replacing the existing row.
+    """
+    existing_ids = {s.scenario_id for s in registry.list_scenarios()}
+    if body.scenario_id in existing_ids:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"scenario_id already exists: {body.scenario_id}",
-        ) from exc
+        )
+    registry.register_scenario(
+        ScenarioSpec(
+            scenario_id=body.scenario_id,
+            name=body.name,
+            version=body.version,
+            engine=body.engine,
+            params=body.params,
+            metadata=body.metadata,
+        )
+    )
     return body
 
 
@@ -931,24 +986,21 @@ def get_scenario(
     scenario_id: str,
     registry: RunRegistry = Depends(get_registry),
 ) -> ScenarioSpecModel:
-    """Fetch a single scenario by id."""
-    row = registry._conn.execute(  # noqa: SLF001
-        "SELECT scenario_id, name, description, pillar, parameters_json, created_at "
-        "FROM scenarios WHERE scenario_id = ?",
-        (scenario_id,),
-    ).fetchone()
-    if row is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"scenario_id not found: {scenario_id}",
-        )
-    return ScenarioSpecModel(
-        scenario_id=row[0],
-        name=row[1],
-        description=row[2],
-        pillar=row[3],
-        parameters=json.loads(row[4]) if row[4] else {},
-        created_at=row[5],
+    """Fetch a single scenario by id.
+
+    Implementation note
+    -------------------
+    The registry has no per-id getter on scenarios, so we linear-scan
+    :meth:`RunRegistry.list_scenarios`. The table is small (dozens of
+    rows in practice); if this ever becomes a hot path, add a dedicated
+    ``get_scenario`` method to the registry.
+    """
+    for spec in registry.list_scenarios():
+        if spec.scenario_id == scenario_id:
+            return _scenario_to_model(spec)
+    raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail=f"scenario_id not found: {scenario_id}",
     )
 
 

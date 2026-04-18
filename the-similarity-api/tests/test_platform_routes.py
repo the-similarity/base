@@ -440,14 +440,24 @@ def test_scenarios_empty_list(client: TestClient) -> None:
 
 
 def test_scenarios_crud(client: TestClient) -> None:
-    """POST + list + GET + duplicate guard for scenarios."""
+    """POST + list + GET + duplicate guard for scenarios.
+
+    Wire shape tracks the registry-truth contract
+    :class:`the_similarity.platform.contracts.ScenarioSpec`:
+    ``version`` + ``engine`` + ``params`` + ``metadata``. Display hints
+    (description, pillar tag) live inside ``metadata`` now since the
+    registry carries no dedicated columns for them.
+    """
     body = {
         "scenario_id": "spy-baseline",
         "name": "SPY baseline 2020",
-        "description": "SPY daily bars, baseline params.",
-        "pillar": "finance",
-        "parameters": {"seed_grid": [1, 2, 3], "lookback": 512},
-        "created_at": "2026-04-15T10:00:00+00:00",
+        "version": "v1.0",
+        "engine": "boom_bust",
+        "params": {"seed_grid": [1, 2, 3], "lookback": 512},
+        "metadata": {
+            "description": "SPY daily bars, baseline params.",
+            "pillar": "finance",
+        },
     }
     assert client.post("/platform/scenarios", json=body).status_code == 201
     # Duplicate POST → 409.
@@ -457,36 +467,50 @@ def test_scenarios_crud(client: TestClient) -> None:
     listing = client.get("/platform/scenarios").json()
     assert len(listing) == 1
     assert listing[0]["scenario_id"] == "spy-baseline"
+    assert listing[0]["engine"] == "boom_bust"
 
     # GET by id returns the full record.
     fetched = client.get("/platform/scenarios/spy-baseline").json()
-    assert fetched["parameters"] == {"seed_grid": [1, 2, 3], "lookback": 512}
+    assert fetched["params"] == {"seed_grid": [1, 2, 3], "lookback": 512}
+    assert fetched["metadata"]["pillar"] == "finance"
+    assert fetched["version"] == "v1.0"
 
     # Unknown id → 404.
     assert client.get("/platform/scenarios/unknown").status_code == 404
 
 
-def test_scenarios_pillar_filter(client: TestClient) -> None:
-    """List filter on pillar narrows results."""
-    for i, pillar in enumerate(["finance", "synthetic-data", "finance"]):
-        client.post(
-            "/platform/scenarios",
-            json={
-                "scenario_id": f"s-{i}",
-                "name": f"s-{i}",
-                "pillar": pillar,
-                "parameters": {},
-                "created_at": f"2026-04-15T1{i}:00:00+00:00",
-            },
+def test_scenarios_engine_filter(client: TestClient) -> None:
+    """List filter on engine narrows results.
+
+    Replaces the earlier ``pillar`` filter — the registry's
+    ``scenarios`` table has no ``pillar`` column, so filtering is now
+    keyed on ``engine`` (which the registry stores natively). Ordering
+    is name-ASC (registry default), not newest-first: there is no
+    ``created_at`` column on scenarios.
+    """
+    for i, engine in enumerate(["small_village", "boom_bust", "small_village"]):
+        assert (
+            client.post(
+                "/platform/scenarios",
+                json={
+                    "scenario_id": f"s-{i}",
+                    "name": f"s-{i}",
+                    "version": "v1.0",
+                    "engine": engine,
+                    "params": {},
+                    "metadata": {},
+                },
+            ).status_code
+            == 201
         )
     ids = [
         s["scenario_id"]
         for s in client.get(
-            "/platform/scenarios", params={"pillar": "finance"}
+            "/platform/scenarios", params={"engine": "small_village"}
         ).json()
     ]
-    # Newest-first: s-2 created at 12:00, s-0 at 10:00.
-    assert ids == ["s-2", "s-0"]
+    # Name-ASC ordering: s-0 before s-2.
+    assert ids == ["s-0", "s-2"]
 
 
 # ---------------------------------------------------------------------------
