@@ -300,7 +300,13 @@ class TestSignalSummary:
     """Tests for generate_signal_summary."""
 
     def test_full_summary(self):
-        """All fields present produces the expected template."""
+        """All fields present produces the expected template.
+
+        A mean calibration error of 0.08 maps to letter grade "C" under
+        the finance-UX contract (A/B/C/D/F). We match on
+        ``"calibration C"`` to avoid false positives from other
+        single-letter tokens that might appear in the template.
+        """
         summary = generate_signal_summary(
             {"symbol": "SPY", "window_size": 60},
             {"n_valid_trials": 8, "hit_rate": 0.72, "calibration": 0.08, "crps": 0.31},
@@ -309,7 +315,7 @@ class TestSignalSummary:
         assert "60-bar" in summary
         assert "8 analogues" in summary
         assert "72%" in summary
-        assert "good" in summary
+        assert "calibration C" in summary
         assert "0.31" in summary
 
     def test_missing_symbol(self):
@@ -343,30 +349,49 @@ class TestSignalSummary:
         assert len(summary) > 0
 
     def test_calibration_grades(self):
-        """Test each calibration grade threshold."""
-        # Excellent: < 0.05
-        s = generate_signal_summary({}, {"calibration": 0.03})
-        assert "excellent" in s
+        """Test each letter-grade calibration threshold.
 
-        # Good: < 0.10
-        s = generate_signal_summary({}, {"calibration": 0.07})
-        assert "good" in s
+        Contract (mean absolute calibration error):
 
-        # Fair: < 0.15
+        - A: < 0.03
+        - B: < 0.06
+        - C: < 0.10
+        - D: < 0.15
+        - F: >= 0.15
+
+        Each assertion uses the ``"calibration <GRADE>"`` infix so we
+        only match the template slot — not stray single letters
+        elsewhere in the string (e.g. "C" in "CRPS").
+        """
+        # A: < 0.03
+        s = generate_signal_summary({}, {"calibration": 0.02})
+        assert "calibration A" in s
+
+        # B: < 0.06
+        s = generate_signal_summary({}, {"calibration": 0.04})
+        assert "calibration B" in s
+
+        # C: < 0.10
+        s = generate_signal_summary({}, {"calibration": 0.08})
+        assert "calibration C" in s
+
+        # D: < 0.15
         s = generate_signal_summary({}, {"calibration": 0.12})
-        assert "fair" in s
+        assert "calibration D" in s
 
-        # Poor: >= 0.15
+        # F: >= 0.15
         s = generate_signal_summary({}, {"calibration": 0.20})
-        assert "poor" in s
+        assert "calibration F" in s
 
     def test_calibration_dict_grade(self):
-        """Calibration as dict computes mean for grading."""
+        """Calibration as dict computes mean for grading.
+
+        Mean of 0.02 -> grade A under the 5-tier contract.
+        """
         s = generate_signal_summary(
             {}, {"calibration": {"p10": 0.02, "p50": 0.01, "p90": 0.03}}
         )
-        # Mean = 0.02 -> excellent
-        assert "excellent" in s
+        assert "calibration A" in s
 
     def test_hit_rate_formatting(self):
         """Hit rate formats as percentage without decimal."""

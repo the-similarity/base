@@ -85,47 +85,61 @@ class TestComputeTrustScore:
 
 
 class TestCalibrationGrade:
-    """Grade based on mean absolute calibration error across percentiles."""
+    """Letter grade based on mean absolute calibration error across percentiles.
 
-    def test_excellent(self):
-        """Mean error < 0.05 -> excellent."""
+    Contract (see ``the_similarity/platform/adapters/trust.py``):
+
+    - A: < 0.03
+    - B: < 0.06
+    - C: < 0.10
+    - D: < 0.15
+    - F: >= 0.15
+    """
+
+    def test_grade_a(self):
+        """Mean error < 0.03 -> A."""
         # P10=0.10, P50=0.50, P90=0.90 => all errors = 0
         calibration = {"10": 0.10, "50": 0.50, "90": 0.90}
-        assert compute_calibration_grade(calibration) == "excellent"
+        assert compute_calibration_grade(calibration) == "A"
 
-    def test_excellent_boundary(self):
-        """Mean error = 0.049 -> excellent."""
-        # P10: expected=0.10, observed=0.149 => error=0.049
-        # P90: expected=0.90, observed=0.949 => error=0.049
-        calibration = {"10": 0.149, "90": 0.949}
-        assert compute_calibration_grade(calibration) == "excellent"
+    def test_grade_a_boundary(self):
+        """Mean error = 0.029 -> A (just under the 0.03 cutoff)."""
+        # P10: expected=0.10, observed=0.129 => error=0.029
+        calibration = {"10": 0.129}
+        assert compute_calibration_grade(calibration) == "A"
 
-    def test_good(self):
-        """Mean error in [0.05, 0.10) -> good."""
+    def test_grade_b(self):
+        """Mean error in [0.03, 0.06) -> B."""
+        # P50: expected=0.50, observed=0.455 => error=0.045
+        calibration = {"50": 0.455}
+        assert compute_calibration_grade(calibration) == "B"
+
+    def test_grade_c(self):
+        """Mean error in [0.06, 0.10) -> C."""
         # P50: expected=0.50, observed=0.43 => error=0.07
         calibration = {"50": 0.43}
-        assert compute_calibration_grade(calibration) == "good"
+        assert compute_calibration_grade(calibration) == "C"
 
-    def test_fair(self):
-        """Mean error in [0.10, 0.20) -> fair."""
-        # P50: expected=0.50, observed=0.35 => error=0.15
-        calibration = {"50": 0.35}
-        assert compute_calibration_grade(calibration) == "fair"
+    def test_grade_d(self):
+        """Mean error in [0.10, 0.15) -> D."""
+        # P50: expected=0.50, observed=0.38 => error=0.12
+        calibration = {"50": 0.38}
+        assert compute_calibration_grade(calibration) == "D"
 
-    def test_poor(self):
-        """Mean error >= 0.20 -> poor."""
+    def test_grade_f(self):
+        """Mean error >= 0.15 -> F."""
         # P50: expected=0.50, observed=0.25 => error=0.25
         calibration = {"50": 0.25}
-        assert compute_calibration_grade(calibration) == "poor"
+        assert compute_calibration_grade(calibration) == "F"
 
     def test_empty_calibration(self):
-        """Empty calibration dict -> poor."""
-        assert compute_calibration_grade({}) == "poor"
+        """Empty calibration dict -> F (fail-closed)."""
+        assert compute_calibration_grade({}) == "F"
 
     def test_non_numeric_keys_skipped(self):
         """Non-numeric keys are silently skipped."""
         calibration = {"foo": 0.5, "10": 0.10}
-        assert compute_calibration_grade(calibration) == "excellent"
+        assert compute_calibration_grade(calibration) == "A"
 
 
 # ---------------------------------------------------------------------------
@@ -134,47 +148,61 @@ class TestCalibrationGrade:
 
 
 class TestDecisionLogic:
-    """Decision: TRUSTED / REVIEW / REJECTED based on trust_score + grade."""
+    """Decision: TRUSTED / REVIEW / REJECTED based on trust_score + grade.
 
-    def test_trusted_high_score_excellent_grade(self):
-        """trust_score >= 0.7 AND grade == excellent -> TRUSTED."""
-        assert compute_decision(0.8, "excellent") == TrustDecision.TRUSTED
+    Rule set:
 
-    def test_trusted_high_score_good_grade(self):
-        """trust_score >= 0.7 AND grade == good -> TRUSTED."""
-        assert compute_decision(0.7, "good") == TrustDecision.TRUSTED
+    - trust_score >= 0.7 AND grade in (A, B) -> TRUSTED
+    - trust_score >= 0.5 OR  grade == C      -> REVIEW
+    - else                                   -> REJECTED
+    """
+
+    def test_trusted_high_score_grade_a(self):
+        """trust_score >= 0.7 AND grade == A -> TRUSTED."""
+        assert compute_decision(0.8, "A") == TrustDecision.TRUSTED
+
+    def test_trusted_high_score_grade_b(self):
+        """trust_score >= 0.7 AND grade == B -> TRUSTED."""
+        assert compute_decision(0.7, "B") == TrustDecision.TRUSTED
 
     def test_trusted_boundary(self):
-        """trust_score = 0.7 exactly, grade = excellent -> TRUSTED."""
-        assert compute_decision(0.7, "excellent") == TrustDecision.TRUSTED
+        """trust_score = 0.7 exactly, grade = A -> TRUSTED."""
+        assert compute_decision(0.7, "A") == TrustDecision.TRUSTED
 
-    def test_review_high_score_fair_grade(self):
-        """trust_score >= 0.7 but grade == fair -> REVIEW (not TRUSTED)."""
-        assert compute_decision(0.8, "fair") == TrustDecision.REVIEW
+    def test_review_high_score_grade_c(self):
+        """trust_score >= 0.7 but grade == C -> REVIEW (not TRUSTED)."""
+        assert compute_decision(0.8, "C") == TrustDecision.REVIEW
 
-    def test_review_medium_score_good_grade(self):
+    def test_review_medium_score_grade_b(self):
         """trust_score in [0.5, 0.7) -> REVIEW regardless of grade."""
-        assert compute_decision(0.6, "good") == TrustDecision.REVIEW
+        assert compute_decision(0.6, "B") == TrustDecision.REVIEW
 
-    def test_review_low_score_fair_grade(self):
-        """trust_score < 0.5 but grade == fair -> REVIEW."""
-        assert compute_decision(0.3, "fair") == TrustDecision.REVIEW
+    def test_review_low_score_grade_c(self):
+        """trust_score < 0.5 but grade == C -> REVIEW."""
+        assert compute_decision(0.3, "C") == TrustDecision.REVIEW
 
     def test_review_boundary(self):
         """trust_score = 0.5 exactly -> REVIEW."""
-        assert compute_decision(0.5, "poor") == TrustDecision.REVIEW
+        assert compute_decision(0.5, "F") == TrustDecision.REVIEW
 
-    def test_rejected(self):
-        """trust_score < 0.5 AND grade == poor -> REJECTED."""
-        assert compute_decision(0.3, "poor") == TrustDecision.REJECTED
+    def test_rejected_grade_f(self):
+        """trust_score < 0.5 AND grade == F -> REJECTED."""
+        assert compute_decision(0.3, "F") == TrustDecision.REJECTED
+
+    def test_rejected_grade_d(self):
+        """trust_score < 0.5 AND grade == D -> REJECTED.
+
+        D does not qualify for the C-grade review escape hatch.
+        """
+        assert compute_decision(0.3, "D") == TrustDecision.REJECTED
 
     def test_rejected_zero_score(self):
-        """trust_score = 0.0 AND grade == poor -> REJECTED."""
-        assert compute_decision(0.0, "poor") == TrustDecision.REJECTED
+        """trust_score = 0.0 AND grade == F -> REJECTED."""
+        assert compute_decision(0.0, "F") == TrustDecision.REJECTED
 
-    def test_high_score_poor_grade(self):
-        """trust_score >= 0.7 but grade == poor -> REVIEW (not TRUSTED)."""
-        assert compute_decision(0.9, "poor") == TrustDecision.REVIEW
+    def test_high_score_grade_f(self):
+        """trust_score >= 0.7 but grade == F -> REVIEW (not TRUSTED)."""
+        assert compute_decision(0.9, "F") == TrustDecision.REVIEW
 
 
 # ---------------------------------------------------------------------------
@@ -189,7 +217,7 @@ class TestTrustArtifactSerialization:
         return TrustArtifact(
             run_id="abc123",
             trust_score=0.75,
-            calibration_grade="good",
+            calibration_grade="B",
             metrics_snapshot={"hit_rate": 0.7, "coverage": 0.8, "crps": 0.2},
             decision=TrustDecision.TRUSTED,
             thresholds={"trust_score_trusted_min": 0.7},
@@ -298,16 +326,19 @@ class TestBuildTrustArtifact:
         # 0.4*0.8 + 0.3*0.85 + 0.3*0.85 = 0.83
         expected_score = 0.4 * 0.8 + 0.3 * 0.85 + 0.3 * (1 - 0.15)
         assert artifact.trust_score == pytest.approx(expected_score)
-        assert artifact.calibration_grade == "excellent"
+        assert artifact.calibration_grade == "A"
         assert artifact.decision == TrustDecision.TRUSTED
         assert len(artifact.reasoning) > 0
         assert len(artifact.thresholds) > 0
 
     def test_missing_metrics_default_to_zero(self):
-        """Missing metrics should default to 0.0 / empty."""
+        """Missing metrics should default to 0.0 / empty.
+
+        Empty calibration -> grade F, low trust_score -> REJECTED.
+        """
         artifact = build_trust_artifact("run1", {})
         assert artifact.trust_score == pytest.approx(0.3)  # 0.3 * (1-0)
-        assert artifact.calibration_grade == "poor"
+        assert artifact.calibration_grade == "F"
         assert artifact.decision == TrustDecision.REJECTED
 
 
@@ -372,10 +403,11 @@ class TestEndToEndRegistration:
                 assert "calibration_grade" in run.summary
                 assert 0.0 <= run.summary["trust_score"] <= 1.0
                 assert run.summary["calibration_grade"] in (
-                    "excellent",
-                    "good",
-                    "fair",
-                    "poor",
+                    "A",
+                    "B",
+                    "C",
+                    "D",
+                    "F",
                 )
 
                 # Verify artifact records
@@ -468,14 +500,14 @@ class TestEnrichSummary:
         assert "calibration_grade" in result
         expected_score = 0.4 * 0.7 + 0.3 * 0.8 + 0.3 * (1 - 0.3)
         assert result["trust_score"] == pytest.approx(expected_score)
-        assert result["calibration_grade"] == "excellent"
+        assert result["calibration_grade"] == "A"
 
     def test_enrich_missing_metrics(self):
-        """Missing metrics default to 0.0."""
+        """Missing metrics default to 0.0; empty calibration -> F."""
         summary: Dict[str, Any] = {}
         result = _enrich_summary(summary)
         assert result["trust_score"] == pytest.approx(0.3)
-        assert result["calibration_grade"] == "poor"
+        assert result["calibration_grade"] == "F"
 
 
 class TestCoerceReport:
