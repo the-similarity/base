@@ -220,4 +220,80 @@ for kind in copies worlds eval; do
   fi
 done
 
-# -- step 6: cleanup handled by the trap ----------------------------------
+# -- step 6: customer-facing API CRUD round-trips -------------------------
+# The four sub-resources (artifacts, scorecards, scenarios, datasets) are
+# only exposed through the customer-facing app at
+# `the-similarity-api/app/platform_routes.py`. We start that server on a
+# second port, sharing the same tmp registry DB, so the CRUD assertions
+# see the three runs we already registered (needed as parent run_id for
+# artifacts + scorecards).
+#
+# IMPORTANT: every POST body below uses the registry-truth field names
+# from `the_similarity/platform/registry.py` and `contracts.py`. When
+# the routes drift from that schema (currently: `sha256` vs `checksum`,
+# `name` vs `kind` on scorecards, `parameters_json` vs `params_json` on
+# scenarios, `schema_json` vs `schema_uri`/`metadata_json` on datasets),
+# this smoke will fail — which is correct. The route layer converges to
+# the contract, not the other way around.
+
+echo "[smoke] starting customer-api uvicorn on $API_HOST:$CUSTOMER_API_PORT ..."
+# Must cd into the-similarity-api so the `app.main` module resolves —
+# the package does not live at the repo root. We run the server in a
+# subshell so the outer script's cwd is untouched.
+(
+  cd "$CUSTOMER_API_DIR"
+  python -m uvicorn app.main:app \
+    --host "$API_HOST" --port "$CUSTOMER_API_PORT" \
+    --log-level warning \
+    > "$TMP_DIR/customer-uvicorn.log" 2>&1
+) &
+CUSTOMER_UVICORN_PID=$!
+
+# Same readiness-poll pattern as the platform API. /health is the
+# customer app's liveness endpoint; /platform/healthz is registry-backed
+# but we poll the cheaper root first.
+for attempt in 1 2 3 4 5 6 7 8 9 10; do
+  if curl -sf "http://$API_HOST:$CUSTOMER_API_PORT/health" > /dev/null 2>&1; then
+    break
+  fi
+  if [[ "$attempt" == "10" ]]; then
+    echo "[smoke] ERROR: customer-api uvicorn never became ready"
+    echo "--- customer-uvicorn log ---"
+    cat "$TMP_DIR/customer-uvicorn.log"
+    exit 1
+  fi
+  sleep 1
+done
+
+# Base URL shared by every CRUD block below. Keeps the curl lines
+# readable and makes a port-flip (e.g. staging test) a one-line change.
+CUSTOMER_BASE="http://$API_HOST:$CUSTOMER_API_PORT/platform"
+
+# Helper: emit "[smoke]   ✓ <msg>" for per-assertion success lines so
+# the CRUD blocks have consistent, greppable output. Printed to stderr
+# so it does not contaminate pipelines that parse command output.
+# shellcheck disable=SC2317
+ok() { echo "[smoke]   ✓ $*"; }
+
+# Helper: call python and exit-1 with a tagged error on failure. Used
+# by every CRUD block to pretty-print the failing JSON alongside the
+# assertion that tripped.
+assert_json() {
+  local tag="$1" payload="$2" expr="$3"
+  if ! echo "$payload" | python -c "
+import json, sys
+try:
+    data = json.loads(sys.stdin.read())
+except Exception as exc:
+    print(f'[smoke] $tag: non-JSON payload: {exc}', file=sys.stderr)
+    sys.exit(1)
+$expr
+"; then
+    echo "[smoke] ERROR: $tag failed"
+    echo "--- payload ---"
+    echo "$payload"
+    exit 1
+  fi
+}
+
+# -- step 7: cleanup handled by the trap ----------------------------------
