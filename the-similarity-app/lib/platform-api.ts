@@ -43,25 +43,69 @@ export interface Run {
   status: string;
 }
 
-/** Matches ScorecardSummaryModel in platform_routes.py. */
+/**
+ * Matches ScorecardSummaryModel in platform_routes.py.
+ *
+ * Field names track the registry-truth ``scorecards`` table:
+ *   - ``kind`` (enum string: fidelity | privacy | utility |
+ *     controllability | calibration | backtest) replaces the earlier
+ *     free-form ``name`` field.
+ *   - ``thresholds`` + ``details`` replace the single ``metrics`` blob.
+ *   - ``created_at`` is not part of the wire shape — the parent run's
+ *     timestamp is authoritative.
+ */
 export interface Scorecard {
   run_id: string;
-  name: string;
-  passed: boolean | null;
+  kind: string;
   overall_score: number | null;
-  metrics: Record<string, unknown>;
-  created_at: string;
+  passed: boolean | null;
+  thresholds: Record<string, unknown>;
+  details: Record<string, unknown>;
 }
 
-/** Matches ArtifactRecordModel in platform_routes.py. */
+/**
+ * Matches ArtifactRecordModel in platform_routes.py.
+ *
+ * ``checksum`` (SHA-256 hex) replaces the earlier ``sha256`` alias so
+ * the wire contract tracks the registry column name.
+ */
 export interface Artifact {
   run_id: string;
   name: string;
   path: string;
   content_type: string | null;
   size_bytes: number | null;
-  sha256: string | null;
+  checksum: string | null;
   created_at: string;
+}
+
+/**
+ * Matches ScenarioSpecModel in platform_routes.py — registry-truth
+ * ``scenarios`` row shape.
+ */
+export interface Scenario {
+  scenario_id: string;
+  name: string;
+  version: string;
+  engine: string;
+  params: Record<string, unknown>;
+  metadata: Record<string, unknown>;
+}
+
+/**
+ * Matches DatasetSpecModel in platform_routes.py — registry-truth
+ * ``datasets`` row shape.
+ */
+export interface Dataset {
+  dataset_id: string;
+  name: string;
+  version: string;
+  source: string;
+  schema_uri: string | null;
+  n_rows: number | null;
+  n_columns: number | null;
+  checksum: string | null;
+  metadata: Record<string, unknown>;
 }
 
 // ---------------------------------------------------------------------------
