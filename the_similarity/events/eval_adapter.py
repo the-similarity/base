@@ -36,7 +36,7 @@ from __future__ import annotations
 
 import json
 import os
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from the_similarity.events.scorecard import EventScoreReport
 from the_similarity.platform.contracts import ScorecardKind, ScorecardSummary

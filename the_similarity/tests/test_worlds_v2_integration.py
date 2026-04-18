@@ -30,8 +30,6 @@ Every test runs against a fresh ``tmp_path`` SQLite DB. No shared state.
 from __future__ import annotations
 
 import json
-import os
-import tempfile
 from pathlib import Path
 
 import pytest
