@@ -427,6 +427,78 @@ print('[smoke]   ✓ artifact GET round-trips with registry-truth fields')
 
 run_crud_block "artifacts" artifacts_crud_body
 
+# -- step 6b: scorecards CRUD ---------------------------------------------
+# Registry-truth schema (see `registry.py` _CREATE_SCORECARDS_SQL):
+#   run_id, kind, overall_score, passed, thresholds_json, details_json
+#
+# The route layer may currently ship legacy names (`name` instead of
+# `kind`, `metrics_json` instead of `details_json`). We send the
+# registry-truth shape — `kind` from the ScorecardKind enum
+# (fidelity / privacy / utility / controllability / calibration /
+# backtest), and `thresholds` + `details` as free-form dicts.
+
+scorecards_crud_body() {
+  # The copies run is the natural parent for a fidelity scorecard.
+  local parent="$COPIES_ID"
+  local kind="fidelity"
+  local created_at="2026-04-15T18:45:00+00:00"
+
+  local body
+  body=$(cat <<JSON
+{
+  "run_id": "$parent",
+  "kind": "$kind",
+  "overall_score": 0.87,
+  "passed": true,
+  "thresholds": {"ks_max": 0.1, "wasserstein_max": 0.05},
+  "details": {"ks": 0.07, "wasserstein": 0.04, "acf_error": 0.02},
+  "created_at": "$created_at"
+}
+JSON
+)
+
+  local post_status post_body
+  post_status=$(curl -s -o /tmp/smoke-scorecard-post -w '%{http_code}' \
+    -X POST -H "Content-Type: application/json" \
+    -d "$body" \
+    "$CUSTOMER_BASE/runs/$parent/scorecards")
+  post_body=$(cat /tmp/smoke-scorecard-post)
+  echo "[smoke] POST /platform/runs/$parent/scorecards → HTTP $post_status"
+  if [[ "$post_status" != "200" && "$post_status" != "201" ]]; then
+    echo "[smoke] ERROR: scorecard POST returned HTTP $post_status"
+    echo "--- body ---"
+    echo "$post_body"
+    return 1
+  fi
+  assert_json "scorecard POST" "$post_body" "
+assert data.get('run_id') == '$parent', data
+# Registry-truth uses 'kind' (not 'name') and 'details' (not 'metrics').
+assert data.get('kind') == '$kind', data
+assert data.get('overall_score') == 0.87, data
+assert data.get('passed') is True, data
+details = data.get('details') or {}
+assert details.get('ks') == 0.07, details
+print('[smoke]   ✓ scorecard POST shape matches registry-truth (kind, details)')
+"
+
+  local list_body
+  list_body=$(curl -sf "$CUSTOMER_BASE/runs/$parent/scorecards")
+  echo "[smoke] GET  /platform/runs/$parent/scorecards → (list)"
+  assert_json "scorecard list" "$list_body" "
+assert isinstance(data, list), data
+kinds = [row.get('kind') for row in data]
+assert '$kind' in kinds, f'missing scorecard kind: {kinds}'
+row = next(r for r in data if r.get('kind') == '$kind')
+assert row.get('overall_score') == 0.87, row
+print('[smoke]   ✓ scorecard list contains registry-truth kind=$kind')
+"
+  # No GET-by-(run_id, kind) route exists yet on platform_routes.py — the
+  # list endpoint is the only read path. Noted in PR description.
+  # No DELETE route either.
+}
+
+run_crud_block "scorecards" scorecards_crud_body
+
 # -- step 7: final summary ------------------------------------------------
 # Print a rolled-up pass/fail summary and exit non-zero iff any CRUD
 # block failed. Cleanup (killing uvicorns, removing the DB) happens
