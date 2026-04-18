@@ -148,24 +148,53 @@ export function stepWorld(world) {
  * Compute summary metrics for the current world state.
  * Returned object is JSON-safe and has stable keys across ticks so downstream
  * JSONL consumers can rely on a fixed schema.
+ *
+ * Derived metrics (added for regime-coverage binning):
+ * - population_density: alive / world_size^2 — fraction of cells occupied.
+ * - food_per_agent: food_count / max(alive, 1) — resource availability per
+ *   living agent. Clamped to avoid division by zero when all agents are dead.
+ * - energy_variance: Var(energy) across living agents — measures heterogeneity
+ *   in agent health. High variance signals divergent subpopulations. Zero when
+ *   0 or 1 agents alive (variance undefined for n<2, reported as 0).
  */
 export function summarizeWorld(world) {
   let alive = 0;
   let energySum = 0;
   let ageSum = 0;
+  // Collect energies for variance calculation in a single pass by storing
+  // them, then computing the second moment. Two-pass is fine at n < 10^4.
+  const energies = [];
   for (const a of world.agents) {
     if (!a.alive) continue;
     alive += 1;
     energySum += a.energy;
     ageSum += a.age;
+    energies.push(a.energy);
   }
+
+  const meanEnergy = alive > 0 ? energySum / alive : 0;
+
+  // Variance: E[(X - mu)^2]. Zero for 0 or 1 living agents.
+  let energyVariance = 0;
+  if (alive >= 2) {
+    let sqDiffSum = 0;
+    for (const e of energies) {
+      sqDiffSum += (e - meanEnergy) ** 2;
+    }
+    energyVariance = sqDiffSum / alive;
+  }
+
   return {
     alive,
     dead: world.agents.length - alive,
     food_count: world.food.length,
-    mean_energy: alive > 0 ? energySum / alive : 0,
+    mean_energy: meanEnergy,
     mean_age: alive > 0 ? ageSum / alive : 0,
     cumulative_deaths: world.totals.deaths,
     cumulative_food_eaten: world.totals.food_eaten,
+    // Derived metrics for regime-coverage binning
+    population_density: alive / (world.size * world.size),
+    food_per_agent: world.food.length / Math.max(alive, 1),
+    energy_variance: energyVariance,
   };
 }
