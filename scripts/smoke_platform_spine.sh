@@ -499,6 +499,81 @@ print('[smoke]   ✓ scorecard list contains registry-truth kind=$kind')
 
 run_crud_block "scorecards" scorecards_crud_body
 
+# -- step 6c: scenarios CRUD ----------------------------------------------
+# Registry-truth schema (see `registry.py` _CREATE_SCENARIOS_SQL):
+#   scenario_id, name, version, engine, params_json, metadata_json
+#
+# Legacy route schema: scenario_id, name, description, pillar,
+# parameters_json, created_at. The smoke sends registry-truth keys
+# (`version`, `engine`, `params`, `metadata`) — the route will 422 until
+# reconciliation lands.
+
+scenarios_crud_body() {
+  # UUID-suffixed id so repeated smoke runs against a persisted DB do
+  # not collide (the script's top-level DB wipe makes this belt-and-
+  # suspenders for CI environments where the DB persists across runs).
+  local scenario_id="smoke_village_v1_$$"
+  local body
+  body=$(cat <<JSON
+{
+  "scenario_id": "$scenario_id",
+  "name": "Smoke Village",
+  "version": "0.1.0",
+  "engine": "small_village",
+  "params": {"agents": 20, "grid": 64, "torus": true},
+  "metadata": {"pillar": "worlds", "author": "smoke-test"}
+}
+JSON
+)
+
+  local post_status post_body
+  post_status=$(curl -s -o /tmp/smoke-scenario-post -w '%{http_code}' \
+    -X POST -H "Content-Type: application/json" \
+    -d "$body" \
+    "$CUSTOMER_BASE/scenarios")
+  post_body=$(cat /tmp/smoke-scenario-post)
+  echo "[smoke] POST /platform/scenarios → HTTP $post_status"
+  if [[ "$post_status" != "200" && "$post_status" != "201" ]]; then
+    echo "[smoke] ERROR: scenario POST returned HTTP $post_status"
+    echo "--- body ---"
+    echo "$post_body"
+    return 1
+  fi
+  assert_json "scenario POST" "$post_body" "
+assert data.get('scenario_id') == '$scenario_id', data
+assert data.get('name') == 'Smoke Village', data
+# Registry-truth carries 'version' + 'engine' as first-class fields.
+assert data.get('version') == '0.1.0', data
+assert data.get('engine') == 'small_village', data
+params = data.get('params') or {}
+assert params.get('agents') == 20, params
+print('[smoke]   ✓ scenario POST shape matches registry-truth (version, engine, params)')
+"
+
+  local list_body
+  list_body=$(curl -sf "$CUSTOMER_BASE/scenarios")
+  echo "[smoke] GET  /platform/scenarios → (list)"
+  assert_json "scenario list" "$list_body" "
+assert isinstance(data, list), data
+ids = [row.get('scenario_id') for row in data]
+assert '$scenario_id' in ids, f'missing scenario_id: {ids}'
+print('[smoke]   ✓ scenario list contains new id $scenario_id')
+"
+
+  local get_body
+  get_body=$(curl -sf "$CUSTOMER_BASE/scenarios/$scenario_id")
+  echo "[smoke] GET  /platform/scenarios/$scenario_id"
+  assert_json "scenario GET" "$get_body" "
+assert data.get('scenario_id') == '$scenario_id', data
+assert data.get('version') == '0.1.0', data
+assert data.get('engine') == 'small_village', data
+print('[smoke]   ✓ scenario GET round-trips with registry-truth fields')
+"
+  # No DELETE route exists — documented in PR description.
+}
+
+run_crud_block "scenarios" scenarios_crud_body
+
 # -- step 7: final summary ------------------------------------------------
 # Print a rolled-up pass/fail summary and exit non-zero iff any CRUD
 # block failed. Cleanup (killing uvicorns, removing the DB) happens
