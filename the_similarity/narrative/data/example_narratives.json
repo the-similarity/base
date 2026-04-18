@@ -1,0 +1,97 @@
+[
+  {
+    "id": "covid_crash_2020",
+    "text": "The market crashed sharply for 5 days. Then it consolidated for 2 weeks. It rallied steadily over 3 months.",
+    "expected_events": [
+      {"event_type": "crash", "intensity": 0.8, "duration_bars": 5},
+      {"event_type": "consolidation", "intensity": 0.5, "duration_bars": 2},
+      {"event_type": "rally", "intensity": 0.5, "duration_bars": 3}
+    ],
+    "expected_transitions": [
+      {"from_event": "crash", "to_event": "consolidation"},
+      {"from_event": "consolidation", "to_event": "rally"}
+    ]
+  },
+  {
+    "id": "flash_crash",
+    "text": "Prices plummeted violently for 1 session. Immediately after, the market reversed. It then surged back to previous levels.",
+    "expected_events": [
+      {"event_type": "crash", "intensity": 0.9, "duration_bars": 1},
+      {"event_type": "reversal", "intensity": 0.5, "duration_bars": 1},
+      {"event_type": "spike", "intensity": 0.5, "duration_bars": 1}
+    ],
+    "expected_transitions": [
+      {"from_event": "crash", "to_event": "reversal"},
+      {"from_event": "reversal", "to_event": "spike"}
+    ]
+  },
+  {
+    "id": "slow_grind_up",
+    "text": "The stock drifted higher for 10 days. It then broke out above resistance. It rallied sharply for 3 days.",
+    "expected_events": [
+      {"event_type": "drift", "intensity": 0.5, "duration_bars": 10},
+      {"event_type": "breakout", "intensity": 0.5, "duration_bars": 1},
+      {"event_type": "rally", "intensity": 0.8, "duration_bars": 3}
+    ],
+    "expected_transitions": [
+      {"from_event": "drift", "to_event": "breakout"},
+      {"from_event": "breakout", "to_event": "rally"}
+    ]
+  },
+  {
+    "id": "mean_reversion_trade",
+    "text": "The asset spiked dramatically. It then gradually mean-reverted over 5 sessions.",
+    "expected_events": [
+      {"event_type": "spike", "intensity": 0.8, "duration_bars": 1},
+      {"event_type": "mean_reversion", "intensity": 0.5, "duration_bars": 5}
+    ],
+    "expected_transitions": [
+      {"from_event": "spike", "to_event": "mean_reversion", "sharpness": 0.2}
+    ]
+  },
+  {
+    "id": "consolidation_breakout",
+    "text": "The market went sideways for 20 bars; suddenly it broke out. It then climbed for 7 days.",
+    "expected_events": [
+      {"event_type": "consolidation", "intensity": 0.5, "duration_bars": 20},
+      {"event_type": "breakout", "intensity": 0.5, "duration_bars": 1},
+      {"event_type": "rally", "intensity": 0.5, "duration_bars": 7}
+    ],
+    "expected_transitions": [
+      {"from_event": "consolidation", "to_event": "breakout", "sharpness": 0.9},
+      {"from_event": "breakout", "to_event": "rally"}
+    ]
+  },
+  {
+    "id": "simple_crash",
+    "text": "The stock plummeted.",
+    "expected_events": [
+      {"event_type": "crash", "intensity": 0.5, "duration_bars": 1}
+    ],
+    "expected_transitions": []
+  },
+  {
+    "id": "multi_phase_bear",
+    "text": "Prices collapsed severely for 3 days. A slight bounce lasted 2 sessions. Then another sell-off hit, even more brutally, for 4 days.",
+    "expected_events": [
+      {"event_type": "crash", "intensity": 0.85, "duration_bars": 3},
+      {"event_type": "rally", "intensity": 0.3, "duration_bars": 2},
+      {"event_type": "crash", "intensity": 0.9, "duration_bars": 4}
+    ],
+    "expected_transitions": [
+      {"from_event": "crash", "to_event": "rally"},
+      {"from_event": "rally", "to_event": "crash"}
+    ]
+  },
+  {
+    "id": "gentle_drift",
+    "text": "The index edged slightly higher over 15 days. Then it stagnated.",
+    "expected_events": [
+      {"event_type": "drift", "intensity": 0.3, "duration_bars": 15},
+      {"event_type": "consolidation", "intensity": 0.5, "duration_bars": 1}
+    ],
+    "expected_transitions": [
+      {"from_event": "drift", "to_event": "consolidation"}
+    ]
+  }
+]
