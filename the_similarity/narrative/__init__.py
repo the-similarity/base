@@ -1,18 +1,20 @@
-"""Narrative retrieval — bridging natural-language scenarios to historical data.
+"""Narrative — natural-language scenario to time-series pipeline.
 
-This package converts compiled NarrativeSequence objects (from the parser/compiler
-pipeline built by Agents 1/2) into numeric representations suitable for:
+This package provides two capabilities:
 
-1. **Feature extraction** — fixed-length vectors summarizing narrative structure
-   (event type distribution, intensity, duration, transitions, trend).
-2. **History retrieval** — finding the k most similar windows in real historical
-   price data for a compiled narrative trajectory.
-3. **State-space integration** — mapping NL_TS runs into :class:`StateVector`
-   objects for the 3D Data Space visualization.
+1. **Trajectory compilation** — converts textual narrative sequences (crash,
+   rally, consolidation, breakout, reversal, etc.) into deterministic NumPy
+   price arrays and registers them as platform artifacts.
+
+2. **Narrative retrieval** — converts compiled NarrativeSequence objects into
+   numeric representations for feature extraction, history retrieval, and
+   state-space integration.
 
 Code paths:
-    - ``the_similarity/narrative/retrieval.py`` — all three capabilities
-    - ``the_similarity/tests/test_narrative_retrieval.py`` — unit tests
+    - ``the_similarity/narrative/compiler.py`` — compile_trajectory, compile_and_register
+    - ``the_similarity/narrative/retrieval.py`` — feature extraction, history search
+    - ``the_similarity/tests/test_narrative_compiler.py`` — compiler unit tests
+    - ``the_similarity/tests/test_narrative_retrieval.py`` — retrieval unit tests
 """
 
 from the_similarity.narrative.retrieval import (
