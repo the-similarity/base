@@ -131,26 +131,22 @@ export default function Dashboard() {
   // an empty draft — the sample narrative lives only as placeholder text so
   // the journal feels personal rather than pre-populated.
   const [text, setText] = useState("");
-  const [tweaks, setTweaks] = useState<Tweaks>(TWEAK_DEFAULTS);
+  // Hydrate tweaks and entries via useState lazy-initializers rather than
+  // an effect so the first paint is already correct. `loadTweaks` /
+  // `loadEntries` guard `typeof window` so they return defaults under SSR
+  // and pick up real values on the client's first render. This avoids the
+  // "setState inside useEffect" pattern which the repo's hooks-lint
+  // flags as cascading-render.
+  const [tweaks, setTweaks] = useState<Tweaks>(() => loadTweaks());
   const [nav, setNav] = useState("today");
   const [composerOpen, setComposerOpen] = useState(false);
   // `readOnlyEntry` is non-null when the composer is open as a viewer (e.g.
   // the user clicked a past day). We still share the modal component so the
   // visual design is consistent between edit and read modes.
   const [readOnlyEntry, setReadOnlyEntry] = useState<StoredEntry | null>(null);
-  // Persisted journal. We hydrate once on mount and then mutate via
-  // `persistEntry`, which writes to storage and updates local state in the
-  // same tick so the ribbon reflects the save immediately.
-  const [entries, setEntries] = useState<StoredEntry[]>([]);
+  // Persisted journal. Lazy init to avoid the post-mount setState pattern.
+  const [entries, setEntries] = useState<StoredEntry[]>(() => loadEntries());
   const rootRef = useRef<HTMLDivElement>(null);
-
-  // Hydrate tweaks + stored entries from localStorage on mount. The two
-  // loads are independent so we perform them in the same effect to keep the
-  // render cheap.
-  useEffect(() => {
-    setTweaks(loadTweaks());
-    setEntries(loadEntries());
-  }, []);
 
   useEffect(() => {
     // Scope accent + theme to the dashboard root, never mutate global <html>.
@@ -649,7 +645,7 @@ function Sidebar({ nav, setNav, onCompose, onExport }: SidebarProps) {
             marginBottom: 10,
           }}
         >
-          //
+          {"//"}
         </div>
         {[
           { id: "home", active: false },
@@ -1407,16 +1403,16 @@ function PageHeader({
  */
 function DateRangeChip() {
   type Preset = "today" | "7d" | "30d";
-  const [preset, setPreset] = useState<Preset>("today");
+  // Lazy initializer reads localStorage once on first render. Safe under
+  // SSR because `typeof window` guards the access. See Dashboard() for the
+  // same pattern reasoning.
+  const [preset, setPreset] = useState<Preset>(() => {
+    if (typeof window === "undefined") return "today";
+    const v = window.localStorage.getItem("prudent:daterange:v1");
+    return v === "today" || v === "7d" || v === "30d" ? v : "today";
+  });
   const [open, setOpen] = useState(false);
   const anchorRef = useRef<HTMLDivElement>(null);
-
-  // Hydrate saved preset once on mount. Guard for SSR.
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const v = window.localStorage.getItem("prudent:daterange:v1");
-    if (v === "today" || v === "7d" || v === "30d") setPreset(v);
-  }, []);
 
   // Persist preset changes. Best-effort — swallow storage errors.
   useEffect(() => {
@@ -1697,6 +1693,20 @@ interface MetricProps {
   noborder?: boolean;
 }
 
+// Colored filled triangle glyphs — defined at module scope so React's hooks
+// lint doesn't flag them as "component created during render". Replaces the
+// unicode ▲/▼ characters which render inconsistently across platforms.
+const TriUp = () => (
+  <svg width="7" height="7" viewBox="0 0 7 7" fill="currentColor">
+    <path d="M3.5 1L6.5 6h-6z" />
+  </svg>
+);
+const TriDown = () => (
+  <svg width="7" height="7" viewBox="0 0 7 7" fill="currentColor">
+    <path d="M3.5 6L6.5 1h-6z" />
+  </svg>
+);
+
 function Metric({
   label,
   value,
@@ -1711,18 +1721,6 @@ function Metric({
   noborder,
 }: MetricProps) {
   const up: boolean | null = deltaKind === "neutral" ? null : delta >= 0;
-  // Colored filled triangle glyph matches the reference more tightly than the
-  // unicode ▲/▼ characters (which vary wildly in size per-platform).
-  const TriUp = () => (
-    <svg width="7" height="7" viewBox="0 0 7 7" fill="currentColor">
-      <path d="M3.5 1L6.5 6h-6z" />
-    </svg>
-  );
-  const TriDown = () => (
-    <svg width="7" height="7" viewBox="0 0 7 7" fill="currentColor">
-      <path d="M3.5 6L6.5 1h-6z" />
-    </svg>
-  );
   return (
     <div
       style={{
@@ -2734,15 +2732,19 @@ function TagDonut({ events }: { events: Event[] }) {
 
   // Pre-walk the slices once to compute offsets so we can rotate each segment
   // into place. Starting angle = -90deg (12 o'clock), matching UX convention.
-  let rollingAngle = -90;
-  const arcs = slices.map((s) => {
-    // Shrink each segment's visual extent by half a gap on both sides.
+  // We compute via reduce() rather than mutating a local to satisfy the
+  // react-hooks/immutability lint rule — the lint framework in this repo
+  // treats component-scope mutation across `.map()` as a render-time hazard.
+  const arcs = slices.reduce<
+    { label: string; value: number; frac: number; color: string; arcLen: number; rot: number }[]
+  >((acc, s) => {
+    const offset = acc.reduce((sum, a) => sum + a.frac * 360, 0);
     const arcFrac = Math.max(0, s.frac - gapFrac);
     const arcLen = arcFrac * C;
-    const rot = rollingAngle + (gapDeg / 2);
-    rollingAngle += s.frac * 360;
-    return { ...s, arcLen, rot };
-  });
+    const rot = -90 + offset + gapDeg / 2;
+    acc.push({ ...s, arcLen, rot });
+    return acc;
+  }, []);
 
   return (
     <section
