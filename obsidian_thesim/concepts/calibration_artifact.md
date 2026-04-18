@@ -39,7 +39,7 @@ The P10/P90 interval only covers 50% of outcomes instead of 80%. The cone is dan
 
 ## Calibration grade
 
-The enriched adapter maps average absolute calibration error to a letter grade:
+The enriched adapter maps average absolute calibration error to a letter grade. This is the **locked contract** — see [[finance_trust_grades]] for the decision record.
 
 | Grade | Avg abs error | Interpretation |
 |-------|--------------|---------------|
@@ -47,7 +47,9 @@ The enriched adapter maps average absolute calibration error to a letter grade:
 | B | 0.03 - 0.06 | Good — minor drift, usable |
 | C | 0.06 - 0.10 | Fair — cone may be too narrow or wide |
 | D | 0.10 - 0.15 | Poor — review before acting |
-| F | > 0.15 | Unreliable — do not use |
+| F | >= 0.15 | Unreliable — do not use |
+
+Implemented in `the_similarity/platform/adapters/trust.py::compute_calibration_grade`. Empty / malformed calibration dicts fail closed to **F** — a missing grade must never render as a pass in the UI.
 
 ## How to interpret
 

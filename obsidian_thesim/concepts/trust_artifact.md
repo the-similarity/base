@@ -36,8 +36,16 @@ Without a trust score, operators must manually inspect hit_rate, calibration, an
 - Registry row: `summary_json` column in the `runs` table
 - CLI: `python -m the_similarity.platform show <run_id>` displays the full summary including trust_score
 
+## Calibration grade pairing
+
+The trust score is paired with a letter calibration grade (A/B/C/D/F).
+The decision gate requires **both** a trust_score >= 0.7 **and** a
+grade of A or B for the run to land TRUSTED. See [[finance_trust_grades]]
+for the locked contract and [[calibration_artifact]] for the threshold map.
+
 ## Related
 
 - [[calibration_artifact]] — per-percentile calibration details
+- [[finance_trust_grades]] — letter-grade decision record (A/B/C/D/F)
 - [[finance_review]] — review workflow that consumes trust_score
 - [[finance_benchmark]] — benchmark harness for comparing trust scores across symbols
