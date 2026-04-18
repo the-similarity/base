@@ -21,7 +21,7 @@
  * the workstation app's theme.
  */
 
-import { useState, useEffect, useMemo, useRef, Fragment } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback, Fragment } from "react";
 import {
   parseNarrative,
   buildHistory,
@@ -30,6 +30,14 @@ import {
   type Point,
   type HistoryDay,
 } from "./engine";
+import {
+  loadEntries,
+  saveEntry,
+  exportEntriesAsJSON,
+  buildHistoryFromEntries,
+  type StoredEntry,
+} from "./storage";
+import { useParsedNarrative } from "./use-parse";
 
 type Accent = "blue" | "ember" | "teal" | "plum";
 type Theme = "light" | "dark";
@@ -49,7 +57,49 @@ const TWEAK_DEFAULTS: Tweaks = {
   compare: "rhyme",
 };
 
+// Sample narrative — shown as the textarea placeholder only. Actual entry
+// state always starts empty so "+ New entry" never pre-fills the composer
+// with a stranger's day.
 const SAMPLE = `Woke up heavy, kind of anxious about the deadline. The morning was rough — emails piled up before I even had coffee. Slow standup, I barely talked. Around noon I went for a walk in the park and things started to lift. Ran into a friend who'd just moved back; we laughed about something stupid for twenty minutes. The afternoon clicked — I got into a flow and the code finally worked. Dinner was calm, read a little before bed.`;
+
+// Persisted-tweaks key. Versioned so we can migrate the shape without
+// silently breaking an investor's polished layout.
+const TWEAKS_KEY = "prudent:tweaks:v1";
+
+// Hydrate tweaks from localStorage. Returns defaults on SSR or when stored
+// data is malformed. Never throws — persistence must be best-effort since
+// it's not the critical path.
+function loadTweaks(): Tweaks {
+  if (typeof window === "undefined") return TWEAK_DEFAULTS;
+  try {
+    const raw = window.localStorage.getItem(TWEAKS_KEY);
+    if (!raw) return TWEAK_DEFAULTS;
+    const parsed = JSON.parse(raw) as Partial<Tweaks>;
+    return {
+      accent: (["blue", "ember", "teal", "plum"] as const).includes(
+        parsed.accent as Accent,
+      )
+        ? (parsed.accent as Accent)
+        : TWEAK_DEFAULTS.accent,
+      density:
+        parsed.density === "comfortable" || parsed.density === "compact"
+          ? parsed.density
+          : TWEAK_DEFAULTS.density,
+      theme:
+        parsed.theme === "light" || parsed.theme === "dark"
+          ? parsed.theme
+          : TWEAK_DEFAULTS.theme,
+      compare:
+        parsed.compare === "rhyme" ||
+        parsed.compare === "yesterday" ||
+        parsed.compare === "none"
+          ? parsed.compare
+          : TWEAK_DEFAULTS.compare,
+    };
+  } catch {
+    return TWEAK_DEFAULTS;
+  }
+}
 
 // Accent palette. Pure blue (#3B82F6) is the investor-ready default; the
 // remaining three are warm-minded alternates, each chosen so their light-variant
@@ -77,11 +127,30 @@ const ACCENT_SOFT_HEX: Record<Accent, string> = {
 // ═══════════════════════════════════════════════════════════════════════
 
 export default function Dashboard() {
-  const [text, setText] = useState(SAMPLE);
+  // `text` is the CURRENT draft shown in the composer. Investors start with
+  // an empty draft — the sample narrative lives only as placeholder text so
+  // the journal feels personal rather than pre-populated.
+  const [text, setText] = useState("");
   const [tweaks, setTweaks] = useState<Tweaks>(TWEAK_DEFAULTS);
   const [nav, setNav] = useState("today");
   const [composerOpen, setComposerOpen] = useState(false);
+  // `readOnlyEntry` is non-null when the composer is open as a viewer (e.g.
+  // the user clicked a past day). We still share the modal component so the
+  // visual design is consistent between edit and read modes.
+  const [readOnlyEntry, setReadOnlyEntry] = useState<StoredEntry | null>(null);
+  // Persisted journal. We hydrate once on mount and then mutate via
+  // `persistEntry`, which writes to storage and updates local state in the
+  // same tick so the ribbon reflects the save immediately.
+  const [entries, setEntries] = useState<StoredEntry[]>([]);
   const rootRef = useRef<HTMLDivElement>(null);
+
+  // Hydrate tweaks + stored entries from localStorage on mount. The two
+  // loads are independent so we perform them in the same effect to keep the
+  // render cheap.
+  useEffect(() => {
+    setTweaks(loadTweaks());
+    setEntries(loadEntries());
+  }, []);
 
   useEffect(() => {
     // Scope accent + theme to the dashboard root, never mutate global <html>.
@@ -95,11 +164,47 @@ export default function Dashboard() {
     el.classList.toggle("prudent-dark", tweaks.theme === "dark");
   }, [tweaks.accent, tweaks.theme]);
 
+  // Persist tweaks whenever they change. Wrapped in try so a storage quota
+  // error can't crash the render tree.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(TWEAKS_KEY, JSON.stringify(tweaks));
+    } catch {
+      /* swallow — persistence is best-effort */
+    }
+  }, [tweaks]);
+
   const setTweak = <K extends keyof Tweaks>(k: K, v: Tweaks[K]) => {
     setTweaks((prev) => ({ ...prev, [k]: v }));
   };
 
-  const { events, series } = useMemo(() => parseNarrative(text), [text]);
+  // Keyboard shortcut: ⌘/Ctrl+N opens the composer. Escape closes either
+  // the composer or the read-only viewer. Global listener so the modal
+  // itself doesn't need to own key handling.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const isNew = (e.metaKey || e.ctrlKey) && (e.key === "n" || e.key === "N");
+      if (isNew) {
+        e.preventDefault();
+        setReadOnlyEntry(null);
+        setText("");
+        setComposerOpen(true);
+      }
+      if (e.key === "Escape") {
+        setComposerOpen(false);
+        setReadOnlyEntry(null);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  // Parse the composer draft with the live hook — regex immediately, Claude
+  // upgrade on debounce. We keep the hook outside the composer modal so the
+  // dashboard can reflect the same parsed state even when the modal is closed.
+  const parsed = useParsedNarrative(text);
+  const { events, series } = parsed;
   const avg = useMemo(
     () => Math.round(series.reduce((a, b) => a + b.v, 0) / series.length),
     [series]
@@ -112,7 +217,13 @@ export default function Dashboard() {
     () => series.reduce((a, b) => (b.v < a.v ? b : a), series[0] ?? { v: 50, t: 0 }),
     [series]
   );
-  const history = useMemo(() => buildHistory(avg), [avg]);
+
+  // History source switch: real entries once the user has >= 7 logs, else
+  // synthetic. `buildHistoryFromEntries` encapsulates the threshold.
+  const history = useMemo(
+    () => buildHistoryFromEntries(entries, avg),
+    [entries, avg],
+  );
   const rhyme = useMemo(() => findRhyme(history.slice(0, -1), series), [history, series]);
 
   const yesterday = useMemo(() => {
@@ -139,10 +250,98 @@ export default function Dashboard() {
         ? "Rhyming week (day −" + (history[rhyme?.startIdx ?? 0]?.day ?? "?") + ")"
         : null;
 
+  // Persist the current draft as a new journal entry and reset the composer.
+  // After save we re-read from storage so our in-memory list matches disk
+  // exactly — this guards against subtle drift if a second tab also wrote.
+  const persistEntry = useCallback(() => {
+    if (!text.trim()) {
+      setComposerOpen(false);
+      return;
+    }
+    const entry: StoredEntry = {
+      id: `entry-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      createdAt: new Date().toISOString(),
+      day: 0,
+      text,
+      events,
+      series,
+      avg,
+    };
+    saveEntry(entry);
+    setEntries(loadEntries());
+    setText("");
+    setComposerOpen(false);
+    setReadOnlyEntry(null);
+  }, [text, events, series, avg]);
+
+  // Open the composer in read-only view with a past entry's content loaded.
+  const openReadOnly = useCallback((entry: StoredEntry) => {
+    setReadOnlyEntry(entry);
+    setComposerOpen(true);
+  }, []);
+
+  // Fresh composer — wipes any read-only context and opens empty.
+  const openNewComposer = useCallback(() => {
+    setReadOnlyEntry(null);
+    setText("");
+    setComposerOpen(true);
+  }, []);
+
+  // Export all entries as a timestamped JSON file. Creates an object URL,
+  // simulates a click on an <a download>, and revokes the URL afterward.
+  const onExport = useCallback(() => {
+    if (typeof window === "undefined") return;
+    const json = exportEntriesAsJSON();
+    const blob = new Blob([json], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const today = new Date().toISOString().slice(0, 10);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `prudent-entries-${today}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }, []);
+
+  // Delete a single entry by id. Simple read-filter-write against storage.
+  const removeEntry = useCallback((id: string) => {
+    if (typeof window === "undefined") return;
+    try {
+      const next = loadEntries().filter((e) => e.id !== id);
+      window.localStorage.setItem("prudent:entries:v1", JSON.stringify(next));
+      setEntries(next);
+    } catch {
+      /* swallow */
+    }
+  }, []);
+
+  // Click handler for ribbon dots — if the dot corresponds to a real stored
+  // entry, open its narrative read-only; otherwise show today's draft.
+  const onRibbonDotClick = useCallback(
+    (day: number) => {
+      if (day === 0) {
+        // Today — open the current draft (may be empty if nothing logged
+        // yet). We use the non-readonly path so user can finish writing.
+        setReadOnlyEntry(null);
+        setComposerOpen(true);
+        return;
+      }
+      const match = entries.find((e) => e.day === day);
+      if (match) openReadOnly(match);
+    },
+    [entries, openReadOnly],
+  );
+
   return (
     <div ref={rootRef} className="prudent-root">
       <div style={{ display: "flex", minHeight: "100vh", background: "var(--app-bg)" }}>
-        <Sidebar nav={nav} setNav={setNav} onCompose={() => setComposerOpen(true)} />
+        <Sidebar
+          nav={nav}
+          setNav={setNav}
+          onCompose={openNewComposer}
+          onExport={onExport}
+        />
         <main
           // 24px horizontal padding matches the reference grid. We use an
           // inline gap of 18px between cards so the layout feels airy without
@@ -157,43 +356,99 @@ export default function Dashboard() {
           }}
         >
           <TopBar />
-          <PageHeader events={events} />
+          <PageHeader events={events} nav={nav} entries={entries} />
 
-          <div className="prudent-grid-top">
-            <KeyMetrics
-              series={series}
-              events={events}
-              history={history}
-              avg={avg}
-              peak={peak}
-              trough={trough}
+          {nav === "today" && (
+            <>
+              <div className="prudent-grid-top">
+                <KeyMetrics
+                  series={series}
+                  events={events}
+                  history={history}
+                  avg={avg}
+                  peak={peak}
+                  trough={trough}
+                />
+                <DayTrajectory
+                  series={series}
+                  events={events}
+                  compareSeries={compareSeries}
+                  compareLabel={compareLabel}
+                  setCompare={(v) => setTweak("compare", v)}
+                  compareMode={tweaks.compare}
+                />
+              </div>
+
+              <div className="prudent-grid-mid">
+                <RhymeHeatmap history={history} rhymeStart={rhyme?.startIdx} />
+                <TagDonut events={events} />
+              </div>
+
+              <ThreadRibbon
+                history={history}
+                rhymeStart={rhyme?.startIdx}
+                onDotClick={onRibbonDotClick}
+              />
+            </>
+          )}
+
+          {nav === "thread" && (
+            <ThreadView entries={entries} onOpen={openReadOnly} />
+          )}
+
+          {nav === "rhymes" && <RhymesView history={history} />}
+
+          {nav === "entries" && (
+            <EntriesView
+              entries={entries}
+              onOpen={openReadOnly}
+              onRemove={removeEntry}
             />
-            <DayTrajectory
-              series={series}
-              events={events}
-              compareSeries={compareSeries}
-              compareLabel={compareLabel}
-              setCompare={(v) => setTweak("compare", v)}
-              compareMode={tweaks.compare}
+          )}
+
+          {nav === "tags" && (
+            <ComingSoon
+              title="Tags"
+              description="Auto-extracted themes across your journal will live here."
             />
-          </div>
+          )}
 
-          <div className="prudent-grid-mid">
-            <RhymeHeatmap history={history} rhymeStart={rhyme?.startIdx} />
-            <TagDonut events={events} />
-          </div>
+          {nav === "patterns" && (
+            <ComingSoon
+              title="Patterns"
+              description="Repeating day-shapes and weekly rhymes at a glance."
+            />
+          )}
 
-          <ThreadRibbon history={history} rhymeStart={rhyme?.startIdx} />
+          {nav === "engine" && (
+            <EngineLogsView
+              source={parsed.source}
+              loading={parsed.loading}
+              error={parsed.error}
+              eventCount={events.length}
+            />
+          )}
 
           <Footer />
         </main>
 
         {composerOpen && (
           <ComposerModal
-            text={text}
+            text={readOnlyEntry ? readOnlyEntry.text : text}
             setText={setText}
-            onClose={() => setComposerOpen(false)}
-            events={events}
+            onClose={() => {
+              setComposerOpen(false);
+              setReadOnlyEntry(null);
+            }}
+            events={readOnlyEntry ? readOnlyEntry.events : events}
+            source={readOnlyEntry ? "idle" : parsed.source}
+            readOnly={!!readOnlyEntry}
+            readOnlyLabel={
+              readOnlyEntry
+                ? `day −${readOnlyEntry.day} · logged ${readOnlyEntry.createdAt.slice(0, 10)}`
+                : undefined
+            }
+            onSave={persistEntry}
           />
         )}
         <TweaksPanel tweaks={tweaks} setTweak={setTweak} />
@@ -336,9 +591,10 @@ interface SidebarProps {
   nav: string;
   setNav: (id: string) => void;
   onCompose: () => void;
+  onExport: () => void;
 }
 
-function Sidebar({ nav, setNav, onCompose }: SidebarProps) {
+function Sidebar({ nav, setNav, onCompose, onExport }: SidebarProps) {
   const items = [
     { id: "today", label: "Today", hint: "Apr 17" },
     { id: "thread", label: "Thread", hint: "30d" },
@@ -347,9 +603,9 @@ function Sidebar({ nav, setNav, onCompose }: SidebarProps) {
     { id: "patterns", label: "Patterns" },
     { id: "entries", label: "Entries", hint: "142" },
   ];
-  const Ext = [
-    { id: "engine", label: "Engine logs" },
-    { id: "export", label: "Export" },
+  const Ext: { id: string; label: string; action: "nav" | "export" }[] = [
+    { id: "engine", label: "Engine logs", action: "nav" },
+    { id: "export", label: "Export", action: "export" },
   ];
 
   return (
@@ -569,24 +825,45 @@ function Sidebar({ nav, setNav, onCompose }: SidebarProps) {
         <NavLink label="Drafts" fresh />
 
         <SectionLabel top={18}>External</SectionLabel>
-        {Ext.map((it) => (
-          <button
-            key={it.id}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 10,
-              padding: "9px 10px",
-              fontSize: 13,
-              color: "var(--muted)",
-              textAlign: "left",
-              fontWeight: 450,
-            }}
-          >
-            <NavGlyph id={it.id} />
-            {it.label}
-          </button>
-        ))}
+        {Ext.map((it) => {
+          const isActive = it.action === "nav" && nav === it.id;
+          return (
+            <button
+              key={it.id}
+              onClick={() => {
+                if (it.action === "export") onExport();
+                else setNav(it.id);
+              }}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 10,
+                padding: "9px 10px",
+                fontSize: 13,
+                color: isActive ? "var(--ink)" : "var(--muted)",
+                background: isActive ? "var(--hover)" : "transparent",
+                borderRadius: 7,
+                textAlign: "left",
+                fontWeight: isActive ? 600 : 450,
+              }}
+            >
+              <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <NavGlyph id={it.id} />
+                {it.label}
+              </span>
+              {it.action === "export" && (
+                <span
+                  className="mono"
+                  style={{ fontSize: 10, color: "var(--faint)" }}
+                  aria-hidden
+                >
+                  ↓
+                </span>
+              )}
+            </button>
+          );
+        })}
 
         <div style={{ flex: 1 }} />
         <div
@@ -977,7 +1254,64 @@ function SvgIcon({ path }: { path: string }) {
 // Page header (title + filters row)
 // ═══════════════════════════════════════════════════════════════════════
 
-function PageHeader({ events }: { events: Event[] }) {
+function PageHeader({
+  events,
+  nav,
+  entries,
+}: {
+  events: Event[];
+  nav: string;
+  entries: StoredEntry[];
+}) {
+  // Title + subtitle track the active nav so the page header is never
+  // stale while the user pivots to a different view.
+  const titleMap: Record<string, { title: string; subtitle: React.ReactNode }> = {
+    today: {
+      title: "Today",
+      subtitle: (
+        <>
+          Narrative parsed live ·{" "}
+          <span className="tnum" style={{ color: "var(--ink)", fontWeight: 500 }}>
+            {events.length}
+          </span>{" "}
+          events · baseline valence{" "}
+          <span className="tnum" style={{ color: "var(--ink)", fontWeight: 500 }}>
+            50
+          </span>
+        </>
+      ),
+    },
+    thread: {
+      title: "Thread",
+      subtitle: (
+        <>
+          <span className="tnum" style={{ color: "var(--ink)", fontWeight: 500 }}>
+            {entries.length}
+          </span>{" "}
+          entries saved · newest first · click any card to read
+        </>
+      ),
+    },
+    rhymes: {
+      title: "Rhymes",
+      subtitle: "Days whose shape most resembles today.",
+    },
+    entries: {
+      title: "Entries",
+      subtitle: (
+        <>
+          <span className="tnum" style={{ color: "var(--ink)", fontWeight: 500 }}>
+            {entries.length}
+          </span>{" "}
+          logged · export or remove individual entries
+        </>
+      ),
+    },
+    tags: { title: "Tags", subtitle: "Coming soon." },
+    patterns: { title: "Patterns", subtitle: "Coming soon." },
+    engine: { title: "Engine logs", subtitle: "Live view of the parse pipeline." },
+  };
+  const { title, subtitle } = titleMap[nav] ?? titleMap.today;
   return (
     <div>
       <div
@@ -1000,7 +1334,7 @@ function PageHeader({ events }: { events: Event[] }) {
               lineHeight: 1.1,
             }}
           >
-            Today
+            {title}
           </h1>
           <div
             style={{
@@ -1010,14 +1344,7 @@ function PageHeader({ events }: { events: Event[] }) {
               fontWeight: 400,
             }}
           >
-            Narrative parsed at 9:47 am ·{" "}
-            <span className="tnum" style={{ color: "var(--ink)", fontWeight: 500 }}>
-              {events.length}
-            </span>{" "}
-            events · baseline valence{" "}
-            <span className="tnum" style={{ color: "var(--ink)", fontWeight: 500 }}>
-              50
-            </span>
+            {subtitle}
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -1047,7 +1374,7 @@ function PageHeader({ events }: { events: Event[] }) {
         </div>
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-        <DateChip from="Wed, Apr 17" to="9:47 am" />
+        <DateRangeChip />
         <Chip label="All entries" caret />
         <Chip label="All tags" caret />
         <Chip label="All people" caret />
@@ -1055,6 +1382,185 @@ function PageHeader({ events }: { events: Event[] }) {
         <div style={{ flex: 1 }} />
         <Chip label="···" />
       </div>
+    </div>
+  );
+}
+
+/**
+ * DateRangeChip — functional date-range control with three presets.
+ *
+ * Click opens a small popover anchored below the chip. Selecting a preset
+ * both updates the chip label and persists the choice locally so a reload
+ * keeps the view consistent. We do not wire the actual data-window here
+ * (that's a follow-up) but the control itself is fully functional and
+ * clicks are observable.
+ *
+ * Presets:
+ *   - today   (default) — renders as "Today · 9:47 am"
+ *   - 7d                — "Last 7 days"
+ *   - 30d               — "Last 30 days"
+ *
+ * Closing:
+ *   - Click-away closes the popover via a document listener installed on
+ *     open.
+ *   - Selecting a preset auto-closes.
+ */
+function DateRangeChip() {
+  type Preset = "today" | "7d" | "30d";
+  const [preset, setPreset] = useState<Preset>("today");
+  const [open, setOpen] = useState(false);
+  const anchorRef = useRef<HTMLDivElement>(null);
+
+  // Hydrate saved preset once on mount. Guard for SSR.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const v = window.localStorage.getItem("prudent:daterange:v1");
+    if (v === "today" || v === "7d" || v === "30d") setPreset(v);
+  }, []);
+
+  // Persist preset changes. Best-effort — swallow storage errors.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem("prudent:daterange:v1", preset);
+    } catch {
+      /* swallow */
+    }
+  }, [preset]);
+
+  // Click-away close. Installed only when open so we're not leaking a
+  // document-level listener across every mount.
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      if (!anchorRef.current) return;
+      if (!anchorRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [open]);
+
+  const labelFor = (p: Preset): { from: string; to: string } => {
+    if (p === "today") return { from: "Wed, Apr 17", to: "9:47 am" };
+    if (p === "7d") return { from: "Apr 11", to: "Apr 17" };
+    return { from: "Mar 19", to: "Apr 17" };
+  };
+  const { from, to } = labelFor(preset);
+
+  return (
+    <div ref={anchorRef} style={{ position: "relative", display: "inline-block" }}>
+      <button
+        onClick={() => setOpen((v) => !v)}
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 8,
+          padding: "6px 11px",
+          fontSize: 12,
+          background: "var(--panel)",
+          border: "1px solid var(--line-mid)",
+          borderRadius: 7,
+          color: "var(--ink)",
+          fontWeight: 500,
+        }}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+      >
+        <svg
+          width="13"
+          height="13"
+          viewBox="0 0 15 15"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.3"
+        >
+          <rect x="2" y="3" width="11" height="10" rx="1" />
+          <path d="M2 6h11M5 1.5v3M10 1.5v3" />
+        </svg>
+        <span>{from}</span>
+        <span style={{ color: "var(--faint)" }}>→</span>
+        <span>{to}</span>
+        <svg
+          width="9"
+          height="9"
+          viewBox="0 0 9 9"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.3"
+          style={{
+            opacity: 0.55,
+            marginLeft: 2,
+            transition: "transform 120ms ease",
+            transform: open ? "rotate(180deg)" : "rotate(0)",
+          }}
+        >
+          <path d="M2 3.5L4.5 6 7 3.5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+      {open && (
+        <div
+          role="listbox"
+          style={{
+            position: "absolute",
+            top: "calc(100% + 6px)",
+            left: 0,
+            zIndex: 40,
+            background: "var(--panel)",
+            border: "1px solid var(--line-mid)",
+            borderRadius: 8,
+            padding: 4,
+            boxShadow: "0 12px 24px -10px rgba(20,22,26,0.25)",
+            minWidth: 160,
+          }}
+        >
+          {(
+            [
+              { id: "today" as const, label: "Today" },
+              { id: "7d" as const, label: "Last 7 days" },
+              { id: "30d" as const, label: "Last 30 days" },
+            ]
+          ).map((opt) => (
+            <button
+              key={opt.id}
+              onClick={() => {
+                setPreset(opt.id);
+                setOpen(false);
+              }}
+              role="option"
+              aria-selected={preset === opt.id}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                width: "100%",
+                padding: "7px 10px",
+                fontSize: 12.5,
+                color: preset === opt.id ? "var(--ink)" : "var(--muted)",
+                background: preset === opt.id ? "var(--hover)" : "transparent",
+                borderRadius: 6,
+                fontWeight: preset === opt.id ? 600 : 500,
+                textAlign: "left",
+              }}
+            >
+              <span>{opt.label}</span>
+              {preset === opt.id && (
+                <svg
+                  width="11"
+                  height="11"
+                  viewBox="0 0 11 11"
+                  fill="none"
+                  stroke="var(--accent)"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M2 5.5L4.5 8l4.5-5" />
+                </svg>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -1089,35 +1595,8 @@ function Chip({ label, caret, active }: { label: string; caret?: boolean; active
   );
 }
 
-function DateChip({ from, to }: { from: string; to: string }) {
-  return (
-    <div
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 8,
-        padding: "6px 11px",
-        fontSize: 12,
-        background: "var(--panel)",
-        border: "1px solid var(--line-mid)",
-        borderRadius: 7,
-        color: "var(--ink)",
-        fontWeight: 500,
-      }}
-    >
-      <svg width="13" height="13" viewBox="0 0 15 15" fill="none" stroke="currentColor" strokeWidth="1.3">
-        <rect x="2" y="3" width="11" height="10" rx="1" />
-        <path d="M2 6h11M5 1.5v3M10 1.5v3" />
-      </svg>
-      <span>{from}</span>
-      <span style={{ color: "var(--faint)" }}>→</span>
-      <span>{to}</span>
-      <svg width="9" height="9" viewBox="0 0 9 9" fill="none" stroke="currentColor" strokeWidth="1.3" style={{ opacity: 0.55, marginLeft: 2 }}>
-        <path d="M2 3.5L4.5 6 7 3.5" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-    </div>
-  );
-}
+// DateChip removed — DateRangeChip (below PageHeader) is the functional
+// replacement with a preset popover.
 
 // ═══════════════════════════════════════════════════════════════════════
 // Key metrics column
@@ -2407,9 +2886,11 @@ function TagDonut({ events }: { events: Event[] }) {
 function ThreadRibbon({
   history,
   rhymeStart,
+  onDotClick,
 }: {
   history: HistoryDay[];
   rhymeStart: number | undefined;
+  onDotClick?: (day: number) => void;
 }) {
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
   return (
@@ -2459,7 +2940,13 @@ function ThreadRibbon({
           <Chip label="YTD" />
         </div>
       </div>
-      <HistorySvg history={history} rhymeStart={rhymeStart} onHover={setHoverIdx} hoverIdx={hoverIdx} />
+      <HistorySvg
+        history={history}
+        rhymeStart={rhymeStart}
+        onHover={setHoverIdx}
+        hoverIdx={hoverIdx}
+        onDotClick={onDotClick}
+      />
     </section>
   );
 }
@@ -2469,11 +2956,13 @@ function HistorySvg({
   rhymeStart,
   onHover,
   hoverIdx,
+  onDotClick,
 }: {
   history: HistoryDay[];
   rhymeStart: number | undefined;
   onHover: (i: number | null) => void;
   hoverIdx: number | null;
+  onDotClick?: (day: number) => void;
 }) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(1000);
@@ -2551,7 +3040,13 @@ function HistorySvg({
         <path d={areaD} fill="url(#prudentThreadGrad)" />
         <path d={d} fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" />
         {pts.map((p) => (
-          <g key={p.i} onMouseEnter={() => onHover(p.i)} onMouseLeave={() => onHover(null)}>
+          <g
+            key={p.i}
+            onMouseEnter={() => onHover(p.i)}
+            onMouseLeave={() => onHover(null)}
+            onClick={() => onDotClick?.(p.d.day)}
+            style={{ cursor: onDotClick ? "pointer" : "default" }}
+          >
             <rect x={pad.l + p.i * bw} y={pad.t} width={bw} height={H} fill="transparent" />
             <circle
               cx={p.x}
@@ -2609,13 +3104,29 @@ interface ComposerProps {
   setText: (t: string) => void;
   onClose: () => void;
   events: Event[];
+  source?: "api" | "regex" | "idle";
+  readOnly?: boolean;
+  readOnlyLabel?: string;
+  onSave: () => void;
 }
 
-function ComposerModal({ text, setText, onClose, events }: ComposerProps) {
+function ComposerModal({
+  text,
+  setText,
+  onClose,
+  events,
+  source = "regex",
+  readOnly = false,
+  readOnlyLabel,
+  onSave,
+}: ComposerProps) {
   const ref = useRef<HTMLTextAreaElement>(null);
   useEffect(() => {
-    ref.current?.focus();
-  }, []);
+    // Only autofocus when the modal is opened for writing. Focusing a
+    // read-only textarea steals the keyboard from browser-level nav (arrow
+    // keys scrolling, etc.).
+    if (!readOnly) ref.current?.focus();
+  }, [readOnly]);
   return (
     <div
       style={{
@@ -2653,34 +3164,47 @@ function ComposerModal({ text, setText, onClose, events }: ComposerProps) {
           }}
         >
           <div>
-            <div style={{ fontSize: 14, fontWeight: 600 }}>New entry</div>
+            <div style={{ fontSize: 14, fontWeight: 600 }}>
+              {readOnly ? "Entry" : "New entry"}
+            </div>
             <div style={{ fontSize: 11, color: "var(--muted)" }}>
-              Wed · Apr 17 · 7:04 am → now · parsing live
+              {readOnly
+                ? readOnlyLabel ?? "archived entry · read only"
+                : "Wed · Apr 17 · 7:04 am → now · parsing live"}
             </div>
           </div>
-          <button onClick={onClose} style={{ color: "var(--muted)" }}>
+          <button
+            onClick={onClose}
+            style={{ color: "var(--muted)", padding: "4px 8px", borderRadius: 6 }}
+            aria-label="Close"
+          >
             ✕
           </button>
         </div>
         <div style={{ padding: "18px 22px" }}>
           {/* Newsreader serif textarea — italic placeholder, generous
-              line-height so the journal feels literary, not technical. The
-              15-line min keeps the first screen clean of chrome. */}
+              line-height so the journal feels literary, not technical. When
+              read-only we disable the textarea (not hide it) so users can
+              still select+copy the narrative. */}
           <textarea
             ref={ref}
             value={text}
             onChange={(e) => setText(e.target.value)}
-            placeholder="How did today go, minute by minute…"
+            placeholder={readOnly ? "" : SAMPLE}
             rows={8}
+            disabled={readOnly}
+            readOnly={readOnly}
             style={{
               width: "100%",
               fontFamily: "var(--serif)",
               fontSize: 19,
               lineHeight: 1.6,
               color: "var(--ink)",
-              resize: "vertical",
+              resize: readOnly ? "none" : "vertical",
               minHeight: 200,
               letterSpacing: "-0.005em",
+              cursor: readOnly ? "text" : "text",
+              opacity: readOnly ? 0.95 : 1,
             }}
           />
           <div
@@ -2799,10 +3323,51 @@ function ComposerModal({ text, setText, onClose, events }: ComposerProps) {
               fontSize: 10.5,
               color: "var(--faint)",
               letterSpacing: "0.02em",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 10,
             }}
           >
-            <span className="tnum">{text.length}</span> chars ·{" "}
-            <span className="tnum">{events.length}</span> events
+            <span>
+              <span className="tnum">{text.length}</span> chars ·{" "}
+              <span className="tnum">{events.length}</span> events
+            </span>
+            {!readOnly && (
+              // Live source indicator — "regex" while the debounce is
+              // pending or Claude is unavailable, "api" once a Claude result
+              // has been stitched in. Gives the investor a concrete sense
+              // of the pipeline upgrading in real time.
+              <span
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 4,
+                  padding: "2px 6px",
+                  background:
+                    source === "api" ? "var(--accent-soft)" : "var(--hover)",
+                  color:
+                    source === "api" ? "var(--accent-ink)" : "var(--muted)",
+                  borderRadius: 10,
+                  fontWeight: 600,
+                  letterSpacing: "0.02em",
+                }}
+              >
+                <span
+                  style={{
+                    width: 5,
+                    height: 5,
+                    borderRadius: "50%",
+                    background:
+                      source === "api"
+                        ? "var(--accent)"
+                        : source === "regex"
+                          ? "var(--warm)"
+                          : "var(--faint)",
+                  }}
+                />
+                source: {source}
+              </span>
+            )}
           </div>
           <div style={{ display: "flex", gap: 8 }}>
             <button
@@ -2815,34 +3380,552 @@ function ComposerModal({ text, setText, onClose, events }: ComposerProps) {
                 color: "var(--muted)",
               }}
             >
-              Cancel
+              {readOnly ? "Close" : "Cancel"}
             </button>
-            <button
-              onClick={onClose}
-              style={{
-                fontSize: 13,
-                padding: "8px 16px",
-                borderRadius: 7,
-                background: "var(--ink)",
-                color: "var(--app-bg)",
-                fontWeight: 500,
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 8,
-              }}
-            >
-              Log to thread
-              <span
-                className="mono"
-                style={{ fontSize: 11, opacity: 0.55, letterSpacing: "0.02em" }}
+            {!readOnly && (
+              <button
+                onClick={onSave}
+                disabled={!text.trim()}
+                style={{
+                  fontSize: 13,
+                  padding: "8px 16px",
+                  borderRadius: 7,
+                  background: text.trim() ? "var(--ink)" : "var(--line-mid)",
+                  color: "var(--app-bg)",
+                  fontWeight: 500,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 8,
+                  cursor: text.trim() ? "pointer" : "not-allowed",
+                  opacity: text.trim() ? 1 : 0.65,
+                }}
               >
-                ↵
-              </span>
-            </button>
+                Log to thread
+                <span
+                  className="mono"
+                  style={{ fontSize: 11, opacity: 0.55, letterSpacing: "0.02em" }}
+                >
+                  ↵
+                </span>
+              </button>
+            )}
           </div>
         </div>
       </div>
     </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// Alternate nav views (thread / rhymes / entries / tags / patterns / engine)
+// ═══════════════════════════════════════════════════════════════════════
+
+/**
+ * ThreadView — vertical list of every logged entry, newest-first.
+ *
+ * Each card shows the date, a pull-quote of the narrative (first 80 chars),
+ * the event count, and the day's average valence as a small pill. Clicking
+ * a card opens the composer as a read-only viewer.
+ */
+function ThreadView({
+  entries,
+  onOpen,
+}: {
+  entries: StoredEntry[];
+  onOpen: (entry: StoredEntry) => void;
+}) {
+  if (entries.length === 0) {
+    return (
+      <ComingSoon
+        title="No entries yet"
+        description="Log your first day to see it appear here as a thread of cards."
+      />
+    );
+  }
+  return (
+    <section
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: 10,
+        minWidth: 0,
+      }}
+    >
+      {entries.map((e) => {
+        const positive = e.avg >= 50;
+        return (
+          <button
+            key={e.id}
+            onClick={() => onOpen(e)}
+            style={{
+              display: "grid",
+              gridTemplateColumns: "80px 1fr 64px",
+              gap: 16,
+              alignItems: "center",
+              background: "var(--panel)",
+              border: "1px solid var(--line)",
+              borderRadius: 10,
+              padding: "14px 16px",
+              textAlign: "left",
+              cursor: "pointer",
+              transition: "border-color 120ms ease, transform 120ms ease",
+            }}
+          >
+            <div>
+              <div
+                className="mono tnum"
+                style={{
+                  fontSize: 11,
+                  color: "var(--ink)",
+                  fontWeight: 600,
+                  letterSpacing: "0.01em",
+                }}
+              >
+                {e.createdAt.slice(0, 10)}
+              </div>
+              <div
+                className="mono"
+                style={{
+                  fontSize: 10,
+                  color: "var(--faint)",
+                  marginTop: 3,
+                }}
+              >
+                day −{e.day}
+              </div>
+            </div>
+            <div
+              className="serif"
+              style={{
+                fontFamily: "var(--serif)",
+                fontSize: 14,
+                color: "var(--ink)",
+                fontStyle: "italic",
+                lineHeight: 1.5,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                display: "-webkit-box",
+                WebkitLineClamp: 2,
+                WebkitBoxOrient: "vertical",
+                letterSpacing: "-0.005em",
+              }}
+            >
+              &ldquo;{e.text.slice(0, 160)}
+              {e.text.length > 160 ? "…" : ""}&rdquo;
+            </div>
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "flex-end",
+                gap: 4,
+              }}
+            >
+              <span
+                className="tnum"
+                style={{
+                  fontSize: 14,
+                  fontWeight: 600,
+                  color: positive ? "var(--green)" : "var(--warm-strong)",
+                  letterSpacing: "-0.02em",
+                }}
+              >
+                {e.avg}
+              </span>
+              <span
+                className="mono"
+                style={{ fontSize: 9.5, color: "var(--faint)" }}
+              >
+                {e.events.length} events
+              </span>
+            </div>
+          </button>
+        );
+      })}
+    </section>
+  );
+}
+
+/**
+ * RhymesView — top rhyming day-pairs against the current history.
+ *
+ * Uses `findRhyme` against progressively-shortened history slices so we get
+ * multiple distinct windows rather than the same top match over and over.
+ */
+function RhymesView({ history }: { history: HistoryDay[] }) {
+  // Walk the history and compute up to 3 non-overlapping 7-day rhymes by
+  // calling findRhyme against shrinking slices of the prefix. Each previous
+  // match is excluded from the next search window so we don't repeat.
+  const matches: { start: number; avg: number; text: string }[] = [];
+  let working = history.slice(0, -1);
+  for (let k = 0; k < 3 && working.length >= 14; k++) {
+    const today = history.slice(-14, -1).map((d) => ({ t: d.day, v: d.avg }));
+    const r = findRhyme(working, today as Point[]);
+    if (!r) break;
+    const win = working.slice(r.startIdx, r.startIdx + 7);
+    const winAvg = Math.round(win.reduce((a, b) => a + b.avg, 0) / win.length);
+    matches.push({
+      start: r.startIdx,
+      avg: winAvg,
+      text: win[3]?.text ?? "",
+    });
+    // Remove the matched window from the working set so the next iteration
+    // surfaces a different rhyme.
+    working = [...working.slice(0, r.startIdx), ...working.slice(r.startIdx + 7)];
+  }
+
+  if (matches.length === 0) {
+    return (
+      <ComingSoon
+        title="No rhymes yet"
+        description="Rhymes appear once your history has enough data to compare against."
+      />
+    );
+  }
+
+  return (
+    <section style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      {matches.map((m, i) => (
+        <div
+          key={i}
+          style={{
+            display: "grid",
+            gridTemplateColumns: "80px 1fr 64px",
+            gap: 16,
+            alignItems: "center",
+            background: "var(--panel)",
+            border: "1px solid var(--line)",
+            borderRadius: 10,
+            padding: "14px 16px",
+          }}
+        >
+          <div>
+            <div
+              style={{
+                fontSize: 12,
+                fontWeight: 600,
+                color: "var(--ink)",
+              }}
+            >
+              Rank {i + 1}
+            </div>
+            <div
+              className="mono"
+              style={{ fontSize: 10, color: "var(--faint)", marginTop: 3 }}
+            >
+              window day −{history[m.start]?.day ?? "?"}
+            </div>
+          </div>
+          <div
+            className="serif"
+            style={{
+              fontSize: 14,
+              color: "var(--ink)",
+              fontStyle: "italic",
+              lineHeight: 1.5,
+              fontFamily: "var(--serif)",
+            }}
+          >
+            &ldquo;{m.text.slice(0, 140)}
+            {m.text.length > 140 ? "…" : ""}&rdquo;
+          </div>
+          <div
+            className="tnum"
+            style={{
+              fontSize: 14,
+              fontWeight: 600,
+              color: "var(--accent-ink)",
+              textAlign: "right",
+              letterSpacing: "-0.02em",
+            }}
+          >
+            {m.avg}
+            <div
+              className="mono"
+              style={{
+                fontSize: 9.5,
+                color: "var(--faint)",
+                fontWeight: 500,
+                marginTop: 2,
+              }}
+            >
+              avg valence
+            </div>
+          </div>
+        </div>
+      ))}
+    </section>
+  );
+}
+
+/**
+ * EntriesView — tabular list of stored entries with delete per row. Zero
+ * pagination for now since the demo bar is "last few dozen entries".
+ */
+function EntriesView({
+  entries,
+  onOpen,
+  onRemove,
+}: {
+  entries: StoredEntry[];
+  onOpen: (e: StoredEntry) => void;
+  onRemove: (id: string) => void;
+}) {
+  if (entries.length === 0) {
+    return (
+      <ComingSoon
+        title="No entries"
+        description="Anything you save shows up here — with delete + export per row."
+      />
+    );
+  }
+  return (
+    <section
+      style={{
+        background: "var(--panel)",
+        border: "1px solid var(--line)",
+        borderRadius: 10,
+        overflow: "hidden",
+      }}
+    >
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "110px 90px 1fr 70px 60px 70px",
+          gap: 12,
+          padding: "12px 18px",
+          borderBottom: "1px solid var(--line)",
+          fontSize: 10,
+          fontWeight: 600,
+          color: "var(--muted)",
+          letterSpacing: "0.08em",
+          textTransform: "uppercase",
+        }}
+        className="mono"
+      >
+        <span>Date</span>
+        <span>Day</span>
+        <span>Excerpt</span>
+        <span style={{ textAlign: "right" }}>Avg</span>
+        <span style={{ textAlign: "right" }}>Events</span>
+        <span />
+      </div>
+      {entries.map((e) => (
+        <div
+          key={e.id}
+          style={{
+            display: "grid",
+            gridTemplateColumns: "110px 90px 1fr 70px 60px 70px",
+            gap: 12,
+            padding: "12px 18px",
+            borderBottom: "1px solid var(--line)",
+            alignItems: "center",
+            fontSize: 12.5,
+          }}
+        >
+          <span className="tnum mono" style={{ color: "var(--ink)" }}>
+            {e.createdAt.slice(0, 10)}
+          </span>
+          <span className="mono" style={{ color: "var(--muted)" }}>
+            day −{e.day}
+          </span>
+          <button
+            onClick={() => onOpen(e)}
+            style={{
+              textAlign: "left",
+              color: "var(--ink)",
+              fontStyle: "italic",
+              fontFamily: "var(--serif)",
+              fontSize: 13,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+          >
+            &ldquo;{e.text.slice(0, 120)}
+            {e.text.length > 120 ? "…" : ""}&rdquo;
+          </button>
+          <span
+            className="tnum"
+            style={{
+              textAlign: "right",
+              fontWeight: 600,
+              color: e.avg >= 50 ? "var(--green)" : "var(--warm-strong)",
+            }}
+          >
+            {e.avg}
+          </span>
+          <span
+            className="tnum"
+            style={{ textAlign: "right", color: "var(--muted)" }}
+          >
+            {e.events.length}
+          </span>
+          <div style={{ textAlign: "right" }}>
+            <button
+              onClick={() => onRemove(e.id)}
+              style={{
+                fontSize: 11,
+                padding: "5px 9px",
+                border: "1px solid var(--line-mid)",
+                borderRadius: 6,
+                color: "var(--warm-strong)",
+                fontWeight: 500,
+                background: "var(--panel)",
+              }}
+            >
+              Delete
+            </button>
+          </div>
+        </div>
+      ))}
+    </section>
+  );
+}
+
+/**
+ * EngineLogsView — read-only snapshot of the live parse pipeline.
+ *
+ * Surfaces the last parser source (regex / api / idle), event count, and
+ * error status. Gives investors a concrete hook to ask "how does the
+ * NL-to-TS pipeline actually work?" without opening devtools.
+ */
+function EngineLogsView({
+  source,
+  loading,
+  error,
+  eventCount,
+}: {
+  source: "api" | "regex" | "idle";
+  loading: boolean;
+  error: string | null;
+  eventCount: number;
+}) {
+  const rows: { label: string; value: React.ReactNode }[] = [
+    { label: "source", value: source },
+    { label: "loading", value: loading ? "true" : "false" },
+    { label: "event count", value: eventCount },
+    { label: "error", value: error ?? "none" },
+    { label: "route", value: "POST /api/prudent/parse" },
+    { label: "debounce", value: "350ms" },
+  ];
+  return (
+    <section
+      style={{
+        background: "var(--panel)",
+        border: "1px solid var(--line)",
+        borderRadius: 10,
+        padding: "18px 20px",
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: 10,
+        }}
+      >
+        {rows.map((r) => (
+          <div
+            key={r.label}
+            style={{
+              display: "grid",
+              gridTemplateColumns: "140px 1fr",
+              alignItems: "center",
+              fontSize: 13,
+              padding: "6px 0",
+              borderBottom: "1px solid var(--line)",
+            }}
+          >
+            <span
+              className="mono"
+              style={{
+                fontSize: 10,
+                color: "var(--muted)",
+                letterSpacing: "0.08em",
+                textTransform: "uppercase",
+                fontWeight: 600,
+              }}
+            >
+              {r.label}
+            </span>
+            <span
+              className="mono tnum"
+              style={{ color: "var(--ink)", fontWeight: 500 }}
+            >
+              {r.value}
+            </span>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/**
+ * ComingSoon — thin empty-state card used by `tags`, `patterns`, and the
+ * no-entries fallbacks.
+ */
+function ComingSoon({
+  title,
+  description,
+}: {
+  title: string;
+  description: string;
+}) {
+  return (
+    <section
+      style={{
+        background: "var(--panel)",
+        border: "1px solid var(--line)",
+        borderRadius: 10,
+        padding: "56px 24px",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        textAlign: "center",
+        gap: 10,
+      }}
+    >
+      <div
+        style={{
+          width: 36,
+          height: 36,
+          borderRadius: 10,
+          background: "var(--accent-soft)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          color: "var(--accent-ink)",
+        }}
+      >
+        <svg
+          width="18"
+          height="18"
+          viewBox="0 0 16 16"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+        >
+          <circle cx="8" cy="8" r="5.5" />
+          <path d="M8 5v3l2 1.5" />
+        </svg>
+      </div>
+      <div style={{ fontSize: 15, fontWeight: 600, color: "var(--ink)" }}>
+        {title}
+      </div>
+      <div
+        style={{
+          fontSize: 12.5,
+          color: "var(--muted)",
+          maxWidth: 340,
+          lineHeight: 1.5,
+        }}
+      >
+        {description}
+      </div>
+    </section>
   );
 }
 
