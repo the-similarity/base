@@ -94,9 +94,11 @@ class Event:
         """
         if self.feature_vector is not None:
             return StateVector(
-                values=self.feature_vector,
-                kind="event",
-                meta={"event_id": self.event_id, "name": self.name},
+                vector=self.feature_vector,
+                source_id=self.event_id,
+                source_kind="event",
+                label=self.name,
+                metadata={"event_id": self.event_id, "name": self.name},
             )
         # Fallback: derive a simple feature vector from metadata.
         cat_hash = hash(self.category) % 1000 / 1000.0
@@ -106,9 +108,11 @@ class Event:
             dtype=np.float64,
         )
         return StateVector(
-            values=vec,
-            kind="event",
-            meta={"event_id": self.event_id, "name": self.name},
+            vector=vec,
+            source_id=self.event_id,
+            source_kind="event",
+            label=self.name,
+            metadata={"event_id": self.event_id, "name": self.name},
         )
 
 
