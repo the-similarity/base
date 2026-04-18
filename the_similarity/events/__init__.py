@@ -1,4 +1,4 @@
-"""Events package — structured ingestion, event graph, retrieval, and prediction markets.
+"""Events package — structured ingestion, event graph, retrieval, evaluation, and prediction markets.
 
 This package provides:
 
@@ -11,6 +11,8 @@ Event intelligence:
 - ``features``: Convert raw event dicts to fixed-length feature vectors.
 - ``event_graph``: In-memory graph of EventNodes with cosine-similarity search.
 - ``retrieval``: Sliding-window analogue retrieval over historical event streams.
+- ``scorecard``: Probabilistic forecast evaluation (Brier, calibration, resolution, log score).
+- ``eval_adapter``: Platform registry integration for event evaluation results.
 
 Prediction markets:
 - ``markets``: Core dataclasses: ForecastQuestion, MarketPrice,

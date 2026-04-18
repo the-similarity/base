@@ -4,8 +4,6 @@ Tests for event feature extraction, event graph, and analogue retrieval.
 
 from __future__ import annotations
 
-import numpy as np
-import pytest
 
 from the_similarity.events.features import FEATURE_DIM, extract_event_features
 from the_similarity.events.event_graph import EventGraph
