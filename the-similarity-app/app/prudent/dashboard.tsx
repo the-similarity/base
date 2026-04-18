@@ -31,7 +31,7 @@ import {
   type HistoryDay,
 } from "./engine";
 
-type Accent = "indigo" | "ember" | "teal" | "plum";
+type Accent = "blue" | "ember" | "teal" | "plum";
 type Theme = "light" | "dark";
 type CompareMode = "rhyme" | "yesterday" | "none";
 
@@ -43,7 +43,7 @@ interface Tweaks {
 }
 
 const TWEAK_DEFAULTS: Tweaks = {
-  accent: "indigo",
+  accent: "blue",
   density: "comfortable",
   theme: "light",
   compare: "rhyme",
@@ -51,11 +51,25 @@ const TWEAK_DEFAULTS: Tweaks = {
 
 const SAMPLE = `Woke up heavy, kind of anxious about the deadline. The morning was rough — emails piled up before I even had coffee. Slow standup, I barely talked. Around noon I went for a walk in the park and things started to lift. Ran into a friend who'd just moved back; we laughed about something stupid for twenty minutes. The afternoon clicked — I got into a flow and the code finally worked. Dinner was calm, read a little before bed.`;
 
+// Accent palette. Pure blue (#3B82F6) is the investor-ready default; the
+// remaining three are warm-minded alternates, each chosen so their light-variant
+// (70% mix with white) reads as a plausible "compare" shade in the chart.
 const ACCENT_HEX: Record<Accent, string> = {
-  indigo: "#4c63d9",
-  ember: "#d0732b",
-  teal: "#2f7d86",
-  plum: "#7a4789",
+  blue: "#3B82F6",
+  ember: "#EA580C",
+  teal: "#0E7490",
+  plum: "#7C3AED",
+};
+
+// Lighter companion hue (~45% value above the base) used for compare curves
+// and the concentric donut secondary ring. Derived from ACCENT_HEX by mixing
+// with white in the HSL space — we precompute so the renderer stays fast and
+// the chart can't drift from the palette.
+const ACCENT_SOFT_HEX: Record<Accent, string> = {
+  blue: "#93C5FD",
+  ember: "#FDBA74",
+  teal: "#67E8F9",
+  plum: "#C4B5FD",
 };
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -71,9 +85,13 @@ export default function Dashboard() {
 
   useEffect(() => {
     // Scope accent + theme to the dashboard root, never mutate global <html>.
+    // We propagate both the base hue and its soft companion so the donut, the
+    // heatmap, and the compare-curve can derive a two-tone family without
+    // having to import the HEX table at the call site.
     const el = rootRef.current;
     if (!el) return;
     el.style.setProperty("--accent", ACCENT_HEX[tweaks.accent]);
+    el.style.setProperty("--accent-mid", ACCENT_SOFT_HEX[tweaks.accent]);
     el.classList.toggle("prudent-dark", tweaks.theme === "dark");
   }, [tweaks.accent, tweaks.theme]);
 
@@ -180,43 +198,66 @@ export default function Dashboard() {
 
       <style>{`
         .prudent-root {
-          --app-bg: #f3f4f6;
-          --sidebar: #ffffff;
-          --panel: #ffffff;
-          --text: #14161a;
-          --muted: #6b7280;
-          --faint: #9aa0a8;
-          --line: #eceef1;
-          --line-mid: #e3e6ea;
-          --hover: #f7f8fa;
-          --ink: #14161a;
-          --accent: #4c63d9;
-          --accent-soft: #c9d0f2;
-          --warm: #d0732b;
-          --warm-soft: #f4dcc2;
-          --cool: #3d7b87;
-          --green: #3d8a5f;
+          /* Airy warm-white canvas. The 4-point delta between --app-bg and
+             --panel (FAFAFA → FFFFFF) is enough to read as a lifted card in
+             daylight but stays invisible under color-deficient rendering. */
+          --app-bg: #FAFAFA;
+          --sidebar: #FFFFFF;
+          --panel: #FFFFFF;
+          --text: #14161A;
+          --muted: #6B7280;
+          --faint: #9CA3AF;
+          --line: #ECEEF1;
+          --line-mid: #E3E6EA;
+          --hover: #F3F4F6;
+          --ink: #14161A;
+          /* Pure blue primary — replaces the old muted indigo. Keep both the
+             saturated stroke (#3B82F6) and its soft pair (#93C5FD) so charts
+             with two series can stay in-family rather than bleeding into
+             secondary hues. */
+          --accent: #3B82F6;
+          --accent-mid: #93C5FD;
+          --accent-soft: #DBEAFE;
+          --accent-ink: #1D4ED8;
+          /* Orange CTA (tailwind orange-500/600). Reserved for primary-action
+             surfaces and "New" badges. Never applied to analytical strokes. */
+          --warm: #F97316;
+          --warm-strong: #EA580C;
+          --warm-soft: #FED7AA;
+          --cool: #0E7490;
+          --green: #16A34A;
+          --rail: #1F2328;
+          --rail-ink: #9CA3AF;
+          --rail-active: #2A2F36;
           --mono: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
           --serif: 'Newsreader', Georgia, serif;
-          font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+          font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
           background: var(--app-bg);
           color: var(--text);
           -webkit-font-smoothing: antialiased;
-          font-feature-settings: 'cv11','ss01';
+          font-feature-settings: 'cv11','ss01','cv03';
           min-height: 100vh;
         }
         .prudent-root.prudent-dark {
-          --app-bg: #0e0f11;
-          --sidebar: #141618;
-          --panel: #17191c;
-          --text: #e8e9ec;
-          --muted: #8a8f96;
-          --faint: #55595f;
-          --line: #1f2226;
-          --line-mid: #26292d;
-          --hover: #1b1d20;
-          --ink: #e8e9ec;
-          --accent-soft: #2a3158;
+          /* Warm near-black dark theme. The panel bg has a hint of
+             warmth (#17191C) rather than pure neutral to avoid the cold
+             "inverted screenshot" look of naive dark modes. */
+          --app-bg: #0E0F11;
+          --sidebar: #131518;
+          --panel: #17191C;
+          --text: #EDEEF0;
+          --muted: #9AA0A8;
+          --faint: #636771;
+          --line: #23262B;
+          --line-mid: #2C3036;
+          --hover: #1D2024;
+          --ink: #F5F6F8;
+          --accent-soft: #1E3A8A;
+          --accent-mid: #60A5FA;
+          --warm-soft: #7C2D12;
+          --rail: #0A0B0D;
+          --rail-ink: #6B7280;
+          --rail-active: #1F2328;
         }
         .prudent-root *, .prudent-root *::before, .prudent-root *::after {
           box-sizing: border-box;
@@ -281,23 +322,26 @@ function Sidebar({ nav, setNav, onCompose }: SidebarProps) {
         borderRight: "1px solid var(--line)",
       }}
     >
+      {/* Icon rail — intentionally very dark (#1F2328) so the secondary nav
+          reads as an airy white column next to it. The active glyph gets a
+          filled square background in accent blue to match the reference. */}
       <div
         style={{
-          width: 44,
-          background: "#141618",
+          width: 56,
+          background: "var(--rail)",
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
-          padding: "16px 0 12px 0",
-          gap: 14,
+          padding: "14px 0 14px 0",
+          gap: 4,
         }}
       >
         <div
           style={{
-            width: 24,
-            height: 24,
+            width: 28,
+            height: 28,
             background: "var(--accent)",
-            borderRadius: 6,
+            borderRadius: 7,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -305,34 +349,60 @@ function Sidebar({ nav, setNav, onCompose }: SidebarProps) {
             fontWeight: 700,
             fontSize: 12,
             fontFamily: "var(--mono)",
+            marginBottom: 10,
           }}
         >
           //
         </div>
-        {["□", "◇", "○", "△", "⬚", "⬡"].map((g, i) => (
-          <div
-            key={i}
+        {[
+          { id: "home", active: false },
+          { id: "pulse", active: false },
+          { id: "thread", active: true },
+          { id: "tags", active: false },
+          { id: "grid", active: false },
+          { id: "people", active: false },
+          { id: "library", active: false },
+        ].map((g) => (
+          <button
+            key={g.id}
             style={{
-              width: 22,
-              height: 22,
+              width: 32,
+              height: 32,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              color: i === 2 ? "#fff" : "#6b7280",
-              fontSize: 12,
-              background: i === 2 ? "#2a2d32" : "transparent",
-              borderRadius: 4,
+              color: g.active ? "#fff" : "var(--rail-ink)",
+              background: g.active ? "var(--accent)" : "transparent",
+              borderRadius: 6,
+              transition: "background 120ms ease",
             }}
           >
-            {g}
-          </div>
+            <RailGlyph id={g.id} />
+          </button>
         ))}
         <div style={{ flex: 1 }} />
+        <button
+          style={{
+            width: 28,
+            height: 28,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            color: "var(--rail-ink)",
+            borderRadius: 6,
+          }}
+          title="Help"
+        >
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <circle cx="8" cy="8" r="5.5" />
+            <path d="M6.5 7a1.5 1.5 0 113 0c0 1-1.5 1-1.5 2M8 11.2v.1" />
+          </svg>
+        </button>
         <div
           style={{
-            width: 24,
-            height: 24,
-            background: "var(--warm)",
+            width: 26,
+            height: 26,
+            background: "linear-gradient(135deg, #F97316, #3B82F6)",
             borderRadius: "50%",
             display: "flex",
             alignItems: "center",
@@ -340,26 +410,49 @@ function Sidebar({ nav, setNav, onCompose }: SidebarProps) {
             color: "#fff",
             fontSize: 11,
             fontWeight: 700,
+            marginTop: 4,
+            border: "1px solid rgba(255,255,255,0.12)",
           }}
         >
           K
         </div>
       </div>
-      <div style={{ width: 208, padding: "14px 12px", display: "flex", flexDirection: "column" }}>
+      <div style={{ width: 280, padding: "16px 14px", display: "flex", flexDirection: "column" }}>
+        {/* 3-way segmented tab control (live / book / person). Modeled on the
+            reference screenshot: pill track with one active icon. */}
         <div
           style={{
             display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            padding: "4px 6px 14px 6px",
+            background: "var(--hover)",
+            borderRadius: 8,
+            padding: 3,
+            marginBottom: 16,
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <div style={{ fontWeight: 600, fontSize: 14 }}>Thread</div>
-          </div>
-          <button style={{ fontSize: 11, color: "var(--faint)" }} title="Collapse">
-            ‹|
-          </button>
+          {[
+            { id: "live", icon: "live" },
+            { id: "book", icon: "book" },
+            { id: "person", icon: "person" },
+          ].map((t, i) => (
+            <button
+              key={t.id}
+              style={{
+                flex: 1,
+                padding: "7px 0",
+                borderRadius: 6,
+                background: i === 0 ? "var(--panel)" : "transparent",
+                color: i === 0 ? "var(--ink)" : "var(--muted)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                boxShadow: i === 0 ? "0 1px 2px rgba(20,22,26,0.08)" : "none",
+                transition: "background 120ms ease",
+              }}
+              aria-label={t.id}
+            >
+              <SegIcon id={t.icon} />
+            </button>
+          ))}
         </div>
 
         <button
@@ -370,32 +463,20 @@ function Sidebar({ nav, setNav, onCompose }: SidebarProps) {
             justifyContent: "space-between",
             background: "var(--ink)",
             color: "var(--app-bg)",
-            padding: "9px 12px",
+            padding: "10px 13px",
             borderRadius: 8,
             fontSize: 13,
             fontWeight: 500,
-            marginBottom: 14,
+            marginBottom: 18,
           }}
         >
           <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <span style={{ fontSize: 14 }}>＋</span> New entry
+            <span style={{ fontSize: 14, lineHeight: 1 }}>＋</span> New entry
           </span>
-          <span style={{ fontSize: 10, opacity: 0.5, fontFamily: "var(--mono)" }}>⌘N</span>
+          <span style={{ fontSize: 10, opacity: 0.55, fontFamily: "var(--mono)" }}>⌘N</span>
         </button>
 
-        <div
-          className="mono"
-          style={{
-            fontSize: 10,
-            color: "var(--faint)",
-            letterSpacing: "0.1em",
-            padding: "10px 6px 6px 6px",
-            textTransform: "uppercase",
-            fontWeight: 600,
-          }}
-        >
-          Spaces
-        </div>
+        <SectionLabel>Spaces</SectionLabel>
         {items.map((it) => (
           <button
             key={it.id}
@@ -404,17 +485,18 @@ function Sidebar({ nav, setNav, onCompose }: SidebarProps) {
               display: "flex",
               alignItems: "center",
               justifyContent: "space-between",
-              padding: "7px 8px",
-              borderRadius: 6,
+              padding: "9px 10px",
+              borderRadius: 7,
               fontSize: 13,
               background: nav === it.id ? "var(--hover)" : "transparent",
               color: nav === it.id ? "var(--ink)" : "var(--muted)",
-              fontWeight: nav === it.id ? 600 : 400,
+              fontWeight: nav === it.id ? 600 : 450,
               textAlign: "left",
               marginBottom: 1,
+              transition: "background 100ms ease, color 100ms ease",
             }}
           >
-            <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <NavGlyph id={it.id} active={nav === it.id} />
               {it.label}
             </span>
@@ -424,9 +506,10 @@ function Sidebar({ nav, setNav, onCompose }: SidebarProps) {
                   fontSize: 9,
                   background: "var(--warm)",
                   color: "#fff",
-                  padding: "1px 6px",
-                  borderRadius: 8,
+                  padding: "2px 7px",
+                  borderRadius: 10,
                   fontWeight: 600,
+                  letterSpacing: "0.02em",
                 }}
               >
                 New
@@ -439,30 +522,24 @@ function Sidebar({ nav, setNav, onCompose }: SidebarProps) {
           </button>
         ))}
 
-        <div
-          className="mono"
-          style={{
-            fontSize: 10,
-            color: "var(--faint)",
-            letterSpacing: "0.1em",
-            padding: "16px 6px 6px 6px",
-            textTransform: "uppercase",
-            fontWeight: 600,
-          }}
-        >
-          Connected
-        </div>
+        <SectionLabel top={18}>Self services</SectionLabel>
+        <NavLink label="Favourites" hint="4" />
+        <NavLink label="Bookmarks" hint="12" />
+        <NavLink label="Drafts" fresh />
+
+        <SectionLabel top={18}>External</SectionLabel>
         {Ext.map((it) => (
           <button
             key={it.id}
             style={{
               display: "flex",
               alignItems: "center",
-              gap: 8,
-              padding: "7px 8px",
+              gap: 10,
+              padding: "9px 10px",
               fontSize: 13,
               color: "var(--muted)",
               textAlign: "left",
+              fontWeight: 450,
             }}
           >
             <NavGlyph id={it.id} />
@@ -473,22 +550,24 @@ function Sidebar({ nav, setNav, onCompose }: SidebarProps) {
         <div style={{ flex: 1 }} />
         <div
           style={{
-            padding: "8px 6px",
+            padding: "8px 0 2px 0",
             borderTop: "1px solid var(--line)",
             display: "flex",
             flexDirection: "column",
-            gap: 4,
+            gap: 2,
+            marginTop: 10,
           }}
         >
           <button
             style={{
               display: "flex",
               alignItems: "center",
-              gap: 8,
-              padding: "6px 8px",
+              gap: 10,
+              padding: "8px 10px",
               fontSize: 13,
               color: "var(--muted)",
               textAlign: "left",
+              fontWeight: 450,
             }}
           >
             <NavGlyph id="support" /> Support
@@ -497,11 +576,12 @@ function Sidebar({ nav, setNav, onCompose }: SidebarProps) {
             style={{
               display: "flex",
               alignItems: "center",
-              gap: 8,
-              padding: "6px 8px",
+              gap: 10,
+              padding: "8px 10px",
               fontSize: 13,
               color: "var(--muted)",
               textAlign: "left",
+              fontWeight: 450,
             }}
           >
             <NavGlyph id="settings" /> Settings
@@ -510,6 +590,149 @@ function Sidebar({ nav, setNav, onCompose }: SidebarProps) {
       </div>
     </aside>
   );
+}
+
+// Reusable uppercase section label. Section headers in the reference sit
+// with 10px uppercase, 0.08em tracking, bold weight; we enforce that here so
+// every group stays visually consistent even as the nav grows.
+function SectionLabel({ children, top = 10 }: { children: React.ReactNode; top?: number }) {
+  return (
+    <div
+      className="mono"
+      style={{
+        fontSize: 10,
+        color: "var(--faint)",
+        letterSpacing: "0.08em",
+        padding: `${top}px 10px 8px 10px`,
+        textTransform: "uppercase",
+        fontWeight: 600,
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+// A small, auxiliary nav link used in Self-services / External sections. Kept
+// inline rather than re-using the main `items` loop so the "fresh" badge and
+// the hint shape can stay purely presentational.
+function NavLink({ label, hint, fresh }: { label: string; hint?: string; fresh?: boolean }) {
+  return (
+    <button
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        padding: "9px 10px",
+        borderRadius: 7,
+        fontSize: 13,
+        color: "var(--muted)",
+        textAlign: "left",
+        fontWeight: 450,
+      }}
+    >
+      <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <NavGlyph id={label.toLowerCase()} />
+        {label}
+      </span>
+      {fresh ? (
+        <span
+          style={{
+            fontSize: 9,
+            background: "var(--warm)",
+            color: "#fff",
+            padding: "2px 7px",
+            borderRadius: 10,
+            fontWeight: 600,
+            letterSpacing: "0.02em",
+          }}
+        >
+          New
+        </span>
+      ) : hint ? (
+        <span className="mono" style={{ fontSize: 10, color: "var(--faint)" }}>
+          {hint}
+        </span>
+      ) : null}
+    </button>
+  );
+}
+
+// Thin stroked glyphs for the outer rail. Kept visually simple so they read
+// as a single monochrome family against the dark rail.
+function RailGlyph({ id }: { id: string }) {
+  const common = { width: 16, height: 16, fill: "none", stroke: "currentColor", strokeWidth: 1.4 };
+  const glyphs: Record<string, React.ReactElement> = {
+    home: (
+      <svg {...common} viewBox="0 0 16 16">
+        <path d="M2.5 7.5L8 3l5.5 4.5V13H2.5z" />
+        <path d="M6.5 13V9h3v4" />
+      </svg>
+    ),
+    pulse: (
+      <svg {...common} viewBox="0 0 16 16">
+        <path d="M2 8h3l1.5-3 2 6 1.5-3H14" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    ),
+    thread: (
+      <svg {...common} viewBox="0 0 16 16">
+        <path d="M3 3h10v4H3zM3 9h10v4H3z" />
+        <path d="M5 5h1M5 11h1" />
+      </svg>
+    ),
+    tags: (
+      <svg {...common} viewBox="0 0 16 16">
+        <path d="M3 3h5l5 5-5 5-5-5V3z" />
+        <circle cx="5.5" cy="5.5" r="0.8" fill="currentColor" />
+      </svg>
+    ),
+    grid: (
+      <svg {...common} viewBox="0 0 16 16">
+        <rect x="2.5" y="2.5" width="4.5" height="4.5" />
+        <rect x="9" y="2.5" width="4.5" height="4.5" />
+        <rect x="2.5" y="9" width="4.5" height="4.5" />
+        <rect x="9" y="9" width="4.5" height="4.5" />
+      </svg>
+    ),
+    people: (
+      <svg {...common} viewBox="0 0 16 16">
+        <circle cx="6" cy="6" r="2.2" />
+        <path d="M2.5 13c.5-2 1.8-3 3.5-3s3 1 3.5 3" />
+        <circle cx="11.5" cy="5.5" r="1.8" />
+      </svg>
+    ),
+    library: (
+      <svg {...common} viewBox="0 0 16 16">
+        <path d="M3 3v10M6 3v10M9 3v10M12 3v10" />
+      </svg>
+    ),
+  };
+  return glyphs[id] ?? glyphs.grid;
+}
+
+// Segmented tab icons (live / book / person).
+function SegIcon({ id }: { id: string }) {
+  const common = { width: 14, height: 14, fill: "none", stroke: "currentColor", strokeWidth: 1.4 };
+  const g: Record<string, React.ReactElement> = {
+    live: (
+      <svg {...common} viewBox="0 0 16 16">
+        <circle cx="8" cy="8" r="1.5" fill="currentColor" stroke="none" />
+        <path d="M4.5 11.5a5 5 0 010-7M11.5 11.5a5 5 0 000-7" />
+      </svg>
+    ),
+    book: (
+      <svg {...common} viewBox="0 0 16 16">
+        <path d="M3 3h4a2 2 0 012 2v8a2 2 0 00-2-2H3zM13 3H9a2 2 0 00-2 2v8a2 2 0 012-2h4z" />
+      </svg>
+    ),
+    person: (
+      <svg {...common} viewBox="0 0 16 16">
+        <circle cx="8" cy="5.5" r="2.2" />
+        <path d="M3 13c.5-2.5 2.4-4 5-4s4.5 1.5 5 4" />
+      </svg>
+    ),
+  };
+  return g[id] ?? g.live;
 }
 
 function NavGlyph({ id, active }: { id: string; active?: boolean }) {
@@ -2208,7 +2431,7 @@ function TweaksPanel({ tweaks, setTweak }: TweaksPanelProps) {
           >
             accent
           </div>
-          {opts("accent", ["indigo", "ember", "teal", "plum"] as const)}
+          {opts("accent", ["blue", "ember", "teal", "plum"] as const)}
         </div>
         <div>
           <div
