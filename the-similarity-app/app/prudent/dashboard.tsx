@@ -1106,7 +1106,7 @@ function KeyMetrics({ series, events, history, avg, peak, trough }: KeyMetricsPr
         background: "var(--panel)",
         border: "1px solid var(--line)",
         borderRadius: 10,
-        padding: "14px 16px 18px 16px",
+        padding: "16px 18px 18px 18px",
         display: "flex",
         flexDirection: "column",
       }}
@@ -1116,11 +1116,11 @@ function KeyMetrics({ series, events, history, avg, peak, trough }: KeyMetricsPr
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          marginBottom: 14,
+          marginBottom: 4,
         }}
       >
         <div style={{ fontSize: 14, fontWeight: 600 }}>Key metrics</div>
-        <Chip label="All entries" caret />
+        <Chip label="All workspaces" caret />
       </div>
 
       <Metric
@@ -1147,7 +1147,7 @@ function KeyMetrics({ series, events, history, avg, peak, trough }: KeyMetricsPr
         unit="σ"
         delta={-1.58}
         deltaSuffix="% vs wk"
-        sparklineCustom={<VolatilitySpark series={series} stroke="var(--warm)" />}
+        sparklineCustom={<VolatilitySpark series={series} stroke="var(--accent)" />}
       />
       <Metric
         label="Peak · trough"
@@ -1191,6 +1191,18 @@ function Metric({
   noborder,
 }: MetricProps) {
   const up: boolean | null = deltaKind === "neutral" ? null : delta >= 0;
+  // Colored filled triangle glyph matches the reference more tightly than the
+  // unicode ▲/▼ characters (which vary wildly in size per-platform).
+  const TriUp = () => (
+    <svg width="7" height="7" viewBox="0 0 7 7" fill="currentColor">
+      <path d="M3.5 1L6.5 6h-6z" />
+    </svg>
+  );
+  const TriDown = () => (
+    <svg width="7" height="7" viewBox="0 0 7 7" fill="currentColor">
+      <path d="M3.5 6L6.5 1h-6z" />
+    </svg>
+  );
   return (
     <div
       style={{
@@ -1198,40 +1210,79 @@ function Metric({
         gridTemplateColumns: "1fr 120px",
         gap: 14,
         alignItems: "center",
-        padding: "14px 0",
+        padding: "16px 0 14px 0",
         borderBottom: noborder ? "none" : "1px solid var(--line)",
       }}
     >
       <div>
-        <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 6, fontWeight: 500 }}>
+        <div
+          style={{
+            fontSize: 10.5,
+            color: "var(--muted)",
+            marginBottom: 8,
+            fontWeight: 500,
+            letterSpacing: "0.02em",
+          }}
+        >
           {label}
         </div>
-        <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 5 }}>
           <div
             className="tnum"
             style={{
-              fontSize: 28,
+              fontSize: 30,
               fontWeight: 600,
-              letterSpacing: "-0.02em",
+              letterSpacing: "-0.03em",
               color: "var(--ink)",
+              lineHeight: 1,
             }}
           >
             {value}
           </div>
-          <div style={{ fontSize: 11, color: "var(--faint)" }}>{unit}</div>
+          <div
+            className="mono"
+            style={{
+              fontSize: 10.5,
+              color: "var(--faint)",
+              fontWeight: 500,
+              letterSpacing: "0.02em",
+            }}
+          >
+            {unit}
+          </div>
         </div>
         <div
           className="tnum"
           style={{
             fontSize: 11,
-            marginTop: 4,
-            color: up === null ? "var(--muted)" : up ? "var(--green)" : "var(--warm)",
+            marginTop: 8,
+            color: up === null ? "var(--muted)" : up ? "var(--green)" : "var(--warm-strong)",
             fontWeight: 500,
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 5,
           }}
         >
-          {up === null ? "◦" : up ? "▲" : "▼"}{" "}
-          {Math.abs(delta).toFixed(delta % 1 === 0 ? 0 : 2)}{" "}
-          <span style={{ color: "var(--faint)", fontWeight: 400 }}>{deltaSuffix}</span>
+          {up === null ? (
+            <span
+              style={{
+                width: 5,
+                height: 5,
+                background: "currentColor",
+                borderRadius: "50%",
+                display: "inline-block",
+                opacity: 0.6,
+              }}
+            />
+          ) : up ? (
+            <TriUp />
+          ) : (
+            <TriDown />
+          )}
+          <span>{Math.abs(delta).toFixed(delta % 1 === 0 ? 0 : 2)}</span>
+          <span style={{ color: "var(--faint)", fontWeight: 400, marginLeft: 2 }}>
+            {deltaSuffix}
+          </span>
         </div>
       </div>
       <div style={{ width: 120, height: 52, display: "flex", alignItems: "center" }}>
@@ -1291,12 +1342,21 @@ function EventsSpark({ events }: { events: Event[] }) {
   const height = 48;
   return (
     <svg width={width} height={height}>
-      <line x1="0" x2={width} y1={height / 2} y2={height / 2} stroke="currentColor" opacity="0.08" />
+      {/* Zero axis — a faint line of the panel line-mid color so bars read
+          as discrete +/- pillars rather than floating glyphs. */}
+      <line
+        x1="0"
+        x2={width}
+        y1={height / 2}
+        y2={height / 2}
+        stroke="var(--line-mid)"
+        strokeWidth="1"
+      />
       {events.map((e, i) => {
         const x = (e.time / maxT) * width;
         const up = e.delta > 0;
         const mag = Math.min(1, Math.abs(e.delta) / 20);
-        const h = mag * (height / 2 - 2);
+        const h = Math.max(2, mag * (height / 2 - 3));
         return (
           <rect
             key={i}
@@ -1304,8 +1364,8 @@ function EventsSpark({ events }: { events: Event[] }) {
             y={up ? height / 2 - h : height / 2}
             width="3"
             height={h}
-            fill={up ? "var(--green)" : "var(--warm)"}
-            rx="1"
+            fill={up ? "var(--green)" : "var(--warm-strong)"}
+            rx="1.5"
           />
         );
       })}
@@ -1338,6 +1398,9 @@ function PeakTroughSpark({
   const height = 48;
   const min = 0;
   const max = 100;
+  // Smooth-sample to avoid jagged polyline segments. We sample every 5th point
+  // and interpolate between them with cubic-Bezier midpoints so the shape
+  // reads as a delicate curve.
   const pts = series
     .filter((_, i) => i % 5 === 0)
     .map((p, i, arr) => [
@@ -1345,15 +1408,41 @@ function PeakTroughSpark({
       (1 - (p.v - min) / (max - min)) * height,
     ] as const);
   let d = `M ${pts[0][0]} ${pts[0][1]}`;
-  for (let i = 1; i < pts.length; i++) d += ` L ${pts[i][0]} ${pts[i][1]}`;
+  for (let i = 1; i < pts.length; i++) {
+    const [x0, y0] = pts[i - 1];
+    const [x1, y1] = pts[i];
+    const mx = (x0 + x1) / 2;
+    d += ` C ${mx} ${y0}, ${mx} ${y1}, ${x1} ${y1}`;
+  }
   const maxT = 16 * 60;
   const px = (peak.t / maxT) * width;
   const tx = (trough.t / maxT) * width;
   return (
     <svg width={width} height={height}>
-      <path d={d} fill="none" stroke="var(--muted)" strokeWidth="1" opacity="0.6" />
-      <circle cx={px} cy={(1 - peak.v / 100) * height} r="3" fill="var(--green)" />
-      <circle cx={tx} cy={(1 - trough.v / 100) * height} r="3" fill="var(--warm)" />
+      <path
+        d={d}
+        fill="none"
+        stroke="var(--muted)"
+        strokeWidth="1"
+        strokeLinecap="round"
+        opacity="0.45"
+      />
+      <circle
+        cx={px}
+        cy={(1 - peak.v / 100) * height}
+        r="3.25"
+        fill="var(--green)"
+        stroke="var(--panel)"
+        strokeWidth="1.5"
+      />
+      <circle
+        cx={tx}
+        cy={(1 - trough.v / 100) * height}
+        r="3.25"
+        fill="var(--warm-strong)"
+        stroke="var(--panel)"
+        strokeWidth="1.5"
+      />
     </svg>
   );
 }
