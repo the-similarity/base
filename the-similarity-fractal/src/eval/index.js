@@ -20,3 +20,4 @@ export {
 } from './controllability.js';
 export { buildScorecard, writeScorecard } from './scorecard.js';
 export { makeProvenance, isoNow } from './provenance.js';
+export { runEvaluation } from './harness.js';
