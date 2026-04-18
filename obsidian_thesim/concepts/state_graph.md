@@ -24,6 +24,17 @@ Builds weighted undirected graphs on top of `StateVector` objects, enabling topo
 - `clusters(method="components")` — BFS connected components
 - `shortest_path(from_idx, to_idx)` — Dijkstra on edge weights
 
+## Key concepts
+
+### Clusters
+Connected components or communities in the graph. Runs that cluster together share similar metric profiles. A cluster may span multiple pillars (e.g. a group of high-fidelity copies runs near high-calibration finance runs).
+
+### Cross-domain bridges
+Edges where `source.pillar != target.pillar`. These are the high-value discoveries: a finance run connected to a worlds simulation implies shared dynamics. The UI should highlight bridge edges. Use `find_cross_domain_neighbors()` for explicit cross-domain queries.
+
+### Transitions
+Temporal chain connecting consecutive states via `build_transition_graph()`. Turns the graph from a static snapshot into a dynamic trajectory network.
+
 ## Dependencies
 - numpy + scipy only (no networkx)
 - Consumes `StateVector` from [[state_space]] (Agent 1's module)
@@ -31,6 +42,16 @@ Builds weighted undirected graphs on top of `StateVector` objects, enabling topo
 ## Scaling notes
 - KNN uses brute-force O(n^2 * d) pairwise distance. For n > 10k, swap to approximate NN.
 - Adjacency cache is lazily built and not invalidated — do not mutate edges after first query.
+- k is a hyperparameter: too low and the graph is disconnected; too high and every node connects to everything, losing structure.
 
 ## Tests
 21 tests in `the_similarity/tests/test_state_graph.py`.
+
+## Additional references
+- `examples/3d_state_space_demo.py` — demo shows neighbor queries (implicit graph)
+- `the_similarity/tests/test_3d_state_space.py` — integration tests for cross-pillar queries
+- `vision/3d_data_space.md` — vision doc
+
+## See also
+- [[state_space_index]] — the underlying vector index
+- [[RunRegistry]] — source of RunRecords
