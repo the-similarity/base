@@ -12,15 +12,15 @@ import type { MatchResult, SearchResponse } from "../../lib/types";
 // ---------------------------------------------------------------------------
 
 const ALL_METHODS = [
-  { key: "dtw", label: "DTW" },
-  { key: "pearson_warped", label: "Pearson" },
-  { key: "bempedelis_r2", label: "Bempedelis R\u00B2" },
-  { key: "bempedelis_smoothness", label: "Bempedelis Smooth" },
-  { key: "koopman", label: "Koopman" },
-  { key: "wavelet_spectrum", label: "Wavelet" },
-  { key: "emd", label: "EMD" },
-  { key: "tda", label: "TDA" },
-  { key: "transfer_entropy", label: "Transfer Entropy" },
+  { key: "dtw", label: "Shape" },
+  { key: "pearson_warped", label: "Dynamics" },
+  { key: "bempedelis_r2", label: "Scaling R\u00B2" },
+  { key: "bempedelis_smoothness", label: "Scaling Smooth" },
+  { key: "koopman", label: "Engine" },
+  { key: "wavelet_spectrum", label: "Rhythm" },
+  { key: "emd", label: "Decomposition" },
+  { key: "tda", label: "Topology" },
+  { key: "transfer_entropy", label: "Carry" },
 ] as const;
 
 // ---------------------------------------------------------------------------
