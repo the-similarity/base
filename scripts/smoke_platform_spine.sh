@@ -10,10 +10,35 @@
 #   3. List runs globally and per-kind via the CLI.
 #   4. Start the Platform REST API (`uvicorn`) on 127.0.0.1:8787.
 #   5. Hit /healthz, /runs, /runs?kind=<pillar> via curl and verify JSON.
-#   6. Stop the API and clean up the tmp DB.
+#   6. Start the customer-facing API (`app.main:app` from the-similarity-api)
+#      on 127.0.0.1:8788 and exercise the /platform/* CRUD sub-resources:
+#      artifacts, scorecards, scenarios, datasets. Each block POSTs a
+#      registry-truth payload then verifies round-trip via GET/list.
+#   7. Stop both APIs and clean up the tmp DB.
 #
 # Expected terminal output is documented in
 # `vision/platform_spine_batch1.md#32-expected-output-abridged`.
+#
+# Registry-truth schema
+# ---------------------
+# The CRUD payloads in step 6 use the canonical field names defined in
+# `the_similarity/platform/registry.py` and `contracts.py` — NOT the
+# legacy shapes that `the-similarity-api/app/platform_routes.py` may
+# still ship. Registry-truth field names this smoke relies on:
+#
+#   - artifacts:  `checksum` (NOT `sha256`)
+#   - scorecards: `kind`, `details` / `details_json`
+#                 (NOT `name`, `metrics_json`, `description`)
+#   - scenarios:  `version`, `engine`, `params`, `metadata`
+#                 (NOT `path`, `parameters_json`)
+#   - datasets:   `source`, `schema_uri`, `n_rows`, `n_columns`,
+#                 `checksum`, `metadata`
+#                 (NOT `schema_json` / `schema` alias blob)
+#
+# The script is expected to fail the CRUD assertions until the schema
+# reconciliation PR lands on `platform_routes.py` — this is deliberate:
+# the smoke is the contract, the routes converge to match. Which
+# assertions currently fail is spelled out in the PR description.
 #
 # Exit codes:
 #   0 — every step succeeded.
@@ -30,8 +55,20 @@ set -euo pipefail
 REGISTRY_DB="${THE_SIMILARITY_REGISTRY_DB:-/tmp/spine-smoke.db}"
 API_HOST="${THE_SIMILARITY_API_HOST:-127.0.0.1}"
 API_PORT="${THE_SIMILARITY_API_PORT:-8787}"
+# Second API (customer-facing, /platform/* CRUD surface) uses a distinct
+# port so both servers run concurrently against the same registry DB.
+# 8788 chosen as +1 from the platform API default — no other service on
+# the dev laptop uses this range.
+CUSTOMER_API_PORT="${THE_SIMILARITY_CUSTOMER_API_PORT:-8788}"
 TMP_DIR="$(mktemp -d -t spine-smoke.XXXXXX)"
 UVICORN_PID=""
+CUSTOMER_UVICORN_PID=""
+# Repo root: two levels up from the script's own directory. Needed to
+# pivot `cd` into the customer API package since its module path is
+# `app.main:app`, which only resolves from inside `the-similarity-api/`.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+CUSTOMER_API_DIR="$REPO_ROOT/the-similarity-api"
 
 export THE_SIMILARITY_REGISTRY_DB="$REGISTRY_DB"
 
@@ -41,9 +78,14 @@ export THE_SIMILARITY_REGISTRY_DB="$REGISTRY_DB"
 cleanup() {
   local rc=$?
   if [[ -n "${UVICORN_PID}" ]] && kill -0 "$UVICORN_PID" 2>/dev/null; then
-    echo "[smoke] stopping uvicorn (pid=${UVICORN_PID})"
+    echo "[smoke] stopping platform-api uvicorn (pid=${UVICORN_PID})"
     kill "$UVICORN_PID" 2>/dev/null || true
     wait "$UVICORN_PID" 2>/dev/null || true
+  fi
+  if [[ -n "${CUSTOMER_UVICORN_PID}" ]] && kill -0 "$CUSTOMER_UVICORN_PID" 2>/dev/null; then
+    echo "[smoke] stopping customer-api uvicorn (pid=${CUSTOMER_UVICORN_PID})"
+    kill "$CUSTOMER_UVICORN_PID" 2>/dev/null || true
+    wait "$CUSTOMER_UVICORN_PID" 2>/dev/null || true
   fi
   rm -f "$REGISTRY_DB" "$REGISTRY_DB-journal" "$REGISTRY_DB-wal" "$REGISTRY_DB-shm"
   rm -rf "$TMP_DIR"
