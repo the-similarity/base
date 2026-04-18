@@ -1962,6 +1962,22 @@ function RhymeHeatmap({
 // Tag donut
 // ═══════════════════════════════════════════════════════════════════════
 
+/**
+ * Tag mix donut — concentric rounded-arc rendering.
+ *
+ * We render each segment as a stroked `<circle>` with a `stroke-dasharray`
+ * pattern, NOT as SVG pie slices. This buys us:
+ *   - a uniform 13px stroke-width so arcs look like ribbons, not wedges;
+ *   - stroke-linecap="round" for soft segment ends;
+ *   - a true gap between segments (the `gapDeg` below) that a path-based pie
+ *     cannot produce because filled sectors always share a seam.
+ *
+ * Layout invariants:
+ *   - dasharray = [arc-length, circumference - arc-length] rotates into place
+ *     via transform="rotate(θ)" on the g element.
+ *   - angular gap is fixed in degrees (not per-segment percentage), so thin
+ *     slices never degenerate into invisible commas.
+ */
 function TagDonut({ events }: { events: Event[] }) {
   const totals: Record<string, number> = {};
   events.forEach((e) => {
@@ -1969,33 +1985,49 @@ function TagDonut({ events }: { events: Event[] }) {
   });
   const entries = Object.entries(totals).sort((a, b) => b[1] - a[1]);
   const total = entries.reduce((a, b) => a + b[1], 0) || 1;
-  const palette = ["#4c63d9", "#d0732b", "#3d8a5f", "#7a4789", "#3d7b87", "#b6a13a", "#8a8f96"];
 
-  let angle = -Math.PI / 2;
-  const arcs = entries.map((e, i) => {
-    const frac = e[1] / total;
-    const a0 = angle;
-    const a1 = angle + frac * Math.PI * 2;
-    angle = a1;
-    return { label: e[0], value: e[1], frac, a0, a1, color: palette[i % palette.length] };
+  // Palette tuned so the primary segment is our pure blue (var(--accent)) and
+  // remaining segments are tonally harmonized analogs. These are intentional
+  // hex values (not CSS vars) so the <svg> exports cleanly for screenshots.
+  const palette = [
+    "#3B82F6", // accent (blue-500)
+    "#F97316", // warm (orange-500)
+    "#16A34A", // green-600
+    "#8B5CF6", // violet-500
+    "#0E7490", // cyan-700
+    "#EAB308", // yellow-500
+    "#64748B", // slate-500
+  ];
+
+  const slices = entries.map((e, i) => ({
+    label: e[0],
+    value: e[1],
+    frac: e[1] / total,
+    color: palette[i % palette.length],
+  }));
+
+  const size = 220;
+  const cx = size / 2;
+  const cy = size / 2;
+  const r = 82;
+  const strokeW = 18;
+  const C = 2 * Math.PI * r;
+  // Angular gap between segments in degrees. 4deg reads as a crisp breath at
+  // this radius without losing any single-segment to the background.
+  const gapDeg = 4;
+  const gapFrac = gapDeg / 360;
+
+  // Pre-walk the slices once to compute offsets so we can rotate each segment
+  // into place. Starting angle = -90deg (12 o'clock), matching UX convention.
+  let rollingAngle = -90;
+  const arcs = slices.map((s) => {
+    // Shrink each segment's visual extent by half a gap on both sides.
+    const arcFrac = Math.max(0, s.frac - gapFrac);
+    const arcLen = arcFrac * C;
+    const rot = rollingAngle + (gapDeg / 2);
+    rollingAngle += s.frac * 360;
+    return { ...s, arcLen, rot };
   });
-
-  const cx = 110;
-  const cy = 110;
-  const rO = 82;
-  const rI = 56;
-  const arcPath = (a0: number, a1: number): string => {
-    const large = a1 - a0 > Math.PI ? 1 : 0;
-    const x0o = cx + rO * Math.cos(a0);
-    const y0o = cy + rO * Math.sin(a0);
-    const x1o = cx + rO * Math.cos(a1);
-    const y1o = cy + rO * Math.sin(a1);
-    const x0i = cx + rI * Math.cos(a1);
-    const y0i = cy + rI * Math.sin(a1);
-    const x1i = cx + rI * Math.cos(a0);
-    const y1i = cy + rI * Math.sin(a0);
-    return `M ${x0o} ${y0o} A ${rO} ${rO} 0 ${large} 1 ${x1o} ${y1o} L ${x0i} ${y0i} A ${rI} ${rI} 0 ${large} 0 ${x1i} ${y1i} Z`;
-  };
 
   return (
     <section
@@ -2003,7 +2035,7 @@ function TagDonut({ events }: { events: Event[] }) {
         background: "var(--panel)",
         border: "1px solid var(--line)",
         borderRadius: 10,
-        padding: "14px 16px",
+        padding: "14px 16px 16px 16px",
         minWidth: 0,
       }}
     >
@@ -2017,54 +2049,106 @@ function TagDonut({ events }: { events: Event[] }) {
       >
         <div>
           <div style={{ fontSize: 14, fontWeight: 600 }}>Tag mix</div>
-          <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>
+          <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 3 }}>
             Share of today&apos;s weighted events
           </div>
         </div>
         <Chip label="Magnitude" caret />
       </div>
 
-      <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
-        <svg width="220" height="220" style={{ flexShrink: 0 }}>
-          {arcs.length === 0 && <circle cx={cx} cy={cy} r={rO} fill="var(--line)" />}
+      <div style={{ display: "flex", gap: 18, alignItems: "center" }}>
+        <svg width={size} height={size} style={{ flexShrink: 0 }}>
+          {/* Background track — very faint ring so the canvas is always
+              readable even when there are zero events. */}
+          <circle
+            cx={cx}
+            cy={cy}
+            r={r}
+            fill="none"
+            stroke="var(--line)"
+            strokeWidth={strokeW}
+            opacity={arcs.length === 0 ? 1 : 0.5}
+          />
           {arcs.map((a, i) => (
-            <path key={i} d={arcPath(a.a0, a.a1)} fill={a.color} opacity="0.88" />
+            <g key={i} transform={`rotate(${a.rot} ${cx} ${cy})`}>
+              <circle
+                cx={cx}
+                cy={cy}
+                r={r}
+                fill="none"
+                stroke={a.color}
+                strokeWidth={strokeW}
+                strokeLinecap="round"
+                strokeDasharray={`${a.arcLen} ${C - a.arcLen}`}
+                strokeDashoffset="0"
+              />
+            </g>
           ))}
-          <text x={cx} y={cy - 4} textAnchor="middle" fontSize="11" fill="var(--muted)">
-            Events weighted
+          <text
+            x={cx}
+            y={cy - 10}
+            textAnchor="middle"
+            fontSize="10"
+            fill="var(--muted)"
+            letterSpacing="0.06em"
+            style={{ textTransform: "uppercase", fontWeight: 500 }}
+          >
+            Events
           </text>
           <text
             x={cx}
-            y={cy + 18}
+            y={cy + 14}
             textAnchor="middle"
-            fontSize="24"
+            fontSize="28"
             fontWeight="600"
             fill="var(--ink)"
             className="tnum"
+            letterSpacing="-0.02em"
           >
             {events.length}
           </text>
-          <text x={cx} y={cy + 32} textAnchor="middle" fontSize="11" fill="var(--green)" className="tnum">
+          <text
+            x={cx}
+            y={cy + 30}
+            textAnchor="middle"
+            fontSize="10.5"
+            fill="var(--green)"
+            className="tnum"
+            fontWeight={500}
+          >
             + {events.filter((e) => e.delta > 0).length} uplift
           </text>
         </svg>
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 6 }}>
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 9 }}>
           {arcs.map((a, i) => (
-            <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 12 }}>
+            <div
+              key={i}
+              style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 12 }}
+            >
               <span
                 style={{
-                  width: 10,
-                  height: 10,
+                  width: 9,
+                  height: 9,
                   background: a.color,
-                  borderRadius: 2,
+                  borderRadius: "50%",
                   display: "inline-block",
+                  flexShrink: 0,
                 }}
               />
-              <span style={{ color: "var(--ink)", textTransform: "capitalize", fontWeight: 500 }}>
+              <span
+                style={{
+                  color: "var(--ink)",
+                  textTransform: "capitalize",
+                  fontWeight: 500,
+                }}
+              >
                 {a.label}
               </span>
               <span style={{ flex: 1 }} />
-              <span style={{ color: "var(--muted)" }} className="tnum">
+              <span
+                style={{ color: "var(--muted)", fontWeight: 500 }}
+                className="tnum"
+              >
                 {Math.round(a.frac * 100)}%
               </span>
             </div>
