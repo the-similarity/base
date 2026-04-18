@@ -1128,6 +1128,122 @@ def get_dataset_card(
         )
 
 
+# ---------------------------------------------------------------------------
+# /platform/scenarios/{scenario_id}/runs — list world runs for a scenario
+# ---------------------------------------------------------------------------
+
+
+@router.get(
+    "/scenarios/{scenario_id}/runs",
+    response_model=List[RunRecordModel],
+    responses={404: {"description": "scenario_id not found."}},
+)
+def list_scenario_runs(
+    scenario_id: str,
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    registry: RunRegistry = Depends(get_registry),
+) -> List[RunRecordModel]:
+    """List all world runs associated with a given scenario.
+
+    Filters runs by ``kind=worlds`` and checks that
+    ``config["scenario_name"]`` matches the ``scenario_id``. The
+    scenario must exist in the scenarios table — returns 404 otherwise.
+
+    Implementation note: the filtering is done in Python after fetching
+    all worlds runs, which is acceptable at the current scale (hundreds
+    of runs, not millions). A dedicated SQL join would be premature
+    until the table grows.
+    """
+    # Verify the scenario exists.
+    row = registry._conn.execute(  # noqa: SLF001
+        "SELECT scenario_id FROM scenarios WHERE scenario_id = ?",
+        (scenario_id,),
+    ).fetchone()
+    if row is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"scenario_id not found: {scenario_id}",
+        )
+
+    # Fetch all worlds runs and filter by scenario_name in config.
+    artifacts = registry.list(kind=RunKind.WORLDS, limit=1000)
+    matched = [
+        RunRecordModel.from_artifact(a)
+        for a in artifacts
+        if a.config.get("scenario_name") == scenario_id
+    ]
+    return matched[offset : offset + limit]
+
+
+# ---------------------------------------------------------------------------
+# /platform/worlds/run — trigger a world run (PLACEHOLDER)
+# ---------------------------------------------------------------------------
+
+
+class WorldRunRequest(BaseModel):
+    """POST /platform/worlds/run request body."""
+
+    scenario_id: str = Field(..., description="Scenario to run.")
+    seed: Optional[int] = Field(None, description="RNG seed override.")
+    steps: Optional[int] = Field(None, description="Number of simulation steps.")
+
+
+class WorldRunResponse(BaseModel):
+    """POST /platform/worlds/run response — stub until shelling out is wired."""
+
+    run_id: Optional[str] = Field(None, description="Run ID if execution succeeded.")
+    status: str = Field(..., description="'placeholder' until headless runner is wired.")
+    message: str = Field(..., description="Human-readable status message.")
+
+
+@router.post(
+    "/worlds/run",
+    response_model=WorldRunResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+    responses={404: {"description": "scenario_id not found."}},
+)
+def trigger_world_run(
+    body: WorldRunRequest,
+    registry: RunRegistry = Depends(get_registry),
+) -> WorldRunResponse:
+    """Trigger a headless world run for a scenario.
+
+    **PLACEHOLDER** — accepts the request parameters and validates the
+    scenario exists, but does not actually shell out to the headless
+    runner yet. Returns a 202 Accepted with a stub response indicating
+    the endpoint is not yet wired to execution.
+
+    When fully implemented, this will:
+    1. Resolve the scenario params from the registry.
+    2. Shell out to ``node src/sim/headless/runner.js --scenario <path>
+       --seed <seed> --steps <steps>``.
+    3. Register the resulting telemetry via the worlds adapter.
+    4. Return the ``run_id`` of the registered run.
+    """
+    # Validate that the scenario exists.
+    row = registry._conn.execute(  # noqa: SLF001
+        "SELECT scenario_id FROM scenarios WHERE scenario_id = ?",
+        (body.scenario_id,),
+    ).fetchone()
+    if row is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"scenario_id not found: {body.scenario_id}",
+        )
+
+    # PLACEHOLDER: return a stub response indicating the endpoint is
+    # not yet wired to the headless runner.
+    return WorldRunResponse(
+        run_id=None,
+        status="placeholder",
+        message=(
+            f"World run for scenario '{body.scenario_id}' accepted but "
+            f"execution is not yet wired. Seed={body.seed}, steps={body.steps}."
+        ),
+    )
+
+
 __all__ = [
     "ArtifactRecordModel",
     "DatasetCardModel",
@@ -1138,6 +1254,8 @@ __all__ = [
     "RunRecordModel",
     "ScenarioSpecModel",
     "ScorecardSummaryModel",
+    "WorldRunRequest",
+    "WorldRunResponse",
     "get_registry",
     "router",
 ]
