@@ -43,43 +43,53 @@ Endpoints (all prefixed `/platform`)
 | GET  | `/datasets` / `/{id}` | List / fetch dataset specs |
 | POST | `/datasets` | Register a dataset (409 on dup id) |
 
-Companion tables
-----------------
-Agent 1's upcoming `platform/contracts.py` adds `RunRecord`, `ArtifactRecord`,
-`ScorecardSummary`, `ScenarioSpec`, `DatasetSpec`. Until Agent 2 extends
-`RunRegistry` with matching register/list methods, this router maintains
-auxiliary SQLite tables in the **same DB file**:
+Registry delegation (as of 2026-04-18)
+--------------------------------------
+The `/platform/*` router is now a **thin pass-through over
+`RunRegistry`**. It used to carry companion SQLite tables with
+drifted column names (`sha256`, `metrics_json`, `parameters_json`,
+`schema_json`, plus stray `description`/`pillar`/`created_at`
+columns) that shadowed the registry's tables and silently broke POST
+requests once the registry's canonical DDL fired first.
 
-- `artifacts` — PK `(run_id, name)`, columns: path, content_type, size_bytes,
-  sha256, created_at.
-- `scorecards` — PK `(run_id, name)`, columns: passed, overall_score,
-  metrics_json, created_at.
-- `scenarios` — PK `scenario_id`, columns: name, description, pillar,
-  parameters_json, created_at.
-- `datasets` — PK `dataset_id`, columns: name, description, path, schema_json,
-  version, created_at.
+The drift was resolved by [[platform-routes-registry-drift-fix-2026-04-18]]:
+every CRUD handler delegates to the registry's own
+`register_*` / `list_*` / `get_*` methods. Wire models mirror the
+registry columns one-for-one — no field renames at the router
+boundary.
 
-Schema creation is idempotent via `_ensure_ext_schema()` on every
-`get_registry()` dependency call. Once Agent 2's registry extension lands the
-inline SQL migrates to `registry.list_artifacts()` / `register_artifact()` etc.
-— the **wire contract does not change**.
+Current wire field names (registry-truth):
+- `artifacts`: `(run_id, name, path, content_type, size_bytes,
+  checksum, created_at)` — PK `(run_id, name)`.
+- `scorecards`: `(run_id, kind, overall_score, passed, thresholds,
+  details)` — PK `(run_id, kind)`.  `kind` is a `ScorecardKind` enum.
+- `scenarios`: `(scenario_id, name, version, engine, params,
+  metadata)`.
+- `datasets`: `(dataset_id, name, version, source, schema_uri,
+  n_rows, n_columns, checksum, metadata)`. Display hints like a
+  human description or pillar tag belong inside `metadata`.
 
 Design decisions (frozen)
 -------------------------
-1. **Thin router, no business logic.** Every handler is validate -> registry
-   call -> shape. Runner execution stays on the standalone platform API.
-2. **POST treats duplicate IDs as 409**, unlike `RunRegistry.register()` which
-   upserts. The registry's upsert path supports partial-then-enriched
-   workflows; the customer API's POST is a creation verb.
-3. **`pillar` and `status` stored inside `provenance`** for backward-compat.
-   Existing `RunArtifact` rows predate these fields; the router fills them
-   with sensible defaults (`status="complete"`, `pillar=None`) on read.
-4. **DatasetSpec uses `schema` on the wire, `columns` in Python.** The
-   `schema` JSON key collides with Pydantic v1's deprecated `.schema()`
-   method and triggers v2 alias warnings on generic container attributes.
-   Translation happens at the router boundary via `_dataset_from_wire` /
-   `_dataset_to_wire`.
-5. **No auth on `/platform/*` today.** The existing `get_current_user`
+1. **Thin router, no business logic.** Every handler is validate ->
+   registry call -> shape. Runner execution stays on the standalone
+   platform API.
+2. **POST treats duplicate IDs as 409**, unlike `RunRegistry.register()`
+   which upserts. The registry's upsert path supports
+   partial-then-enriched workflows; the customer API's POST is a
+   creation verb. Pre-flight `list_*` / `get_*` scans enforce the
+   semantic mismatch.
+3. **`pillar` and `status` (for RUN records) stored inside
+   `provenance`** for backward-compat with legacy `RunArtifact` rows
+   that predate the fields.
+4. **No `created_at` on scorecards / scenarios / datasets.** The
+   registry tables carry no timestamp column — the parent run's
+   `created_at` is authoritative for scorecards, and scenarios /
+   datasets are ordered by `name ASC` in list endpoints.
+5. **Scenario list filter is `engine`, not `pillar`.** The registry's
+   `scenarios` row has no `pillar` column. Pillar tags live in
+   `metadata` and can be filtered client-side if needed.
+6. **No auth on `/platform/*` today.** The existing `get_current_user`
    dependency is available; we hold off until the orchestrator decides
    whether the registry surface is public-read or auth-gated.
 
