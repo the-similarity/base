@@ -1,0 +1,247 @@
+{
+  "name": "benchmark-binary-2022",
+  "version": "v1.0",
+  "questions": [
+    {
+      "question": {
+        "question_id": "fed-rate-hike-mar-2022",
+        "question": "Will the Fed raise interest rates in March 2022?",
+        "category": "economics",
+        "source": "polymarket",
+        "resolution_date": "2022-03-16",
+        "resolved": true,
+        "resolution": true,
+        "metadata": {"market_url": "https://polymarket.com/event/fed-rate-march-2022"}
+      },
+      "prices": [
+        {"question_id": "fed-rate-hike-mar-2022", "timestamp": "2022-01-15T00:00:00Z", "probability": 0.45, "volume": 12000.0},
+        {"question_id": "fed-rate-hike-mar-2022", "timestamp": "2022-01-25T00:00:00Z", "probability": 0.62, "volume": 18000.0},
+        {"question_id": "fed-rate-hike-mar-2022", "timestamp": "2022-02-05T00:00:00Z", "probability": 0.78, "volume": 25000.0},
+        {"question_id": "fed-rate-hike-mar-2022", "timestamp": "2022-02-15T00:00:00Z", "probability": 0.88, "volume": 30000.0},
+        {"question_id": "fed-rate-hike-mar-2022", "timestamp": "2022-02-25T00:00:00Z", "probability": 0.93, "volume": 35000.0},
+        {"question_id": "fed-rate-hike-mar-2022", "timestamp": "2022-03-05T00:00:00Z", "probability": 0.96, "volume": 40000.0},
+        {"question_id": "fed-rate-hike-mar-2022", "timestamp": "2022-03-14T00:00:00Z", "probability": 0.98, "volume": 45000.0}
+      ]
+    },
+    {
+      "question": {
+        "question_id": "russia-ukraine-invasion-2022",
+        "question": "Will Russia invade Ukraine before March 2022?",
+        "category": "geopolitics",
+        "source": "metaculus",
+        "resolution_date": "2022-03-01",
+        "resolved": true,
+        "resolution": true,
+        "metadata": {"metaculus_id": 8898}
+      },
+      "prices": [
+        {"question_id": "russia-ukraine-invasion-2022", "timestamp": "2021-12-01T00:00:00Z", "probability": 0.20, "volume": null},
+        {"question_id": "russia-ukraine-invasion-2022", "timestamp": "2022-01-01T00:00:00Z", "probability": 0.35, "volume": null},
+        {"question_id": "russia-ukraine-invasion-2022", "timestamp": "2022-01-15T00:00:00Z", "probability": 0.45, "volume": null},
+        {"question_id": "russia-ukraine-invasion-2022", "timestamp": "2022-02-01T00:00:00Z", "probability": 0.55, "volume": null},
+        {"question_id": "russia-ukraine-invasion-2022", "timestamp": "2022-02-10T00:00:00Z", "probability": 0.65, "volume": null},
+        {"question_id": "russia-ukraine-invasion-2022", "timestamp": "2022-02-20T00:00:00Z", "probability": 0.80, "volume": null},
+        {"question_id": "russia-ukraine-invasion-2022", "timestamp": "2022-02-24T00:00:00Z", "probability": 0.95, "volume": null}
+      ]
+    },
+    {
+      "question": {
+        "question_id": "us-inflation-5pct-2022",
+        "question": "Will US CPI inflation exceed 5% in 2022?",
+        "category": "economics",
+        "source": "metaculus",
+        "resolution_date": "2023-01-12",
+        "resolved": true,
+        "resolution": true,
+        "metadata": {"metaculus_id": 9102}
+      },
+      "prices": [
+        {"question_id": "us-inflation-5pct-2022", "timestamp": "2022-01-01T00:00:00Z", "probability": 0.72, "volume": null},
+        {"question_id": "us-inflation-5pct-2022", "timestamp": "2022-03-01T00:00:00Z", "probability": 0.85, "volume": null},
+        {"question_id": "us-inflation-5pct-2022", "timestamp": "2022-06-01T00:00:00Z", "probability": 0.95, "volume": null},
+        {"question_id": "us-inflation-5pct-2022", "timestamp": "2022-09-01T00:00:00Z", "probability": 0.98, "volume": null},
+        {"question_id": "us-inflation-5pct-2022", "timestamp": "2022-12-01T00:00:00Z", "probability": 0.99, "volume": null}
+      ]
+    },
+    {
+      "question": {
+        "question_id": "biden-student-loans-2022",
+        "question": "Will Biden announce student loan forgiveness before October 2022?",
+        "category": "politics",
+        "source": "polymarket",
+        "resolution_date": "2022-10-01",
+        "resolved": true,
+        "resolution": true,
+        "metadata": {"market_url": "https://polymarket.com/event/biden-student-loans"}
+      },
+      "prices": [
+        {"question_id": "biden-student-loans-2022", "timestamp": "2022-04-01T00:00:00Z", "probability": 0.30, "volume": 5000.0},
+        {"question_id": "biden-student-loans-2022", "timestamp": "2022-05-15T00:00:00Z", "probability": 0.35, "volume": 7000.0},
+        {"question_id": "biden-student-loans-2022", "timestamp": "2022-07-01T00:00:00Z", "probability": 0.50, "volume": 12000.0},
+        {"question_id": "biden-student-loans-2022", "timestamp": "2022-08-01T00:00:00Z", "probability": 0.65, "volume": 18000.0},
+        {"question_id": "biden-student-loans-2022", "timestamp": "2022-08-20T00:00:00Z", "probability": 0.85, "volume": 25000.0},
+        {"question_id": "biden-student-loans-2022", "timestamp": "2022-08-24T00:00:00Z", "probability": 0.97, "volume": 30000.0}
+      ]
+    },
+    {
+      "question": {
+        "question_id": "uk-pm-resign-2022",
+        "question": "Will Boris Johnson resign as UK PM before September 2022?",
+        "category": "geopolitics",
+        "source": "manifold",
+        "resolution_date": "2022-09-01",
+        "resolved": true,
+        "resolution": true,
+        "metadata": {"manifold_slug": "boris-johnson-resign-2022"}
+      },
+      "prices": [
+        {"question_id": "uk-pm-resign-2022", "timestamp": "2022-01-01T00:00:00Z", "probability": 0.15, "volume": null},
+        {"question_id": "uk-pm-resign-2022", "timestamp": "2022-03-01T00:00:00Z", "probability": 0.20, "volume": null},
+        {"question_id": "uk-pm-resign-2022", "timestamp": "2022-05-01T00:00:00Z", "probability": 0.30, "volume": null},
+        {"question_id": "uk-pm-resign-2022", "timestamp": "2022-06-15T00:00:00Z", "probability": 0.55, "volume": null},
+        {"question_id": "uk-pm-resign-2022", "timestamp": "2022-07-05T00:00:00Z", "probability": 0.85, "volume": null},
+        {"question_id": "uk-pm-resign-2022", "timestamp": "2022-07-07T00:00:00Z", "probability": 0.98, "volume": null}
+      ]
+    },
+    {
+      "question": {
+        "question_id": "sp500-below-3500-2022",
+        "question": "Will the S&P 500 close below 3500 at any point in 2022?",
+        "category": "economics",
+        "source": "polymarket",
+        "resolution_date": "2023-01-01",
+        "resolved": true,
+        "resolution": true,
+        "metadata": {"market_url": "https://polymarket.com/event/sp500-3500-2022"}
+      },
+      "prices": [
+        {"question_id": "sp500-below-3500-2022", "timestamp": "2022-01-01T00:00:00Z", "probability": 0.10, "volume": 3000.0},
+        {"question_id": "sp500-below-3500-2022", "timestamp": "2022-04-01T00:00:00Z", "probability": 0.20, "volume": 5000.0},
+        {"question_id": "sp500-below-3500-2022", "timestamp": "2022-06-01T00:00:00Z", "probability": 0.40, "volume": 10000.0},
+        {"question_id": "sp500-below-3500-2022", "timestamp": "2022-08-01T00:00:00Z", "probability": 0.35, "volume": 8000.0},
+        {"question_id": "sp500-below-3500-2022", "timestamp": "2022-09-15T00:00:00Z", "probability": 0.60, "volume": 15000.0},
+        {"question_id": "sp500-below-3500-2022", "timestamp": "2022-10-01T00:00:00Z", "probability": 0.85, "volume": 22000.0}
+      ]
+    },
+    {
+      "question": {
+        "question_id": "china-taiwan-2022",
+        "question": "Will China launch a military invasion of Taiwan in 2022?",
+        "category": "geopolitics",
+        "source": "metaculus",
+        "resolution_date": "2023-01-01",
+        "resolved": true,
+        "resolution": false,
+        "metadata": {"metaculus_id": 7842}
+      },
+      "prices": [
+        {"question_id": "china-taiwan-2022", "timestamp": "2022-01-01T00:00:00Z", "probability": 0.03, "volume": null},
+        {"question_id": "china-taiwan-2022", "timestamp": "2022-04-01T00:00:00Z", "probability": 0.04, "volume": null},
+        {"question_id": "china-taiwan-2022", "timestamp": "2022-08-01T00:00:00Z", "probability": 0.08, "volume": null},
+        {"question_id": "china-taiwan-2022", "timestamp": "2022-08-05T00:00:00Z", "probability": 0.12, "volume": null},
+        {"question_id": "china-taiwan-2022", "timestamp": "2022-09-01T00:00:00Z", "probability": 0.06, "volume": null},
+        {"question_id": "china-taiwan-2022", "timestamp": "2022-12-01T00:00:00Z", "probability": 0.02, "volume": null}
+      ]
+    },
+    {
+      "question": {
+        "question_id": "elon-twitter-2022",
+        "question": "Will Elon Musk complete the acquisition of Twitter in 2022?",
+        "category": "technology",
+        "source": "polymarket",
+        "resolution_date": "2023-01-01",
+        "resolved": true,
+        "resolution": true,
+        "metadata": {"market_url": "https://polymarket.com/event/elon-twitter-deal"}
+      },
+      "prices": [
+        {"question_id": "elon-twitter-2022", "timestamp": "2022-04-25T00:00:00Z", "probability": 0.80, "volume": 50000.0},
+        {"question_id": "elon-twitter-2022", "timestamp": "2022-05-15T00:00:00Z", "probability": 0.55, "volume": 40000.0},
+        {"question_id": "elon-twitter-2022", "timestamp": "2022-07-01T00:00:00Z", "probability": 0.35, "volume": 30000.0},
+        {"question_id": "elon-twitter-2022", "timestamp": "2022-08-01T00:00:00Z", "probability": 0.40, "volume": 35000.0},
+        {"question_id": "elon-twitter-2022", "timestamp": "2022-10-01T00:00:00Z", "probability": 0.70, "volume": 55000.0},
+        {"question_id": "elon-twitter-2022", "timestamp": "2022-10-27T00:00:00Z", "probability": 0.95, "volume": 80000.0}
+      ]
+    },
+    {
+      "question": {
+        "question_id": "who-monkeypox-emergency-2022",
+        "question": "Will WHO declare monkeypox a public health emergency in 2022?",
+        "category": "health",
+        "source": "metaculus",
+        "resolution_date": "2023-01-01",
+        "resolved": true,
+        "resolution": true,
+        "metadata": {"metaculus_id": 11234}
+      },
+      "prices": [
+        {"question_id": "who-monkeypox-emergency-2022", "timestamp": "2022-05-20T00:00:00Z", "probability": 0.15, "volume": null},
+        {"question_id": "who-monkeypox-emergency-2022", "timestamp": "2022-06-15T00:00:00Z", "probability": 0.35, "volume": null},
+        {"question_id": "who-monkeypox-emergency-2022", "timestamp": "2022-07-01T00:00:00Z", "probability": 0.50, "volume": null},
+        {"question_id": "who-monkeypox-emergency-2022", "timestamp": "2022-07-15T00:00:00Z", "probability": 0.65, "volume": null},
+        {"question_id": "who-monkeypox-emergency-2022", "timestamp": "2022-07-23T00:00:00Z", "probability": 0.92, "volume": null}
+      ]
+    },
+    {
+      "question": {
+        "question_id": "us-recession-2022",
+        "question": "Will the US enter a recession (two consecutive quarters of negative GDP growth) in 2022?",
+        "category": "economics",
+        "source": "manifold",
+        "resolution_date": "2023-01-01",
+        "resolved": true,
+        "resolution": false,
+        "metadata": {"manifold_slug": "us-recession-2022"}
+      },
+      "prices": [
+        {"question_id": "us-recession-2022", "timestamp": "2022-01-01T00:00:00Z", "probability": 0.15, "volume": null},
+        {"question_id": "us-recession-2022", "timestamp": "2022-03-01T00:00:00Z", "probability": 0.25, "volume": null},
+        {"question_id": "us-recession-2022", "timestamp": "2022-05-01T00:00:00Z", "probability": 0.35, "volume": null},
+        {"question_id": "us-recession-2022", "timestamp": "2022-07-01T00:00:00Z", "probability": 0.50, "volume": null},
+        {"question_id": "us-recession-2022", "timestamp": "2022-07-28T00:00:00Z", "probability": 0.55, "volume": null},
+        {"question_id": "us-recession-2022", "timestamp": "2022-10-01T00:00:00Z", "probability": 0.40, "volume": null},
+        {"question_id": "us-recession-2022", "timestamp": "2022-12-01T00:00:00Z", "probability": 0.30, "volume": null}
+      ]
+    },
+    {
+      "question": {
+        "question_id": "brazil-lula-win-2022",
+        "question": "Will Lula win the 2022 Brazilian presidential election?",
+        "category": "geopolitics",
+        "source": "polymarket",
+        "resolution_date": "2022-10-30",
+        "resolved": true,
+        "resolution": true,
+        "metadata": {"market_url": "https://polymarket.com/event/brazil-election-2022"}
+      },
+      "prices": [
+        {"question_id": "brazil-lula-win-2022", "timestamp": "2022-06-01T00:00:00Z", "probability": 0.60, "volume": 8000.0},
+        {"question_id": "brazil-lula-win-2022", "timestamp": "2022-08-01T00:00:00Z", "probability": 0.55, "volume": 12000.0},
+        {"question_id": "brazil-lula-win-2022", "timestamp": "2022-09-15T00:00:00Z", "probability": 0.52, "volume": 15000.0},
+        {"question_id": "brazil-lula-win-2022", "timestamp": "2022-10-02T00:00:00Z", "probability": 0.58, "volume": 20000.0},
+        {"question_id": "brazil-lula-win-2022", "timestamp": "2022-10-20T00:00:00Z", "probability": 0.62, "volume": 25000.0},
+        {"question_id": "brazil-lula-win-2022", "timestamp": "2022-10-30T00:00:00Z", "probability": 0.75, "volume": 35000.0}
+      ]
+    },
+    {
+      "question": {
+        "question_id": "fed-75bp-hike-jun-2022",
+        "question": "Will the Fed raise rates by 75 basis points in June 2022?",
+        "category": "economics",
+        "source": "polymarket",
+        "resolution_date": "2022-06-15",
+        "resolved": true,
+        "resolution": true,
+        "metadata": {"market_url": "https://polymarket.com/event/fed-75bp-june-2022"}
+      },
+      "prices": [
+        {"question_id": "fed-75bp-hike-jun-2022", "timestamp": "2022-05-01T00:00:00Z", "probability": 0.05, "volume": 2000.0},
+        {"question_id": "fed-75bp-hike-jun-2022", "timestamp": "2022-05-20T00:00:00Z", "probability": 0.10, "volume": 5000.0},
+        {"question_id": "fed-75bp-hike-jun-2022", "timestamp": "2022-06-01T00:00:00Z", "probability": 0.15, "volume": 8000.0},
+        {"question_id": "fed-75bp-hike-jun-2022", "timestamp": "2022-06-10T00:00:00Z", "probability": 0.65, "volume": 30000.0},
+        {"question_id": "fed-75bp-hike-jun-2022", "timestamp": "2022-06-13T00:00:00Z", "probability": 0.92, "volume": 50000.0},
+        {"question_id": "fed-75bp-hike-jun-2022", "timestamp": "2022-06-15T00:00:00Z", "probability": 0.99, "volume": 60000.0}
+      ]
+    }
+  ]
+}
