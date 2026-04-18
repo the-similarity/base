@@ -124,3 +124,71 @@ export async function fetchArtifacts(id: string): Promise<Artifact[]> {
     `/platform/runs/${encodeURIComponent(id)}/artifacts`
   );
 }
+
+// ---------------------------------------------------------------------------
+// State Map — projection, nearest-neighbor, cluster endpoints
+// ---------------------------------------------------------------------------
+
+/**
+ * A single point in the 3D state-map projection.
+ * Each run is projected into a low-dimensional space for visualization.
+ * The API returns x/y/z coordinates plus metadata for coloring and sizing.
+ */
+export interface ProjectionPoint {
+  run_id: string;
+  kind: string;
+  x: number;
+  y: number;
+  z: number;
+  label: string;
+  metadata: Record<string, unknown>;
+}
+
+/**
+ * A nearest-neighbor result — the neighbor's projection point plus distance.
+ */
+export interface Neighbor {
+  run_id: string;
+  distance: number;
+  point: ProjectionPoint;
+}
+
+/**
+ * A cluster assignment grouping multiple runs under a single cluster_id.
+ */
+export interface Cluster {
+  cluster_id: number;
+  run_ids: string[];
+  centroid: { x: number; y: number; z: number };
+}
+
+/**
+ * Fetch the full state-map projection. Returns one ProjectionPoint per
+ * registered run. Empty array if no runs exist yet.
+ */
+export async function fetchProjection(): Promise<ProjectionPoint[]> {
+  return apiFetch<ProjectionPoint[]>("/platform/state/projection");
+}
+
+/**
+ * Fetch the k nearest neighbors for a given run.
+ * Defaults to k=5 if not specified.
+ */
+export async function fetchNearest(
+  runId: string,
+  k: number = 5
+): Promise<Neighbor[]> {
+  const params = new URLSearchParams();
+  params.set("k", String(k));
+  return apiFetch<Neighbor[]>(
+    `/platform/state/nearest/${encodeURIComponent(runId)}?${params.toString()}`
+  );
+}
+
+/**
+ * Fetch cluster assignments for all projected runs.
+ * Returns an array of clusters, each containing member run_ids and a centroid.
+ */
+export async function fetchClusters(): Promise<Cluster[]> {
+  return apiFetch<Cluster[]>("/platform/state/clusters");
+}

@@ -2746,3 +2746,335 @@ h3 { font-size: 18px; letter-spacing: -0.02em; }
     display: none;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   Explore — State Map (2D scatter)
+   ───────────────────────────────────────────────────────────────────
+   Full-height page with a toolbar, canvas scatter plot, and an
+   optional detail sidebar that appears when a run is selected.
+   Editorial palette — flat, quiet, no glow.
+   ═══════════════════════════════════════════════════════════════════ */
+
+.explore-page {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 40px);
+  overflow: hidden;
+  background: var(--bg);
+}
+
+/* ── Loading / empty states ── */
+
+.explore-page__loading {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.explore-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-md);
+  padding: var(--space-3xl);
+  text-align: center;
+}
+
+.explore-empty__icon {
+  opacity: 0.5;
+  margin-bottom: var(--space-sm);
+}
+
+.explore-empty__title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.explore-empty__hint {
+  font-size: 12px;
+  color: var(--text-muted);
+  max-width: 360px;
+  line-height: 1.6;
+  margin: 0;
+}
+
+/* ── Toolbar ── */
+
+.explore-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: 0 var(--space-xl);
+  height: 48px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-elevated);
+  flex-shrink: 0;
+}
+
+.explore-toolbar__title {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.explore-toolbar__count {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.explore-toolbar__legend {
+  display: flex;
+  gap: var(--space-lg);
+  margin-left: var(--space-lg);
+}
+
+.explore-toolbar__legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  text-transform: capitalize;
+}
+
+.explore-toolbar__legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.explore-toolbar__spacer {
+  flex: 1;
+}
+
+/* ── Body: scatter + detail sidebar ── */
+
+.explore-body {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.explore-scatter-wrap {
+  flex: 1;
+  position: relative;
+  min-width: 0;
+}
+
+.explore-canvas-container {
+  width: 100%;
+  height: 100%;
+}
+
+.explore-canvas-container canvas {
+  width: 100%;
+  height: 100%;
+}
+
+/* ── Tooltip ── */
+
+.explore-tooltip {
+  position: fixed;
+  z-index: 100;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  padding: var(--space-sm) var(--space-md);
+  pointer-events: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  max-width: 240px;
+}
+
+.explore-tooltip__id {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.explore-tooltip__kind {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.explore-tooltip__label {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+/* ── Detail sidebar ── */
+
+.explore-detail {
+  width: 300px;
+  flex-shrink: 0;
+  border-left: 1px solid var(--border);
+  background: var(--bg-elevated);
+  padding: var(--space-xl);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+.explore-detail__header {
+  padding-bottom: var(--space-md);
+  border-bottom: 1px solid var(--border);
+}
+
+.explore-detail__field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.explore-detail__label {
+  font-family: var(--font-sans);
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.explore-detail__value {
+  font-size: 13px;
+  color: var(--text-primary);
+  word-break: break-all;
+}
+
+.explore-detail__value--mono {
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.explore-detail__badge {
+  display: inline-flex;
+  align-self: flex-start;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 3px 8px;
+  border-radius: var(--radius-pill);
+  border: 1px solid;
+}
+
+/* ── Metrics grid inside detail ── */
+
+.explore-detail__metrics {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-sm);
+  padding-top: var(--space-md);
+  border-top: 1px solid var(--border);
+}
+
+.explore-detail__metric {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.explore-detail__metric-label {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.explore-detail__metric-value {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* ── Action buttons ── */
+
+.explore-detail__actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  margin-top: auto;
+  padding-top: var(--space-lg);
+}
+
+.explore-detail__btn {
+  display: block;
+  width: 100%;
+  padding: 9px;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-align: center;
+  cursor: pointer;
+  transition: opacity 120ms ease;
+  text-decoration: none;
+}
+
+.explore-detail__btn:hover {
+  opacity: 0.65;
+}
+
+.explore-detail__btn--primary {
+  background: var(--accent);
+  color: var(--bg-elevated);
+  border: 1px solid var(--accent);
+}
+
+.explore-detail__btn--primary:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.explore-detail__btn--secondary {
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-strong);
+}
+
+/* ── Responsive ── */
+
+@media (max-width: 768px) {
+  .explore-body {
+    flex-direction: column;
+  }
+  .explore-detail {
+    width: 100%;
+    max-height: 40vh;
+    border-left: none;
+    border-top: 1px solid var(--border);
+  }
+  .explore-toolbar__legend {
+    display: none;
+  }
+}
