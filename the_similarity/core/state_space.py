@@ -130,8 +130,8 @@ COPIES_DIM = len(_COPIES_RANGES)  # 3
 WORLDS_DIM = len(_WORLDS_RANGES)  # 5
 
 # The maximum dimension across all pillars. Vectors from smaller pillars
-# are zero-padded to this length when inserted into a mixed-pillar index
-# so that cosine distance is computed in a shared space.
+# are padded with 0.5 (neutral) to this length when inserted into a
+# mixed-pillar index so that cosine distance is computed in a shared space.
 MAX_DIM = max(FINANCE_DIM, COPIES_DIM, WORLDS_DIM)  # 5
 
 
@@ -163,9 +163,9 @@ def _extract(
 ) -> NDArray[np.float64]:
     """Build a normalized vector from *summary* using *ranges*.
 
-    Missing keys default to 0.5 (neutral). The result is zero-padded
-    to *pad_to* dimensions so all vectors in a mixed-pillar index share
-    the same length.
+    Missing keys default to 0.5 (neutral). The result is padded with 0.5
+    (neutral) to *pad_to* dimensions so all vectors in a mixed-pillar
+    index share the same length.
 
     Parameters
     ----------
@@ -178,6 +178,7 @@ def _extract(
         (neutral) rather than 0.0, so they do not bias cosine distance
         toward or away from any axis.
     """
+    # Pad with 0.5 (neutral) so copies vectors don't cluster artificially in the extra dimensions
     raw = np.full(pad_to, 0.5, dtype=np.float64)
     for i, (key, lo, hi) in enumerate(ranges):
         val = summary.get(key)
@@ -221,8 +222,8 @@ def extract_copies_state(run_summary: Dict[str, Any]) -> StateVector:
     """Map a copies run's summary to a normalized :class:`StateVector`.
 
     Expected keys: ``fidelity_score``, ``privacy_score``, ``utility_gap``.
-    Missing keys default to 0.5. The vector is zero-padded to
-    :data:`MAX_DIM` dimensions.
+    Missing keys default to 0.5. The vector is padded with 0.5 (neutral)
+    to :data:`MAX_DIM` dimensions.
 
     Parameters
     ----------

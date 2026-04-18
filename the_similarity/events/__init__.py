@@ -1,20 +1,23 @@
-"""Structured event ingestion — world events schema, loader, and registry adapter.
+"""Events package — structured ingestion, event graph, retrieval, and prediction markets.
 
-This package provides the foundational data model for ingesting structured
-world events (rate hikes, pandemics, elections, etc.) with optional market
-impact metadata. It is the starting point for the events pillar of the
-platform.
+This package provides:
 
-Modules
--------
-contracts
-    Core dataclasses: :class:`Event`, :class:`EventSeries`, :class:`EventType`.
-loader
-    File I/O: ``load_events``, ``save_events``, ``validate_events``.
-registry_adapter
-    Platform integration: ``register_event_series`` writes an
-    :class:`~the_similarity.platform.artifacts.RunArtifact` with
-    ``kind=RunKind.EVENTS``.
+Ingestion layer (this PR):
+- ``contracts``: Core dataclasses: Event, EventSeries, EventType.
+- ``loader``: File I/O: load_events, save_events, validate_events.
+- ``registry_adapter``: Platform integration (EventSeries -> RunArtifact).
+
+Event intelligence:
+- ``features``: Convert raw event dicts to fixed-length feature vectors.
+- ``event_graph``: In-memory graph of EventNodes with cosine-similarity search.
+- ``retrieval``: Sliding-window analogue retrieval over historical event streams.
+
+Prediction markets:
+- ``markets``: Core dataclasses: ForecastQuestion, MarketPrice,
+  MarketHistory, QuestionSet.
+- ``market_loader``: JSON persistence: load_questions / save_questions.
+- ``market_adapter``: Platform registry integration: register a
+  QuestionSet as a RunRecord with kind=EVENTS.
 
 Benchmark dataset
 -----------------
