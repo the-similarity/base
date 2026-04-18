@@ -1411,8 +1411,8 @@ function DayTrajectory({
       >
         <div>
           <div style={{ fontSize: 14, fontWeight: 600 }}>Valence over time</div>
-          <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>
-            Integrated trajectory · 5-min resolution · narrative + comparison
+          <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 3 }}>
+            Integrated trajectory · 5-min resolution · today vs comparison
           </div>
         </div>
         <div style={{ display: "flex", gap: 6 }}>
@@ -1470,10 +1470,10 @@ function DayTrajectory({
       >
         <LegendDot color="var(--accent)" label="Today · narrative" />
         {compareSeries && compareLabel && (
-          <LegendDot color="var(--warm)" label={compareLabel} dashed />
+          <LegendDot color="var(--accent-mid)" label={compareLabel} dashed />
         )}
         <LegendDot color="var(--green)" label="Uplift event" dotOnly />
-        <LegendDot color="var(--warm)" label="Downturn event" dotOnly />
+        <LegendDot color="var(--warm-strong)" label="Downturn event" dotOnly />
       </div>
     </section>
   );
@@ -1613,18 +1613,19 @@ function TrajectoryChart({
             x2={pad.left + W}
             y1={yAt(v)}
             y2={yAt(v)}
-            stroke="var(--line)"
+            stroke="var(--line-mid)"
             strokeWidth="1"
-            strokeDasharray={v === 0 || v === 100 ? "" : "3 3"}
-            opacity={v === 50 ? 0.9 : 0.6}
+            strokeDasharray={v === 0 || v === 100 ? "" : "1 3"}
+            opacity={v === 50 ? 0.7 : 0.45}
           />
           <text
             x={pad.left - 8}
             y={yAt(v) + 3}
             textAnchor="end"
-            fontSize="10"
+            fontSize="9.5"
             fill="var(--faint)"
-            className="tnum"
+            className="tnum mono"
+            fontWeight="500"
           >
             {v}
           </text>
@@ -1637,8 +1638,10 @@ function TrajectoryChart({
           x={xAt(t)}
           y={pad.top + H + 16}
           textAnchor="middle"
-          fontSize="10"
+          fontSize="9.5"
           fill="var(--faint)"
+          className="mono"
+          fontWeight="500"
         >
           {formatHour(t)}
         </text>
@@ -1647,49 +1650,66 @@ function TrajectoryChart({
       <path d={areaPath} fill={`url(#${gradId})`} />
 
       {compareSeries && (
+        // Compare curve — lighter shade of the same accent family (not warm,
+        // per reference). Dashed 4-3 stroke keeps it readable under the
+        // primary today line when the two cross.
         <path
           d={comparePath}
           fill="none"
-          stroke="var(--warm)"
-          strokeWidth="1.5"
+          stroke="var(--accent-mid)"
+          strokeWidth="1.75"
           strokeDasharray="4 3"
-          opacity="0.85"
+          strokeLinecap="round"
+          opacity="0.9"
         />
       )}
 
-      <path d={todayPath} fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" />
+      <path
+        d={todayPath}
+        fill="none"
+        stroke="var(--accent)"
+        strokeWidth="2.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
 
+      {/* Event markers live only on the Today line (per reference). Each is
+          a small filled dot (accent color, white core) with a tiny magnitude
+          label above in tabular mono. The label color matches the sign so a
+          glance at the chart tells you the direction. */}
       {events.map((ev, i) => {
         const val = interp(series, ev.time);
         const up = ev.delta > 0;
-        const col = up ? "var(--green)" : "var(--warm)";
+        const col = up ? "var(--green)" : "var(--warm-strong)";
+        const labelY = yAt(val) - 18 - (i % 2) * 8;
         return (
           <g key={i}>
             <line
               x1={xAt(ev.time)}
               x2={xAt(ev.time)}
-              y1={yAt(val)}
-              y2={yAt(val) - 14 - (i % 2) * 6}
+              y1={yAt(val) - 4}
+              y2={labelY + 4}
               stroke={col}
-              strokeWidth="0.8"
-              opacity="0.5"
+              strokeWidth="0.75"
+              opacity="0.35"
             />
             <circle
               cx={xAt(ev.time)}
               cy={yAt(val)}
-              r="3.5"
-              fill="var(--panel)"
-              stroke={col}
-              strokeWidth="1.5"
+              r="4"
+              fill="var(--accent)"
+              stroke="var(--panel)"
+              strokeWidth="2"
             />
             <text
               x={xAt(ev.time)}
-              y={yAt(val) - 18 - (i % 2) * 6}
+              y={labelY}
               textAnchor="middle"
               fontSize="9"
               fill={col}
-              className="tnum"
+              className="tnum mono"
               fontWeight="600"
+              letterSpacing="-0.01em"
             >
               {up ? "+" : ""}
               {ev.delta.toFixed(0)}
