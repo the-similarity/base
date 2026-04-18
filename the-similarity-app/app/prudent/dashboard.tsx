@@ -180,6 +180,9 @@ export default function Dashboard() {
 
       <style>{`
         .prudent-root {
+          height: 100vh;
+          overflow-y: auto;
+          overflow-x: hidden;
           --app-bg: #f3f4f6;
           --sidebar: #ffffff;
           --panel: #ffffff;
