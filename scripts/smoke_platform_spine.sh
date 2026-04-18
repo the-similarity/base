@@ -574,6 +574,90 @@ print('[smoke]   ✓ scenario GET round-trips with registry-truth fields')
 
 run_crud_block "scenarios" scenarios_crud_body
 
+# -- step 6d: datasets CRUD -----------------------------------------------
+# Registry-truth schema (see `registry.py` _CREATE_DATASETS_SQL):
+#   dataset_id, name, version, source, schema_uri,
+#   n_rows, n_columns, checksum, metadata_json
+#
+# Legacy route schema: dataset_id, name, description, path, schema_json,
+# version, created_at. The smoke sends registry-truth keys
+# (`source`, `schema_uri`, `n_rows`, `n_columns`, `checksum`,
+# `metadata`) — the route will 422 / 500 until reconciliation.
+
+datasets_crud_body() {
+  # UUID-suffixed id for idempotency across persisted-DB re-runs.
+  local dataset_id="spy_2020_2024_smoke_$$"
+  local checksum="abcd1234ef567890abcd1234ef567890abcd1234ef567890abcd1234ef567890"
+  local body
+  body=$(cat <<JSON
+{
+  "dataset_id": "$dataset_id",
+  "name": "SPY 2020-2024 Smoke",
+  "version": "v1.0",
+  "source": "the-similarity-data/equity/spy.parquet",
+  "schema_uri": "schemas/ohlcv.json",
+  "n_rows": 1258,
+  "n_columns": 5,
+  "checksum": "$checksum",
+  "metadata": {"pillar": "finance", "tickers": ["SPY"], "date_range": "2020-2024"}
+}
+JSON
+)
+
+  local post_status post_body
+  post_status=$(curl -s -o /tmp/smoke-dataset-post -w '%{http_code}' \
+    -X POST -H "Content-Type: application/json" \
+    -d "$body" \
+    "$CUSTOMER_BASE/datasets")
+  post_body=$(cat /tmp/smoke-dataset-post)
+  echo "[smoke] POST /platform/datasets → HTTP $post_status"
+  if [[ "$post_status" != "200" && "$post_status" != "201" ]]; then
+    echo "[smoke] ERROR: dataset POST returned HTTP $post_status"
+    echo "--- body ---"
+    echo "$post_body"
+    return 1
+  fi
+  assert_json "dataset POST" "$post_body" "
+assert data.get('dataset_id') == '$dataset_id', data
+# Registry-truth uses 'source' (not 'path') and 'schema_uri' (not a
+# 'schema' blob alias). 'n_rows' / 'n_columns' / 'checksum' are all
+# first-class fields.
+assert data.get('source') == 'the-similarity-data/equity/spy.parquet', data
+assert data.get('schema_uri') == 'schemas/ohlcv.json', data
+assert data.get('n_rows') == 1258, data
+assert data.get('n_columns') == 5, data
+assert data.get('checksum') == '$checksum', data
+metadata = data.get('metadata') or {}
+assert metadata.get('pillar') == 'finance', metadata
+print('[smoke]   ✓ dataset POST shape matches registry-truth (source, schema_uri, n_rows, checksum)')
+"
+
+  local list_body
+  list_body=$(curl -sf "$CUSTOMER_BASE/datasets")
+  echo "[smoke] GET  /platform/datasets → (list)"
+  assert_json "dataset list" "$list_body" "
+assert isinstance(data, list), data
+ids = [row.get('dataset_id') for row in data]
+assert '$dataset_id' in ids, f'missing dataset_id: {ids}'
+row = next(r for r in data if r.get('dataset_id') == '$dataset_id')
+assert row.get('source') == 'the-similarity-data/equity/spy.parquet', row
+print('[smoke]   ✓ dataset list contains registry-truth source')
+"
+
+  local get_body
+  get_body=$(curl -sf "$CUSTOMER_BASE/datasets/$dataset_id")
+  echo "[smoke] GET  /platform/datasets/$dataset_id"
+  assert_json "dataset GET" "$get_body" "
+assert data.get('dataset_id') == '$dataset_id', data
+assert data.get('source') == 'the-similarity-data/equity/spy.parquet', data
+assert data.get('n_rows') == 1258, data
+print('[smoke]   ✓ dataset GET round-trips with registry-truth fields')
+"
+  # No DELETE route on platform_routes.py — noted in PR description.
+}
+
+run_crud_block "datasets" datasets_crud_body
+
 # -- step 7: final summary ------------------------------------------------
 # Print a rolled-up pass/fail summary and exit non-zero iff any CRUD
 # block failed. Cleanup (killing uvicorns, removing the DB) happens
