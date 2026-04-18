@@ -269,12 +269,6 @@ done
 # readable and makes a port-flip (e.g. staging test) a one-line change.
 CUSTOMER_BASE="http://$API_HOST:$CUSTOMER_API_PORT/platform"
 
-# Helper: emit "[smoke]   ✓ <msg>" for per-assertion success lines so
-# the CRUD blocks have consistent, greppable output. Printed to stderr
-# so it does not contaminate pipelines that parse command output.
-# shellcheck disable=SC2317
-ok() { echo "[smoke]   ✓ $*"; }
-
 # Counter for CRUD-block failures. Each sub-resource block records a
 # pass/fail, prints it alongside the assertion output, and at the end of
 # the script we exit non-zero iff any block failed. This design lets
@@ -284,25 +278,6 @@ ok() { echo "[smoke]   ✓ $*"; }
 CRUD_FAILURES=0
 CRUD_PASS_BLOCKS=""
 CRUD_FAIL_BLOCKS=""
-
-# Helper: run a curl command and capture both body + HTTP status in one
-# call. Prints the pair to stdout in the form "<status>\t<body>" so the
-# caller can split on tab. We bypass `curl -f` because a 4xx/5xx is a
-# valid failure signal we want to observe, not an abort trigger.
-curl_json() {
-  local method="$1" url="$2" body="${3:-}"
-  if [[ -n "$body" ]]; then
-    curl -s -o /tmp/smoke-body -w '%{http_code}' \
-      -X "$method" -H "Content-Type: application/json" \
-      -d "$body" "$url"
-  else
-    curl -s -o /tmp/smoke-body -w '%{http_code}' \
-      -X "$method" "$url"
-  fi
-  echo
-  cat /tmp/smoke-body
-  echo
-}
 
 # Helper: evaluate a python expression against a JSON payload. Returns 0
 # on success, 1 on any assertion / parse failure. Stdout from the python
