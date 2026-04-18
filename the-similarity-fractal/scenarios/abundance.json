@@ -1,0 +1,16 @@
+{
+  "name": "abundance",
+  "description": "50 agents on a 64x64 torus with high food spawn (0.5) and low energy decay (0.005). Tests equilibrium in resource-rich worlds: population should stabilize with most agents alive and high mean energy.",
+  "seed": 42,
+  "steps": 500,
+  "world": {
+    "size": 64,
+    "initial_population": 50
+  },
+  "params": {
+    "energy_decay": 0.005,
+    "move_speed": 1,
+    "food_spawn_rate": 0.5,
+    "food_energy": 0.3
+  }
+}
