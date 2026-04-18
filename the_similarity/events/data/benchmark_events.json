@@ -1,0 +1,286 @@
+{
+  "name": "benchmark_macro_events",
+  "version": "1.0.0",
+  "provenance": {
+    "generator_name": "manual_curation",
+    "created_at": "2026-04-15T00:00:00+00:00",
+    "source": "historical_records"
+  },
+  "events": [
+    {
+      "event_id": "covid-who-pandemic-2020-03",
+      "timestamp": "2020-03-11",
+      "event_type": "pandemic",
+      "title": "WHO declares COVID-19 a global pandemic",
+      "description": "The World Health Organization officially declared COVID-19 a pandemic, triggering global market sell-offs.",
+      "source": "who.int",
+      "tags": ["macro", "global", "health"],
+      "metadata": {},
+      "impact": {"asset": "SPY", "direction": "down", "magnitude_pct": -4.9}
+    },
+    {
+      "event_id": "covid-us-lockdown-2020-03",
+      "timestamp": "2020-03-16",
+      "event_type": "pandemic",
+      "title": "US announces COVID-19 lockdown guidelines",
+      "description": "White House issues 15-day guidelines to slow the spread, effectively beginning US lockdowns.",
+      "source": "whitehouse.gov",
+      "tags": ["macro", "us", "health"],
+      "metadata": {},
+      "impact": {"asset": "SPY", "direction": "down", "magnitude_pct": -12.0}
+    },
+    {
+      "event_id": "fed-emergency-cut-2020-03",
+      "timestamp": "2020-03-15",
+      "event_type": "rate_cut",
+      "title": "Fed emergency rate cut to near zero",
+      "description": "Federal Reserve cuts federal funds rate by 100bp to 0-0.25% in emergency action.",
+      "source": "federalreserve.gov",
+      "tags": ["macro", "us", "fomc", "monetary_policy"],
+      "metadata": {"cut_bp": 100, "target_range": "0-0.25%"},
+      "impact": {"asset": "SPY", "direction": "down", "magnitude_pct": -2.9}
+    },
+    {
+      "event_id": "fed-rate-hike-2022-03",
+      "timestamp": "2022-03-16",
+      "event_type": "rate_hike",
+      "title": "Fed raises rates 25bp — first hike since 2018",
+      "description": "FOMC raises the federal funds rate by 25bp to 0.25-0.50%, beginning the post-COVID tightening cycle.",
+      "source": "federalreserve.gov",
+      "tags": ["macro", "us", "fomc", "monetary_policy"],
+      "metadata": {"hike_bp": 25, "target_range": "0.25-0.50%"},
+      "impact": {"asset": "SPY", "direction": "down", "magnitude_pct": -1.3}
+    },
+    {
+      "event_id": "fed-rate-hike-2022-06",
+      "timestamp": "2022-06-15",
+      "event_type": "rate_hike",
+      "title": "Fed raises rates 75bp — largest hike since 1994",
+      "description": "FOMC raises by 75bp to 1.50-1.75% as inflation hits 8.6%.",
+      "source": "federalreserve.gov",
+      "tags": ["macro", "us", "fomc", "monetary_policy"],
+      "metadata": {"hike_bp": 75, "target_range": "1.50-1.75%"},
+      "impact": {"asset": "SPY", "direction": "down", "magnitude_pct": -3.3}
+    },
+    {
+      "event_id": "fed-rate-hike-2022-07",
+      "timestamp": "2022-07-27",
+      "event_type": "rate_hike",
+      "title": "Fed raises rates another 75bp",
+      "description": "Second consecutive 75bp hike to 2.25-2.50%.",
+      "source": "federalreserve.gov",
+      "tags": ["macro", "us", "fomc", "monetary_policy"],
+      "metadata": {"hike_bp": 75, "target_range": "2.25-2.50%"},
+      "impact": {"asset": "SPY", "direction": "up", "magnitude_pct": 2.6}
+    },
+    {
+      "event_id": "russia-ukraine-invasion-2022-02",
+      "timestamp": "2022-02-24",
+      "event_type": "geopolitical",
+      "title": "Russia invades Ukraine",
+      "description": "Russia launches full-scale military invasion of Ukraine, triggering energy and commodity price spikes.",
+      "source": "reuters",
+      "tags": ["geopolitical", "europe", "energy", "commodities"],
+      "metadata": {},
+      "impact": {"asset": "SPY", "direction": "down", "magnitude_pct": -1.8}
+    },
+    {
+      "event_id": "svb-collapse-2023-03",
+      "timestamp": "2023-03-10",
+      "event_type": "financial_crisis",
+      "title": "Silicon Valley Bank collapses",
+      "description": "SVB fails after a bank run triggered by unrealized losses on long-duration bonds. FDIC takes receivership.",
+      "source": "fdic.gov",
+      "tags": ["financial", "banking", "us"],
+      "metadata": {"assets_bn": 209},
+      "impact": {"asset": "SPY", "direction": "down", "magnitude_pct": -1.4}
+    },
+    {
+      "event_id": "signature-bank-closure-2023-03",
+      "timestamp": "2023-03-12",
+      "event_type": "financial_crisis",
+      "title": "Signature Bank closed by regulators",
+      "description": "New York regulators close Signature Bank amid contagion fears from SVB collapse.",
+      "source": "fdic.gov",
+      "tags": ["financial", "banking", "us"],
+      "metadata": {"assets_bn": 110},
+      "impact": {"asset": "SPY", "direction": "down", "magnitude_pct": -0.7}
+    },
+    {
+      "event_id": "us-election-2020-11",
+      "timestamp": "2020-11-03",
+      "event_type": "election",
+      "title": "US presidential election — Biden wins",
+      "description": "Joe Biden defeats Donald Trump in the 2020 presidential election.",
+      "source": "associated_press",
+      "tags": ["political", "us", "election"],
+      "metadata": {"winner": "Biden", "electoral_votes": 306},
+      "impact": {"asset": "SPY", "direction": "up", "magnitude_pct": 2.2}
+    },
+    {
+      "event_id": "us-election-2024-11",
+      "timestamp": "2024-11-05",
+      "event_type": "election",
+      "title": "US presidential election — Trump wins",
+      "description": "Donald Trump wins the 2024 presidential election.",
+      "source": "associated_press",
+      "tags": ["political", "us", "election"],
+      "metadata": {"winner": "Trump", "electoral_votes": 312},
+      "impact": {"asset": "SPY", "direction": "up", "magnitude_pct": 2.5}
+    },
+    {
+      "event_id": "brexit-referendum-2016-06",
+      "timestamp": "2016-06-23",
+      "event_type": "election",
+      "title": "UK votes to leave the EU (Brexit)",
+      "description": "The United Kingdom votes 52-48% to leave the European Union in a referendum.",
+      "source": "bbc",
+      "tags": ["political", "europe", "uk", "trade"],
+      "metadata": {"leave_pct": 51.9, "remain_pct": 48.1},
+      "impact": {"asset": "SPY", "direction": "down", "magnitude_pct": -3.6}
+    },
+    {
+      "event_id": "china-tariffs-2018-07",
+      "timestamp": "2018-07-06",
+      "event_type": "geopolitical",
+      "title": "US-China trade war — first tariffs take effect",
+      "description": "US imposes 25% tariffs on $34B of Chinese goods; China retaliates immediately.",
+      "source": "ustr.gov",
+      "tags": ["trade", "us", "china", "tariffs"],
+      "metadata": {"tariff_pct": 25, "value_bn": 34},
+      "impact": {"asset": "SPY", "direction": "down", "magnitude_pct": -0.9}
+    },
+    {
+      "event_id": "fed-pivot-2023-12",
+      "timestamp": "2023-12-13",
+      "event_type": "rate_cut",
+      "title": "Fed signals rate cuts in 2024 (dovish pivot)",
+      "description": "FOMC holds rates at 5.25-5.50% but dot plot signals 75bp of cuts in 2024.",
+      "source": "federalreserve.gov",
+      "tags": ["macro", "us", "fomc", "monetary_policy"],
+      "metadata": {"hold_rate": "5.25-5.50%", "projected_cuts_2024_bp": 75},
+      "impact": {"asset": "SPY", "direction": "up", "magnitude_pct": 1.4}
+    },
+    {
+      "event_id": "gamestop-squeeze-2021-01",
+      "timestamp": "2021-01-27",
+      "event_type": "financial_crisis",
+      "title": "GameStop short squeeze peaks",
+      "description": "GME surges 135% in a single day as retail traders squeeze short sellers. Brokers restrict buying.",
+      "source": "sec.gov",
+      "tags": ["retail", "us", "short_squeeze"],
+      "metadata": {"ticker": "GME", "peak_price": 347.51},
+      "impact": {"asset": "SPY", "direction": "down", "magnitude_pct": -2.6}
+    },
+    {
+      "event_id": "evergrande-default-2021-12",
+      "timestamp": "2021-12-09",
+      "event_type": "financial_crisis",
+      "title": "Evergrande officially defaults",
+      "description": "Fitch declares China Evergrande Group in restricted default after missed bond payments.",
+      "source": "fitch_ratings",
+      "tags": ["financial", "china", "real_estate"],
+      "metadata": {"liabilities_bn": 300},
+      "impact": {"asset": "SPY", "direction": "down", "magnitude_pct": -0.7}
+    },
+    {
+      "event_id": "japan-boj-yield-curve-2022-12",
+      "timestamp": "2022-12-20",
+      "event_type": "rate_hike",
+      "title": "BOJ widens yield curve control band",
+      "description": "Bank of Japan surprises markets by widening 10-year yield target band from +/-0.25% to +/-0.50%.",
+      "source": "boj.or.jp",
+      "tags": ["macro", "japan", "monetary_policy"],
+      "metadata": {"new_band": "+/-0.50%"},
+      "impact": {"asset": "SPY", "direction": "down", "magnitude_pct": -1.5}
+    },
+    {
+      "event_id": "uk-mini-budget-2022-09",
+      "timestamp": "2022-09-23",
+      "event_type": "regulatory",
+      "title": "UK mini-budget triggers gilt crisis",
+      "description": "Chancellor Kwarteng announces unfunded tax cuts, crashing the pound and triggering BOE emergency bond buying.",
+      "source": "bbc",
+      "tags": ["fiscal", "uk", "bonds"],
+      "metadata": {"gbp_usd_low": 1.035},
+      "impact": {"asset": "SPY", "direction": "down", "magnitude_pct": -1.7}
+    },
+    {
+      "event_id": "ftx-collapse-2022-11",
+      "timestamp": "2022-11-11",
+      "event_type": "financial_crisis",
+      "title": "FTX files for bankruptcy",
+      "description": "FTX, the second-largest crypto exchange, files Chapter 11 after a liquidity crisis and alleged fraud.",
+      "source": "sec.gov",
+      "tags": ["crypto", "fraud", "bankruptcy"],
+      "metadata": {"missing_funds_bn": 8},
+      "impact": {"asset": "SPY", "direction": "down", "magnitude_pct": -0.2}
+    },
+    {
+      "event_id": "chatgpt-launch-2022-11",
+      "timestamp": "2022-11-30",
+      "event_type": "technology",
+      "title": "OpenAI launches ChatGPT",
+      "description": "OpenAI releases ChatGPT, reaching 100M users in 2 months and sparking the generative AI investment boom.",
+      "source": "openai.com",
+      "tags": ["technology", "ai", "product_launch"],
+      "metadata": {},
+      "impact": {"asset": "SPY", "direction": "up", "magnitude_pct": 0.3}
+    },
+    {
+      "event_id": "debt-ceiling-2023-06",
+      "timestamp": "2023-06-03",
+      "event_type": "regulatory",
+      "title": "US debt ceiling deal signed into law",
+      "description": "Biden signs the Fiscal Responsibility Act, suspending the debt ceiling until January 2025.",
+      "source": "congress.gov",
+      "tags": ["fiscal", "us", "debt"],
+      "metadata": {},
+      "impact": {"asset": "SPY", "direction": "up", "magnitude_pct": 1.0}
+    },
+    {
+      "event_id": "suez-canal-block-2021-03",
+      "timestamp": "2021-03-23",
+      "event_type": "natural_disaster",
+      "title": "Ever Given blocks the Suez Canal",
+      "description": "Container ship Ever Given runs aground, blocking the Suez Canal for 6 days and disrupting global trade.",
+      "source": "reuters",
+      "tags": ["supply_chain", "shipping", "global"],
+      "metadata": {"blocked_days": 6},
+      "impact": {"asset": "SPY", "direction": "down", "magnitude_pct": -0.3}
+    },
+    {
+      "event_id": "japan-earthquake-2024-01",
+      "timestamp": "2024-01-01",
+      "event_type": "natural_disaster",
+      "title": "Noto earthquake strikes Japan (M7.6)",
+      "description": "A magnitude 7.6 earthquake hits the Noto Peninsula in Ishikawa Prefecture, Japan.",
+      "source": "usgs.gov",
+      "tags": ["natural_disaster", "japan"],
+      "metadata": {"magnitude": 7.6},
+      "impact": {"asset": "SPY", "direction": "down", "magnitude_pct": -0.1}
+    },
+    {
+      "event_id": "nvidia-earnings-2024-02",
+      "timestamp": "2024-02-21",
+      "event_type": "earnings",
+      "title": "NVIDIA Q4 earnings smash expectations",
+      "description": "NVIDIA reports Q4 revenue of $22.1B (vs $20.4B expected), driven by AI chip demand.",
+      "source": "nvidia.com",
+      "tags": ["earnings", "us", "technology", "ai"],
+      "metadata": {"revenue_bn": 22.1, "expected_bn": 20.4, "ticker": "NVDA"},
+      "impact": {"asset": "SPY", "direction": "up", "magnitude_pct": 2.1}
+    },
+    {
+      "event_id": "trump-tariffs-2025-04",
+      "timestamp": "2025-04-02",
+      "event_type": "geopolitical",
+      "title": "Trump announces sweeping reciprocal tariffs",
+      "description": "President Trump announces broad reciprocal tariffs on imports from multiple countries, sparking trade war fears.",
+      "source": "whitehouse.gov",
+      "tags": ["trade", "tariffs", "us", "global"],
+      "metadata": {},
+      "impact": {"asset": "SPY", "direction": "down", "magnitude_pct": -4.8}
+    }
+  ]
+}
