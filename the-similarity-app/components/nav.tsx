@@ -11,6 +11,7 @@ const links = [
   { href: "/reports", label: "Reports" },
   { href: "/finance", label: "Finance" },
   { href: "/explore", label: "Explore" },
+  { href: "/narrative", label: "Narrative" },
 ];
 
 export function Nav() {
