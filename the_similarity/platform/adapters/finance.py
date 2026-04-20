@@ -253,7 +253,10 @@ def register_backtest_run(
     )
 
     # Build trust + calibration artifacts from the enriched summary.
-    from the_similarity.platform.adapters.trust import build_trust_artifact
+    from the_similarity.platform.adapters.trust import (
+        TRUST_SCORE_VERSION,
+        build_trust_artifact,
+    )
     from the_similarity.platform.adapters.calibration import (
         build_calibration_artifact,
     )
@@ -298,6 +301,7 @@ def register_backtest_run(
         thresholds=trust_artifact.thresholds,
         details={
             "trust_score": trust_artifact.trust_score,
+            "trust_score_version": TRUST_SCORE_VERSION,
             "calibration_grade": trust_artifact.calibration_grade,
             "decision": trust_artifact.decision.value,
             "hit_rate": summary.get("hit_rate"),
