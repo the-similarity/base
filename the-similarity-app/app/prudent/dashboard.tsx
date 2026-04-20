@@ -1264,10 +1264,25 @@ function DateRangeChip() {
     return () => document.removeEventListener("mousedown", onDown);
   }, [open]);
 
+  // Derive the preset label from the live clock. We compute `today` once per
+  // render rather than memoising — the component only re-renders on open/
+  // preset changes, so the cost is negligible. `from`/`to` stay strings so
+  // the inner rendering code doesn't change.
   const labelFor = (p: Preset): { from: string; to: string } => {
-    if (p === "today") return { from: "Wed, Apr 17", to: "9:47 am" };
-    if (p === "7d") return { from: "Apr 11", to: "Apr 17" };
-    return { from: "Mar 19", to: "Apr 17" };
+    const now = new Date();
+    if (p === "today") {
+      return { from: fmtLongDate(now), to: fmtClockTime(now) };
+    }
+    if (p === "7d") {
+      const earlier = new Date(now);
+      earlier.setDate(earlier.getDate() - 7);
+      return { from: fmtShortDate(earlier), to: fmtShortDate(now) };
+    }
+    // 30d — shift the start date by 30 full days so the label tracks the
+    // walking calendar, not a fixed Apr 17 snapshot from the screenshot.
+    const earlier = new Date(now);
+    earlier.setDate(earlier.getDate() - 30);
+    return { from: fmtShortDate(earlier), to: fmtShortDate(now) };
   };
   const { from, to } = labelFor(preset);
 
