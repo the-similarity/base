@@ -817,34 +817,44 @@ function Sidebar({ nav, setNav, onCompose, onExport }: SidebarProps) {
             marginTop: 10,
           }}
         >
-          <button
+          {/* Support & Settings render as greyed-out non-interactive labels.
+              The surface is expected in a pro app, but no real handler exists
+              yet — rendering them as plain <div>s (not buttons) keeps the
+              pointer unambiguous and removes the hover affordance. */}
+          <div
             style={{
               display: "flex",
               alignItems: "center",
               gap: 10,
               padding: "8px 10px",
               fontSize: 13,
-              color: "var(--muted)",
+              color: "var(--faint)",
               textAlign: "left",
               fontWeight: 450,
+              cursor: "default",
+              userSelect: "none",
             }}
+            aria-disabled="true"
           >
             <NavGlyph id="support" /> Support
-          </button>
-          <button
+          </div>
+          <div
             style={{
               display: "flex",
               alignItems: "center",
               gap: 10,
               padding: "8px 10px",
               fontSize: 13,
-              color: "var(--muted)",
+              color: "var(--faint)",
               textAlign: "left",
               fontWeight: 450,
+              cursor: "default",
+              userSelect: "none",
             }}
+            aria-disabled="true"
           >
             <NavGlyph id="settings" /> Settings
-          </button>
+          </div>
         </div>
       </div>
     </aside>
