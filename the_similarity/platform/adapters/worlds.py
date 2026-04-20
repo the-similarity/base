@@ -51,6 +51,7 @@ stores the full JSON body in ``ScenarioSpec.params``.
 from __future__ import annotations
 
 import json
+import logging
 import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -64,6 +65,7 @@ from the_similarity.platform.artifacts import (
 from the_similarity.platform.contracts import ScenarioSpec
 from the_similarity.platform.registry import RunRegistry
 
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # JSONL readers
@@ -105,7 +107,7 @@ def _read_jsonl_envelope(
         if first.get("type") == "provenance":
             provenance = first
     except json.JSONDecodeError:
-        pass
+        logger.warning("Failed to parse provenance line as JSON: %s", lines[0][:200])
 
     # Last line: summary footer. If the file has only one line and that
     # line is the provenance, summary stays empty (crash before tick 0).
@@ -115,7 +117,7 @@ def _read_jsonl_envelope(
             if last.get("type") == "summary":
                 summary = last
         except json.JSONDecodeError:
-            pass
+            logger.warning("Failed to parse summary line as JSON: %s", lines[-1][:200])
 
     return provenance, summary
 
