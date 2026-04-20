@@ -3,15 +3,20 @@
 /**
  * TodayView — the default /prudent landing body.
  *
- * This module owns everything the Today page used to render inline inside
- * dashboard.tsx:
+ * This module owns the Today-page surfaces:
  *   - KeyMetrics column (avg valence, uplift, volatility, peak/trough)
  *   - DayTrajectory chart (valence over time with compare overlay)
  *   - RhymeHeatmap (7-day × 12-hour intensity grid)
  *   - TagDonut (share of weighted events)
  *   - ThreadRibbon (30-day history strip)
- *   - ComposerModal (narrative input with live parse readout)
- *   - TweaksPanel (accent / theme / compare chooser)
+ *
+ * NOT in this file anymore:
+ *   - ComposerModal + TweaksPanel. These used to live here but were
+ *     route-local as a result — clicking "+ New entry" from any
+ *     /prudent sub-route flipped context state but rendered no modal
+ *     because today-view only mounts at /prudent itself. They now live
+ *     in `app/prudent/layout.tsx` so they mount once for the whole
+ *     /prudent tree and work from every route.
  *
  * Why one big file:
  *   These surfaces share a lot of small helpers (Sparkline, LegendDot,
@@ -24,7 +29,9 @@
  *   - `entries`, `text`, `composerOpen`, `readOnlyEntry`, `tweaks` all live
  *     in EngineContext (mounted by app/prudent/layout.tsx).
  *   - Parse state is derived locally via `useParsedNarrative(text)` so each
- *     render reflects the latest composer draft immediately.
+ *     render reflects the latest composer draft immediately for KeyMetrics
+ *     and DayTrajectory, which display the live-parsed numbers even when
+ *     the composer is closed.
  */
 
 import { useEffect, useMemo, useRef, useState, Fragment } from "react";
@@ -37,44 +44,51 @@ import {
 } from "../engine";
 import { buildHistoryFromEntries, type StoredEntry } from "../storage";
 import { useParsedNarrative } from "../use-parse";
-import {
-  useEngine,
-  ACCENT_HEX,
-  type Accent,
-  type Tweaks,
-  type CompareMode,
-} from "./engine-context";
-import { fmtLongDate, fmtClockTime } from "./shell";
-
-// Sample narrative — shown as the textarea placeholder only. Actual entry
-// state always starts empty so "+ New entry" never pre-fills the composer
-// with a stranger's day.
-const SAMPLE = `Woke up heavy, kind of anxious about the deadline. The morning was rough — emails piled up before I even had coffee. Slow standup, I barely talked. Around noon I went for a walk in the park and things started to lift. Ran into a friend who'd just moved back; we laughed about something stupid for twenty minutes. The afternoon clicked — I got into a flow and the code finally worked. Dinner was calm, read a little before bed.`;
+import { useEngine, type CompareMode } from "./engine-context";
+import { seedDemoEntries } from "./demo-seed";
 
 // ═══════════════════════════════════════════════════════════════════════
 // Root
 // ═══════════════════════════════════════════════════════════════════════
 
 export default function TodayView() {
+  // TodayView reads a trimmed slice of EngineContext:
+  //   - `entries` drives the 30-day ThreadRibbon + buildHistoryFromEntries.
+  //   - `text` feeds useParsedNarrative so KeyMetrics / DayTrajectory show
+  //     the same live-parsed series as the composer, regardless of whether
+  //     the composer is currently open (it can be — but the composer itself
+  //     is mounted by app/prudent/layout.tsx now).
+  //   - `tweaks` + `setTweak` power the Compare chip in DayTrajectory.
+  //   - `openComposer` / `openReadOnly` fire from ThreadRibbon dot clicks.
+  //   - `reloadEntries` is used by the demo-seed banner below.
+  // The ComposerModal + TweaksPanel renders (and the `composerOpen`,
+  // `readOnlyEntry`, `closeComposer`, `persistEntry`, `setText` bindings
+  // they needed) moved to the layout — see the module docstring above.
   const {
     entries,
     text,
-    setText,
     tweaks,
     setTweak,
-    composerOpen,
-    readOnlyEntry,
-    closeComposer,
-    persistEntry,
     openComposer,
     openReadOnly,
+    reloadEntries,
   } = useEngine();
 
-  // Parse the composer draft live. Hook is hoisted outside the modal so
-  // sub-surfaces (KeyMetrics, DayTrajectory, etc.) reflect the same parsed
-  // state regardless of whether the composer is open.
-  const parsed = useParsedNarrative(text);
-  const { events, series } = parsed;
+  // Investor / first-visit helper — when the journal is empty we surface a
+  // one-line banner that pops 14 days of pre-seeded entries into storage so
+  // heatmap/rhymes/patterns populate immediately. The banner disappears as
+  // soon as any entry exists, so normal user flows never see it after the
+  // first log.
+  const loadDemo = () => {
+    seedDemoEntries();
+    reloadEntries();
+  };
+  const showDemoBanner = entries.length === 0;
+
+  // Parse the draft live so KeyMetrics / DayTrajectory reflect the latest
+  // composer input even when the modal is closed (the composer shares the
+  // same `text` via EngineContext).
+  const { events, series } = useParsedNarrative(text);
   const avg = useMemo(
     () => Math.round(series.reduce((a, b) => a + b.v, 0) / series.length),
     [series],
@@ -138,6 +152,7 @@ export default function TodayView() {
 
   return (
     <>
+      {showDemoBanner && <DemoSeedBanner onLoad={loadDemo} />}
       <div className="prudent-grid-top">
         <KeyMetrics
           series={series}
@@ -171,25 +186,66 @@ export default function TodayView() {
         rhymeStart={rhyme?.startIdx}
         onDotClick={onRibbonDotClick}
       />
-
-      {composerOpen && (
-        <ComposerModal
-          text={readOnlyEntry ? readOnlyEntry.text : text}
-          setText={setText}
-          onClose={closeComposer}
-          events={readOnlyEntry ? readOnlyEntry.events : events}
-          source={readOnlyEntry ? "idle" : parsed.source}
-          readOnly={!!readOnlyEntry}
-          readOnlyLabel={
-            readOnlyEntry
-              ? `day −${readOnlyEntry.day} · logged ${readOnlyEntry.createdAt.slice(0, 10)}`
-              : undefined
-          }
-          onSave={() => persistEntry({ text, events, series, avg })}
-        />
-      )}
-      <TweaksPanel tweaks={tweaks} setTweak={setTweak} />
+      {/* ComposerModal + TweaksPanel render at the layout level — see
+          app/prudent/layout.tsx — so they mount once for the entire
+          /prudent tree and work from every sub-route. */}
     </>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// Demo seed banner (first-visit helper)
+// ═══════════════════════════════════════════════════════════════════════
+
+/**
+ * Thin banner rendered above the today grid when the journal is empty.
+ *
+ * Purpose: give a first-time visitor (commonly an investor walking the
+ * product) a one-click path to seed 14 days of pre-built entries so the
+ * heatmap, rhymes, patterns, and sparklines all populate immediately.
+ *
+ * The banner is entirely additive — it adds one DOM node above the
+ * existing grid and disappears as soon as any entry exists, so normal
+ * user flows never see it after their first log.
+ */
+function DemoSeedBanner({ onLoad }: { onLoad: () => void }) {
+  return (
+    <section
+      style={{
+        background: "var(--panel)",
+        border: "1px solid var(--line)",
+        borderRadius: 10,
+        padding: "12px 16px",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 12,
+        marginBottom: 4,
+      }}
+    >
+      <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+        <div style={{ fontSize: 13, fontWeight: 600, color: "var(--ink)" }}>
+          First time here?
+        </div>
+        <div style={{ fontSize: 12, color: "var(--muted)" }}>
+          Load 14 days of demo data to see the full experience.
+        </div>
+      </div>
+      <button
+        onClick={onLoad}
+        style={{
+          background: "var(--ink)",
+          color: "var(--app-bg)",
+          padding: "8px 14px",
+          borderRadius: 7,
+          fontSize: 13,
+          fontWeight: 500,
+          whiteSpace: "nowrap",
+        }}
+      >
+        Load demo data →
+      </button>
+    </section>
   );
 }
 
@@ -1627,446 +1683,6 @@ function HistorySvg({
           today
         </text>
       </svg>
-    </div>
-  );
-}
-
-// ═══════════════════════════════════════════════════════════════════════
-// Composer modal
-// ═══════════════════════════════════════════════════════════════════════
-
-interface ComposerProps {
-  text: string;
-  setText: (t: string) => void;
-  onClose: () => void;
-  events: Event[];
-  source?: "api" | "regex" | "idle";
-  readOnly?: boolean;
-  readOnlyLabel?: string;
-  onSave: () => void;
-}
-
-function ComposerModal({
-  text,
-  setText,
-  onClose,
-  events,
-  source = "regex",
-  readOnly = false,
-  readOnlyLabel,
-  onSave,
-}: ComposerProps) {
-  const ref = useRef<HTMLTextAreaElement>(null);
-  useEffect(() => {
-    if (!readOnly) ref.current?.focus();
-  }, [readOnly]);
-  const now = useMemo(() => new Date(), []);
-  const composerStamp = `${fmtLongDate(now)} · ${fmtClockTime(now)} · parsing live`;
-  return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 100,
-        background: "rgba(14,15,17,0.45)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-      }}
-      onClick={onClose}
-    >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          width: 720,
-          maxWidth: "92vw",
-          maxHeight: "85vh",
-          overflow: "auto",
-          background: "var(--panel)",
-          borderRadius: 12,
-          boxShadow: "0 30px 60px -20px rgba(0,0,0,0.4)",
-          display: "flex",
-          flexDirection: "column",
-        }}
-      >
-        <div
-          style={{
-            padding: "16px 20px",
-            borderBottom: "1px solid var(--line)",
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-          }}
-        >
-          <div>
-            <div style={{ fontSize: 14, fontWeight: 600 }}>
-              {readOnly ? "Entry" : "New entry"}
-            </div>
-            <div style={{ fontSize: 11, color: "var(--muted)" }}>
-              {readOnly ? readOnlyLabel ?? "archived entry · read only" : composerStamp}
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            style={{ color: "var(--muted)", padding: "4px 8px", borderRadius: 6 }}
-            aria-label="Close"
-          >
-            ✕
-          </button>
-        </div>
-        <div style={{ padding: "18px 22px" }}>
-          <textarea
-            ref={ref}
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            placeholder={readOnly ? "" : SAMPLE}
-            rows={8}
-            disabled={readOnly}
-            readOnly={readOnly}
-            style={{
-              width: "100%",
-              fontFamily: "var(--serif)",
-              fontSize: 19,
-              lineHeight: 1.6,
-              color: "var(--ink)",
-              resize: readOnly ? "none" : "vertical",
-              minHeight: 200,
-              letterSpacing: "-0.005em",
-              cursor: readOnly ? "text" : "text",
-              opacity: readOnly ? 0.95 : 1,
-            }}
-          />
-          <div
-            style={{
-              marginTop: 18,
-              paddingTop: 16,
-              borderTop: "1px solid var(--line)",
-            }}
-          >
-            <div
-              className="mono"
-              style={{
-                fontSize: 10,
-                letterSpacing: "0.08em",
-                color: "var(--muted)",
-                fontWeight: 600,
-                marginBottom: 12,
-                textTransform: "uppercase",
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-              }}
-            >
-              <span>Parsed</span>
-              <span
-                style={{
-                  background: "var(--accent-soft)",
-                  color: "var(--accent-ink)",
-                  padding: "2px 7px",
-                  borderRadius: 10,
-                  fontSize: 10,
-                  fontWeight: 600,
-                  letterSpacing: "0.02em",
-                }}
-              >
-                {events.length} events
-              </span>
-            </div>
-            <div
-              style={{
-                fontSize: 13.5,
-                lineHeight: 2.1,
-                color: "var(--muted)",
-                fontFamily: "var(--serif)",
-                fontStyle: "italic",
-              }}
-            >
-              {events.length === 0 && (
-                <span style={{ color: "var(--faint)" }}>
-                  No anchors detected yet — keep writing, the engine finds them as
-                  you type.
-                </span>
-              )}
-              {events.map((ev, i) => {
-                const positive = ev.delta > 0;
-                const stroke = positive ? "var(--green)" : "var(--warm-strong)";
-                const bg = positive
-                  ? "rgba(22,163,74,0.10)"
-                  : "rgba(234,88,12,0.10)";
-                return (
-                  <span
-                    key={i}
-                    style={{
-                      marginRight: 8,
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 4,
-                    }}
-                  >
-                    <span
-                      style={{
-                        borderBottom: `2px solid ${stroke}`,
-                        color: "var(--ink)",
-                        padding: "0 3px 1px 3px",
-                        fontStyle: "normal",
-                        fontFamily: "var(--serif)",
-                      }}
-                    >
-                      {ev.text.replace(/[.?!,]+$/, "").slice(0, 40)}
-                      {ev.text.length > 40 ? "…" : ""}
-                    </span>
-                    <span
-                      className="mono tnum"
-                      style={{
-                        fontSize: 10,
-                        padding: "2px 6px",
-                        borderRadius: 10,
-                        background: bg,
-                        color: stroke,
-                        fontWeight: 600,
-                        fontStyle: "normal",
-                        letterSpacing: "-0.01em",
-                      }}
-                    >
-                      {positive ? "+" : ""}
-                      {ev.delta.toFixed(0)}
-                    </span>
-                  </span>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-        <div
-          style={{
-            padding: "14px 22px",
-            borderTop: "1px solid var(--line)",
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-          }}
-        >
-          <div
-            className="mono"
-            style={{
-              fontSize: 10.5,
-              color: "var(--faint)",
-              letterSpacing: "0.02em",
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 10,
-            }}
-          >
-            <span>
-              <span className="tnum">{text.length}</span> chars ·{" "}
-              <span className="tnum">{events.length}</span> events
-            </span>
-            {!readOnly && (
-              <span
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 4,
-                  padding: "2px 6px",
-                  background:
-                    source === "api" ? "var(--accent-soft)" : "var(--hover)",
-                  color:
-                    source === "api" ? "var(--accent-ink)" : "var(--muted)",
-                  borderRadius: 10,
-                  fontWeight: 600,
-                  letterSpacing: "0.02em",
-                }}
-              >
-                <span
-                  style={{
-                    width: 5,
-                    height: 5,
-                    borderRadius: "50%",
-                    background:
-                      source === "api"
-                        ? "var(--accent)"
-                        : source === "regex"
-                          ? "var(--warm)"
-                          : "var(--faint)",
-                  }}
-                />
-                source: {source}
-              </span>
-            )}
-          </div>
-          <div style={{ display: "flex", gap: 8 }}>
-            <button
-              onClick={onClose}
-              style={{
-                fontSize: 13,
-                padding: "8px 14px",
-                borderRadius: 7,
-                border: "1px solid var(--line-mid)",
-                color: "var(--muted)",
-              }}
-            >
-              {readOnly ? "Close" : "Cancel"}
-            </button>
-            {!readOnly && (
-              <button
-                onClick={onSave}
-                disabled={!text.trim()}
-                style={{
-                  fontSize: 13,
-                  padding: "8px 16px",
-                  borderRadius: 7,
-                  background: text.trim() ? "var(--ink)" : "var(--line-mid)",
-                  color: "var(--app-bg)",
-                  fontWeight: 500,
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 8,
-                  cursor: text.trim() ? "pointer" : "not-allowed",
-                  opacity: text.trim() ? 1 : 0.65,
-                }}
-              >
-                Log to thread
-                <span
-                  className="mono"
-                  style={{ fontSize: 11, opacity: 0.55, letterSpacing: "0.02em" }}
-                >
-                  ↵
-                </span>
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ═══════════════════════════════════════════════════════════════════════
-// Tweaks panel
-// ═══════════════════════════════════════════════════════════════════════
-
-interface TweaksPanelProps {
-  tweaks: Tweaks;
-  setTweak: <K extends keyof Tweaks>(k: K, v: Tweaks[K]) => void;
-}
-
-function TweaksPanel({ tweaks, setTweak }: TweaksPanelProps) {
-  const opts = <K extends keyof Tweaks>(key: K, choices: readonly Tweaks[K][]) => (
-    <div style={{ display: "flex", gap: 3, flexWrap: "wrap" }}>
-      {choices.map((c) => (
-        <button
-          key={String(c)}
-          onClick={() => setTweak(key, c)}
-          className="mono"
-          style={{
-            fontSize: 10,
-            padding: "4px 9px",
-            border: `1px solid ${tweaks[key] === c ? "var(--ink)" : "var(--line-mid)"}`,
-            background: tweaks[key] === c ? "var(--ink)" : "transparent",
-            color: tweaks[key] === c ? "var(--app-bg)" : "var(--muted)",
-            borderRadius: 5,
-            fontWeight: 500,
-            letterSpacing: "0.02em",
-            transition: "background 100ms ease, color 100ms ease",
-          }}
-        >
-          {String(c)}
-        </button>
-      ))}
-    </div>
-  );
-
-  const accentChoices: Accent[] = ["blue", "ember", "teal", "plum"];
-  const accentSwatches = (
-    <div style={{ display: "flex", gap: 6 }}>
-      {accentChoices.map((c) => {
-        const active = tweaks.accent === c;
-        return (
-          <button
-            key={c}
-            onClick={() => setTweak("accent", c)}
-            aria-label={`accent ${c}`}
-            style={{
-              width: 22,
-              height: 22,
-              borderRadius: "50%",
-              background: ACCENT_HEX[c],
-              border: `2px solid ${active ? "var(--ink)" : "transparent"}`,
-              boxShadow: active
-                ? "0 0 0 2px var(--panel), 0 0 0 3px rgba(20,22,26,0.25)"
-                : "inset 0 0 0 1px rgba(0,0,0,0.08)",
-              cursor: "pointer",
-              padding: 0,
-              transition: "transform 120ms ease",
-              transform: active ? "scale(1.05)" : "scale(1)",
-            }}
-          />
-        );
-      })}
-    </div>
-  );
-
-  return (
-    <div
-      style={{
-        position: "fixed",
-        bottom: 16,
-        right: 16,
-        width: 248,
-        zIndex: 60,
-        background: "var(--panel)",
-        border: "1px solid var(--line-mid)",
-        borderRadius: 8,
-        padding: "12px 14px 14px 14px",
-        boxShadow: "0 16px 32px -16px rgba(0,0,0,0.32)",
-      }}
-    >
-      <div
-        style={{
-          fontSize: 11,
-          fontWeight: 600,
-          marginBottom: 10,
-          letterSpacing: "0.06em",
-          textTransform: "uppercase",
-          color: "var(--muted)",
-        }}
-        className="mono"
-      >
-        Tweaks
-      </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        <TweakRow label="accent">{accentSwatches}</TweakRow>
-        <TweakRow label="theme">{opts("theme", ["light", "dark"] as const)}</TweakRow>
-        <TweakRow label="compare">{opts("compare", ["rhyme", "yesterday", "none"] as const)}</TweakRow>
-      </div>
-    </div>
-  );
-}
-
-function TweakRow({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        gap: 10,
-      }}
-    >
-      <div
-        className="mono"
-        style={{
-          fontSize: 9.5,
-          color: "var(--muted)",
-          textTransform: "uppercase",
-          letterSpacing: "0.08em",
-          fontWeight: 600,
-          minWidth: 50,
-        }}
-      >
-        {label}
-      </div>
-      {children}
     </div>
   );
 }
