@@ -86,9 +86,10 @@ export default function EnginePage() {
   }, [filterTag]);
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+    <div className="prudent-engine-page" style={{ display: "flex", flexDirection: "column", gap: 18 }}>
       {/* Status row */}
       <section
+        className="engine-status-grid"
         style={{
           display: "grid",
           gridTemplateColumns: "repeat(4, 1fr)",
@@ -165,7 +166,8 @@ export default function EnginePage() {
             </button>
           ))}
         </div>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+        <div className="engine-lexicon-wrap" style={{ overflowX: "auto" }}>
+        <table className="engine-lexicon-table" style={{ width: "100%", minWidth: 540, borderCollapse: "collapse", fontSize: 12 }}>
           <thead>
             <tr style={{ fontSize: 10, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
               <th style={{ textAlign: "left", padding: "6px 10px", fontWeight: 600 }}>Match pattern</th>
@@ -244,10 +246,12 @@ export default function EnginePage() {
             ))}
           </tbody>
         </table>
+        </div>
       </section>
 
       {/* Playground */}
       <section
+        className="engine-playground"
         style={{
           background: "var(--panel)",
           border: "1px solid var(--line)",
@@ -425,7 +429,7 @@ export default function EnginePage() {
             {log.map((l) => (
               <div
                 key={l.id}
-                className="mono"
+                className="mono engine-log-row"
                 style={{
                   display: "grid",
                   gridTemplateColumns: "110px 60px 1fr 50px",
@@ -451,6 +455,45 @@ export default function EnginePage() {
           </div>
         </section>
       )}
+
+      {/*
+        Scoped responsive + dark-mode rules for /engine.
+        - 1100px: 4-card status grid becomes 2x2 (each StatusCard needs
+          ≈220px of comfortable width for the 26px headline number).
+        - 900px: Playground text/preview columns stack vertically.
+        - 720px: status grid single column.
+        - Dark mode: the "API status" card uses --warm-strong which stays
+          readable, but the lexicon certainty bar's --accent on --hover can
+          get muddy — bump its contrast slightly.
+      */}
+      <style>{`
+        @media (max-width: 1100px) {
+          .prudent-engine-page .engine-status-grid {
+            grid-template-columns: repeat(2, 1fr) !important;
+          }
+        }
+        @media (max-width: 900px) {
+          .prudent-engine-page .engine-playground {
+            grid-template-columns: 1fr !important;
+          }
+        }
+        @media (max-width: 720px) {
+          .prudent-engine-page .engine-status-grid {
+            grid-template-columns: 1fr !important;
+          }
+          .prudent-engine-page .engine-log-row {
+            grid-template-columns: 80px 50px 1fr 40px !important;
+            gap: 6px !important;
+          }
+        }
+        /* Dark-mode: soft hover background on the <pre> API snippet can
+           disappear into the panel; bump its background to explicit --hover
+           which becomes a slightly brighter grey in dark. */
+        .prudent-root.prudent-dark .prudent-engine-page pre {
+          background: var(--hover);
+          border: 1px solid var(--line);
+        }
+      `}</style>
     </div>
   );
 }
