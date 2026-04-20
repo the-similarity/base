@@ -409,7 +409,11 @@ export default function Dashboard() {
               </div>
 
               <div className="prudent-grid-mid">
-                <RhymeHeatmap history={history} rhymeStart={rhyme?.startIdx} />
+                <RhymeHeatmap
+                  history={history}
+                  rhymeStart={rhyme?.startIdx}
+                  rhymeScore={rhyme?.score ?? null}
+                />
                 <TagDonut events={events} />
               </div>
 
@@ -2238,9 +2242,13 @@ function formatHour(minutes: number, full = false): string {
 function RhymeHeatmap({
   history,
   rhymeStart,
+  rhymeScore,
 }: {
   history: HistoryDay[];
   rhymeStart: number | undefined;
+  // `rhymeScore` is the signed score returned by `findRhyme` — it equals
+  // `-RMSE(today, windowAvg)`. A `null` value means no rhyme was found.
+  rhymeScore: number | null;
 }) {
   const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
   const week = history.slice(-7);
@@ -2466,20 +2474,14 @@ function RhymeHeatmap({
             This week rhymes with day −{history[rhymeStart].day} → −
             {history[rhymeStart + 6]?.day}.
           </span>
+          {/* RMSE derived directly from `findRhyme`'s score (score = -RMSE),
+              replacing the previous hardcoded "RMSE 0.41 · cosine 0.88". We
+              drop the cosine value because it isn't actually computed by the
+              engine — reporting it was a fabrication. */}
           <span style={{ color: "var(--muted)", fontWeight: 500 }} className="tnum">
-            RMSE 0.41 · cosine 0.88
+            RMSE {rhymeScore !== null ? (-rhymeScore).toFixed(2) : "—"}
           </span>
           <span style={{ flex: 1 }} />
-          <button
-            style={{
-              fontSize: 11,
-              fontWeight: 600,
-              color: "var(--warm-strong)",
-              letterSpacing: "0.01em",
-            }}
-          >
-            Explore →
-          </button>
         </div>
       )}
     </section>
