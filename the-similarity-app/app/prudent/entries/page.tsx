@@ -662,7 +662,7 @@ function EmptyAll({
         No entries yet.
       </p>
       <p style={{ fontSize: 13, color: "var(--muted)" }}>
-        Once you log something, it'll be manageable here.
+        Once you log something, it&apos;ll be manageable here.
       </p>
       <div style={{ display: "flex", gap: 10, marginTop: 8, flexWrap: "wrap", justifyContent: "center" }}>
         <button
