@@ -2992,6 +2992,12 @@ function ComposerModal({
     // keys scrolling, etc.).
     if (!readOnly) ref.current?.focus();
   }, [readOnly]);
+  // Live composer header timestamp. We capture `now` once per mount so the
+  // string is stable inside the modal session — users don't want their title
+  // bar ticking forward while they type. The previous value hardcoded
+  // "Wed · Apr 17 · 7:04 am" which never updated.
+  const now = useMemo(() => new Date(), []);
+  const composerStamp = `${fmtLongDate(now)} · ${fmtClockTime(now)} · parsing live`;
   return (
     <div
       style={{
@@ -3035,7 +3041,7 @@ function ComposerModal({
             <div style={{ fontSize: 11, color: "var(--muted)" }}>
               {readOnly
                 ? readOnlyLabel ?? "archived entry · read only"
-                : "Wed · Apr 17 · 7:04 am → now · parsing live"}
+                : composerStamp}
             </div>
           </div>
           <button
