@@ -370,6 +370,7 @@ export default function Dashboard() {
           setNav={setNav}
           onCompose={openNewComposer}
           onExport={onExport}
+          entriesCount={entries.length}
         />
         <main
           // 24px horizontal padding matches the reference grid. We use an
@@ -631,16 +632,35 @@ interface SidebarProps {
   setNav: (id: string) => void;
   onCompose: () => void;
   onExport: () => void;
+  // `entriesCount` is the number of entries persisted in storage. It powers
+  // the Entries hint on the right side of the row — when the user has not
+  // logged anything yet (count=0) the hint is omitted so the empty label
+  // reads as "Entries" rather than "Entries · 0".
+  entriesCount: number;
 }
 
-function Sidebar({ nav, setNav, onCompose, onExport }: SidebarProps) {
-  const items = [
-    { id: "today", label: "Today", hint: "Apr 17" },
+function Sidebar({ nav, setNav, onCompose, onExport, entriesCount }: SidebarProps) {
+  // Today hint — short month+day (e.g. "Apr 19") derived from `new Date()`.
+  // This replaces the hardcoded "Apr 17" so the sidebar never drifts out of
+  // sync with the wall clock.
+  const todayHint = fmtShortDate(new Date());
+  const items: { id: string; label: string; hint?: string }[] = [
+    { id: "today", label: "Today", hint: todayHint },
     { id: "thread", label: "Thread", hint: "30d" },
-    { id: "rhymes", label: "Rhymes", hint: "12", fresh: true },
+    // The Rhymes "12 · New" hint was not driven by real data — it claimed
+    // a fresh-rhyme count that no code path ever computed. Dropped here
+    // until we have a real signal to surface.
+    { id: "rhymes", label: "Rhymes" },
     { id: "tags", label: "Tags" },
     { id: "patterns", label: "Patterns" },
-    { id: "entries", label: "Entries", hint: "142" },
+    // Entries hint shows the real journal size. Empty journals render no
+    // hint at all so a fresh install does not confuse the investor with a
+    // "0" chip they can't click.
+    {
+      id: "entries",
+      label: "Entries",
+      hint: entriesCount > 0 ? String(entriesCount) : undefined,
+    },
   ];
   const Ext: { id: string; label: string; action: "nav" | "export" }[] = [
     { id: "engine", label: "Engine logs", action: "nav" },
@@ -775,21 +795,7 @@ function Sidebar({ nav, setNav, onCompose, onExport }: SidebarProps) {
               <NavGlyph id={it.id} active={nav === it.id} />
               {it.label}
             </span>
-            {it.fresh ? (
-              <span
-                style={{
-                  fontSize: 9,
-                  background: "var(--warm)",
-                  color: "#fff",
-                  padding: "2px 7px",
-                  borderRadius: 10,
-                  fontWeight: 600,
-                  letterSpacing: "0.02em",
-                }}
-              >
-                New
-              </span>
-            ) : it.hint ? (
+            {it.hint ? (
               <span className="mono" style={{ fontSize: 10, color: "var(--faint)" }}>
                 {it.hint}
               </span>
