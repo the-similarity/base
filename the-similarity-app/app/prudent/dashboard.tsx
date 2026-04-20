@@ -693,43 +693,6 @@ function Sidebar({ nav, setNav, onCompose, onExport }: SidebarProps) {
         </div>
       </div>
       <div style={{ width: 280, padding: "16px 14px", display: "flex", flexDirection: "column" }}>
-        {/* 3-way segmented tab control (live / book / person). Modeled on the
-            reference screenshot: pill track with one active icon. */}
-        <div
-          style={{
-            display: "flex",
-            background: "var(--hover)",
-            borderRadius: 8,
-            padding: 3,
-            marginBottom: 16,
-          }}
-        >
-          {[
-            { id: "live", icon: "live" },
-            { id: "book", icon: "book" },
-            { id: "person", icon: "person" },
-          ].map((t, i) => (
-            <button
-              key={t.id}
-              style={{
-                flex: 1,
-                padding: "7px 0",
-                borderRadius: 6,
-                background: i === 0 ? "var(--panel)" : "transparent",
-                color: i === 0 ? "var(--ink)" : "var(--muted)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                boxShadow: i === 0 ? "0 1px 2px rgba(20,22,26,0.08)" : "none",
-                transition: "background 120ms ease",
-              }}
-              aria-label={t.id}
-            >
-              <SegIcon id={t.icon} />
-            </button>
-          ))}
-        </div>
-
         <button
           onClick={onCompose}
           style={{
@@ -952,31 +915,6 @@ function NavLink({ label, hint, fresh }: { label: string; hint?: string; fresh?:
       ) : null}
     </button>
   );
-}
-
-// Segmented tab icons (live / book / person).
-function SegIcon({ id }: { id: string }) {
-  const common = { width: 14, height: 14, fill: "none", stroke: "currentColor", strokeWidth: 1.4 };
-  const g: Record<string, React.ReactElement> = {
-    live: (
-      <svg {...common} viewBox="0 0 16 16">
-        <circle cx="8" cy="8" r="1.5" fill="currentColor" stroke="none" />
-        <path d="M4.5 11.5a5 5 0 010-7M11.5 11.5a5 5 0 000-7" />
-      </svg>
-    ),
-    book: (
-      <svg {...common} viewBox="0 0 16 16">
-        <path d="M3 3h4a2 2 0 012 2v8a2 2 0 00-2-2H3zM13 3H9a2 2 0 00-2 2v8a2 2 0 012-2h4z" />
-      </svg>
-    ),
-    person: (
-      <svg {...common} viewBox="0 0 16 16">
-        <circle cx="8" cy="5.5" r="2.2" />
-        <path d="M3 13c.5-2.5 2.4-4 5-4s4.5 1.5 5 4" />
-      </svg>
-    ),
-  };
-  return g[id] ?? g.live;
 }
 
 function NavGlyph({ id, active }: { id: string; active?: boolean }) {
