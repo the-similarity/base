@@ -1231,8 +1231,20 @@ def trigger_world_run(
             detail=f"scenario_id not found: {body.scenario_id}",
         )
 
-    # PLACEHOLDER: return a stub response indicating the endpoint is
-    # not yet wired to the headless runner.
+    # TODO(platform): Wire to headless runner execution. Requirements:
+    #   1. Resolve scenario JSON from registry or filesystem
+    #      (see scenarios/small_village.json for schema).
+    #   2. Shell out: ``node src/sim/headless/runner.js --scenario <path>
+    #      --seed <seed> --steps <steps> --register`` (the --register flag
+    #      auto-posts telemetry to the platform API).
+    #   3. Alternatively, call the runner in-process via subprocess and
+    #      parse the JSONL telemetry output, then register via the worlds
+    #      adapter (the_similarity/platform/adapters/worlds.py when it exists).
+    #   4. Return the run_id from the registered run.
+    #   Blocked on: the worlds adapter not yet existing as a Python module;
+    #   the JS runner's --register flag posts directly to the platform API,
+    #   so the simplest path is subprocess + wait + query registry for the
+    #   new run_id.
     return WorldRunResponse(
         run_id=None,
         status="placeholder",
