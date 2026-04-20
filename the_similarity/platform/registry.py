@@ -345,6 +345,39 @@ _SELECT_DATASETS_SQL = (
     "n_rows, n_columns, checksum, metadata_json FROM datasets ORDER BY name ASC;"
 )
 
+# Single-row lookups by primary key for artifacts, scenarios, and datasets.
+# These are used by the HTTP API's GET-by-id endpoints and the
+# duplicate-guard checks on POST (the API uses creation semantics, not
+# the registry's upsert semantics, so it pre-flights with a get).
+_SELECT_ARTIFACT_BY_PK_SQL = (
+    "SELECT run_id, name, path, content_type, size_bytes, checksum, created_at "
+    "FROM artifacts WHERE run_id = ? AND name = ?;"
+)
+
+_SELECT_SCENARIO_BY_ID_SQL = (
+    "SELECT scenario_id, name, version, engine, params_json, metadata_json "
+    "FROM scenarios WHERE scenario_id = ?;"
+)
+
+_SELECT_DATASET_BY_ID_SQL = (
+    "SELECT dataset_id, name, version, source, schema_uri, "
+    "n_rows, n_columns, checksum, metadata_json FROM datasets WHERE dataset_id = ?;"
+)
+
+# Paginated list queries — the base _SELECT_*_SQL queries above order by
+# name ASC without pagination; these add LIMIT/OFFSET support for the
+# HTTP API where callers need bounded result sets.
+_SELECT_SCENARIOS_PAGINATED_SQL = (
+    "SELECT scenario_id, name, version, engine, params_json, metadata_json "
+    "FROM scenarios ORDER BY name ASC LIMIT ? OFFSET ?;"
+)
+
+_SELECT_DATASETS_PAGINATED_SQL = (
+    "SELECT dataset_id, name, version, source, schema_uri, "
+    "n_rows, n_columns, checksum, metadata_json "
+    "FROM datasets ORDER BY name ASC LIMIT ? OFFSET ?;"
+)
+
 
 # ---------------------------------------------------------------------------
 # Deterministic run_id helper
@@ -667,6 +700,19 @@ class RunRegistry:
         cursor = self._conn.execute(_SELECT_ARTIFACTS_BY_RUN_SQL, (run_id,))
         return [self._row_to_artifact_record(row) for row in cursor.fetchall()]
 
+    def get_artifact(self, run_id: str, name: str) -> Optional[ArtifactRecord]:
+        """Return a single artifact by ``(run_id, name)`` composite PK, or ``None``.
+
+        Used by the HTTP API to serve ``GET /runs/{run_id}/artifacts/{name}``
+        and to guard against duplicates on ``POST`` (the API uses creation
+        semantics — distinct from the registry's upsert).
+        """
+        cursor = self._conn.execute(_SELECT_ARTIFACT_BY_PK_SQL, (run_id, name))
+        row = cursor.fetchone()
+        if row is None:
+            return None
+        return self._row_to_artifact_record(row)
+
     # ======================================================================
     # Scorecards
     # ======================================================================
@@ -721,10 +767,37 @@ class RunRegistry:
             )
         return spec.scenario_id
 
-    def list_scenarios(self) -> List[ScenarioSpec]:
-        """Return all registered scenarios ordered by name ASC."""
-        cursor = self._conn.execute(_SELECT_SCENARIOS_SQL)
+    def list_scenarios(
+        self,
+        limit: Optional[int] = None,
+        offset: int = 0,
+    ) -> List[ScenarioSpec]:
+        """Return registered scenarios ordered by name ASC.
+
+        When ``limit`` is ``None`` (the default), returns all rows — this
+        preserves backward compatibility with callers that relied on the
+        previous signature. When ``limit`` is set, pagination via
+        ``LIMIT``/``OFFSET`` is applied at the SQL layer.
+        """
+        if limit is None:
+            cursor = self._conn.execute(_SELECT_SCENARIOS_SQL)
+        else:
+            cursor = self._conn.execute(
+                _SELECT_SCENARIOS_PAGINATED_SQL, (limit, offset)
+            )
         return [self._row_to_scenario_spec(row) for row in cursor.fetchall()]
+
+    def get_scenario(self, scenario_id: str) -> Optional[ScenarioSpec]:
+        """Return the :class:`ScenarioSpec` for ``scenario_id`` or ``None``.
+
+        Used by the HTTP API to serve ``GET /scenarios/{scenario_id}`` and
+        to check scenario existence before operating on child runs.
+        """
+        cursor = self._conn.execute(_SELECT_SCENARIO_BY_ID_SQL, (scenario_id,))
+        row = cursor.fetchone()
+        if row is None:
+            return None
+        return self._row_to_scenario_spec(row)
 
     # ======================================================================
     # Datasets
@@ -749,8 +822,38 @@ class RunRegistry:
             )
         return spec.dataset_id
 
-    def list_datasets(self) -> List[DatasetSpec]:
-        """Return all registered datasets ordered by name ASC."""
+    def list_datasets(
+        self,
+        limit: Optional[int] = None,
+        offset: int = 0,
+    ) -> List[DatasetSpec]:
+        """Return registered datasets ordered by name ASC.
+
+        When ``limit`` is ``None`` (the default), returns all rows — this
+        preserves backward compatibility with callers that relied on the
+        previous signature. When ``limit`` is set, pagination via
+        ``LIMIT``/``OFFSET`` is applied at the SQL layer.
+        """
+        if limit is None:
+            cursor = self._conn.execute(_SELECT_DATASETS_SQL)
+        else:
+            cursor = self._conn.execute(
+                _SELECT_DATASETS_PAGINATED_SQL, (limit, offset)
+            )
+        return [self._row_to_dataset_spec(row) for row in cursor.fetchall()]
+
+    def get_dataset(self, dataset_id: str) -> Optional[DatasetSpec]:
+        """Return the :class:`DatasetSpec` for ``dataset_id`` or ``None``.
+
+        Used by the HTTP API to serve ``GET /datasets/{dataset_id}`` and
+        to guard against duplicates on ``POST`` (the API uses creation
+        semantics — distinct from the registry's upsert).
+        """
+        cursor = self._conn.execute(_SELECT_DATASET_BY_ID_SQL, (dataset_id,))
+        row = cursor.fetchone()
+        if row is None:
+            return None
+        return self._row_to_dataset_spec(row)
         cursor = self._conn.execute(_SELECT_DATASETS_SQL)
         return [self._row_to_dataset_spec(row) for row in cursor.fetchall()]
 
