@@ -26,7 +26,7 @@ export default function ThreadPage() {
   if (entries.length === 0) return <EmptyState onCompose={openComposer} />;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+    <div className="prudent-thread-page" style={{ display: "flex", flexDirection: "column", gap: 18 }}>
       <SummaryStrip stats={stats} />
       {byMonth.map(([label, group]) => (
         <div key={label} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -40,6 +40,56 @@ export default function ThreadPage() {
           ))}
         </div>
       ))}
+
+      {/*
+        Scoped responsive + dark-mode rules.
+        - 1100px: summary strip drops the 200px sparkline column so the four
+          stats stay readable (sparkline wraps beneath as full-width).
+        - 900px: 4-col strip becomes 2x2.
+        - 820px: entry cards drop the fixed sparkline column and let the
+          narrative span full width; timestamp collapses to a single line.
+        - Dark mode: increase card hover shadow opacity since the default
+          20/22/26 ink tone is invisible against a #0E0F11 canvas.
+      */}
+      <style>{`
+        @media (max-width: 1100px) {
+          .prudent-thread-page .summary-strip {
+            grid-template-columns: repeat(4, 1fr) !important;
+          }
+          .prudent-thread-page .summary-strip .summary-spark {
+            grid-column: 1 / -1;
+            width: 100% !important;
+          }
+          .prudent-thread-page .summary-strip .summary-spark svg {
+            width: 100%;
+          }
+        }
+        @media (max-width: 900px) {
+          .prudent-thread-page .summary-strip {
+            grid-template-columns: repeat(2, 1fr) !important;
+            gap: 18px !important;
+          }
+        }
+        @media (max-width: 820px) {
+          .prudent-thread-page .entry-card {
+            grid-template-columns: 1fr !important;
+            gap: 10px !important;
+          }
+          .prudent-thread-page .entry-card .entry-spark {
+            width: 100% !important;
+          }
+          .prudent-thread-page .entry-card .entry-spark svg {
+            width: 100%;
+          }
+        }
+        /* Dark-mode: default hover shadow uses near-black ink tint that
+           disappears on a dark canvas; strengthen via a class hook that
+           EntryCard reads below in its onMouseEnter handler. */
+        .prudent-root.prudent-dark .prudent-thread-page .entry-card:hover {
+          border-color: var(--line-mid) !important;
+          box-shadow: 0 4px 16px -6px rgba(0,0,0,0.45) !important;
+        }
+      `}</style>
     </div>
   );
 }
@@ -104,6 +154,7 @@ function dayKey(d: Date): string {
 function SummaryStrip({ stats }: { stats: Stats }) {
   return (
     <section
+      className="summary-strip"
       style={{
         background: "var(--panel)",
         border: "1px solid var(--line)",
@@ -119,7 +170,7 @@ function SummaryStrip({ stats }: { stats: Stats }) {
       <Stat label="Streak" value={stats.streak} unit="days" />
       <Stat label="Avg valence" value={stats.avgAll} unit="/100" />
       <Stat label="Range" value={`${stats.low}–${stats.high}`} unit="span" />
-      <div style={{ width: 200, height: 52 }}>
+      <div className="summary-spark" style={{ width: 200, height: 52 }}>
         <MiniSparkline values={stats.last30} />
       </div>
     </section>
@@ -191,6 +242,7 @@ function EntryCard({ entry, onClick }: { entry: StoredEntry; onClick: () => void
   return (
     <button
       onClick={onClick}
+      className="entry-card"
       style={{
         background: "var(--panel)",
         border: "1px solid var(--line)",
@@ -205,6 +257,8 @@ function EntryCard({ entry, onClick }: { entry: StoredEntry; onClick: () => void
         transition: "box-shadow 120ms ease, border-color 120ms ease",
       }}
       onMouseEnter={(e) => {
+        // Hover shadow ink tint — invisible on dark bg, so dark-mode CSS
+        // override in the page-level <style> block above lifts it.
         e.currentTarget.style.boxShadow = "0 4px 16px -8px rgba(20,22,26,0.12)";
         e.currentTarget.style.borderColor = "var(--line-mid)";
       }}
@@ -273,7 +327,7 @@ function EntryCard({ entry, onClick }: { entry: StoredEntry; onClick: () => void
       </div>
 
       {/* Right: sparkline */}
-      <div style={{ width: 160, height: 54 }}>
+      <div className="entry-spark" style={{ width: 160, height: 54 }}>
         <Sparkline series={entry.series} />
       </div>
     </button>
