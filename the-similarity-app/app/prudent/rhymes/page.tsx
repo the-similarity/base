@@ -29,10 +29,11 @@ export default function RhymesPage() {
   const top = pairs[0];
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+    <div className="prudent-rhymes-page" style={{ display: "flex", flexDirection: "column", gap: 18 }}>
       {/* Hero */}
       {top && (
         <section
+          className="rhymes-hero"
           style={{
             background: "var(--panel)",
             border: "1px solid var(--line)",
@@ -55,7 +56,7 @@ export default function RhymesPage() {
           <div className="mono" style={{ fontSize: 12, color: "var(--muted)", marginTop: 6 }}>
             RMSE {(-top.score).toFixed(2)} · {Math.round(100 * (1 - -top.score / 1.6))}% shape match
           </div>
-          <div style={{ marginTop: 20, display: "flex", gap: 20, alignItems: "center" }}>
+          <div className="rhymes-hero-chart" style={{ marginTop: 20, display: "flex", gap: 20, alignItems: "center" }}>
             <OverlaySparklines
               a={sliceShape(history, top.a, 7)}
               b={sliceShape(history, top.b, 7)}
@@ -101,12 +102,53 @@ export default function RhymesPage() {
         <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 14 }}>
           Archetypes detected across {history.length} days
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
+        <div className="rhymes-archetypes-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
           {archetypes.map((a) => (
             <ArchetypeCard key={a.name} arch={a} />
           ))}
         </div>
       </section>
+
+      {/*
+        Scoped responsive + dark-mode rules for /rhymes.
+        - 900px: rhyme pair cards collapse 3-col (A | center | B) into a
+          single column (A / center / B stacked); archetype grid drops to
+          2 columns so each card keeps room for its mini-chart.
+        - 600px: archetype grid single column, mini-sparkline shrinks.
+        - Dark mode: the rhyme pair-card background uses var(--app-bg) which
+          is nearly identical to --panel in dark — lift its background to
+          var(--hover) for visible separation from the containing panel.
+      */}
+      <style>{`
+        @media (max-width: 900px) {
+          .prudent-rhymes-page .rhyme-pair-card {
+            grid-template-columns: 1fr !important;
+            text-align: left !important;
+          }
+          .prudent-rhymes-page .rhyme-pair-center {
+            flex-direction: row !important;
+            justify-content: space-between;
+            width: 100%;
+          }
+          .prudent-rhymes-page .rhymes-archetypes-grid {
+            grid-template-columns: repeat(2, 1fr) !important;
+          }
+        }
+        @media (max-width: 600px) {
+          .prudent-rhymes-page .rhymes-archetypes-grid {
+            grid-template-columns: 1fr !important;
+          }
+        }
+        /* Dark mode: outer panel (var(--panel)=#17191C) and inner card
+           (var(--app-bg)=#0E0F11) differ by only ~6 lightness points —
+           almost invisible. Use --hover which sits at #1D2024 for a clearer
+           nested card feel. Applies to both pair-cards and archetype-cards. */
+        .prudent-root.prudent-dark .prudent-rhymes-page .rhyme-pair-card,
+        .prudent-root.prudent-dark .prudent-rhymes-page .archetype-card {
+          background: var(--hover) !important;
+          border-color: var(--line-mid) !important;
+        }
+      `}</style>
     </div>
   );
 }
@@ -186,6 +228,7 @@ function RhymePairCard({ pair, history }: { pair: RhymePair; history: HistoryDay
 
   return (
     <div
+      className="rhyme-pair-card"
       style={{
         display: "grid",
         gridTemplateColumns: "1fr 100px 1fr",
@@ -199,6 +242,7 @@ function RhymePairCard({ pair, history }: { pair: RhymePair; history: HistoryDay
     >
       <PairSide week={A} color="var(--accent)" />
       <div
+        className="rhyme-pair-center"
         style={{
           display: "flex",
           flexDirection: "column",
@@ -307,7 +351,17 @@ function OverlaySparklines({
     return d;
   };
   return (
-    <svg width={width} height={height} style={{ display: "block" }}>
+    // Use viewBox so CSS width rules can scale the rendered size down
+    // without distorting the drawn paths. max-width: 100% in parent lets
+    // narrow viewports shrink it; the explicit width/height attributes are
+    // retained so large viewports use the exact design size.
+    <svg
+      width={width}
+      height={height}
+      viewBox={`0 0 ${width} ${height}`}
+      preserveAspectRatio="xMidYMid meet"
+      style={{ display: "block", maxWidth: "100%", height: "auto" }}
+    >
       <line
         x1={pad}
         x2={width - pad}
@@ -424,6 +478,7 @@ function ArchetypeCard({ arch }: { arch: Archetype }) {
   }
   return (
     <div
+      className="archetype-card"
       style={{
         background: "var(--app-bg)",
         border: "1px solid var(--line)",
