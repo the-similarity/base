@@ -122,6 +122,29 @@ export default function FinanceRunsPage() {
           metrics, scorecards, and trust decisions.
         </p>
 
+        {/* Navigation to reviews */}
+        <div style={{ marginBottom: 24 }}>
+          <Link
+            href="/finance/reviews"
+            style={{
+              fontFamily: "var(--font-mono)",
+              fontSize: 11,
+              fontWeight: 600,
+              letterSpacing: "0.06em",
+              textTransform: "uppercase",
+              padding: "6px 16px",
+              border: "1px solid var(--rule-strong)",
+              borderRadius: "var(--radius-sm, 2px)",
+              background: "var(--bg-inset)",
+              color: "var(--ink-2)",
+              textDecoration: "none",
+              display: "inline-block",
+            }}
+          >
+            View All Reviews
+          </Link>
+        </div>
+
         {/* Compare action */}
         {compareUrl && (
           <div style={{ marginBottom: 24 }}>
