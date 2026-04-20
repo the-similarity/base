@@ -621,9 +621,11 @@ function Sidebar({ nav, setNav, onCompose, onExport }: SidebarProps) {
         borderRight: "1px solid var(--line)",
       }}
     >
-      {/* Icon rail — intentionally very dark (#1F2328) so the secondary nav
-          reads as an airy white column next to it. The active glyph gets a
-          filled square background in accent blue to match the reference. */}
+      {/* Icon rail — dark column hosting the brand mark, a help glyph, and
+          the user avatar. The 7 category glyphs from the reference screenshot
+          were dead controls with no handlers (pure cargo-cult) and have been
+          removed; only presence elements that represent real affordances
+          (brand, help, avatar) remain. */}
       <div
         style={{
           width: 56,
@@ -653,32 +655,6 @@ function Sidebar({ nav, setNav, onCompose, onExport }: SidebarProps) {
         >
           {"//"}
         </div>
-        {[
-          { id: "home", active: false },
-          { id: "pulse", active: false },
-          { id: "thread", active: true },
-          { id: "tags", active: false },
-          { id: "grid", active: false },
-          { id: "people", active: false },
-          { id: "library", active: false },
-        ].map((g) => (
-          <button
-            key={g.id}
-            style={{
-              width: 32,
-              height: 32,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              color: g.active ? "#fff" : "var(--rail-ink)",
-              background: g.active ? "var(--accent)" : "transparent",
-              borderRadius: 6,
-              transition: "background 120ms ease",
-            }}
-          >
-            <RailGlyph id={g.id} />
-          </button>
-        ))}
         <div style={{ flex: 1 }} />
         <button
           style={{
@@ -976,58 +952,6 @@ function NavLink({ label, hint, fresh }: { label: string; hint?: string; fresh?:
       ) : null}
     </button>
   );
-}
-
-// Thin stroked glyphs for the outer rail. Kept visually simple so they read
-// as a single monochrome family against the dark rail.
-function RailGlyph({ id }: { id: string }) {
-  const common = { width: 16, height: 16, fill: "none", stroke: "currentColor", strokeWidth: 1.4 };
-  const glyphs: Record<string, React.ReactElement> = {
-    home: (
-      <svg {...common} viewBox="0 0 16 16">
-        <path d="M2.5 7.5L8 3l5.5 4.5V13H2.5z" />
-        <path d="M6.5 13V9h3v4" />
-      </svg>
-    ),
-    pulse: (
-      <svg {...common} viewBox="0 0 16 16">
-        <path d="M2 8h3l1.5-3 2 6 1.5-3H14" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-    ),
-    thread: (
-      <svg {...common} viewBox="0 0 16 16">
-        <path d="M3 3h10v4H3zM3 9h10v4H3z" />
-        <path d="M5 5h1M5 11h1" />
-      </svg>
-    ),
-    tags: (
-      <svg {...common} viewBox="0 0 16 16">
-        <path d="M3 3h5l5 5-5 5-5-5V3z" />
-        <circle cx="5.5" cy="5.5" r="0.8" fill="currentColor" />
-      </svg>
-    ),
-    grid: (
-      <svg {...common} viewBox="0 0 16 16">
-        <rect x="2.5" y="2.5" width="4.5" height="4.5" />
-        <rect x="9" y="2.5" width="4.5" height="4.5" />
-        <rect x="2.5" y="9" width="4.5" height="4.5" />
-        <rect x="9" y="9" width="4.5" height="4.5" />
-      </svg>
-    ),
-    people: (
-      <svg {...common} viewBox="0 0 16 16">
-        <circle cx="6" cy="6" r="2.2" />
-        <path d="M2.5 13c.5-2 1.8-3 3.5-3s3 1 3.5 3" />
-        <circle cx="11.5" cy="5.5" r="1.8" />
-      </svg>
-    ),
-    library: (
-      <svg {...common} viewBox="0 0 16 16">
-        <path d="M3 3v10M6 3v10M9 3v10M12 3v10" />
-      </svg>
-    ),
-  };
-  return glyphs[id] ?? glyphs.grid;
 }
 
 // Segmented tab icons (live / book / person).
