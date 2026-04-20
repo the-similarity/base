@@ -18,6 +18,53 @@ import Link from "next/link";
 import { fetchRuns, type Run } from "../../lib/platform-api";
 
 // ---------------------------------------------------------------------------
+// Navigation tabs — shared visual between list and dashboard pages.
+// ---------------------------------------------------------------------------
+
+/** Tab bar linking between /finance (runs list) and /finance/dashboard. */
+function FinanceTabs({ active }: { active: "runs" | "dashboard" }) {
+  const tabs = [
+    { key: "runs" as const, label: "Runs", href: "/finance" },
+    { key: "dashboard" as const, label: "Dashboard", href: "/finance/dashboard" },
+  ];
+  return (
+    <div
+      style={{
+        display: "flex",
+        gap: "var(--s-1)",
+        marginBottom: "var(--s-7)",
+        borderBottom: "1px solid var(--rule)",
+      }}
+    >
+      {tabs.map((tab) => (
+        <Link
+          key={tab.key}
+          href={tab.href}
+          style={{
+            fontFamily: "var(--sans)",
+            fontSize: 12,
+            fontWeight: 600,
+            letterSpacing: "0.04em",
+            textTransform: "uppercase",
+            textDecoration: "none",
+            padding: "var(--s-3) var(--s-5)",
+            borderBottom:
+              active === tab.key
+                ? "2px solid var(--ink)"
+                : "2px solid transparent",
+            color: active === tab.key ? "var(--ink)" : "var(--ink-3)",
+            transition: "color 0.15s, border-color 0.15s",
+            marginBottom: -1,
+          }}
+        >
+          {tab.label}
+        </Link>
+      ))}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
@@ -121,6 +168,32 @@ export default function FinanceRunsPage() {
           Backtest runs from the finance adapter. Click a row to inspect
           metrics, scorecards, and trust decisions.
         </p>
+
+        {/* Tabs — navigate between Runs list and Dashboard */}
+        <FinanceTabs active="runs" />
+
+        {/* Navigation to reviews */}
+        <div style={{ marginBottom: 24 }}>
+          <Link
+            href="/finance/reviews"
+            style={{
+              fontFamily: "var(--font-mono)",
+              fontSize: 11,
+              fontWeight: 600,
+              letterSpacing: "0.06em",
+              textTransform: "uppercase",
+              padding: "6px 16px",
+              border: "1px solid var(--rule-strong)",
+              borderRadius: "var(--radius-sm, 2px)",
+              background: "var(--bg-inset)",
+              color: "var(--ink-2)",
+              textDecoration: "none",
+              display: "inline-block",
+            }}
+          >
+            View All Reviews
+          </Link>
+        </div>
 
         {/* Compare action */}
         {compareUrl && (

@@ -483,6 +483,48 @@ def test_register_artifact_round_trip(db_path: Path) -> None:
     assert rows[0].to_dict() == artifact.to_dict()
 
 
+def test_get_artifact_by_name(db_path: Path) -> None:
+    """get_artifact returns a single artifact by (run_id, name)."""
+    record = _make_run_record()
+    a1 = ArtifactRecord(
+        run_id=record.run_id,
+        name="telemetry",
+        path="run.jsonl",
+        content_type="application/x-ndjson",
+        size_bytes=2048,
+        checksum="blake2b:deadbeef",
+        created_at="2026-04-15T20:01:00Z",
+    )
+    a2 = ArtifactRecord(
+        run_id=record.run_id,
+        name="scorecard",
+        path="scorecard.json",
+        content_type="application/json",
+        created_at="2026-04-15T20:02:00Z",
+    )
+    with RunRegistry(db_path) as registry:
+        registry.register_run(record)
+        registry.register_artifact(a1)
+        registry.register_artifact(a2)
+
+        # Fetch by exact name.
+        fetched = registry.get_artifact(record.run_id, "telemetry")
+        assert fetched is not None
+        assert fetched.name == "telemetry"
+        assert fetched.path == "run.jsonl"
+
+        # Fetch second artifact.
+        fetched2 = registry.get_artifact(record.run_id, "scorecard")
+        assert fetched2 is not None
+        assert fetched2.name == "scorecard"
+
+        # Non-existent name returns None.
+        assert registry.get_artifact(record.run_id, "no-such") is None
+
+        # Non-existent run_id returns None.
+        assert registry.get_artifact("no-such-run", "telemetry") is None
+
+
 def test_register_artifact_upsert_same_name(db_path: Path) -> None:
     """Same (run_id, name) updates in place — no duplicate rows."""
     record = _make_run_record()
@@ -570,6 +612,26 @@ def test_scorecard_passed_none_preserved(db_path: Path) -> None:
 # ---------------------------------------------------------------------------
 
 
+def test_get_scenario_by_id(db_path: Path) -> None:
+    """get_scenario returns a single scenario by scenario_id."""
+    spec = ScenarioSpec(
+        scenario_id="scn-001",
+        name="flash-crash",
+        version="1.0",
+        engine="worlds",
+        params={"duration": 300},
+        metadata={"author": "buba"},
+    )
+    with RunRegistry(db_path) as registry:
+        registry.register_scenario(spec)
+        fetched = registry.get_scenario("scn-001")
+        assert fetched is not None
+        assert fetched.to_dict() == spec.to_dict()
+
+        # Non-existent id returns None.
+        assert registry.get_scenario("no-such-id") is None
+
+
 def test_register_scenario_round_trip(db_path: Path) -> None:
     spec = ScenarioSpec(
         scenario_id="scn-001",
@@ -590,6 +652,29 @@ def test_register_scenario_round_trip(db_path: Path) -> None:
 # ---------------------------------------------------------------------------
 # register_dataset / list_datasets
 # ---------------------------------------------------------------------------
+
+
+def test_get_dataset_by_id(db_path: Path) -> None:
+    """get_dataset returns a single dataset by dataset_id."""
+    spec = DatasetSpec(
+        dataset_id="spy.2020",
+        name="SPY daily 2020",
+        version="1.0",
+        source="yfinance",
+        schema_uri="s3://contracts/bar.json",
+        n_rows=253,
+        n_columns=6,
+        checksum="blake2b:cafef00d",
+        metadata={"asof": "2020-12-31"},
+    )
+    with RunRegistry(db_path) as registry:
+        registry.register_dataset(spec)
+        fetched = registry.get_dataset("spy.2020")
+        assert fetched is not None
+        assert fetched.to_dict() == spec.to_dict()
+
+        # Non-existent id returns None.
+        assert registry.get_dataset("no-such-id") is None
 
 
 def test_register_dataset_round_trip(db_path: Path) -> None:
