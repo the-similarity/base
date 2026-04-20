@@ -300,6 +300,10 @@ def register_backtest_run(
             "trust_score": trust_artifact.trust_score,
             "calibration_grade": trust_artifact.calibration_grade,
             "decision": trust_artifact.decision.value,
+            # trust_score_version tracks which formula revision produced
+            # the score, so consumers can distinguish scores across
+            # formula changes.
+            "trust_score_version": trust_artifact.trust_score_version,
             "hit_rate": summary.get("hit_rate"),
             "coverage": summary.get("coverage"),
             "crps": summary.get("crps"),
