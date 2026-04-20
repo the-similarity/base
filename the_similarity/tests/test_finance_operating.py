@@ -230,12 +230,14 @@ class TestFinanceOperatingBaseline:
                         f"trust_score={trust_score} outside [0, 1]"
                     )
 
-                # Optional calibration_grade: if present, must be a string
-                # grade like "A", "B", "C", "D", "F".
+                # Optional calibration_grade: if present, must be one of the
+                # grades defined in trust.py: "excellent", "good", "fair", "poor".
                 calibration_grade = summary.get("calibration_grade")
                 if calibration_grade is not None:
                     assert isinstance(calibration_grade, str)
-                    assert calibration_grade in {"A", "B", "C", "D", "F"}, (
+                    assert calibration_grade in {
+                        "excellent", "good", "fair", "poor"
+                    }, (
                         f"calibration_grade={calibration_grade!r} not a valid grade"
                     )
 
