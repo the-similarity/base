@@ -44,6 +44,7 @@ import {
   type Tweaks,
   type CompareMode,
 } from "./engine-context";
+import { seedDemoEntries } from "./demo-seed";
 import { fmtLongDate, fmtClockTime } from "./shell";
 
 // Sample narrative — shown as the textarea placeholder only. Actual entry
@@ -68,7 +69,17 @@ export default function TodayView() {
     persistEntry,
     openComposer,
     openReadOnly,
+    reloadEntries,
   } = useEngine();
+  // Investor / first-visit helper — when the journal is empty we surface a
+  // one-line banner that pops 14 days of pre-seeded entries into storage.
+  // Kept additive (banner above the grid) so this change doesn't collide
+  // with Agent A's parallel refactor of today-view's main layout.
+  const loadDemo = () => {
+    seedDemoEntries();
+    reloadEntries();
+  };
+  const showDemoBanner = entries.length === 0;
 
   // Parse the composer draft live. Hook is hoisted outside the modal so
   // sub-surfaces (KeyMetrics, DayTrajectory, etc.) reflect the same parsed
@@ -138,6 +149,7 @@ export default function TodayView() {
 
   return (
     <>
+      {showDemoBanner && <DemoSeedBanner onLoad={loadDemo} />}
       <div className="prudent-grid-top">
         <KeyMetrics
           series={series}
@@ -190,6 +202,62 @@ export default function TodayView() {
       )}
       <TweaksPanel tweaks={tweaks} setTweak={setTweak} />
     </>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// Demo seed banner (first-visit helper)
+// ═══════════════════════════════════════════════════════════════════════
+
+/**
+ * Thin banner rendered above the today grid when the journal is empty.
+ *
+ * Purpose: give a first-time visitor (commonly an investor walking the
+ * product) a one-click path to seed 14 days of pre-built entries so the
+ * heatmap, rhymes, patterns, and sparklines all populate immediately.
+ *
+ * The banner is entirely additive — it adds one DOM node above the
+ * existing grid and disappears as soon as any entry exists, so normal
+ * user flows never see it after their first log.
+ */
+function DemoSeedBanner({ onLoad }: { onLoad: () => void }) {
+  return (
+    <section
+      style={{
+        background: "var(--panel)",
+        border: "1px solid var(--line)",
+        borderRadius: 10,
+        padding: "12px 16px",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 12,
+        marginBottom: 4,
+      }}
+    >
+      <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+        <div style={{ fontSize: 13, fontWeight: 600, color: "var(--ink)" }}>
+          First time here?
+        </div>
+        <div style={{ fontSize: 12, color: "var(--muted)" }}>
+          Load 14 days of demo data to see the full experience.
+        </div>
+      </div>
+      <button
+        onClick={onLoad}
+        style={{
+          background: "var(--ink)",
+          color: "var(--app-bg)",
+          padding: "8px 14px",
+          borderRadius: 7,
+          fontSize: 13,
+          fontWeight: 500,
+          whiteSpace: "nowrap",
+        }}
+      >
+        Load demo data →
+      </button>
+    </section>
   );
 }
 
