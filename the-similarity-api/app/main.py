@@ -239,13 +239,15 @@ def warehouse_refresh(
     try:
         import sys
 
+        from app.data_service import _data_root
+
         data_root = _data_root()
         sys.path.insert(0, str(data_root))
 
         from the_similarity_data.config import load_dataset_specs
         from the_similarity_data.refresh import refresh_all_datasets
-        
-        
+
+
         specs = load_dataset_specs()
         results = refresh_all_datasets(
             specs,
