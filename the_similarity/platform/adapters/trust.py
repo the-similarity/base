@@ -59,6 +59,11 @@ from the_similarity.platform.artifacts import iso_now
 # calibrated against realized trading outcomes.
 UNCALIBRATED = True
 
+# Semantic version for the trust score formula. Bump this whenever the
+# weights, thresholds, or formula structure changes so downstream consumers
+# (scorecards, UI, exports) can detect stale scores and re-evaluate.
+TRUST_SCORE_VERSION = "0.1.0"
+
 
 # ---------------------------------------------------------------------------
 # Trust decision enum
@@ -92,6 +97,11 @@ _GRADE_GOOD_MAX: float = 0.10
 _GRADE_FAIR_MAX: float = 0.20
 
 # Trust decision thresholds.
+# These also drive the frontend color coding:
+#   trust_score >= 0.7 -> green  (var(--positive)) -> TRUSTED
+#   trust_score >= 0.5 -> amber  (#8a6200)         -> REVIEW
+#   trust_score <  0.5 -> red    (var(--negative))  -> REJECTED
+# See: the-similarity-app/app/finance/[runId]/page.tsx (trustColor)
 _TRUST_SCORE_TRUSTED_MIN: float = 0.7
 _TRUST_SCORE_REVIEW_MIN: float = 0.5
 
@@ -310,6 +320,7 @@ class TrustArtifact:
             "reasoning": self.reasoning,
             "created_at": self.created_at,
             "uncalibrated": self.uncalibrated,
+            "trust_score_version": TRUST_SCORE_VERSION,
         }
 
     @classmethod
@@ -390,6 +401,7 @@ def build_trust_artifact(
 
 
 __all__ = [
+    "TRUST_SCORE_VERSION",
     "UNCALIBRATED",
     "TrustArtifact",
     "TrustDecision",
