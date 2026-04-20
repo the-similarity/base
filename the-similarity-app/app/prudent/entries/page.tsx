@@ -119,7 +119,7 @@ export default function EntriesPage() {
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 14, position: "relative" }}>
+    <div className="prudent-entries-page" style={{ display: "flex", flexDirection: "column", gap: 14, position: "relative" }}>
       {/* Top strip */}
       <section
         style={{
@@ -148,6 +148,7 @@ export default function EntriesPage() {
 
       {/* Filter row */}
       <section
+        className="entries-filter-row"
         style={{
           background: "var(--panel)",
           border: "1px solid var(--line)",
@@ -158,7 +159,7 @@ export default function EntriesPage() {
           gap: 10,
         }}
       >
-        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+        <div className="entries-filter-top" style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
@@ -217,6 +218,7 @@ export default function EntriesPage() {
 
       {/* Table */}
       <section
+        className="entries-table-wrap"
         style={{
           background: "var(--panel)",
           border: "1px solid var(--line)",
@@ -224,9 +226,11 @@ export default function EntriesPage() {
           overflow: "hidden",
         }}
       >
+        <div style={{ overflowX: "auto" }}>
         <table
           style={{
             width: "100%",
+            minWidth: 880,
             borderCollapse: "collapse",
             fontSize: 13,
           }}
@@ -403,6 +407,7 @@ export default function EntriesPage() {
             })}
           </tbody>
         </table>
+        </div>
         {filtered.length === 0 && (
           <div
             style={{
@@ -448,6 +453,35 @@ export default function EntriesPage() {
           </button>
         </div>
       )}
+
+      {/*
+        Scoped responsive + dark-mode polish for /entries.
+        - Table already has overflowX: auto wrapper + minWidth: 880 so it
+          horizontally scrolls below ~900px instead of squishing columns
+          into illegibility.
+        - Filter row items wrap at narrow widths so date inputs don't
+          overflow horizontally.
+        - Dark-mode: input background uses var(--app-bg) which in dark mode
+          is #0E0F11; the default 1px var(--line-mid) border gets drowned
+          against the card. Lift to a brighter border in dark.
+      */}
+      <style>{`
+        @media (max-width: 720px) {
+          .prudent-entries-page .entries-filter-top input[type="date"] {
+            min-width: 120px;
+            flex: 1 1 140px;
+          }
+        }
+        /* Dark-mode: inputs + date pickers become nearly invisible since
+           --app-bg approaches panel, and --line-mid is a subtle grey.
+           Give them a tiny extra contrast bump. */
+        .prudent-root.prudent-dark .prudent-entries-page input[type="text"],
+        .prudent-root.prudent-dark .prudent-entries-page input[type="date"],
+        .prudent-root.prudent-dark .prudent-entries-page .entries-filter-top input {
+          border-color: var(--line-mid);
+          background: var(--hover) !important;
+        }
+      `}</style>
     </div>
   );
 }

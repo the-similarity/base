@@ -22,6 +22,7 @@ export default function PatternsPage() {
 
   return (
     <div
+      className="prudent-patterns-page"
       style={{
         display: "grid",
         gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
@@ -34,6 +35,28 @@ export default function PatternsPage() {
       <MomentumCard r={stats.autocorr} pairs={stats.consecutivePairs} />
       <AMPMCard am={stats.amAvg} pm={stats.pmAvg} />
       <EventCadenceCard avgPerDay={stats.eventsAvg} hist={stats.eventsHist} />
+
+      {/*
+        Scoped dark-mode polish for /patterns.
+
+        The page already uses grid-template-columns: repeat(auto-fit, minmax(320px, 1fr))
+        so it reflows cleanly at every viewport without extra media queries. The only
+        outstanding issue is dark-mode chart contrast: radar rings/spokes and axis
+        midlines use var(--line) (#23262B in dark) at 0.4-0.6 opacity which
+        effectively vanishes against a #17191C panel. Override stroke to a brighter
+        --line-mid equivalent for SVG primitives inside this page in dark mode.
+      */}
+      <style>{`
+        .prudent-root.prudent-dark .prudent-patterns-page svg line[stroke="var(--line)"],
+        .prudent-root.prudent-dark .prudent-patterns-page svg circle[stroke="var(--line)"] {
+          stroke: var(--line-mid) !important;
+          opacity: 0.9 !important;
+        }
+        /* The event cadence histogram uses var(--line-mid) bars on empty slots
+           through the Timeline helper; in dark these are already visible. The
+           bars in stability/cadence cards draw --accent at 0.8 opacity which
+           holds up well against a dark panel, so no additional overrides. */
+      `}</style>
     </div>
   );
 }
