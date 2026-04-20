@@ -613,6 +613,147 @@ def test_register_dataset_round_trip(db_path: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
+# get_artifact — single-row lookup by composite PK
+# ---------------------------------------------------------------------------
+
+
+def test_get_artifact_found(db_path: Path) -> None:
+    """get_artifact returns the matching ArtifactRecord when present."""
+    record = _make_run_record()
+    artifact = ArtifactRecord(
+        run_id=record.run_id,
+        name="telemetry",
+        path="run.jsonl",
+        content_type="application/x-ndjson",
+        size_bytes=2048,
+        checksum="blake2b:deadbeef",
+        created_at="2026-04-15T20:01:00Z",
+    )
+    with RunRegistry(db_path) as registry:
+        registry.register_run(record)
+        registry.register_artifact(artifact)
+        fetched = registry.get_artifact(record.run_id, "telemetry")
+    assert fetched is not None
+    assert fetched.to_dict() == artifact.to_dict()
+
+
+def test_get_artifact_missing_returns_none(db_path: Path) -> None:
+    """get_artifact returns None when the (run_id, name) pair does not exist."""
+    record = _make_run_record()
+    with RunRegistry(db_path) as registry:
+        registry.register_run(record)
+        assert registry.get_artifact(record.run_id, "nonexistent") is None
+        assert registry.get_artifact("no-such-run", "telemetry") is None
+
+
+# ---------------------------------------------------------------------------
+# get_scenario — single-row lookup by PK
+# ---------------------------------------------------------------------------
+
+
+def test_get_scenario_found(db_path: Path) -> None:
+    """get_scenario returns the matching ScenarioSpec when present."""
+    spec = ScenarioSpec(
+        scenario_id="scn-001",
+        name="flash-crash",
+        version="1.0",
+        engine="worlds",
+        params={"duration": 300},
+        metadata={"author": "buba"},
+    )
+    with RunRegistry(db_path) as registry:
+        registry.register_scenario(spec)
+        fetched = registry.get_scenario("scn-001")
+    assert fetched is not None
+    assert fetched.to_dict() == spec.to_dict()
+
+
+def test_get_scenario_missing_returns_none(db_path: Path) -> None:
+    """get_scenario returns None when the scenario_id does not exist."""
+    with RunRegistry(db_path) as registry:
+        assert registry.get_scenario("no-such-scenario") is None
+
+
+# ---------------------------------------------------------------------------
+# get_dataset — single-row lookup by PK
+# ---------------------------------------------------------------------------
+
+
+def test_get_dataset_found(db_path: Path) -> None:
+    """get_dataset returns the matching DatasetSpec when present."""
+    spec = DatasetSpec(
+        dataset_id="spy.2020",
+        name="SPY daily 2020",
+        version="1.0",
+        source="yfinance",
+        metadata={"asof": "2020-12-31"},
+    )
+    with RunRegistry(db_path) as registry:
+        registry.register_dataset(spec)
+        fetched = registry.get_dataset("spy.2020")
+    assert fetched is not None
+    assert fetched.to_dict() == spec.to_dict()
+
+
+def test_get_dataset_missing_returns_none(db_path: Path) -> None:
+    """get_dataset returns None when the dataset_id does not exist."""
+    with RunRegistry(db_path) as registry:
+        assert registry.get_dataset("no-such-dataset") is None
+
+
+# ---------------------------------------------------------------------------
+# list_scenarios / list_datasets pagination
+# ---------------------------------------------------------------------------
+
+
+def test_list_scenarios_pagination(db_path: Path) -> None:
+    """list_scenarios with limit/offset paginates correctly."""
+    specs = [
+        ScenarioSpec(
+            scenario_id=f"scn-{i}",
+            name=f"scenario-{i}",
+            version="1.0",
+            engine="worlds",
+        )
+        for i in range(5)
+    ]
+    with RunRegistry(db_path) as registry:
+        for s in specs:
+            registry.register_scenario(s)
+        # Without limit — returns all.
+        assert len(registry.list_scenarios()) == 5
+        # With limit.
+        page = registry.list_scenarios(limit=2, offset=0)
+        assert len(page) == 2
+        page2 = registry.list_scenarios(limit=2, offset=2)
+        assert len(page2) == 2
+        # Pages should not overlap.
+        assert {s.scenario_id for s in page} & {s.scenario_id for s in page2} == set()
+
+
+def test_list_datasets_pagination(db_path: Path) -> None:
+    """list_datasets with limit/offset paginates correctly."""
+    specs = [
+        DatasetSpec(
+            dataset_id=f"ds-{i}",
+            name=f"dataset-{i}",
+            version="1.0",
+            source="test",
+        )
+        for i in range(5)
+    ]
+    with RunRegistry(db_path) as registry:
+        for s in specs:
+            registry.register_dataset(s)
+        assert len(registry.list_datasets()) == 5
+        page = registry.list_datasets(limit=2, offset=0)
+        assert len(page) == 2
+        page2 = registry.list_datasets(limit=2, offset=2)
+        assert len(page2) == 2
+        assert {s.dataset_id for s in page} & {s.dataset_id for s in page2} == set()
+
+
+# ---------------------------------------------------------------------------
 # delete_run cascade
 # ---------------------------------------------------------------------------
 
