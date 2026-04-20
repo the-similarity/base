@@ -1188,40 +1188,13 @@ function PageHeader({
             {subtitle}
           </div>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <Chip label="Default" caret />
-          {/* Primary CTA — orange #F97316 per reference. Hover darkens to the
-              strong variant; keep the plus sign as a crisp glyph rather than
-              an emoji to avoid platform-specific rendering. */}
-          <button
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-              background: "var(--warm)",
-              color: "#fff",
-              padding: "9px 14px",
-              borderRadius: 8,
-              fontSize: 13,
-              fontWeight: 500,
-              boxShadow: "0 1px 2px rgba(234,88,12,0.20), inset 0 -1px 0 rgba(0,0,0,0.08)",
-            }}
-          >
-            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M6 2v8M2 6h8" strokeLinecap="round" />
-            </svg>
-            Add view
-          </button>
-        </div>
       </div>
+      {/* The filter-chip row used to carry "Default", "Add view", "All entries",
+          "All tags", "All people", "More", and a "···" chip — each a dead
+          control with no handler. Only DateRangeChip (functional per Team B)
+          survives. */}
       <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
         <DateRangeChip />
-        <Chip label="All entries" caret />
-        <Chip label="All tags" caret />
-        <Chip label="All people" caret />
-        <Chip label="More" caret />
-        <div style={{ flex: 1 }} />
-        <Chip label="···" />
       </div>
     </div>
   );
