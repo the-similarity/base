@@ -58,13 +58,13 @@ compiler only needs the three fields above.
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field
-from typing import Any, Dict, List, Optional
+from dataclasses import dataclass
+from typing import Any, Dict, List
 
 import numpy as np
 from numpy.random import Generator, default_rng
 
-from the_similarity.platform.artifacts import RunArtifact, RunKind, iso_now, new_run_id
+from the_similarity.platform.artifacts import RunKind, iso_now, new_run_id
 from the_similarity.platform.contracts import RunRecord, RunStatus
 from the_similarity.platform.registry import RunRegistry
 

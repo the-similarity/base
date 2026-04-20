@@ -39,9 +39,7 @@ from typing import Any
 
 import numpy as np
 from fastapi import WebSocket, WebSocketDisconnect
-from pydantic import ValidationError
 
-from the_similarity.config import Config
 from the_similarity.core.matcher import ProgressEvent
 
 logger = logging.getLogger(__name__)

@@ -238,7 +238,6 @@ def warehouse_refresh(
     """
     try:
         import sys
-        from pathlib import Path
 
         data_root = _data_root()
         sys.path.insert(0, str(data_root))

@@ -64,7 +64,6 @@ from __future__ import annotations
 
 import json
 import sqlite3
-from pathlib import Path
 from typing import Any, Dict, Iterator, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
