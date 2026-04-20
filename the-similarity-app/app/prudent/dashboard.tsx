@@ -1454,7 +1454,6 @@ function KeyMetrics({ series, events, history, avg, peak, trough }: KeyMetricsPr
         }}
       >
         <div style={{ fontSize: 14, fontWeight: 600 }}>Key metrics</div>
-        <Chip label="All workspaces" caret />
       </div>
 
       <Metric
@@ -1881,7 +1880,6 @@ function DayTrajectory({
               <path d="M2 3.5L4.5 6 7 3.5" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </button>
-          <Chip label="Share" />
         </div>
       </div>
 
@@ -2358,7 +2356,6 @@ function RhymeHeatmap({
             </div>
             <span>100</span>
           </div>
-          <Chip label="All workspaces" caret />
         </div>
       </div>
 
@@ -2588,7 +2585,6 @@ function TagDonut({ events }: { events: Event[] }) {
             Share of today&apos;s weighted events
           </div>
         </div>
-        <Chip label="Magnitude" caret />
       </div>
 
       <div style={{ display: "flex", gap: 18, alignItems: "center" }}>
