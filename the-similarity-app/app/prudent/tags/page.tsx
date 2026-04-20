@@ -60,9 +60,20 @@ export default function TagsPage() {
   if (entries.length === 0) return <EmptyState onCompose={openComposer} />;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+    <div className="prudent-tags-page" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      {/*
+        Responsive rules below are scoped to .prudent-tags-page so they don't
+        leak into other /prudent surfaces. Breakpoints chosen empirically:
+          - 1100px: donut hero stacks vertically (340px + text no longer fits
+            comfortably alongside a 1fr column inside the panel padding).
+          - 900px: taxonomy row collapses from a 6-column grid to a 2-row
+            layout — the lean/magnitude/timeline bars wrap underneath the
+            tag label so nothing gets squeezed below 40px.
+          - 640px: donut shrinks so it stops overflowing on phones.
+      */}
       {/* Hero: donut + headline stats */}
       <section
+        className="tags-hero"
         style={{
           background: "var(--panel)",
           border: "1px solid var(--line)",
@@ -215,6 +226,65 @@ export default function TagsPage() {
           Pick a tag above to see entries containing it.
         </section>
       )}
+
+      {/*
+        Scoped responsive + dark-mode overrides for this page.
+        Using a <style jsx>-style scoped block keeps these rules from leaking
+        into sibling /prudent routes. Each selector is prefixed with the page
+        wrapper class so specificity resolves cleanly above the inline style
+        properties (inline `style` on each element would otherwise win; but
+        these rules target grid-template-columns, which is also inline, so we
+        use `!important` selectively where we need to override inline grids).
+      */}
+      <style>{`
+        /* Donut hero: stack donut above copy below 1100px so 340px donut
+           doesn't starve the stats column. */
+        @media (max-width: 1100px) {
+          .prudent-tags-page .tags-hero {
+            grid-template-columns: 1fr !important;
+            justify-items: center;
+            text-align: center;
+            gap: 20px !important;
+          }
+        }
+        /* Shrink donut SVG container on very narrow viewports so it doesn't
+           cause horizontal overflow on mobile. */
+        @media (max-width: 640px) {
+          .prudent-tags-page .tags-hero > div:first-child {
+            width: 260px !important;
+            height: 260px !important;
+          }
+          .prudent-tags-page .tags-hero > div:first-child svg {
+            width: 260px;
+            height: 260px;
+          }
+        }
+        /* Taxonomy row reflow: at 900px collapse the 6-col grid into a
+           two-row layout where tag name/count sit on top and the three
+           bars/timeline share the width below. */
+        @media (max-width: 900px) {
+          .prudent-tags-page .tax-row {
+            grid-template-columns: 1fr 50px 40px !important;
+            grid-template-rows: auto auto;
+            row-gap: 8px !important;
+          }
+          .prudent-tags-page .tax-row > .tax-lean,
+          .prudent-tags-page .tax-row > .tax-mag,
+          .prudent-tags-page .tax-row > .tax-timeline {
+            grid-column: 1 / -1;
+          }
+        }
+        /* Dark-mode polish: var-driven tones already cascade through the
+           card backgrounds, but the rgba overlays used in valence pills
+           are tuned for light mode and disappear against a #17191C panel.
+           Lift their opacity so they remain legible in dark. */
+        .prudent-root.prudent-dark .prudent-tags-page .valence-pos {
+          background: rgba(34,197,94,0.18) !important;
+        }
+        .prudent-root.prudent-dark .prudent-tags-page .valence-neg {
+          background: rgba(249,115,22,0.22) !important;
+        }
+      `}</style>
     </div>
   );
 }
@@ -302,6 +372,7 @@ function TaxRow({
   return (
     <button
       onClick={onClick}
+      className="tax-row"
       style={{
         display: "grid",
         gridTemplateColumns: "100px 60px 120px 120px 1fr 40px",
@@ -330,9 +401,9 @@ function TaxRow({
       <span className="tnum" style={{ fontSize: 13, color: "var(--muted)" }}>
         {row.count}
       </span>
-      <LeanBar posShare={leanPos} />
-      <MagnitudeBar total={row.posMag + row.negMag} max={maxMagnitude(row)} color={row.color} />
-      <Timeline days={row.days} />
+      <div className="tax-lean"><LeanBar posShare={leanPos} /></div>
+      <div className="tax-mag"><MagnitudeBar total={row.posMag + row.negMag} max={maxMagnitude(row)} color={row.color} /></div>
+      <div className="tax-timeline"><Timeline days={row.days} /></div>
       <span className="tnum" style={{ fontSize: 11, color: "var(--muted)", textAlign: "right" }}>
         {pct}%
       </span>
