@@ -10,6 +10,7 @@
 
 import { useMemo, useState } from "react";
 import { useEngine } from "../_components/engine-context";
+import { seedDemoEntries } from "../_components/demo-seed";
 import { fmtShortDate, fmtClockTime } from "../_components/shell";
 import type { StoredEntry } from "../storage";
 
@@ -22,7 +23,15 @@ type SortKey = "date" | "events" | "avg" | "vol";
 type SortDir = "asc" | "desc";
 
 export default function EntriesPage() {
-  const { entries, removeEntry, openReadOnly, exportEntries, openComposer } = useEngine();
+  const { entries, removeEntry, openReadOnly, exportEntries, openComposer, reloadEntries } =
+    useEngine();
+  // Investor-mode quickstart — writes 14 days of hand-crafted entries into
+  // localStorage via seedDemoEntries() then re-reads via reloadEntries()
+  // so the table / ribbon / heatmap populate without a page refresh.
+  const loadDemo = () => {
+    seedDemoEntries();
+    reloadEntries();
+  };
   const [query, setQuery] = useState("");
   const [activeTags, setActiveTags] = useState<Set<string>>(new Set());
   const [fromDate, setFromDate] = useState("");
@@ -66,7 +75,7 @@ export default function EntriesPage() {
   const kb = (new Blob([JSON.stringify(entries)]).size / 1024).toFixed(1);
 
   if (entries.length === 0) {
-    return <EmptyAll onCompose={openComposer} />;
+    return <EmptyAll onCompose={openComposer} onLoadDemo={loadDemo} />;
   }
 
   const toggleTag = (t: string) => {
@@ -622,7 +631,19 @@ function IconBtn({
   );
 }
 
-function EmptyAll({ onCompose }: { onCompose: () => void }) {
+function EmptyAll({
+  onCompose,
+  onLoadDemo,
+}: {
+  onCompose: () => void;
+  onLoadDemo: () => void;
+}) {
+  // Empty-state surface for /prudent/entries. We surface TWO paths:
+  //   1. "Log your first" — the canonical flow for a real user.
+  //   2. "Load demo data" — the investor / evaluator quickstart that
+  //      pops the full experience with 14 days of pre-seeded entries.
+  // The demo button is intentionally visually secondary so it never
+  // out-shouts the primary "Log your first" CTA for real users.
   return (
     <section
       style={{
@@ -641,22 +662,38 @@ function EmptyAll({ onCompose }: { onCompose: () => void }) {
         No entries yet.
       </p>
       <p style={{ fontSize: 13, color: "var(--muted)" }}>
-        Once you log something, it'll be manageable here.
+        Once you log something, it&apos;ll be manageable here.
       </p>
-      <button
-        onClick={onCompose}
-        style={{
-          marginTop: 8,
-          background: "var(--ink)",
-          color: "var(--app-bg)",
-          padding: "10px 18px",
-          borderRadius: 8,
-          fontSize: 13,
-          fontWeight: 500,
-        }}
-      >
-        ＋ Log your first
-      </button>
+      <div style={{ display: "flex", gap: 10, marginTop: 8, flexWrap: "wrap", justifyContent: "center" }}>
+        <button
+          onClick={onCompose}
+          style={{
+            background: "var(--ink)",
+            color: "var(--app-bg)",
+            padding: "10px 18px",
+            borderRadius: 8,
+            fontSize: 13,
+            fontWeight: 500,
+          }}
+        >
+          ＋ Log your first
+        </button>
+        <button
+          onClick={onLoadDemo}
+          title="Seed 14 days of sample entries so every view populates"
+          style={{
+            background: "var(--panel)",
+            color: "var(--ink)",
+            padding: "10px 18px",
+            borderRadius: 8,
+            fontSize: 13,
+            fontWeight: 500,
+            border: "1px solid var(--line-mid)",
+          }}
+        >
+          Load demo data
+        </button>
+      </div>
     </section>
   );
 }

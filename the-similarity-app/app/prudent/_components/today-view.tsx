@@ -45,6 +45,7 @@ import {
 import { buildHistoryFromEntries, type StoredEntry } from "../storage";
 import { useParsedNarrative } from "../use-parse";
 import { useEngine, type CompareMode } from "./engine-context";
+import { seedDemoEntries } from "./demo-seed";
 
 // ═══════════════════════════════════════════════════════════════════════
 // Root
@@ -59,11 +60,30 @@ export default function TodayView() {
   //     is mounted by app/prudent/layout.tsx now).
   //   - `tweaks` + `setTweak` power the Compare chip in DayTrajectory.
   //   - `openComposer` / `openReadOnly` fire from ThreadRibbon dot clicks.
+  //   - `reloadEntries` is used by the demo-seed banner below.
   // The ComposerModal + TweaksPanel renders (and the `composerOpen`,
   // `readOnlyEntry`, `closeComposer`, `persistEntry`, `setText` bindings
   // they needed) moved to the layout — see the module docstring above.
-  const { entries, text, tweaks, setTweak, openComposer, openReadOnly } =
-    useEngine();
+  const {
+    entries,
+    text,
+    tweaks,
+    setTweak,
+    openComposer,
+    openReadOnly,
+    reloadEntries,
+  } = useEngine();
+
+  // Investor / first-visit helper — when the journal is empty we surface a
+  // one-line banner that pops 14 days of pre-seeded entries into storage so
+  // heatmap/rhymes/patterns populate immediately. The banner disappears as
+  // soon as any entry exists, so normal user flows never see it after the
+  // first log.
+  const loadDemo = () => {
+    seedDemoEntries();
+    reloadEntries();
+  };
+  const showDemoBanner = entries.length === 0;
 
   // Parse the draft live so KeyMetrics / DayTrajectory reflect the latest
   // composer input even when the modal is closed (the composer shares the
@@ -132,6 +152,7 @@ export default function TodayView() {
 
   return (
     <>
+      {showDemoBanner && <DemoSeedBanner onLoad={loadDemo} />}
       <div className="prudent-grid-top">
         <KeyMetrics
           series={series}
@@ -169,6 +190,62 @@ export default function TodayView() {
           app/prudent/layout.tsx — so they mount once for the entire
           /prudent tree and work from every sub-route. */}
     </>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// Demo seed banner (first-visit helper)
+// ═══════════════════════════════════════════════════════════════════════
+
+/**
+ * Thin banner rendered above the today grid when the journal is empty.
+ *
+ * Purpose: give a first-time visitor (commonly an investor walking the
+ * product) a one-click path to seed 14 days of pre-built entries so the
+ * heatmap, rhymes, patterns, and sparklines all populate immediately.
+ *
+ * The banner is entirely additive — it adds one DOM node above the
+ * existing grid and disappears as soon as any entry exists, so normal
+ * user flows never see it after their first log.
+ */
+function DemoSeedBanner({ onLoad }: { onLoad: () => void }) {
+  return (
+    <section
+      style={{
+        background: "var(--panel)",
+        border: "1px solid var(--line)",
+        borderRadius: 10,
+        padding: "12px 16px",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 12,
+        marginBottom: 4,
+      }}
+    >
+      <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+        <div style={{ fontSize: 13, fontWeight: 600, color: "var(--ink)" }}>
+          First time here?
+        </div>
+        <div style={{ fontSize: 12, color: "var(--muted)" }}>
+          Load 14 days of demo data to see the full experience.
+        </div>
+      </div>
+      <button
+        onClick={onLoad}
+        style={{
+          background: "var(--ink)",
+          color: "var(--app-bg)",
+          padding: "8px 14px",
+          borderRadius: 7,
+          fontSize: 13,
+          fontWeight: 500,
+          whiteSpace: "nowrap",
+        }}
+      >
+        Load demo data →
+      </button>
+    </section>
   );
 }
 
