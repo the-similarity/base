@@ -13,14 +13,20 @@
  *   - Review section (if review exists in scorecard)
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import {
   fetchRun,
   fetchScorecards,
+  fetchReview,
+  createReview,
+  updateReview,
   type Run,
   type Scorecard,
+  type Review,
+  type ReviewCreateBody,
+  type ReviewUpdateBody,
 } from "../../../lib/platform-api";
 
 // ---------------------------------------------------------------------------
@@ -74,42 +80,43 @@ export default function FinanceRunDetailPage() {
 
   const [run, setRun] = useState<Run | null>(null);
   const [scorecards, setScorecards] = useState<Scorecard[]>([]);
+  const [review, setReview] = useState<Review | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!runId) return;
-    let cancelled = false;
+  // Modal state for create/update review forms
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showUpdateModal, setShowUpdateModal] = useState(false);
 
-    // Fetch run + scorecards. Loading/error state is reset inside the
-    // promise chain (not synchronously) to satisfy react-hooks/set-state-in-effect.
-    Promise.resolve()
-      .then(() => {
-        if (!cancelled) {
-          setLoading(true);
-          setError(null);
-        }
-        return Promise.all([fetchRun(runId), fetchScorecards(runId)]);
-      })
-      .then(([r, sc]) => {
-        if (!cancelled) {
-          setRun(r);
-          setScorecards(sc);
-        }
+  /** Load run data, scorecards, and existing review. */
+  const loadData = useCallback(() => {
+    if (!runId) return;
+    setLoading(true);
+    setError(null);
+
+    // Fetch run + scorecards + review in parallel.
+    // Review fetch may 404 (no review yet) — that's expected.
+    Promise.all([
+      fetchRun(runId),
+      fetchScorecards(runId),
+      fetchReview(runId).catch(() => null),
+    ])
+      .then(([r, sc, rev]) => {
+        setRun(r);
+        setScorecards(sc);
+        setReview(rev);
       })
       .catch((err) => {
-        if (!cancelled) {
-          setError(err instanceof Error ? err.message : String(err));
-        }
+        setError(err instanceof Error ? err.message : String(err));
       })
       .finally(() => {
-        if (!cancelled) setLoading(false);
+        setLoading(false);
       });
-
-    return () => {
-      cancelled = true;
-    };
   }, [runId]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   if (loading) {
     return (
@@ -416,9 +423,204 @@ export default function FinanceRunDetailPage() {
         )}
 
         {/* ── Review ── */}
-        {reviewCard && reviewCard.metrics && (
+        {review ? (
           <section className="deck-section">
             <p className="deck-section__tag">Review</p>
+            <div
+              style={{
+                border: "1px solid var(--rule)",
+                background: "var(--bg-card)",
+                padding: "16px 20px",
+              }}
+            >
+              {/* Header row: reviewer + trust decision badge */}
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  marginBottom: 12,
+                }}
+              >
+                <span
+                  style={{
+                    fontFamily: "var(--mono)",
+                    fontSize: 12,
+                    fontWeight: 700,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.06em",
+                  }}
+                >
+                  Reviewed by {review.reviewer}
+                </span>
+                <TrustDecisionBadge decision={review.trust_decision} />
+              </div>
+
+              {/* Status + dates */}
+              <div className="detail-grid" style={{ marginBottom: 12 }}>
+                <MetaCell label="Status" value={review.status} />
+                <MetaCell label="Created" value={formatDate(review.created_at)} />
+                <MetaCell
+                  label="Updated"
+                  value={review.updated_at ? formatDate(review.updated_at) : "-"}
+                />
+              </div>
+
+              {/* Signal summary */}
+              {review.signal_summary && (
+                <div style={{ marginBottom: 12 }}>
+                  <p className="detail-stat-label">Signal Summary</p>
+                  <p
+                    style={{
+                      fontFamily: "var(--sans)",
+                      fontSize: 13,
+                      lineHeight: 1.5,
+                      color: "var(--ink-2)",
+                      margin: "4px 0 0",
+                    }}
+                  >
+                    {review.signal_summary}
+                  </p>
+                </div>
+              )}
+
+              {/* Notes */}
+              {review.notes && (
+                <div style={{ marginBottom: 12 }}>
+                  <p className="detail-stat-label">Notes</p>
+                  <p
+                    style={{
+                      fontFamily: "var(--sans)",
+                      fontSize: 13,
+                      lineHeight: 1.5,
+                      color: "var(--ink-2)",
+                      margin: "4px 0 0",
+                    }}
+                  >
+                    {review.notes}
+                  </p>
+                </div>
+              )}
+
+              {/* Risk flags */}
+              {review.risk_flags && review.risk_flags.length > 0 && (
+                <div
+                  style={{
+                    marginBottom: 12,
+                    display: "flex",
+                    gap: 8,
+                    flexWrap: "wrap",
+                  }}
+                >
+                  {review.risk_flags.map((flag, i) => (
+                    <span
+                      key={i}
+                      style={{
+                        fontFamily: "var(--mono)",
+                        fontSize: 10,
+                        fontWeight: 700,
+                        letterSpacing: "0.06em",
+                        textTransform: "uppercase",
+                        padding: "3px 10px",
+                        borderRadius: "var(--radius-pill, 999px)",
+                        border: "1px solid var(--negative)",
+                        color: "var(--negative)",
+                        background: "var(--negative-soft)",
+                      }}
+                    >
+                      {flag}
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              {/* Realized outcome */}
+              {review.realized_outcome && (
+                <div style={{ marginBottom: 12 }}>
+                  <p className="detail-stat-label">Realized Outcome</p>
+                  <pre
+                    style={{
+                      fontFamily: "var(--mono)",
+                      fontSize: 11,
+                      color: "var(--ink-3)",
+                      margin: "4px 0 0",
+                      whiteSpace: "pre-wrap",
+                    }}
+                  >
+                    {JSON.stringify(review.realized_outcome, null, 2)}
+                  </pre>
+                </div>
+              )}
+
+              {/* Update button */}
+              <button
+                onClick={() => setShowUpdateModal(true)}
+                style={{
+                  fontFamily: "var(--mono)",
+                  fontSize: 11,
+                  fontWeight: 600,
+                  letterSpacing: "0.06em",
+                  textTransform: "uppercase",
+                  padding: "6px 16px",
+                  border: "1px solid var(--rule-strong)",
+                  borderRadius: "var(--radius-sm, 2px)",
+                  background: "var(--bg-inset)",
+                  color: "var(--ink-2)",
+                  cursor: "pointer",
+                  marginTop: 4,
+                }}
+              >
+                Update Review
+              </button>
+            </div>
+          </section>
+        ) : (
+          <section className="deck-section">
+            <p className="deck-section__tag">Review</p>
+            <div
+              style={{
+                border: "1px solid var(--rule)",
+                background: "var(--bg-card)",
+                padding: "20px",
+                textAlign: "center",
+              }}
+            >
+              <p
+                style={{
+                  fontFamily: "var(--sans)",
+                  fontSize: 13,
+                  color: "var(--ink-3)",
+                  margin: "0 0 12px",
+                }}
+              >
+                No review yet. Create one to record your trust assessment.
+              </p>
+              <button
+                onClick={() => setShowCreateModal(true)}
+                style={{
+                  fontFamily: "var(--mono)",
+                  fontSize: 11,
+                  fontWeight: 600,
+                  letterSpacing: "0.06em",
+                  textTransform: "uppercase",
+                  padding: "8px 20px",
+                  border: "1px solid var(--accent)",
+                  borderRadius: "var(--radius-sm, 2px)",
+                  background: "var(--accent-soft)",
+                  color: "var(--accent)",
+                  cursor: "pointer",
+                }}
+              >
+                Create Review
+              </button>
+            </div>
+          </section>
+        )}
+
+        {/* ── Scorecard review (legacy) ── */}
+        {reviewCard && reviewCard.metrics && !review && (
+          <section className="deck-section">
+            <p className="deck-section__tag">Scorecard Review (Legacy)</p>
             <div className="detail-summary">
               {dig(reviewCard.metrics as Record<string, unknown>, "commentary") !=
               null
@@ -431,6 +633,31 @@ export default function FinanceRunDetailPage() {
                 : JSON.stringify(reviewCard.metrics, null, 2)}
             </div>
           </section>
+        )}
+
+        {/* ── Create Review Modal ── */}
+        {showCreateModal && (
+          <CreateReviewModal
+            runId={runId}
+            onClose={() => setShowCreateModal(false)}
+            onCreated={() => {
+              setShowCreateModal(false);
+              loadData();
+            }}
+          />
+        )}
+
+        {/* ── Update Review Modal ── */}
+        {showUpdateModal && review && (
+          <UpdateReviewModal
+            runId={runId}
+            existing={review}
+            onClose={() => setShowUpdateModal(false)}
+            onUpdated={() => {
+              setShowUpdateModal(false);
+              loadData();
+            }}
+          />
         )}
 
         {/* Back link */}
@@ -519,4 +746,463 @@ function metricSentiment(
   const n = Number(val);
   if (Number.isNaN(n)) return "neutral";
   return n >= threshold ? "positive" : "negative";
+}
+
+/** Badge for trust decisions: TRUSTED (green), REVIEW (yellow), REJECTED (red). */
+function TrustDecisionBadge({ decision }: { decision: string }) {
+  const colorMap: Record<string, string> = {
+    TRUSTED: "var(--positive)",
+    REVIEW: "var(--warn, #8a6200)",
+    REJECTED: "var(--negative)",
+  };
+  const color = colorMap[decision] ?? "var(--ink-3)";
+  return (
+    <span
+      style={{
+        fontFamily: "var(--mono)",
+        fontSize: 10,
+        fontWeight: 700,
+        letterSpacing: "0.08em",
+        textTransform: "uppercase",
+        padding: "3px 8px",
+        borderRadius: "var(--radius-pill, 999px)",
+        border: `1px solid ${color}`,
+        color,
+      }}
+    >
+      {decision}
+    </span>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Shared modal styles — reused by Create and Update modals
+// ---------------------------------------------------------------------------
+
+const overlayStyle: React.CSSProperties = {
+  position: "fixed",
+  top: 0,
+  left: 0,
+  right: 0,
+  bottom: 0,
+  background: "rgba(0, 0, 0, 0.5)",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  zIndex: 1000,
+};
+
+const modalStyle: React.CSSProperties = {
+  background: "var(--bg-elevated)",
+  border: "1px solid var(--rule)",
+  borderRadius: "var(--radius-md, 4px)",
+  padding: 24,
+  width: "100%",
+  maxWidth: 520,
+  maxHeight: "80vh",
+  overflow: "auto",
+};
+
+const fieldLabelStyle: React.CSSProperties = {
+  fontFamily: "var(--mono)",
+  fontSize: 10,
+  fontWeight: 600,
+  letterSpacing: "0.1em",
+  textTransform: "uppercase",
+  color: "var(--ink-3)",
+  display: "block",
+  marginBottom: 4,
+};
+
+const inputStyle: React.CSSProperties = {
+  width: "100%",
+  padding: "6px 10px",
+  fontFamily: "var(--mono)",
+  fontSize: 12,
+  border: "1px solid var(--rule)",
+  borderRadius: "var(--radius-sm, 2px)",
+  background: "var(--bg-inset)",
+  color: "var(--ink)",
+};
+
+const textareaStyle: React.CSSProperties = {
+  ...inputStyle,
+  minHeight: 80,
+  resize: "vertical" as const,
+};
+
+const selectStyle: React.CSSProperties = {
+  ...inputStyle,
+  cursor: "pointer",
+};
+
+const btnPrimaryStyle: React.CSSProperties = {
+  fontFamily: "var(--mono)",
+  fontSize: 11,
+  fontWeight: 600,
+  letterSpacing: "0.06em",
+  textTransform: "uppercase",
+  padding: "8px 20px",
+  border: "1px solid var(--accent)",
+  borderRadius: "var(--radius-sm, 2px)",
+  background: "var(--accent-soft)",
+  color: "var(--accent)",
+  cursor: "pointer",
+};
+
+const btnSecondaryStyle: React.CSSProperties = {
+  fontFamily: "var(--mono)",
+  fontSize: 11,
+  fontWeight: 600,
+  letterSpacing: "0.06em",
+  textTransform: "uppercase",
+  padding: "8px 20px",
+  border: "1px solid var(--rule)",
+  borderRadius: "var(--radius-sm, 2px)",
+  background: "transparent",
+  color: "var(--ink-3)",
+  cursor: "pointer",
+};
+
+// ---------------------------------------------------------------------------
+// Create Review Modal
+// ---------------------------------------------------------------------------
+
+function CreateReviewModal({
+  runId,
+  onClose,
+  onCreated,
+}: {
+  runId: string;
+  onClose: () => void;
+  onCreated: () => void;
+}) {
+  const [reviewer, setReviewer] = useState("");
+  const [signalSummary, setSignalSummary] = useState("");
+  const [trustDecision, setTrustDecision] = useState("REVIEW");
+  const [riskFlagsRaw, setRiskFlagsRaw] = useState("");
+  const [notes, setNotes] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!reviewer.trim()) return;
+
+    setSubmitting(true);
+    setSubmitError(null);
+
+    // Parse comma-separated risk flags into an array, trimming whitespace.
+    const riskFlags = riskFlagsRaw
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+
+    const body: ReviewCreateBody = {
+      reviewer: reviewer.trim(),
+      signal_summary: signalSummary.trim(),
+      trust_decision: trustDecision,
+      risk_flags: riskFlags,
+      notes: notes.trim(),
+    };
+
+    createReview(runId, body)
+      .then(() => onCreated())
+      .catch((err) =>
+        setSubmitError(err instanceof Error ? err.message : String(err))
+      )
+      .finally(() => setSubmitting(false));
+  };
+
+  return (
+    <div style={overlayStyle} onClick={onClose}>
+      <div style={modalStyle} onClick={(e) => e.stopPropagation()}>
+        <h2
+          style={{
+            fontFamily: "var(--serif)",
+            fontSize: 20,
+            fontWeight: 600,
+            margin: "0 0 16px",
+            letterSpacing: "-0.01em",
+          }}
+        >
+          Create Review
+        </h2>
+
+        <form onSubmit={handleSubmit}>
+          {/* Reviewer */}
+          <div style={{ marginBottom: 14 }}>
+            <label style={fieldLabelStyle}>Reviewer *</label>
+            <input
+              style={inputStyle}
+              type="text"
+              placeholder="Agent ID or email"
+              value={reviewer}
+              onChange={(e) => setReviewer(e.target.value)}
+              required
+            />
+          </div>
+
+          {/* Trust decision */}
+          <div style={{ marginBottom: 14 }}>
+            <label style={fieldLabelStyle}>Trust Decision</label>
+            <select
+              style={selectStyle}
+              value={trustDecision}
+              onChange={(e) => setTrustDecision(e.target.value)}
+            >
+              <option value="TRUSTED">TRUSTED</option>
+              <option value="REVIEW">REVIEW</option>
+              <option value="REJECTED">REJECTED</option>
+            </select>
+          </div>
+
+          {/* Signal summary */}
+          <div style={{ marginBottom: 14 }}>
+            <label style={fieldLabelStyle}>Signal Summary</label>
+            <textarea
+              style={textareaStyle}
+              placeholder="1-3 sentence summary of what this run found"
+              value={signalSummary}
+              onChange={(e) => setSignalSummary(e.target.value)}
+            />
+          </div>
+
+          {/* Risk flags */}
+          <div style={{ marginBottom: 14 }}>
+            <label style={fieldLabelStyle}>Risk Flags</label>
+            <input
+              style={inputStyle}
+              type="text"
+              placeholder="Comma-separated (e.g. OVERFITTING, LOW_COVERAGE)"
+              value={riskFlagsRaw}
+              onChange={(e) => setRiskFlagsRaw(e.target.value)}
+            />
+          </div>
+
+          {/* Notes */}
+          <div style={{ marginBottom: 20 }}>
+            <label style={fieldLabelStyle}>Notes</label>
+            <textarea
+              style={textareaStyle}
+              placeholder="Free-form reviewer notes"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+            />
+          </div>
+
+          {/* Error message */}
+          {submitError && (
+            <p
+              style={{
+                color: "var(--negative)",
+                fontFamily: "var(--mono)",
+                fontSize: 11,
+                marginBottom: 12,
+              }}
+            >
+              {submitError}
+            </p>
+          )}
+
+          {/* Actions */}
+          <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+            <button
+              type="button"
+              style={btnSecondaryStyle}
+              onClick={onClose}
+              disabled={submitting}
+            >
+              Cancel
+            </button>
+            <button type="submit" style={btnPrimaryStyle} disabled={submitting}>
+              {submitting ? "Submitting..." : "Submit Review"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Update Review Modal
+// ---------------------------------------------------------------------------
+
+function UpdateReviewModal({
+  runId,
+  existing,
+  onClose,
+  onUpdated,
+}: {
+  runId: string;
+  existing: Review;
+  onClose: () => void;
+  onUpdated: () => void;
+}) {
+  const [status, setStatus] = useState(existing.status);
+  const [trustDecision, setTrustDecision] = useState(existing.trust_decision);
+  const [riskFlagsRaw, setRiskFlagsRaw] = useState(
+    existing.risk_flags.join(", ")
+  );
+  const [notes, setNotes] = useState(existing.notes);
+  const [realizedOutcomeRaw, setRealizedOutcomeRaw] = useState(
+    existing.realized_outcome
+      ? JSON.stringify(existing.realized_outcome, null, 2)
+      : ""
+  );
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true);
+    setSubmitError(null);
+
+    const riskFlags = riskFlagsRaw
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+
+    // Parse realized outcome JSON if provided.
+    let realizedOutcome: Record<string, unknown> | undefined;
+    if (realizedOutcomeRaw.trim()) {
+      try {
+        realizedOutcome = JSON.parse(realizedOutcomeRaw);
+      } catch {
+        setSubmitError("Realized outcome must be valid JSON.");
+        setSubmitting(false);
+        return;
+      }
+    }
+
+    const body: ReviewUpdateBody = {
+      status,
+      trust_decision: trustDecision,
+      notes: notes.trim(),
+      risk_flags: riskFlags,
+      ...(realizedOutcome !== undefined && {
+        realized_outcome: realizedOutcome,
+      }),
+    };
+
+    updateReview(runId, body)
+      .then(() => onUpdated())
+      .catch((err) =>
+        setSubmitError(err instanceof Error ? err.message : String(err))
+      )
+      .finally(() => setSubmitting(false));
+  };
+
+  return (
+    <div style={overlayStyle} onClick={onClose}>
+      <div style={modalStyle} onClick={(e) => e.stopPropagation()}>
+        <h2
+          style={{
+            fontFamily: "var(--serif)",
+            fontSize: 20,
+            fontWeight: 600,
+            margin: "0 0 16px",
+            letterSpacing: "-0.01em",
+          }}
+        >
+          Update Review
+        </h2>
+
+        <form onSubmit={handleSubmit}>
+          {/* Status */}
+          <div style={{ marginBottom: 14 }}>
+            <label style={fieldLabelStyle}>Status</label>
+            <select
+              style={selectStyle}
+              value={status}
+              onChange={(e) => setStatus(e.target.value)}
+            >
+              <option value="pending">Pending</option>
+              <option value="approved">Approved</option>
+              <option value="flagged">Flagged</option>
+              <option value="rejected">Rejected</option>
+            </select>
+          </div>
+
+          {/* Trust decision */}
+          <div style={{ marginBottom: 14 }}>
+            <label style={fieldLabelStyle}>Trust Decision</label>
+            <select
+              style={selectStyle}
+              value={trustDecision}
+              onChange={(e) => setTrustDecision(e.target.value)}
+            >
+              <option value="TRUSTED">TRUSTED</option>
+              <option value="REVIEW">REVIEW</option>
+              <option value="REJECTED">REJECTED</option>
+            </select>
+          </div>
+
+          {/* Risk flags */}
+          <div style={{ marginBottom: 14 }}>
+            <label style={fieldLabelStyle}>Risk Flags</label>
+            <input
+              style={inputStyle}
+              type="text"
+              placeholder="Comma-separated (e.g. OVERFITTING, LOW_COVERAGE)"
+              value={riskFlagsRaw}
+              onChange={(e) => setRiskFlagsRaw(e.target.value)}
+            />
+          </div>
+
+          {/* Notes */}
+          <div style={{ marginBottom: 14 }}>
+            <label style={fieldLabelStyle}>Notes</label>
+            <textarea
+              style={textareaStyle}
+              placeholder="Updated reviewer notes"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+            />
+          </div>
+
+          {/* Realized outcome */}
+          <div style={{ marginBottom: 20 }}>
+            <label style={fieldLabelStyle}>Realized Outcome (JSON)</label>
+            <textarea
+              style={{ ...textareaStyle, minHeight: 60 }}
+              placeholder='{"pnl": 0.05, "direction_correct": true}'
+              value={realizedOutcomeRaw}
+              onChange={(e) => setRealizedOutcomeRaw(e.target.value)}
+            />
+          </div>
+
+          {/* Error message */}
+          {submitError && (
+            <p
+              style={{
+                color: "var(--negative)",
+                fontFamily: "var(--mono)",
+                fontSize: 11,
+                marginBottom: 12,
+              }}
+            >
+              {submitError}
+            </p>
+          )}
+
+          {/* Actions */}
+          <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+            <button
+              type="button"
+              style={btnSecondaryStyle}
+              onClick={onClose}
+              disabled={submitting}
+            >
+              Cancel
+            </button>
+            <button type="submit" style={btnPrimaryStyle} disabled={submitting}>
+              {submitting ? "Saving..." : "Save Changes"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
 }
