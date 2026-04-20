@@ -66,6 +66,39 @@ const SAMPLE = `Woke up heavy, kind of anxious about the deadline. The morning w
 // silently breaking an investor's polished layout.
 const TWEAKS_KEY = "prudent:tweaks:v1";
 
+/**
+ * Date-format helpers shared by the Sidebar, TopBar, Composer, and
+ * DateRangeChip so hardcoded strings ("Apr 17", "Wed, Apr 17") can be
+ * replaced with values derived from `new Date()`.
+ *
+ * `fmtShortDate(d)` — "Apr 19" (month short + day numeric).
+ * `fmtLongDate(d)`  — "Wed, Apr 17" (weekday + month short + day numeric).
+ *
+ * Both wrap `toLocaleDateString` with the `en-US` locale so the exact
+ * string shape is stable across browsers. We do not inject tzdata — callers
+ * pass a `Date` that already reflects the user's clock.
+ */
+function fmtShortDate(d: Date): string {
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+function fmtLongDate(d: Date): string {
+  return d.toLocaleDateString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
+}
+function fmtClockTime(d: Date): string {
+  // Lowercase am/pm per the composer / date-range screenshots ("9:47 am").
+  return d
+    .toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    })
+    .toLowerCase();
+}
+
 // Hydrate tweaks from localStorage. Returns defaults on SSR or when stored
 // data is malformed. Never throws — persistence must be best-effort since
 // it's not the critical path.
@@ -999,6 +1032,10 @@ function NavGlyph({ id, active }: { id: string; active?: boolean }) {
 // ═══════════════════════════════════════════════════════════════════════
 
 function TopBar() {
+  // Build the breadcrumb label from the real current date so the chip never
+  // lies. Example: "Today · Wed, Apr 17". We pre-compute once per render
+  // since `new Date()` is cheap and the TopBar is light.
+  const today = new Date();
   return (
     <div
       style={{
@@ -1010,27 +1047,12 @@ function TopBar() {
       }}
     >
       <div style={{ display: "flex", alignItems: "center", gap: 6, color: "var(--muted)" }}>
-        <button
-          style={{ color: "var(--faint)", padding: "4px 6px", borderRadius: 5 }}
-          aria-label="Back"
-        >
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-            <path d="M10 3.5L5.5 8l4.5 4.5" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        </button>
-        <button
-          style={{ color: "var(--faint)", padding: "4px 6px", borderRadius: 5 }}
-          aria-label="Forward"
-        >
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-            <path d="M6 3.5L10.5 8 6 12.5" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        </button>
-        {/* Breadcrumb: "Analytics" chip › current page chip. Matching the
-            reference where the current page chip has an icon + bold label. */}
+        {/* Breadcrumb: "Analytics" chip › current page chip. The back/forward
+            buttons, search, notifications and avatar were dead controls with
+            no handlers — they have been removed and only the functional
+            breadcrumb remains. */}
         <span
           style={{
-            marginLeft: 4,
             padding: "4px 10px",
             borderRadius: 6,
             background: "var(--hover)",
@@ -1062,65 +1084,10 @@ function TopBar() {
               borderRadius: 2,
             }}
           />
-          Today · Wed Apr 17
+          Today · {fmtLongDate(today)}
         </span>
       </div>
-      <div style={{ display: "flex", alignItems: "center", gap: 4, color: "var(--muted)" }}>
-        <button
-          style={{
-            padding: "6px 8px",
-            borderRadius: 6,
-          }}
-          title="Search"
-        >
-          <SvgIcon path="M7 3a4 4 0 014 4 4 4 0 01-4 4 4 4 0 01-4-4 4 4 0 014-4zm3 7l3 3" />
-        </button>
-        <button
-          style={{ padding: "6px 8px", position: "relative", borderRadius: 6 }}
-          title="Notifications"
-        >
-          <SvgIcon path="M3.5 11h9l-1-2V6a3.5 3.5 0 00-7 0v3l-1 2zM6 12a2 2 0 004 0" />
-          <span
-            style={{
-              position: "absolute",
-              top: 3,
-              right: 4,
-              width: 7,
-              height: 7,
-              background: "var(--warm)",
-              borderRadius: "50%",
-              border: "1.5px solid var(--panel)",
-            }}
-          />
-        </button>
-        <div
-          style={{
-            width: 28,
-            height: 28,
-            borderRadius: "50%",
-            background: "linear-gradient(135deg, #F97316 0%, #3B82F6 100%)",
-            border: "1px solid var(--line-mid)",
-            marginLeft: 4,
-          }}
-        />
-      </div>
     </div>
-  );
-}
-
-function SvgIcon({ path }: { path: string }) {
-  return (
-    <svg
-      width="15"
-      height="15"
-      viewBox="0 0 15 15"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.3"
-      strokeLinecap="round"
-    >
-      <path d={path} />
-    </svg>
   );
 }
 
