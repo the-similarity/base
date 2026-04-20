@@ -58,12 +58,9 @@ def client(tmp_path: Path) -> Iterator[TestClient]:
 
     def _override() -> Iterator[RunRegistry]:
         registry = RunRegistry(db_path)
-        # Mirror the production dependency — ensure companion tables exist.
-        # (The production get_registry does this too; here we duplicate the
-        # call so the override is self-contained.)
-        from app.platform_routes import _ensure_ext_schema
-
-        _ensure_ext_schema(registry._conn)  # noqa: SLF001
+        # The registry's __init__ creates all tables (runs, artifacts,
+        # scorecards, scenarios, datasets) via idempotent DDL — no
+        # companion table setup needed.
         try:
             yield registry
         finally:
