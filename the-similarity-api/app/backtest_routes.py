@@ -221,11 +221,13 @@ def trigger_backtest(
         )
 
         # Register a minimal failed run so the registry tracks the attempt.
+        # Use 0.0 (not None) for numeric metrics because the trust adapter's
+        # build_trust_artifact calls float() on them and None would raise.
         run_id = register_backtest_run(
             backtest_result={
-                "hit_rate": None,
-                "crps": None,
-                "coverage": None,
+                "hit_rate": 0.0,
+                "crps": 0.0,
+                "coverage": 0.0,
                 "window_size": body.window_size,
                 "forward_bars": body.forward_bars,
                 "n_valid_trials": 0,
