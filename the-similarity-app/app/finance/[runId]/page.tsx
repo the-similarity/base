@@ -4,13 +4,23 @@
  * Finance run detail page — /finance/[runId]
  *
  * Fetches GET /platform/runs/{runId} + GET /platform/runs/{runId}/scorecards
- * and renders the full run inspection view:
- *   - Metadata card (symbol, window_size, forward_bars, seed, created_at)
- *   - Metrics card (hit_rate, crps, coverage, profit_factor, max_drawdown, sharpe_ratio)
- *   - Trust card (trust_score with color, calibration_grade, decision)
- *   - Calibration table (per-percentile expected vs observed)
- *   - Risk flags as colored badges
- *   - Review section (if review exists in scorecard)
+ * + GET /platform/runs/{runId}/artifacts and renders the full run inspection
+ * view with the following sections:
+ *
+ *   1. Breadcrumb navigation (Finance > Runs > {run_id}) with back + compare
+ *   2. Status lifecycle bar (pending → running → succeeded/failed) + timestamps
+ *   3. Grouped metric cards:
+ *      - Accuracy: Hit Rate, CRPS
+ *      - Coverage: Coverage, Calibration Grade
+ *      - Risk: Max Drawdown, Sharpe Ratio, Profit Factor
+ *   4. Trust assessment (trust_score, calibration_grade, decision, risk flags)
+ *   5. Calibration chart (45-degree line SVG) + table
+ *   6. Artifacts list with name, content_type, size
+ *   7. Collapsible run config JSON viewer
+ *   8. Scorecards + review section
+ *
+ * Design language: monospace for data, serif for headings, system font for
+ * body text. Matches the existing workstation/finance page styling.
  */
 
 import { useEffect, useState } from "react";
@@ -19,14 +29,18 @@ import Link from "next/link";
 import {
   fetchRun,
   fetchScorecards,
+  fetchArtifacts,
   type Run,
   type Scorecard,
+  type Artifact,
 } from "../../../lib/platform-api";
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
+/** Safely dig into a nested object by key path. Returns undefined if any
+ *  intermediate key is missing or the value is not an object. */
 function dig(obj: Record<string, unknown>, ...keys: string[]): unknown {
   let cur: unknown = obj;
   for (const k of keys) {
@@ -36,6 +50,7 @@ function dig(obj: Record<string, unknown>, ...keys: string[]): unknown {
   return cur;
 }
 
+/** Format a numeric value to fixed decimal places, or "-" if missing/NaN. */
 function fmt(val: unknown, decimals = 4): string {
   if (val == null) return "-";
   const n = Number(val);
@@ -43,6 +58,7 @@ function fmt(val: unknown, decimals = 4): string {
   return n.toFixed(decimals);
 }
 
+/** Format a numeric value as a percentage string, or "-" if missing/NaN. */
 function pct(val: unknown): string {
   if (val == null) return "-";
   const n = Number(val);
@@ -50,6 +66,7 @@ function pct(val: unknown): string {
   return `${(n * 100).toFixed(1)}%`;
 }
 
+/** Format ISO timestamp to a human-readable locale string. */
 function formatDate(iso: string): string {
   try {
     return new Date(iso).toLocaleString("en-US", {
@@ -64,6 +81,15 @@ function formatDate(iso: string): string {
   }
 }
 
+/** Format byte count to human-readable size string (KB/MB/GB). */
+function formatBytes(bytes: number | null | undefined): string {
+  if (bytes == null) return "-";
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+}
+
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
@@ -74,27 +100,36 @@ export default function FinanceRunDetailPage() {
 
   const [run, setRun] = useState<Run | null>(null);
   const [scorecards, setScorecards] = useState<Scorecard[]>([]);
+  const [artifacts, setArtifacts] = useState<Artifact[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Collapsible state for the run config JSON viewer
+  const [configOpen, setConfigOpen] = useState(false);
 
   useEffect(() => {
     if (!runId) return;
     let cancelled = false;
 
-    // Fetch run + scorecards. Loading/error state is reset inside the
-    // promise chain (not synchronously) to satisfy react-hooks/set-state-in-effect.
+    // Fetch run + scorecards + artifacts in parallel. Loading/error state
+    // is reset inside the promise chain to satisfy react-hooks rules.
     Promise.resolve()
       .then(() => {
         if (!cancelled) {
           setLoading(true);
           setError(null);
         }
-        return Promise.all([fetchRun(runId), fetchScorecards(runId)]);
+        return Promise.all([
+          fetchRun(runId),
+          fetchScorecards(runId),
+          fetchArtifacts(runId),
+        ]);
       })
-      .then(([r, sc]) => {
+      .then(([r, sc, art]) => {
         if (!cancelled) {
           setRun(r);
           setScorecards(sc);
+          setArtifacts(art);
         }
       })
       .catch((err) => {
@@ -111,6 +146,7 @@ export default function FinanceRunDetailPage() {
     };
   }, [runId]);
 
+  // ── Loading state ──
   if (loading) {
     return (
       <div className="deck-page">
@@ -121,16 +157,12 @@ export default function FinanceRunDetailPage() {
     );
   }
 
+  // ── Error state ──
   if (error || !run) {
     return (
       <div className="deck-page">
         <div className="deck-page__inner">
-          <p className="deck-page__label">
-            <Link href="/finance" style={{ color: "inherit", textDecoration: "none" }}>
-              Finance
-            </Link>{" "}
-            / {runId?.slice(0, 8)}
-          </p>
+          <Breadcrumb runId={runId} />
           <div className="match-list-error" style={{ padding: 40 }}>
             <div className="match-list-error__icon">!</div>
             <p className="match-list-error__text">{error ?? "Run not found"}</p>
@@ -143,7 +175,7 @@ export default function FinanceRunDetailPage() {
     );
   }
 
-  // Extract fields from config / summary / scorecards
+  // ── Extract fields from config / summary / scorecards ──
   const symbol = dig(run.config, "symbol") ?? dig(run.config, "ticker") ?? "-";
   const windowSize = dig(run.config, "window_size");
   const forwardBars = dig(run.config, "forward_bars");
@@ -170,65 +202,114 @@ export default function FinanceRunDetailPage() {
     (sc) => sc.name === "review" || sc.name === "trust"
   );
 
-  // Trust color
+  // Trust color — green if >= 0.7, yellow-ish if >= 0.5, red otherwise
   const trustN = Number(trustScore);
   const trustColor = Number.isNaN(trustN)
-    ? "var(--text-muted)"
+    ? "var(--ink-3)"
     : trustN >= 0.7
       ? "var(--positive)"
       : trustN >= 0.5
-        ? "#8a6200"
+        ? "var(--warn)"
         : "var(--negative)";
 
   return (
     <div className="deck-page">
       <div className="deck-page__inner">
-        {/* Breadcrumb */}
-        <p className="deck-page__label">
-          <Link
-            href="/finance"
-            style={{ color: "inherit", textDecoration: "none" }}
-          >
-            Finance
-          </Link>{" "}
-          / {run.run_id.slice(0, 8)}
-        </p>
+        {/* ── Breadcrumb ── */}
+        <Breadcrumb runId={run.run_id} />
 
+        {/* ── Navigation actions ── */}
+        <div className="nav-actions">
+          <Link href="/finance" className="nav-btn">
+            &larr; Back
+          </Link>
+          <Link
+            href={`/finance/compare?ids=${run.run_id}`}
+            className="nav-btn"
+          >
+            Compare with...
+          </Link>
+        </div>
+
+        {/* ── Title + status ── */}
         <h1 className="deck-page__title" style={{ marginBottom: 8 }}>
           {String(symbol)}
         </h1>
-        <p className="deck-page__intro" style={{ marginBottom: 40 }}>
-          {formatDate(run.created_at)} &middot; Seed {run.seed ?? "-"} &middot;{" "}
-          <StatusBadge status={run.status} />
+        <p className="deck-page__intro" style={{ marginBottom: 24 }}>
+          {formatDate(run.created_at)} &middot; Seed {run.seed ?? "-"} &middot;
+          Window {windowSize != null ? String(windowSize) : "-"} &middot;
+          Forward {forwardBars != null ? String(forwardBars) : "-"}
         </p>
 
-        {/* ── Metadata ── */}
-        <section className="deck-section">
-          <p className="deck-section__tag">Configuration</p>
-          <div className="detail-grid">
-            <MetaCell label="Symbol" value={String(symbol)} />
-            <MetaCell label="Window" value={windowSize != null ? String(windowSize) : "-"} />
-            <MetaCell label="Forward Bars" value={forwardBars != null ? String(forwardBars) : "-"} />
-            <MetaCell label="Seed" value={run.seed != null ? String(run.seed) : "-"} />
-            <MetaCell label="Kind" value={run.kind} />
-            <MetaCell label="Created" value={formatDate(run.created_at)} />
-          </div>
-        </section>
+        {/* ── Status lifecycle ── */}
+        <StatusLifecycle status={run.status} createdAt={run.created_at} />
 
-        {/* ── Metrics ── */}
+        {/* ── Grouped metric cards ── */}
         <section className="deck-section">
           <p className="deck-section__tag">Metrics</p>
-          <div className="strategy-metrics">
-            <MetricTile label="Hit Rate" value={pct(hitRate)} sentiment={metricSentiment(hitRate, 0.5)} />
-            <MetricTile label="CRPS" value={fmt(crps)} sentiment="neutral" />
-            <MetricTile label="Coverage" value={pct(coverage)} sentiment={metricSentiment(coverage, 0.8)} />
-            <MetricTile label="Profit Factor" value={fmt(profitFactor, 2)} sentiment={metricSentiment(profitFactor, 1)} />
-            <MetricTile label="Max Drawdown" value={pct(maxDrawdown)} sentiment={maxDrawdown != null && Number(maxDrawdown) < -0.1 ? "negative" : "neutral"} />
-            <MetricTile label="Sharpe Ratio" value={fmt(sharpeRatio, 2)} sentiment={metricSentiment(sharpeRatio, 0)} />
+
+          {/* Accuracy group */}
+          <div className="metric-group">
+            <p className="metric-group__label">Accuracy</p>
+            <div className="metric-group__cards">
+              <MetricTile
+                label="Hit Rate"
+                value={pct(hitRate)}
+                sentiment={metricSentiment(hitRate, 0.5)}
+              />
+              <MetricTile
+                label="CRPS"
+                value={fmt(crps)}
+                sentiment="neutral"
+              />
+            </div>
+          </div>
+
+          {/* Coverage group */}
+          <div className="metric-group">
+            <p className="metric-group__label">Coverage</p>
+            <div className="metric-group__cards">
+              <MetricTile
+                label="Coverage"
+                value={pct(coverage)}
+                sentiment={metricSentiment(coverage, 0.8)}
+              />
+              <MetricTile
+                label="Cal. Grade"
+                value={calGrade != null ? String(calGrade) : "-"}
+                sentiment="neutral"
+              />
+            </div>
+          </div>
+
+          {/* Risk group */}
+          <div className="metric-group">
+            <p className="metric-group__label">Risk</p>
+            <div className="metric-group__cards">
+              <MetricTile
+                label="Max Drawdown"
+                value={pct(maxDrawdown)}
+                sentiment={
+                  maxDrawdown != null && Number(maxDrawdown) < -0.1
+                    ? "negative"
+                    : "neutral"
+                }
+              />
+              <MetricTile
+                label="Sharpe Ratio"
+                value={fmt(sharpeRatio, 2)}
+                sentiment={metricSentiment(sharpeRatio, 0)}
+              />
+              <MetricTile
+                label="Profit Factor"
+                value={fmt(profitFactor, 2)}
+                sentiment={metricSentiment(profitFactor, 1)}
+              />
+            </div>
           </div>
         </section>
 
-        {/* ── Trust ── */}
+        {/* ── Trust assessment ── */}
         <section className="deck-section">
           <p className="deck-section__tag">Trust Assessment</p>
           <div className="detail-grid">
@@ -252,23 +333,30 @@ export default function FinanceRunDetailPage() {
             </div>
           </div>
 
-          {/* Risk flags */}
+          {/* Risk flags as colored badges */}
           {riskFlags && riskFlags.length > 0 && (
-            <div style={{ marginTop: 16, display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <div
+              style={{
+                marginTop: 16,
+                display: "flex",
+                gap: 8,
+                flexWrap: "wrap",
+              }}
+            >
               {riskFlags.map((flag, i) => (
                 <span
                   key={i}
                   style={{
-                    fontFamily: "var(--font-mono)",
+                    fontFamily: "var(--mono)",
                     fontSize: 10,
                     fontWeight: 700,
                     letterSpacing: "0.06em",
                     textTransform: "uppercase",
                     padding: "3px 10px",
-                    borderRadius: "var(--radius-pill)",
+                    borderRadius: 2,
                     border: "1px solid var(--negative)",
                     color: "var(--negative)",
-                    background: "var(--negative-dim)",
+                    background: "var(--negative-soft)",
                   }}
                 >
                   {flag}
@@ -278,10 +366,15 @@ export default function FinanceRunDetailPage() {
           )}
         </section>
 
-        {/* ── Calibration ── */}
+        {/* ── Calibration chart + table ── */}
         {calibration && Object.keys(calibration).length > 0 && (
           <section className="deck-section">
             <p className="deck-section__tag">Calibration</p>
+
+            {/* SVG calibration chart — 45-degree diagonal = perfect calibration */}
+            <CalibrationChart calibration={calibration} />
+
+            {/* Table below the chart for exact values */}
             <div className="portfolio-table-wrap">
               <table className="portfolio-table">
                 <thead>
@@ -320,7 +413,7 @@ export default function FinanceRunDetailPage() {
                               color:
                                 Math.abs(gap) > 0.1
                                   ? "var(--negative)"
-                                  : "var(--text-muted)",
+                                  : "var(--ink-3)",
                             }}
                           >
                             {gap >= 0 ? "+" : ""}
@@ -335,6 +428,53 @@ export default function FinanceRunDetailPage() {
           </section>
         )}
 
+        {/* ── Artifacts list ── */}
+        {artifacts.length > 0 && (
+          <section className="deck-section">
+            <p className="deck-section__tag">
+              Artifacts ({artifacts.length})
+            </p>
+            <div className="artifact-list">
+              {artifacts.map((art) => (
+                <div key={art.name} className="artifact-row">
+                  <span className="artifact-row__name">{art.name}</span>
+                  <span className="artifact-row__type">
+                    {art.content_type ?? "unknown"}
+                  </span>
+                  <span className="artifact-row__size">
+                    {formatBytes(art.size_bytes)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* ── Run config (collapsible) ── */}
+        <section className="deck-section">
+          <p className="deck-section__tag">Configuration</p>
+          <button
+            className="config-toggle"
+            onClick={() => setConfigOpen(!configOpen)}
+            aria-expanded={configOpen}
+          >
+            <span>
+              {configOpen ? "Hide" : "Show"} full configuration (
+              {Object.keys(run.config).length} keys)
+            </span>
+            <span
+              className={`config-toggle__chevron${configOpen ? " config-toggle__chevron--open" : ""}`}
+            >
+              &#9660;
+            </span>
+          </button>
+          {configOpen && (
+            <div className="config-body">
+              {JSON.stringify(run.config, null, 2)}
+            </div>
+          )}
+        </section>
+
         {/* ── Scorecards ── */}
         {scorecards.length > 0 && (
           <section className="deck-section">
@@ -343,10 +483,11 @@ export default function FinanceRunDetailPage() {
               <div
                 key={sc.name}
                 style={{
-                  border: "1px solid var(--border)",
+                  border: "1px solid var(--rule)",
                   background: "var(--bg-card)",
                   padding: "16px 20px",
                   marginBottom: 12,
+                  borderRadius: "var(--radius-md)",
                 }}
               >
                 <div
@@ -359,7 +500,7 @@ export default function FinanceRunDetailPage() {
                 >
                   <span
                     style={{
-                      fontFamily: "var(--font-mono)",
+                      fontFamily: "var(--mono)",
                       fontSize: 12,
                       fontWeight: 700,
                       textTransform: "uppercase",
@@ -370,15 +511,7 @@ export default function FinanceRunDetailPage() {
                   </span>
                   {sc.passed != null && (
                     <span
-                      style={{
-                        fontSize: 10,
-                        fontWeight: 700,
-                        fontFamily: "var(--font-mono)",
-                        padding: "2px 8px",
-                        borderRadius: "var(--radius-pill)",
-                        border: `1px solid ${sc.passed ? "var(--positive)" : "var(--negative)"}`,
-                        color: sc.passed ? "var(--positive)" : "var(--negative)",
-                      }}
+                      className={`pill ${sc.passed ? "pill--pos" : "pill--neg"}`}
                     >
                       {sc.passed ? "PASS" : "FAIL"}
                     </span>
@@ -387,7 +520,7 @@ export default function FinanceRunDetailPage() {
                 {sc.overall_score != null && (
                   <p
                     style={{
-                      fontFamily: "var(--font-mono)",
+                      fontFamily: "var(--mono)",
                       fontSize: 14,
                       fontWeight: 600,
                       margin: "0 0 8px",
@@ -426,19 +559,10 @@ export default function FinanceRunDetailPage() {
           </section>
         )}
 
-        {/* Back link */}
-        <div style={{ marginTop: 24 }}>
-          <Link
-            href="/finance"
-            style={{
-              fontFamily: "var(--font-mono)",
-              fontSize: 12,
-              color: "var(--text-muted)",
-              textDecoration: "none",
-              borderBottom: "1px dotted var(--border-strong)",
-            }}
-          >
-            Back to all runs
+        {/* ── Back link (bottom) ── */}
+        <div style={{ marginTop: 24, paddingBottom: 40 }}>
+          <Link href="/finance" className="nav-btn">
+            &larr; Back to all runs
           </Link>
         </div>
       </div>
@@ -450,6 +574,23 @@ export default function FinanceRunDetailPage() {
 // Sub-components
 // ---------------------------------------------------------------------------
 
+/**
+ * Breadcrumb: Finance > Runs > {run_id short}
+ * Provides wayfinding context at the top of the detail page.
+ */
+function Breadcrumb({ runId }: { runId: string }) {
+  return (
+    <nav className="breadcrumb" aria-label="Breadcrumb">
+      <Link href="/finance">Finance</Link>
+      <span className="breadcrumb__sep">/</span>
+      <span>Runs</span>
+      <span className="breadcrumb__sep">/</span>
+      <span className="breadcrumb__current">{runId?.slice(0, 8)}</span>
+    </nav>
+  );
+}
+
+/** Simple key/value display cell used in detail grids. */
 function MetaCell({ label, value }: { label: string; value: string }) {
   return (
     <div>
@@ -459,6 +600,10 @@ function MetaCell({ label, value }: { label: string; value: string }) {
   );
 }
 
+/**
+ * MetricTile — a single metric in a card with prominent value and small label.
+ * Sentiment controls the value color: positive (green), negative (red), neutral.
+ */
 function MetricTile({
   label,
   value,
@@ -476,34 +621,253 @@ function MetricTile({
   );
 }
 
-function StatusBadge({ status }: { status: string }) {
-  const colorMap: Record<string, string> = {
-    complete: "var(--positive)",
-    running: "var(--accent)",
-    pending: "var(--text-muted)",
-    failed: "var(--negative)",
-  };
-  const color = colorMap[status] ?? "var(--text-muted)";
+/**
+ * StatusLifecycle — visual status indicator showing the run through its
+ * lifecycle stages: pending -> running -> succeeded/failed.
+ *
+ * Steps are connected by lines. The current/final step is highlighted.
+ * A timestamp for creation is shown on the right.
+ */
+function StatusLifecycle({
+  status,
+  createdAt,
+}: {
+  status: string;
+  createdAt: string;
+}) {
+  // Normalize status to a known lifecycle position
+  const normalized = status.toLowerCase();
+
+  // Determine which steps are complete/active/failed based on current status
+  const isFailed = normalized === "failed";
+  const isComplete = normalized === "complete" || normalized === "succeeded";
+  const isRunning = normalized === "running";
+  const isPending = normalized === "pending";
+
+  /**
+   * Step state derivation:
+   * - "pending" status: pending=active, running=future, result=future
+   * - "running" status: pending=complete, running=active, result=future
+   * - "complete/succeeded": pending=complete, running=complete, result=complete
+   * - "failed": pending=complete, running=complete, result=failed
+   */
+  const pendingState: StepState = isPending ? "active" : "complete";
+  const runningState: StepState = isPending
+    ? "future"
+    : isRunning
+      ? "active"
+      : "complete";
+  const resultState: StepState = isComplete
+    ? "complete"
+    : isFailed
+      ? "failed"
+      : "future";
+
   return (
-    <span
-      style={{
-        fontFamily: "var(--font-mono)",
-        fontSize: 10,
-        fontWeight: 700,
-        letterSpacing: "0.08em",
-        textTransform: "uppercase",
-        padding: "3px 8px",
-        borderRadius: "var(--radius-pill)",
-        border: `1px solid ${color}`,
-        color,
-      }}
-    >
-      {status}
-    </span>
+    <div className="run-status-lifecycle">
+      <Step label="Pending" state={pendingState} />
+      <Connector complete={pendingState === "complete"} />
+      <Step label="Running" state={runningState} />
+      <Connector complete={runningState === "complete"} />
+      <Step
+        label={isFailed ? "Failed" : "Succeeded"}
+        state={resultState}
+      />
+      <span className="run-status-timestamp">{formatDate(createdAt)}</span>
+    </div>
   );
 }
 
-/** Determine sentiment color based on threshold. */
+type StepState = "future" | "active" | "complete" | "failed";
+
+/** Individual step in the status lifecycle bar. */
+function Step({ label, state }: { label: string; state: StepState }) {
+  const classMap: Record<StepState, string> = {
+    future: "run-status-step",
+    active: "run-status-step run-status-step--active",
+    complete: "run-status-step run-status-step--complete",
+    failed: "run-status-step run-status-step--failed",
+  };
+  return (
+    <div className={classMap[state]}>
+      <span className="run-status-step__dot" />
+      <span>{label}</span>
+    </div>
+  );
+}
+
+/** Connecting line between lifecycle steps. */
+function Connector({ complete }: { complete: boolean }) {
+  return (
+    <div
+      className={`run-status-connector${complete ? " run-status-connector--complete" : ""}`}
+    />
+  );
+}
+
+/**
+ * CalibrationChart — inline SVG rendering of expected vs observed percentiles.
+ *
+ * The 45-degree diagonal represents perfect calibration. Points above the
+ * diagonal indicate over-coverage (model is too wide), points below indicate
+ * under-coverage (model is too narrow).
+ *
+ * Uses no external chart library — pure inline SVG with CSS class hooks
+ * for theming (see .cal-chart styles in globals.css).
+ *
+ * Chart dimensions:
+ * - SVG viewBox: 0 0 300 260
+ * - Plot area: 40,10 to 280,230 (240x220 effective drawing region)
+ * - X axis: Expected percentile (0-100%)
+ * - Y axis: Observed percentile (0-100%)
+ */
+function CalibrationChart({
+  calibration,
+}: {
+  calibration: Record<string, { expected: number; observed: number }>;
+}) {
+  // Sort entries by expected value for a clean line plot
+  const entries = Object.entries(calibration)
+    .map(([, vals]) => ({
+      expected: vals.expected,
+      observed: vals.observed,
+    }))
+    .sort((a, b) => a.expected - b.expected);
+
+  if (entries.length === 0) return null;
+
+  // Plot area geometry (inside the SVG viewBox)
+  const left = 40;
+  const top = 10;
+  const right = 280;
+  const bottom = 230;
+  const plotW = right - left; // 240
+  const plotH = bottom - top; // 220
+
+  /** Map a 0-1 value to x pixel coordinate within the plot area. */
+  const xOf = (v: number) => left + v * plotW;
+  /** Map a 0-1 value to y pixel coordinate (inverted — 0 at bottom). */
+  const yOf = (v: number) => bottom - v * plotH;
+
+  // Build SVG path for the data line connecting calibration points
+  const pathParts = entries.map(
+    (e, i) =>
+      `${i === 0 ? "M" : "L"} ${xOf(e.expected).toFixed(1)} ${yOf(e.observed).toFixed(1)}`
+  );
+  const dataPath = pathParts.join(" ");
+
+  // Grid lines at 25%, 50%, 75%
+  const gridTicks = [0.25, 0.5, 0.75];
+
+  return (
+    <svg
+      className="cal-chart"
+      viewBox="0 0 300 260"
+      xmlns="http://www.w3.org/2000/svg"
+      role="img"
+      aria-label="Calibration chart showing expected vs observed percentiles"
+    >
+      {/* Grid lines — horizontal */}
+      {gridTicks.map((t) => (
+        <line
+          key={`h-${t}`}
+          className="grid-line"
+          x1={left}
+          y1={yOf(t)}
+          x2={right}
+          y2={yOf(t)}
+        />
+      ))}
+      {/* Grid lines — vertical */}
+      {gridTicks.map((t) => (
+        <line
+          key={`v-${t}`}
+          className="grid-line"
+          x1={xOf(t)}
+          y1={top}
+          x2={xOf(t)}
+          y2={bottom}
+        />
+      ))}
+
+      {/* Plot area border */}
+      <rect
+        x={left}
+        y={top}
+        width={plotW}
+        height={plotH}
+        fill="none"
+        stroke="var(--rule)"
+        strokeWidth={1}
+      />
+
+      {/* 45-degree diagonal — perfect calibration reference line */}
+      <line
+        className="diag-line"
+        x1={left}
+        y1={bottom}
+        x2={right}
+        y2={top}
+      />
+
+      {/* Data line connecting calibration points */}
+      <path className="data-line" d={dataPath} />
+
+      {/* Data dots at each calibration point */}
+      {entries.map((e, i) => (
+        <circle
+          key={i}
+          className="data-dot"
+          cx={xOf(e.expected)}
+          cy={yOf(e.observed)}
+          r={3}
+        />
+      ))}
+
+      {/* Axis labels — X axis (Expected) */}
+      <text className="axis-label" x={left} y={bottom + 16} textAnchor="middle">
+        0%
+      </text>
+      <text className="axis-label" x={xOf(0.5)} y={bottom + 16} textAnchor="middle">
+        50%
+      </text>
+      <text className="axis-label" x={right} y={bottom + 16} textAnchor="middle">
+        100%
+      </text>
+      <text
+        className="axis-label"
+        x={xOf(0.5)}
+        y={bottom + 28}
+        textAnchor="middle"
+      >
+        EXPECTED
+      </text>
+
+      {/* Axis labels — Y axis (Observed) */}
+      <text className="axis-label" x={left - 6} y={bottom + 4} textAnchor="end">
+        0%
+      </text>
+      <text className="axis-label" x={left - 6} y={yOf(0.5) + 3} textAnchor="end">
+        50%
+      </text>
+      <text className="axis-label" x={left - 6} y={top + 4} textAnchor="end">
+        100%
+      </text>
+      <text
+        className="axis-label"
+        x={10}
+        y={yOf(0.5)}
+        textAnchor="middle"
+        transform={`rotate(-90, 10, ${yOf(0.5)})`}
+      >
+        OBSERVED
+      </text>
+    </svg>
+  );
+}
+
+/** Determine sentiment color based on threshold comparison.
+ *  Values >= threshold are positive, below are negative. */
 function metricSentiment(
   val: unknown,
   threshold: number
