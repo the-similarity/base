@@ -85,6 +85,28 @@ async function apiFetch<T>(path: string): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+/**
+ * Generic POST wrapper. Sends JSON body and returns parsed JSON of type T.
+ * Throws on non-2xx with server detail message.
+ */
+async function apiPost<T>(path: string, body: unknown): Promise<T> {
+  const url = `${base()}${path}`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`Platform API ${res.status}: ${text || res.statusText}`);
+  }
+  return res.json() as Promise<T>;
+}
+
 // ---------------------------------------------------------------------------
 // Public API functions
 // ---------------------------------------------------------------------------
@@ -313,4 +335,39 @@ export async function fetchNearest(
  */
 export async function fetchClusters(): Promise<Cluster[]> {
   return apiFetch<Cluster[]>("/platform/state/clusters");
+}
+
+// ---------------------------------------------------------------------------
+// Backtest trigger — POST /platform/backtests
+// ---------------------------------------------------------------------------
+
+/** Request body for triggering a backtest via the API. */
+export interface BacktestParams {
+  symbol: string;
+  window_size: number;
+  forward_bars: number;
+  seed?: number;
+  k_analogs?: number;
+  n_trials?: number;
+}
+
+/** Response from the backtest trigger endpoint. */
+export interface BacktestResult {
+  run_id: string;
+  status: "succeeded" | "failed";
+  error?: string | null;
+  summary?: Record<string, unknown> | null;
+}
+
+/**
+ * Trigger a walk-forward backtest for the given symbol.
+ * Runs synchronously on the server and registers the result in the registry.
+ *
+ * @param params - Backtest parameters (symbol, window_size, forward_bars, etc.)
+ * @returns The run_id and status, plus headline metrics on success.
+ */
+export async function triggerBacktest(
+  params: BacktestParams
+): Promise<BacktestResult> {
+  return apiPost<BacktestResult>("/platform/backtests", params);
 }
