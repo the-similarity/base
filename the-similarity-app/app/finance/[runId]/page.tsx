@@ -170,7 +170,13 @@ export default function FinanceRunDetailPage() {
     (sc) => sc.name === "review" || sc.name === "trust"
   );
 
-  // Trust color
+  // Trust score color thresholds — mirrors the decision gate in
+  // the_similarity/platform/adapters/trust.py:
+  //   >= 0.7 -> green  (TRUSTED)
+  //   >= 0.5 -> amber  (REVIEW)
+  //   <  0.5 -> red    (REJECTED)
+  // UNCALIBRATED: these thresholds have no empirical basis yet.
+  // See trust.py TRUST_SCORE_VERSION for formula versioning.
   const trustN = Number(trustScore);
   const trustColor = Number.isNaN(trustN)
     ? "var(--text-muted)"
