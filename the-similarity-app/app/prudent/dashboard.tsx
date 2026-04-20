@@ -1459,6 +1459,31 @@ function KeyMetrics({ series, events, history, avg, peak, trough }: KeyMetricsPr
     Math.sqrt(series.reduce((a, b) => a + (b.v - avg) ** 2, 0) / series.length)
   );
 
+  /*
+   * Volatility delta vs the last-7-days baseline.
+   *
+   * We compute the standard deviation of the prior 7 days' `avg` values
+   * (excluding today) and diff it against today's `variance`. If fewer than
+   * 7 prior days exist we render a neutral delta so the card doesn't surface
+   * a misleading number on a fresh install.
+   *
+   * The previous value was hardcoded to -1.58 — it always rendered as a
+   * downturn even when the journal was empty.
+   */
+  const priorWeek = history.slice(-8, -1).map((d) => d.avg);
+  let volatilityDelta = 0;
+  let volatilityDeltaKind: "neutral" | undefined = "neutral";
+  if (priorWeek.length >= 7) {
+    const wkMean = priorWeek.reduce((a, b) => a + b, 0) / priorWeek.length;
+    const wkStd = Math.sqrt(
+      priorWeek.reduce((a, b) => a + (b - wkMean) ** 2, 0) / priorWeek.length,
+    );
+    volatilityDelta = Number((variance - wkStd).toFixed(2));
+    // Non-neutral kind means the Metric card will color the delta green/orange
+    // based on sign. Neutral (the fallback above) renders a grey dot.
+    volatilityDeltaKind = undefined;
+  }
+
   return (
     <section
       style={{
@@ -1503,8 +1528,9 @@ function KeyMetrics({ series, events, history, avg, peak, trough }: KeyMetricsPr
         label="Volatility"
         value={variance}
         unit="σ"
-        delta={-1.58}
-        deltaSuffix="% vs wk"
+        delta={volatilityDelta}
+        deltaSuffix="vs wk"
+        deltaKind={volatilityDeltaKind}
         sparklineCustom={<VolatilitySpark series={series} stroke="var(--accent)" />}
       />
       <Metric
