@@ -386,6 +386,10 @@ export default function SpatiumPage() {
       for (const ds of DATASETS) c[ds.id] = per;
     }
     return c;
+    // pointCount is intentionally included so counts refresh after
+    // buildPoints() (density changes) finishes and the engine ref
+    // publishes the new point list.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [density, pointCount]);
 
   /* ── Derived: legend rows (driven by colorBy) ──────────────────── */
@@ -813,7 +817,6 @@ export default function SpatiumPage() {
     const E = engineRef.current;
     E.STATE.threshold = threshold;
     updateSelectionVisuals();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [threshold]);
 
   useEffect(() => {
@@ -832,7 +835,6 @@ export default function SpatiumPage() {
     const E = engineRef.current;
     E.STATE.edges = edges;
     updateSelectionVisuals();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [edges]);
 
   useEffect(() => {
@@ -879,7 +881,6 @@ export default function SpatiumPage() {
       if (ds) (pts as THREE.Points).visible = visible.has(ds);
     });
     updateSelectionVisuals();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible]);
 
   useEffect(() => {
