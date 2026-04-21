@@ -60,6 +60,9 @@ function makeSearchResponse(matches: MatchResult[]): SearchResponse {
       allPaths: [[1, 2], [3, 4]],
       weights: [0.5, 0.5],
     },
+    // metrics is nullable — a null here exercises the UI's fallback path
+    // that reaches for computeCalibrationMetrics when the backend omits it.
+    metrics: null,
   };
 }
 

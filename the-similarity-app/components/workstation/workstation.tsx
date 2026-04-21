@@ -21,9 +21,10 @@
 
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import {
-  SERIES, LENS_DEFS, findAnalogs, buildCone,
+  SERIES, LENS_DEFS, findAnalogs, buildCone, computeCalibrationMetrics,
   fmtDate, fmtDateShort, fmtPct,
   type LensScores, type AnalogMatch, type ConePoint, type DataPoint,
+  type CalibrationResult,
 } from "../../lib/data";
 import {
   isApiAvailable, fetchCatalog, fetchSeries, searchApi,
@@ -501,79 +502,184 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
           </div>
         </div>
 
-        {/* Trust strip */}
-        <div style={{ display: "flex", flexDirection: "column" }}>
-          <div className="trust">
-            <div className="trust__item">
-              <span className="label">Coverage 80%</span>
-              <span className="v pos">78.4%</span>
-            </div>
-            <div className="trust__item">
-              <span className="label">CRPS (1Y)</span>
-              <span className="v">0.042</span>
-            </div>
-            <div className="trust__item">
-              <span className="label">Hit rate &middot; sign</span>
-              <span className="v pos">0.61</span>
-            </div>
-            <div className="trust__item">
-              <span className="label">Regime drift</span>
-              <span className="v warn">elevated</span>
-            </div>
-            <div className="trust__item">
-              <span className="label">N analogs used</span>
-              <span className="v">{analogs.length}</span>
-            </div>
-            <button className="trust__expand" onClick={() => setTrustOpen(o => !o)}>
-              {trustOpen ? "Hide" : "Open"} calibration panel &rarr;
-            </button>
-          </div>
+        {/* ── Trust strip (computed from THIS query's analogs) ──────────────
+            Metrics flow: the trust strip reads `trustMetrics`, which is
+            `computeCalibrationMetrics(analogs, cone, queryLastPrice)`.
+            This is *in-sample* — each analog's forward window is compared
+            against the engine's own forecast cone. Numbers change with
+            every query because the analog set changes.
 
-          {trustOpen && (
-            <div className="trust-panel">
-              <div>
-                <h3>Reliability diagram</h3>
-                <svg viewBox="0 0 260 160" width="100%" height="160">
-                  <rect x="1" y="1" width="258" height="158" fill="none" stroke="var(--rule)" />
-                  <line x1="20" y1="140" x2="240" y2="20" stroke="var(--ink-4)" strokeDasharray="3 3" />
-                  {[0.05, 0.18, 0.31, 0.48, 0.6, 0.72, 0.82, 0.92].map((p, i) => {
-                    const obs = p + (Math.sin(i * 1.3) * 0.04);
-                    return <circle key={i} cx={20 + p * 220} cy={140 - obs * 120} r="3.5" fill="var(--positive)" />;
-                  })}
-                  <text x="20" y="154" className="axis-label" fontSize="9" fill="var(--ink-3)">predicted</text>
-                  <text x="4" y="20" className="axis-label" fontSize="9" fill="var(--ink-3)" transform="rotate(-90 8 20)">observed</text>
-                </svg>
-                <div style={{ fontSize: 12, color: "var(--ink-2)", marginTop: 8 }}>
-                  Predicted quantiles match observed frequencies to within 4 percentage points.
+            When backend integration lands (SearchResponse.metrics), swap
+            the `computeCalibrationMetrics(...)` call for `apiMetrics ??
+            computeCalibrationMetrics(...)` so backend ground-truth wins
+            and the client-side derivation is the fallback.
+
+            Grade drives the badge color:
+              A → positive (green), B → accent (blue),
+              C → warning (amber), D/F → negative (red),
+              unknown → muted (grey, em-dashes for numerics).           */}
+        <div style={{ display: "flex", flexDirection: "column" }}>
+          {(() => {
+            // Compute metrics inline so hooks outside this block are
+            // untouched (Agent C owns those lines). The computation is
+            // O(analogs * percentiles) and runs once per render — cheap.
+            const queryLastPrice = loadedSeries[windowState.start + windowState.len - 1]?.p ?? 1;
+            const trustMetrics: CalibrationResult = computeCalibrationMetrics(
+              analogs,
+              cone,
+              queryLastPrice,
+            );
+            const isUnknown = trustMetrics.grade === "unknown";
+            // Numeric badge class per metric value — mirrors the live-data
+            // sign convention used elsewhere in the trust strip.
+            const coverageGap = Math.abs(trustMetrics.coverage - 0.80);
+            const coverageClass = isUnknown
+              ? ""
+              : coverageGap <= 0.05 ? "pos"
+              : coverageGap <= 0.15 ? ""
+              : "warn";
+            const hitClass = isUnknown
+              ? ""
+              : trustMetrics.hitRate >= 0.55 ? "pos"
+              : trustMetrics.hitRate >= 0.50 ? ""
+              : "neg";
+            const driftClass = isUnknown
+              ? ""
+              : trustMetrics.regimeDrift === "low" ? "pos"
+              : trustMetrics.regimeDrift === "elevated" ? "warn"
+              : "neg";
+            // Em-dash placeholders whenever the engine returned unknown,
+            // so a quant can distinguish "no data yet" from "zero".
+            const dash = "\u2014";
+            return (
+              <>
+                <div className="trust">
+                  <div className="trust__item">
+                    <span className="label">Coverage 80%</span>
+                    <span className={"v " + coverageClass}>
+                      {isUnknown ? dash : fmtPct(trustMetrics.coverage, 1)}
+                    </span>
+                  </div>
+                  <div className="trust__item">
+                    <span className="label">CRPS</span>
+                    <span className="v">
+                      {isUnknown ? dash : trustMetrics.crps.toFixed(3)}
+                    </span>
+                  </div>
+                  <div className="trust__item">
+                    <span className="label">Hit rate &middot; sign</span>
+                    <span className={"v " + hitClass}>
+                      {isUnknown ? dash : trustMetrics.hitRate.toFixed(2)}
+                    </span>
+                  </div>
+                  <div className="trust__item">
+                    <span className="label">Regime drift</span>
+                    <span className={"v " + driftClass}>
+                      {isUnknown ? dash : trustMetrics.regimeDrift}
+                    </span>
+                  </div>
+                  <div className="trust__item">
+                    <span className="label">N analogs used</span>
+                    <span className="v">{trustMetrics.nAnalogs}</span>
+                  </div>
+                  <button className="trust__expand" onClick={() => setTrustOpen(o => !o)}>
+                    {trustOpen ? "Hide" : "Open"} calibration panel &rarr;
+                  </button>
                 </div>
-              </div>
-              <div>
-                <h3>Coverage over time</h3>
-                <svg viewBox="0 0 260 160" width="100%" height="160">
-                  <rect x="1" y="1" width="258" height="158" fill="none" stroke="var(--rule)" />
-                  <line x1="10" y1="60" x2="250" y2="60" stroke="var(--rule-strong)" strokeDasharray="3 3" />
-                  <text x="12" y="56" className="axis-label" fontSize="9" fill="var(--ink-3)">80% target</text>
-                  {Array.from({ length: 48 }).map((_, i) => {
-                    const v = 0.80 + Math.sin(i * 0.7) * 0.08 + (i > 36 ? -0.05 : 0);
-                    const x = 10 + i * 5;
-                    const y = 160 - v * 150;
-                    return <line key={i} x1={x} x2={x} y1={160} y2={y} stroke="var(--ink-2)" strokeWidth="1.4" />;
-                  })}
-                </svg>
-                <div style={{ fontSize: 12, color: "var(--ink-2)", marginTop: 8 }}>
-                  Coverage has been stable at 78&ndash;82% over the last 12 months, with mild regime drift at the tail.
-                </div>
-              </div>
-              <div>
-                <h3>Honesty note</h3>
-                <p style={{ fontFamily: "var(--serif)", fontSize: 15, lineHeight: 1.5, color: "var(--ink-2)", fontStyle: "italic" }}>
-                  Similarity is not a guarantee. Markets regime-shift. The cone reports what
-                  <span style={{ fontStyle: "normal", fontWeight: 500 }}> tended to happen</span> after similar
-                  structural patterns &mdash; nothing more, nothing less.
-                </p>
-              </div>
-            </div>
-          )}
+
+                {trustOpen && (
+                  <div className="trust-panel">
+                    <div>
+                      <h3>Reliability diagram</h3>
+                      <svg viewBox="0 0 260 160" width="100%" height="160">
+                        <rect x="1" y="1" width="258" height="158" fill="none" stroke="var(--rule)" />
+                        {/* Identity line y=x → perfect calibration reference.
+                            Plot region: x in [20, 240], y in [140, 20]. */}
+                        <line x1="20" y1="140" x2="240" y2="20" stroke="var(--ink-4)" strokeDasharray="3 3" />
+                        {/* Empirical (predicted, observed) scatter. When the
+                            buckets are missing (e.g. unknown grade) render
+                            a "not enough data" placeholder instead of a
+                            misleading synthetic scatter. */}
+                        {trustMetrics.reliability.length === 0 ? (
+                          <text x="130" y="80" textAnchor="middle" fontSize="11" fill="var(--ink-3)">
+                            not enough data
+                          </text>
+                        ) : (
+                          trustMetrics.reliability.map((pt, i) => {
+                            const pClamped = Math.max(0, Math.min(1, pt.predicted));
+                            const oClamped = Math.max(0, Math.min(1, pt.observed));
+                            return (
+                              <circle
+                                key={i}
+                                cx={20 + pClamped * 220}
+                                cy={140 - oClamped * 120}
+                                r="3.5"
+                                fill="var(--positive)"
+                              />
+                            );
+                          })
+                        )}
+                        <text x="20" y="154" className="axis-label" fontSize="9" fill="var(--ink-3)">predicted</text>
+                        <text x="4" y="20" className="axis-label" fontSize="9" fill="var(--ink-3)" transform="rotate(-90 8 20)">observed</text>
+                      </svg>
+                      <div style={{ fontSize: 12, color: "var(--ink-2)", marginTop: 8 }}>
+                        {trustMetrics.reliability.length === 0
+                          ? "Not enough analogs with forward windows to build a reliability diagram."
+                          : (() => {
+                              // Max absolute deviation from the identity line, in
+                              // percentage points. Makes the narrative change per
+                              // query instead of claiming a static "within 4pp".
+                              const maxDev = Math.max(
+                                ...trustMetrics.reliability.map(r => Math.abs(r.observed - r.predicted)),
+                              );
+                              return `Predicted quantiles match observed frequencies to within ${(maxDev * 100).toFixed(1)} percentage points.`;
+                            })()}
+                      </div>
+                    </div>
+                    <div>
+                      <h3>Coverage vs target</h3>
+                      <svg viewBox="0 0 260 160" width="100%" height="160">
+                        <rect x="1" y="1" width="258" height="158" fill="none" stroke="var(--rule)" />
+                        {/* 80% target line at y = 160 - 0.80 * 150 = 40. */}
+                        <line x1="10" y1="40" x2="250" y2="40" stroke="var(--rule-strong)" strokeDasharray="3 3" />
+                        <text x="12" y="36" className="axis-label" fontSize="9" fill="var(--ink-3)">80% target</text>
+                        {/* Per-analog terminal containment visualization.
+                            Each bar height = this query's coverage rate.
+                            This is a single-query summary, not a time
+                            series — when a dedicated rolling coverage
+                            series is added it should replace this. */}
+                        {isUnknown ? (
+                          <text x="130" y="90" textAnchor="middle" fontSize="11" fill="var(--ink-3)">
+                            not enough data
+                          </text>
+                        ) : (
+                          Array.from({ length: 12 }).map((_, i) => {
+                            const v = trustMetrics.coverage;
+                            const x = 20 + i * 18;
+                            const y = 160 - v * 150;
+                            return <line key={i} x1={x} x2={x} y1={160} y2={y} stroke="var(--ink-2)" strokeWidth="1.4" />;
+                          })
+                        )}
+                      </svg>
+                      <div style={{ fontSize: 12, color: "var(--ink-2)", marginTop: 8 }}>
+                        {isUnknown
+                          ? "Coverage will appear here once the engine has at least 3 analogs with forward windows."
+                          : `This query's cone contains ${(trustMetrics.coverage * 100).toFixed(0)}% of analog terminals vs the 80% target. Drift is ${trustMetrics.regimeDrift}.`}
+                      </div>
+                    </div>
+                    <div>
+                      <h3>Honesty note</h3>
+                      <p style={{ fontFamily: "var(--serif)", fontSize: 15, lineHeight: 1.5, color: "var(--ink-2)", fontStyle: "italic" }}>
+                        Similarity is not a guarantee. Markets regime-shift. The cone reports what
+                        <span style={{ fontStyle: "normal", fontWeight: 500 }}> tended to happen</span> after similar
+                        structural patterns &mdash; nothing more, nothing less.
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </>
+            );
+          })()}
         </div>
 
         {/* Analog strip */}
