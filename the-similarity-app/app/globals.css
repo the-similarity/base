@@ -400,10 +400,14 @@ input, select, textarea { font: inherit; color: inherit; }
    On large screens the drawer is docked (static grid column) and all
    three of these are hidden by default.
    ------------------------------------------------------------------ */
+.ws-drawer-toggles {
+  display: flex;
+  gap: var(--s-2);
+  margin-top: var(--s-3);
+}
 .ws-drawer-toggle {
   display: none; /* hidden by default, shown in media queries below */
   align-self: flex-start;
-  margin-top: var(--s-3);
   padding: 6px 10px;
   font-family: var(--mono);
   font-size: 11px;
@@ -470,11 +474,40 @@ input, select, textarea { font: inherit; color: inherit; }
   .ws-drawer-close { display: inline-flex; }
 }
 
-/* Preserve the old <1024 behaviour for now (handled further in the
-   next breakpoint rule): hide the right panel entirely. */
-@media (max-width: 1023px) {
-  .workstation { grid-template-columns: 240px 1fr; }
+/* ------------------------------------------------------------------
+   Compact layout: 768-1023px.
+   Left sidebar ALSO becomes a slide-in drawer so the chart gets full
+   width. Right panel stays hidden (only accessible above 1024px, or
+   via future re-design). The main column becomes the only docked
+   thing, and both drawers overlay it when opened.
+   ------------------------------------------------------------------ */
+/* At <768px we stack everything vertically — both side panels hidden
+   and a polite "best viewed on desktop" notice shown at the top. See
+   the later mobile block for those rules. */
+@media (max-width: 1023px) and (min-width: 768px) {
+  .workstation { grid-template-columns: 1fr; }
   .workstation > .right { display: none; }
+
+  .workstation > .side {
+    position: fixed;
+    top: 0; left: 0; bottom: 0;
+    width: 300px;
+    max-width: 85vw;
+    border-right: 1px solid var(--rule);
+    background: var(--bg-elevated);
+    z-index: 50;
+    transform: translateX(-100%);
+    transition: transform .2s ease-out;
+    box-shadow: 4px 0 16px rgba(0, 0, 0, 0.08);
+  }
+  .workstation[data-left-drawer="open"] > .side {
+    transform: translateX(0);
+  }
+  .workstation[data-left-drawer="open"] > .ws-drawer-backdrop {
+    display: block;
+  }
+  .ws-drawer-toggle--left { display: inline-flex; }
+  .ws-drawer-close--left { display: inline-flex; }
 }
 
 /* Sidebar — query definition & saved analogs */
