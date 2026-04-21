@@ -128,15 +128,18 @@ export default function Page() {
         <span className="marquee__brand">THE SIMILARITY</span>
         <div style={{ overflow: "hidden", flex: 1 }}>
           <div className="marquee__track">
+            {/*
+             * Marquee content — statements that are true without any live backend.
+             * Hardcoded ticker prices (SPX/NDX/VIX), "analogs 1,204 runs", and
+             * "worlds 42 scenarios active" were removed: frozen numbers that never
+             * update destroy credibility instantly with a quant or PM. If we want
+             * live market/analog counts in the marquee later, they must come from
+             * a real feed, not literals. Keep only tagline-style content here.
+             */}
             {Array.from({ length: 2 }).map((_, k) => (
               <span key={k} style={{ display: "contents" }}>
                 <span className="marquee__item">Structural intelligence for time, state &amp; simulation</span>
-                <span className="marquee__item"><b>SPX</b> 5284.12 <span style={{ color: "#6fb88e" }}>+0.38%</span></span>
-                <span className="marquee__item"><b>NDX</b> 18442.50 <span style={{ color: "#6fb88e" }}>+0.52%</span></span>
-                <span className="marquee__item"><b>VIX</b> 13.88 <span style={{ color: "#c77272" }}>&minus;2.14%</span></span>
-                <span className="marquee__item"><b>analogs</b> 1,204 runs &middot; calibration B+</span>
                 <span className="marquee__item">Find what rhymes &middot; model what evolves &middot; simulate what comes next</span>
-                <span className="marquee__item"><b>worlds</b> 42 scenarios active</span>
                 <span className="marquee__item"><b>engine</b> nine lenses / four layers</span>
               </span>
             ))}
