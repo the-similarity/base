@@ -56,19 +56,26 @@
  */
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, Dispatch, SetStateAction } from "react";
 import * as THREE from "three";
 
 import styles from "./spatium.module.css";
 import {
+  CUSTOM_PALETTE,
   DATASETS,
   DOMAIN_ORDER,
+  Dataset,
+  SERIES_KINDS,
+  SeriesKind,
   SpatiumPoint,
   buildPoints,
   clamp,
   distance,
+  exportEmbedding,
+  exportEmbeddingCsv,
   regimeLabel,
   similarityFromDist,
+  slugifyDatasetId,
 } from "./datasets";
 
 /* ──────────────────────────────────────────────────────────────────
@@ -318,10 +325,29 @@ export default function SpatiumPage() {
   const [pointStyle, setPointStyle] = useState<PointStyle>("dot");
   const [visible, setVisible] = useState<Set<string>>(() => new Set(DATASETS.map((d) => d.id)));
   const [tweaksOpen, setTweaksOpen] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  // User-added synthetic datasets — persisted to localStorage in a
+  // separate effect so the list survives reload without coupling the
+  // initial render to an async storage read.
+  const [customDatasets, setCustomDatasets] = useState<Dataset[]>([]);
+  // User-tunable preferences (orbit speed, point size, autosave). Mirror
+  // kept on engineRef.STATE for the RAF loop to read without rerenders.
+  const [prefs, setPrefs] = useState<{
+    orbitSpeed: number; // rad/s when orbit = auto
+    pointSize: number; // three.js PointsMaterial.size
+    persistCustom: boolean; // mirror customDatasets to localStorage
+  }>({ orbitSpeed: 0.08, pointSize: 0.55, persistCustom: true });
 
   // Visible selection payload — mirrors what's shown in the right panel.
   const [selection, setSelection] = useState<SelectionPayload | null>(null);
   const [pointCount, setPointCount] = useState<number>(0);
+
+  /* ── Merged dataset list (built-in + user-added) ───────────────── */
+  const allDatasets = useMemo<readonly Dataset[]>(
+    () => (customDatasets.length ? [...DATASETS, ...customDatasets] : DATASETS),
+    [customDatasets],
+  );
 
   /* ── Mutable engine container (not React state) ────────────────── */
   // Everything in here lives outside React's reconciliation boundary so
@@ -340,11 +366,14 @@ export default function SpatiumPage() {
     orbitAngle: number;
     orbitRadius: number;
     orbitHeight: number;
+    orbitSpeed: number;
+    pointSize: number;
     last: number;
     fpsAcc: number;
     fpsN: number;
     rafId: number;
     visible: Set<string>;
+    extraDatasets: Dataset[];
     onResize?: () => void;
     onPointerDown?: (e: PointerEvent) => void;
     onPointerMove?: (e: PointerEvent) => void;
@@ -366,11 +395,14 @@ export default function SpatiumPage() {
     orbitAngle: Math.atan2(22, 18),
     orbitRadius: Math.hypot(18, 22),
     orbitHeight: 10,
+    orbitSpeed: 0.08,
+    pointSize: 0.55,
     last: 0,
     fpsAcc: 0,
     fpsN: 0,
     rafId: 0,
     visible: new Set(DATASETS.map((d) => d.id)),
+    extraDatasets: [],
   });
 
   /* ── Derived: dataset counts for the left-panel list ──────────── */
@@ -383,21 +415,21 @@ export default function SpatiumPage() {
     // consistent with current density so the initial render isn't blank.
     if (Object.keys(c).length === 0) {
       const per = [15, 32, 60][density];
-      for (const ds of DATASETS) c[ds.id] = per;
+      for (const ds of allDatasets) c[ds.id] = per;
     }
     return c;
     // pointCount is intentionally included so counts refresh after
     // buildPoints() (density changes) finishes and the engine ref
     // publishes the new point list.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [density, pointCount]);
+  }, [density, pointCount, allDatasets]);
 
   /* ── Derived: legend rows (driven by colorBy) ──────────────────── */
   const legend: LegendRow[] = useMemo(() => {
     if (colorBy === "domain") {
       const seen = new Set<string>();
       const rows: LegendRow[] = [];
-      for (const ds of DATASETS) {
+      for (const ds of allDatasets) {
         if (seen.has(ds.domain)) continue;
         seen.add(ds.domain);
         rows.push({ color: toHexCss(ds.color), label: ds.domain });
@@ -418,7 +450,7 @@ export default function SpatiumPage() {
       { color: "#b6b4c4", label: "2000s" },
       { color: "#8cb4e6", label: "post-2015" },
     ];
-  }, [colorBy]);
+  }, [colorBy, allDatasets]);
 
   /* ── Helper: colour lookup that respects colorBy ───────────────── */
   function colorForPoint(p: SpatiumPoint, mode: ColorBy): THREE.Color {
@@ -460,7 +492,8 @@ export default function SpatiumPage() {
     }
 
     const texture = makePointTexture(E.STATE.pointStyle);
-    for (const ds of DATASETS) {
+    const allDs = E.extraDatasets.length ? [...DATASETS, ...E.extraDatasets] : DATASETS;
+    for (const ds of allDs) {
       const dsPoints = E.points.filter((p) => p.ds === ds.id);
       if (!dsPoints.length) continue;
       const geo = new THREE.BufferGeometry();
@@ -479,7 +512,7 @@ export default function SpatiumPage() {
       geo.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
       geo.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
       const mat = new THREE.PointsMaterial({
-        size: 0.55,
+        size: E.pointSize,
         vertexColors: true,
         map: texture,
         transparent: true,
@@ -609,7 +642,7 @@ export default function SpatiumPage() {
 
     // Build points deterministically. Stored on the engine ref; components
     // that need to display counts re-read via state.
-    E.points = buildPoints(E.STATE.density);
+    E.points = buildPoints(E.STATE.density, E.extraDatasets);
     setPointCount(E.points.length);
 
     const rect = sceneEl.getBoundingClientRect();
@@ -775,7 +808,7 @@ export default function SpatiumPage() {
         E.fpsN = 0;
       }
       if (E.STATE.orbit === "auto") {
-        E.orbitAngle += dt * 0.08;
+        E.orbitAngle += dt * E.orbitSpeed;
         E.camera.position.x = Math.cos(E.orbitAngle) * E.orbitRadius;
         E.camera.position.z = Math.sin(E.orbitAngle) * E.orbitRadius;
         E.camera.position.y = E.orbitHeight;
@@ -887,13 +920,249 @@ export default function SpatiumPage() {
     const E = engineRef.current;
     if (!E.scene) return;
     E.STATE.density = density;
-    E.points = buildPoints(density);
+    E.points = buildPoints(density, E.extraDatasets);
     setPointCount(E.points.length);
     if (hudNRef.current) hudNRef.current.textContent = String(E.points.length);
     rebuildPoints();
     selectDefault();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [density]);
+
+  /* ── Sync custom datasets into the engine ref + rebuild. ─────────── */
+  useEffect(() => {
+    const E = engineRef.current;
+    if (!E.scene) return;
+    E.extraDatasets = customDatasets.slice();
+    E.points = buildPoints(E.STATE.density, E.extraDatasets);
+    // New datasets default to visible so the point cloud appears the
+    // moment the user clicks "Add". setVisible is idempotent on ids
+    // that already exist so we don't accidentally re-enable hidden ones.
+    setVisible((prev) => {
+      const next = new Set(prev);
+      for (const ds of customDatasets) if (!prev.has(ds.id)) next.add(ds.id);
+      return next;
+    });
+    setPointCount(E.points.length);
+    if (hudNRef.current) hudNRef.current.textContent = String(E.points.length);
+    rebuildPoints();
+    updateSelectionVisuals();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [customDatasets]);
+
+  /* ── Apply preference changes (orbit speed, point size). ─────────── */
+  useEffect(() => {
+    const E = engineRef.current;
+    E.orbitSpeed = prefs.orbitSpeed;
+    if (E.pointSize !== prefs.pointSize) {
+      E.pointSize = prefs.pointSize;
+      rebuildPoints();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prefs.orbitSpeed, prefs.pointSize]);
+
+  /* ── localStorage mirror for preferences + custom datasets. ──────── */
+  // Gated behind `prefs.persistCustom` so a user can opt out of leaving
+  // state on disk (e.g. shared kiosk). Reads happen once on mount; writes
+  // fire only when the persisted values actually change.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const rawP = window.localStorage.getItem("spatium:prefs");
+      if (rawP) {
+        const parsed = JSON.parse(rawP) as Partial<typeof prefs>;
+        setPrefs((prev) => ({ ...prev, ...parsed }));
+      }
+      const rawD = window.localStorage.getItem("spatium:custom");
+      if (rawD) {
+        const parsed = JSON.parse(rawD) as Dataset[];
+        if (Array.isArray(parsed)) setCustomDatasets(parsed);
+      }
+    } catch {
+      // Corrupted storage blob — clear it so we don't retry every mount.
+      try { window.localStorage.removeItem("spatium:prefs"); } catch {}
+      try { window.localStorage.removeItem("spatium:custom"); } catch {}
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem("spatium:prefs", JSON.stringify(prefs));
+    } catch {}
+  }, [prefs]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!prefs.persistCustom) return;
+    try {
+      window.localStorage.setItem("spatium:custom", JSON.stringify(customDatasets));
+    } catch {}
+  }, [customDatasets, prefs.persistCustom]);
+
+  /* ── Handlers for top-bar + settings actions ─────────────────────
+     These live near the JSX that invokes them so the dataflow is
+     obvious. Each handler is idempotent and self-contained — no shared
+     mutable side state beyond engineRef and the React state setters. */
+
+  /**
+   * Trigger a browser download of `content` with `mimeType` and `filename`.
+   *
+   * Uses Blob + object URL so we never have to hit the network. The URL
+   * is revoked on next microtask to keep the download available long
+   * enough for the browser to grab it without leaking memory.
+   */
+  function downloadBlob(content: string, filename: string, mimeType: string) {
+    if (typeof window === "undefined") return;
+    const blob = new Blob([content], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.rel = "noopener";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 0);
+  }
+
+  /** Add a synthetic dataset built from the Add-dataset popover form. */
+  function handleAddDataset(spec: {
+    name: string;
+    domain: string;
+    kind: SeriesKind;
+    eraStart: number;
+    eraEnd: number;
+  }) {
+    const trimmed = spec.name.trim() || "Synthetic";
+    const existingIds = new Set<string>([
+      ...DATASETS.map((d) => d.id),
+      ...customDatasets.map((d) => d.id),
+    ]);
+    const id = slugifyDatasetId(trimmed, existingIds);
+    const colour = CUSTOM_PALETTE[customDatasets.length % CUSTOM_PALETTE.length];
+    const eraLo = Math.min(spec.eraStart, spec.eraEnd);
+    const eraHi = Math.max(spec.eraStart, spec.eraEnd);
+    const next: Dataset = {
+      id,
+      name: trimmed,
+      domain: (spec.domain || "synthetic").trim().toLowerCase() || "synthetic",
+      color: colour,
+      kind: spec.kind,
+      era: [eraLo, eraHi],
+    };
+    setCustomDatasets((prev) => [...prev, next]);
+    setAddOpen(false);
+  }
+
+  /** Remove a previously user-added dataset (no-op for built-ins). */
+  function handleRemoveCustomDataset(id: string) {
+    setCustomDatasets((prev) => prev.filter((d) => d.id !== id));
+    setVisible((prev) => {
+      if (!prev.has(id)) return prev;
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
+  }
+
+  /**
+   * Export the current point cloud as a timestamped JSON blob.
+   *
+   * The blob is the full `ExportedEmbedding` envelope from datasets.ts
+   * — schema v1 — minus raw series (deterministic from genSeries). Kept
+   * pretty-printed with 2-space indent so diffs across exports are
+   * human-readable.
+   */
+  function handleExportJson() {
+    const E = engineRef.current;
+    const env = exportEmbedding(E.points, allDatasets, {
+      density,
+      colorBy,
+      threshold,
+    });
+    const ts = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+    downloadBlob(JSON.stringify(env, null, 2), `spatium-embedding-${ts}.json`, "application/json");
+  }
+
+  /** Export the current point cloud as CSV (one row per point). */
+  function handleExportCsv() {
+    const E = engineRef.current;
+    const csv = exportEmbeddingCsv(E.points);
+    const ts = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+    downloadBlob(csv, `spatium-embedding-${ts}.csv`, "text/csv");
+  }
+
+  /** Reset camera orbit + selection to the default BTC-2020 pick. */
+  function handleResetView() {
+    const E = engineRef.current;
+    E.orbitAngle = Math.atan2(22, 18);
+    E.orbitRadius = Math.hypot(18, 22);
+    E.orbitHeight = 10;
+    if (E.camera) {
+      E.camera.position.x = Math.cos(E.orbitAngle) * E.orbitRadius;
+      E.camera.position.z = Math.sin(E.orbitAngle) * E.orbitRadius;
+      E.camera.position.y = E.orbitHeight;
+      E.camera.lookAt(0, 0, 0);
+    }
+    selectDefault();
+  }
+
+  /* ── Keyboard shortcuts. Gated so typing into a text input inside the
+     Add-dataset or Settings popover doesn't trigger global handlers. */
+  useEffect(() => {
+    const isTypingTarget = (el: EventTarget | null) => {
+      if (!(el instanceof HTMLElement)) return false;
+      const tag = el.tagName;
+      return (
+        tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || el.isContentEditable
+      );
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (isTypingTarget(e.target)) return;
+      switch (e.key.toLowerCase()) {
+        case "r":
+          e.preventDefault();
+          handleResetView();
+          break;
+        case "t":
+          e.preventDefault();
+          setTweaksOpen((v) => !v);
+          break;
+        case "e":
+          e.preventDefault();
+          handleExportJson();
+          break;
+        case "a":
+          e.preventDefault();
+          setAddOpen((v) => !v);
+          break;
+        case ",":
+          e.preventDefault();
+          setSettingsOpen((v) => !v);
+          break;
+        case "[":
+          e.preventDefault();
+          setDensity((d) => (d > 0 ? ((d - 1) as 0 | 1 | 2) : d));
+          break;
+        case "]":
+          e.preventDefault();
+          setDensity((d) => (d < 2 ? ((d + 1) as 0 | 1 | 2) : d));
+          break;
+        case "escape":
+          if (addOpen || settingsOpen || tweaksOpen) {
+            e.preventDefault();
+            setAddOpen(false);
+            setSettingsOpen(false);
+            setTweaksOpen(false);
+          }
+          break;
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [addOpen, settingsOpen, tweaksOpen, density, colorBy, threshold, allDatasets]);
 
   /* ── Derived strings for status bar ────────────────────────────── */
   const hits = selection?.hits ?? [];
@@ -932,7 +1201,15 @@ export default function SpatiumPage() {
           <IconNarrative />
         </Link>
         <div className={styles.navSpacer} />
-        <button className={styles.navBtn} title="Settings" type="button">
+        <button
+          className={styles.navBtn}
+          title="Settings (,)"
+          type="button"
+          data-active={settingsOpen ? "true" : undefined}
+          onClick={() => setSettingsOpen((v) => !v)}
+          aria-haspopup="dialog"
+          aria-expanded={settingsOpen}
+        >
           <IconSettings />
         </button>
         <div className={styles.navAvatar}>NC</div>
@@ -957,11 +1234,24 @@ export default function SpatiumPage() {
             <IconTweaks />
             Tweaks
           </button>
-          <button className={styles.btn} type="button">
+          <button
+            className={styles.btn}
+            type="button"
+            data-active={addOpen ? "true" : undefined}
+            onClick={() => setAddOpen((v) => !v)}
+            title="Add synthetic dataset (A)"
+            aria-haspopup="dialog"
+            aria-expanded={addOpen}
+          >
             <IconPlus />
             Add dataset
           </button>
-          <button className={`${styles.btn} ${styles.primary}`} type="button">
+          <button
+            className={`${styles.btn} ${styles.primary}`}
+            type="button"
+            onClick={handleExportJson}
+            title="Export embedding as JSON (E)"
+          >
             <IconDownload />
             Export embedding
           </button>
@@ -996,12 +1286,13 @@ export default function SpatiumPage() {
         <div className={styles.sectionH}>
           Datasets
           <small>
-            <span>{visible.size}</span>/{DATASETS.length} visible
+            <span>{visible.size}</span>/{allDatasets.length} visible
           </small>
         </div>
         <div className={styles.domainList}>
-          {DATASETS.map((ds) => {
+          {allDatasets.map((ds) => {
             const on = visible.has(ds.id);
+            const isCustom = customDatasets.some((c) => c.id === ds.id);
             return (
               <div
                 key={ds.id}
@@ -1020,8 +1311,23 @@ export default function SpatiumPage() {
                 <span className={styles.domainSwatch} />
                 <span className={styles.domainName} style={{ color: "var(--text)" }}>
                   {ds.name}
+                  {isCustom ? <span className={styles.domainBadge}>user</span> : null}
                 </span>
                 <span className={styles.domainCount}>{domainCounts[ds.id] ?? 0}</span>
+                {isCustom ? (
+                  <button
+                    type="button"
+                    className={styles.domainRemove}
+                    title="Remove dataset"
+                    aria-label={`Remove ${ds.name}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleRemoveCustomDataset(ds.id);
+                    }}
+                  >
+                    ×
+                  </button>
+                ) : null}
               </div>
             );
           })}
@@ -1291,7 +1597,38 @@ export default function SpatiumPage() {
             ))}
           </div>
         </div>
+
+        <div className={styles.tweak}>
+          <button
+            type="button"
+            className={styles.resetBtn}
+            onClick={handleResetView}
+            title="Reset camera and selection (R)"
+          >
+            Reset view
+          </button>
+        </div>
       </div>
+
+      {/* ── Add-dataset popover ─────────────────────────────────── */}
+      <AddDatasetPopover
+        open={addOpen}
+        onClose={() => setAddOpen(false)}
+        onSubmit={handleAddDataset}
+        existingIds={new Set<string>([...DATASETS.map((d) => d.id), ...customDatasets.map((d) => d.id)])}
+      />
+
+      {/* ── Settings popover ────────────────────────────────────── */}
+      <SettingsPopover
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        prefs={prefs}
+        onChange={setPrefs}
+        onExportJson={handleExportJson}
+        onExportCsv={handleExportCsv}
+        onClearCustom={() => setCustomDatasets([])}
+        customCount={customDatasets.length}
+      />
     </div>
   );
 }
@@ -1349,3 +1686,246 @@ function RhymeRow({ rank, hit, onPick }: { rank: number; hit: Hit; onPick: (i: n
 /* Suppress unused imports warnings for DOMAIN_ORDER — kept imported for
    future regime-coloured clustering; remove once real embeddings land. */
 void DOMAIN_ORDER;
+
+/* ──────────────────────────────────────────────────────────────────
+   AddDatasetPopover — minimal form for spawning a synthetic dataset.
+
+   State discipline: all fields are uncontrolled-but-sync'd via
+   useState. Submit validates non-empty name and sane era bounds,
+   then hands the spec to the parent. The popover is conditionally
+   mounted (via `open`) so hidden form fields never fire key handlers.
+   ────────────────────────────────────────────────────────────────── */
+
+interface AddDatasetPopoverProps {
+  open: boolean;
+  onClose: () => void;
+  onSubmit: (spec: {
+    name: string;
+    domain: string;
+    kind: SeriesKind;
+    eraStart: number;
+    eraEnd: number;
+  }) => void;
+  existingIds: ReadonlySet<string>;
+}
+
+function AddDatasetPopover({ open, onClose, onSubmit, existingIds }: AddDatasetPopoverProps) {
+  const [name, setName] = useState("");
+  const [domain, setDomain] = useState("synthetic");
+  const [kind, setKind] = useState<SeriesKind>("volatile-momentum");
+  const [eraStart, setEraStart] = useState(2000);
+  const [eraEnd, setEraEnd] = useState(2025);
+
+  if (!open) return null;
+  const trimmed = name.trim();
+  const duplicate = trimmed.length > 0 && existingIds.has(slugifyDatasetId(trimmed, new Set()));
+  const canSubmit = trimmed.length > 0;
+
+  return (
+    <div className={styles.popover} data-role="add-dataset" role="dialog" aria-label="Add dataset">
+      <div className={styles.tweaksH}>
+        Add dataset
+        <button className="x" onClick={onClose} type="button" aria-label="Close add-dataset">
+          ×
+        </button>
+      </div>
+      <label className={styles.field}>
+        <span className={styles.fieldLabel}>Name</span>
+        <input
+          type="text"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="e.g. My Series"
+          maxLength={60}
+          className={styles.textInput}
+          autoFocus
+        />
+        {duplicate ? (
+          <span className={styles.fieldHint} data-warn="true">
+            name collides with existing dataset id — it will be auto-suffixed
+          </span>
+        ) : null}
+      </label>
+
+      <label className={styles.field}>
+        <span className={styles.fieldLabel}>Domain</span>
+        <input
+          type="text"
+          value={domain}
+          onChange={(e) => setDomain(e.target.value)}
+          placeholder="domain tag"
+          maxLength={24}
+          className={styles.textInput}
+        />
+      </label>
+
+      <label className={styles.field}>
+        <span className={styles.fieldLabel}>Pattern</span>
+        <select
+          value={kind}
+          onChange={(e) => setKind(e.target.value as SeriesKind)}
+          className={styles.textInput}
+        >
+          {SERIES_KINDS.map((k) => (
+            <option key={k} value={k}>
+              {k}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <div className={styles.fieldRow}>
+        <label className={styles.field} style={{ flex: 1 }}>
+          <span className={styles.fieldLabel}>Era start</span>
+          <input
+            type="number"
+            value={eraStart}
+            onChange={(e) => setEraStart(parseInt(e.target.value, 10) || 0)}
+            className={styles.textInput}
+            min={0}
+            max={3000}
+          />
+        </label>
+        <label className={styles.field} style={{ flex: 1 }}>
+          <span className={styles.fieldLabel}>Era end</span>
+          <input
+            type="number"
+            value={eraEnd}
+            onChange={(e) => setEraEnd(parseInt(e.target.value, 10) || 0)}
+            className={styles.textInput}
+            min={0}
+            max={3000}
+          />
+        </label>
+      </div>
+
+      <div className={styles.popActions}>
+        <button type="button" className={styles.btn} onClick={onClose}>
+          Cancel
+        </button>
+        <button
+          type="button"
+          className={`${styles.btn} ${styles.primary}`}
+          disabled={!canSubmit}
+          onClick={() => {
+            if (!canSubmit) return;
+            onSubmit({ name: trimmed, domain, kind, eraStart, eraEnd });
+            setName("");
+          }}
+        >
+          Add
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   SettingsPopover — preferences + export shortcuts + keymap cheatsheet.
+   ────────────────────────────────────────────────────────────────── */
+
+interface SettingsPopoverProps {
+  open: boolean;
+  onClose: () => void;
+  prefs: { orbitSpeed: number; pointSize: number; persistCustom: boolean };
+  onChange: Dispatch<
+    SetStateAction<{ orbitSpeed: number; pointSize: number; persistCustom: boolean }>
+  >;
+  onExportJson: () => void;
+  onExportCsv: () => void;
+  onClearCustom: () => void;
+  customCount: number;
+}
+
+function SettingsPopover({
+  open,
+  onClose,
+  prefs,
+  onChange,
+  onExportJson,
+  onExportCsv,
+  onClearCustom,
+  customCount,
+}: SettingsPopoverProps) {
+  if (!open) return null;
+  return (
+    <div className={styles.popover} data-role="settings" role="dialog" aria-label="Settings">
+      <div className={styles.tweaksH}>
+        Settings
+        <button className="x" onClick={onClose} type="button" aria-label="Close settings">
+          ×
+        </button>
+      </div>
+
+      <div className={styles.tweak}>
+        <div className={styles.tweakLabel}>
+          Orbit speed <span className="v">{prefs.orbitSpeed.toFixed(2)} rad/s</span>
+        </div>
+        <input
+          type="range"
+          min={0}
+          max={0.4}
+          step={0.01}
+          value={prefs.orbitSpeed}
+          onChange={(e) => onChange((p) => ({ ...p, orbitSpeed: parseFloat(e.target.value) }))}
+        />
+      </div>
+
+      <div className={styles.tweak}>
+        <div className={styles.tweakLabel}>
+          Point size <span className="v">{prefs.pointSize.toFixed(2)}</span>
+        </div>
+        <input
+          type="range"
+          min={0.2}
+          max={1.2}
+          step={0.05}
+          value={prefs.pointSize}
+          onChange={(e) => onChange((p) => ({ ...p, pointSize: parseFloat(e.target.value) }))}
+        />
+      </div>
+
+      <div className={styles.tweak}>
+        <label className={styles.checkRow}>
+          <input
+            type="checkbox"
+            checked={prefs.persistCustom}
+            onChange={(e) => onChange((p) => ({ ...p, persistCustom: e.target.checked }))}
+          />
+          <span>Remember user-added datasets across reload</span>
+        </label>
+      </div>
+
+      <div className={styles.popActions}>
+        <button type="button" className={styles.btn} onClick={onExportCsv}>
+          Export CSV
+        </button>
+        <button type="button" className={`${styles.btn} ${styles.primary}`} onClick={onExportJson}>
+          Export JSON
+        </button>
+      </div>
+
+      <div className={styles.tweak} style={{ marginTop: 10 }}>
+        <button
+          type="button"
+          className={styles.dangerBtn}
+          disabled={customCount === 0}
+          onClick={onClearCustom}
+        >
+          Clear {customCount} user dataset{customCount === 1 ? "" : "s"}
+        </button>
+      </div>
+
+      <div className={styles.keymap}>
+        <div className={styles.keymapH}>Shortcuts</div>
+        <div><kbd>A</kbd> add dataset</div>
+        <div><kbd>E</kbd> export JSON</div>
+        <div><kbd>T</kbd> tweaks</div>
+        <div><kbd>,</kbd> settings</div>
+        <div><kbd>R</kbd> reset view</div>
+        <div><kbd>[</kbd>&nbsp;/&nbsp;<kbd>]</kbd> density</div>
+        <div><kbd>Esc</kbd> close popover</div>
+      </div>
+    </div>
+  );
+}

@@ -37,6 +37,11 @@ from __future__ import annotations
 import logging
 from typing import Any, Dict, List, Optional
 
+# The RunRegistry is always available — it's the platform backbone. Kept at
+# top-of-file (above the guarded imports below) so newer ruff versions no
+# longer flag it with E402.
+from the_similarity.platform.registry import RunRegistry
+
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
@@ -53,9 +58,6 @@ try:
     from the_similarity.core.state_graph import StateGraph  # Agent 2 — graph layer
 except ImportError:
     StateGraph = None  # type: ignore[assignment,misc]
-
-# The RunRegistry is always available — it's the platform backbone.
-from the_similarity.platform.registry import RunRegistry
 
 
 def _run_to_feature_dict(artifact: Any) -> Dict[str, Any]:

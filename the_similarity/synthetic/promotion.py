@@ -24,10 +24,16 @@ per thread is the documented contract).
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 from the_similarity.platform.contracts import DatasetSpec
 from the_similarity.synthetic.contracts import iso_now
+
+# Type-only import kept at the top (ruff E402). RunRegistry is only
+# needed inside type annotations resolved lazily via PEP 563 / future
+# ``annotations``, so there is no circular-import risk at load time.
+if TYPE_CHECKING:
+    from the_similarity.platform.registry import RunRegistry  # noqa: F401
 
 
 def _promoted_dataset_id(dataset_name: str) -> str:
@@ -136,14 +142,6 @@ def list_promoted(
         for spec in registry.list_datasets()
         if spec.dataset_id.startswith("promoted:")
     ]
-
-
-# Type annotation uses string form to avoid circular import at module
-# load time — RunRegistry is only needed at call time.
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from the_similarity.platform.registry import RunRegistry
 
 
 __all__ = [
