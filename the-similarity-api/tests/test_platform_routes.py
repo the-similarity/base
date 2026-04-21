@@ -58,12 +58,9 @@ def client(tmp_path: Path) -> Iterator[TestClient]:
 
     def _override() -> Iterator[RunRegistry]:
         registry = RunRegistry(db_path)
-        # Mirror the production dependency — ensure companion tables exist.
-        # (The production get_registry does this too; here we duplicate the
-        # call so the override is self-contained.)
-        from app.platform_routes import _ensure_ext_schema
-
-        _ensure_ext_schema(registry._conn)  # noqa: SLF001
+        # The registry's __init__ creates all tables (runs, artifacts,
+        # scorecards, scenarios, datasets) via idempotent DDL, so no
+        # companion-table setup is needed.
         try:
             yield registry
         finally:
@@ -150,11 +147,10 @@ def test_post_then_get_run_round_trip(client: TestClient) -> None:
     assert body["seed"] == payload["seed"]
     assert body["summary"] == payload["summary"]
     assert body["created_at"] == payload["created_at"]
-    # Extension fields round-trip through provenance.
+    # Extension fields are now first-class registry columns (no longer
+    # injected into provenance). They round-trip as top-level wire fields.
     assert body["pillar"] == "finance"
     assert body["status"] == "complete"
-    assert body["provenance"]["pillar"] == "finance"
-    assert body["provenance"]["status"] == "complete"
 
 
 def test_post_run_duplicate_returns_409(client: TestClient) -> None:

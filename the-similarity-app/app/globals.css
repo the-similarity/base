@@ -726,3 +726,420 @@ input, select, textarea { font: inherit; color: inherit; }
 }
 .cmdk__item:hover, .cmdk__item[data-active="true"] { background: var(--bg-hover); }
 .cmdk__item .label { margin-left: auto; }
+
+/* ====================================================================
+   DECK PAGES (Finance runs, detail, compare)
+   ==================================================================== */
+.deck-page {
+  overflow: auto;
+  height: 100%;
+  padding: var(--s-7) 0;
+}
+.deck-page__inner {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 0 var(--s-6);
+}
+.deck-page__label {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  margin: 0 0 var(--s-2);
+}
+.deck-page__title {
+  font-family: var(--serif);
+  font-size: 32px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  margin: 0 0 var(--s-3);
+}
+.deck-page__intro {
+  color: var(--ink-2);
+  font-size: 13px;
+  line-height: 1.55;
+  margin: 0 0 var(--s-6);
+}
+.deck-feed-empty {
+  padding: var(--s-8) var(--s-6);
+  text-align: center;
+  color: var(--ink-3);
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+}
+
+/* Section blocks inside deck pages */
+.deck-section {
+  margin-bottom: var(--s-7);
+}
+.deck-section__tag {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  margin: 0 0 var(--s-4);
+  padding-bottom: var(--s-2);
+  border-bottom: 1px solid var(--rule);
+}
+
+/* Detail grid — key/value pairs */
+.detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: var(--s-4) var(--s-5);
+  margin-bottom: var(--s-4);
+}
+.detail-stat-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  margin: 0 0 4px;
+}
+.detail-stat-value {
+  font-family: var(--mono);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ink);
+  margin: 0;
+}
+.detail-summary {
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.65;
+  color: var(--ink-2);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* Strategy metric cards (used by finance detail) */
+.strategy-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: var(--s-3);
+}
+.strategy-metric-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: var(--s-4);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+}
+.strategy-metric-value {
+  font-family: var(--mono);
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.strategy-metric-value.positive { color: var(--positive); }
+.strategy-metric-value.negative { color: var(--negative); }
+.strategy-metric-value.neutral  { color: var(--ink); }
+.strategy-metric-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+/* Portfolio / calibration table */
+.portfolio-table-wrap {
+  overflow-x: auto;
+}
+.portfolio-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+.portfolio-table__th {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  text-align: left;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--rule-strong);
+  background: var(--bg);
+  position: sticky;
+  top: 0;
+}
+.portfolio-table__th--right { text-align: right; }
+.portfolio-table__row { border-bottom: 1px solid var(--rule); }
+.portfolio-table__row:hover { background: var(--bg-hover); }
+.portfolio-table__td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--rule);
+}
+.portfolio-table__td--mono { font-family: var(--mono); }
+.portfolio-table__td--right { text-align: right; }
+
+/* Error state */
+.match-list-error {
+  text-align: center;
+  padding: var(--s-8);
+}
+.match-list-error__icon {
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--negative);
+  border-radius: 50%;
+  color: var(--negative);
+  font-weight: 700;
+  font-size: 16px;
+  margin-bottom: var(--s-3);
+}
+.match-list-error__text {
+  color: var(--ink-2);
+  font-size: 13px;
+  margin: 0 0 var(--s-4);
+}
+.match-list-error__retry {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 8px 16px;
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+  color: var(--ink);
+  cursor: pointer;
+}
+.match-list-error__retry:hover { background: var(--bg-hover); }
+
+/* Status dot for trust indicator in table rows */
+.status-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  vertical-align: middle;
+}
+
+/* ====================================================================
+   FINANCE RUN DETAIL — Enhanced components
+   ==================================================================== */
+
+/* Status lifecycle display — horizontal steps with connecting lines */
+.run-status-lifecycle {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  padding: var(--s-4) var(--s-5);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+  margin-bottom: var(--s-6);
+}
+.run-status-step {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+  white-space: nowrap;
+}
+.run-status-step--active { color: var(--ink); font-weight: 600; }
+.run-status-step--complete { color: var(--positive); }
+.run-status-step--failed { color: var(--negative); }
+.run-status-step__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 2px solid var(--ink-4);
+  background: transparent;
+  flex-shrink: 0;
+}
+.run-status-step--active .run-status-step__dot {
+  border-color: var(--ink);
+  background: var(--ink);
+}
+.run-status-step--complete .run-status-step__dot {
+  border-color: var(--positive);
+  background: var(--positive);
+}
+.run-status-step--failed .run-status-step__dot {
+  border-color: var(--negative);
+  background: var(--negative);
+}
+.run-status-connector {
+  flex: 1;
+  height: 1px;
+  background: var(--rule);
+  min-width: 24px;
+  margin: 0 var(--s-2);
+}
+.run-status-connector--complete { background: var(--positive); }
+.run-status-timestamp {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--ink-4);
+  margin-left: auto;
+  padding-left: var(--s-4);
+}
+
+/* Metric groups — grouped cards with header */
+.metric-group {
+  margin-bottom: var(--s-5);
+}
+.metric-group__label {
+  font-family: var(--mono);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+  margin: 0 0 var(--s-2);
+}
+.metric-group__cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: var(--s-3);
+}
+
+/* Collapsible config section */
+.config-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: var(--s-3) var(--s-4);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+  cursor: pointer;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+.config-toggle:hover { background: var(--bg-hover); }
+.config-toggle__chevron {
+  transition: transform 0.15s ease;
+  font-size: 12px;
+  color: var(--ink-3);
+}
+.config-toggle__chevron--open { transform: rotate(180deg); }
+.config-body {
+  margin-top: var(--s-2);
+  padding: var(--s-4);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-md);
+  background: var(--bg-inset);
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--ink-2);
+  white-space: pre-wrap;
+  word-break: break-all;
+  overflow-x: auto;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+/* Artifacts list */
+.artifact-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+.artifact-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: var(--s-4);
+  align-items: center;
+  padding: var(--s-3) var(--s-4);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+  font-family: var(--mono);
+  font-size: 11px;
+}
+.artifact-row__name {
+  font-weight: 600;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.artifact-row__type {
+  color: var(--ink-3);
+  letter-spacing: 0.06em;
+}
+.artifact-row__size {
+  color: var(--ink-3);
+  text-align: right;
+  min-width: 60px;
+}
+
+/* Breadcrumb navigation */
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  margin: 0 0 var(--s-3);
+}
+.breadcrumb a {
+  color: var(--ink-3);
+  text-decoration: none;
+  transition: color 0.15s;
+}
+.breadcrumb a:hover { color: var(--ink); }
+.breadcrumb__sep { color: var(--ink-4); }
+.breadcrumb__current { color: var(--ink-2); }
+
+/* Navigation buttons row */
+.nav-actions {
+  display: flex;
+  gap: var(--s-3);
+  margin-bottom: var(--s-5);
+}
+.nav-btn {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 6px 14px;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+  color: var(--ink-2);
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.nav-btn:hover { background: var(--bg-hover); border-color: var(--rule-strong); }
+
+/* Calibration chart — inline SVG chart styles */
+.cal-chart { display: block; width: 100%; height: auto; margin-bottom: var(--s-3); }
+.cal-chart .grid-line { stroke: var(--rule); stroke-width: 1; }
+.cal-chart .diag-line { stroke: var(--ink-4); stroke-width: 1; stroke-dasharray: 4 3; }
+.cal-chart .data-line { fill: none; stroke: var(--accent); stroke-width: 1.5; }
+.cal-chart .data-dot { fill: var(--accent); }
+.cal-chart .axis-label { font-family: var(--mono); font-size: 9px; fill: var(--ink-3); letter-spacing: 0.06em; }
