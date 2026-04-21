@@ -24,14 +24,12 @@ node_modules/
 .omx/
 claude-code-source-code/
 
-<<<<<<< HEAD
 # JEPA embeddings — large binary artifacts from train-and-export pipeline
 progress/autoresearch/embeddings/
-=======
+
 # Obsidian user-specific workspace state (causes constant dirty diffs)
 obsidian_thesim/.obsidian/workspace.json
 
 # Orchestrator runtime artifacts
 orchestrator/results/
 orchestrator/tasks.yaml
->>>>>>> origin/main
