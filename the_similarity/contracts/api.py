@@ -231,9 +231,72 @@ class SearchRequest(ApiContract):
     weights: dict[str, float] = Field(default_factory=dict)  # Method weight overrides
 
 
+class ReliabilityBucketResponse(ApiContract):
+    """One (predicted_level, observed_frequency) pair for the reliability diagram.
+
+    Together these points form the empirical calibration curve: points on the
+    y=x identity line indicate perfect calibration, points below mean the
+    predicted quantile overshoots the observed CDF (cone too wide there),
+    and points above mean it undershoots (cone too narrow).
+    """
+
+    predicted: Annotated[float, Field(ge=0.0, le=1.0)]  # Nominal CDF level
+    observed: Annotated[float, Field(ge=0.0, le=1.0)]  # Empirical frequency
+
+
+class CalibrationGrade(ApiContract):
+    """Wrapper kept in sync with TypeScript CalibrationGrade discriminator.
+
+    Purposefully NOT an Enum subclass — Pydantic serializes this as a plain
+    string, which keeps the JSON wire format identical to a Literal[...]
+    field on ``CalibrationMetricsResponse`` below. This placeholder exists
+    so docstring tooling has a single stable anchor for the allowed values.
+    """
+
+    value: Literal["A", "B", "C", "D", "F", "unknown"]
+
+
+class CalibrationMetricsResponse(ApiContract):
+    """Trust + calibration metrics attached to every search response.
+
+    The UI consumes these to populate the workstation's "trust strip"
+    (coverage, CRPS, hit rate, regime drift) and the reliability diagram.
+    When the backend cannot compute a grade (e.g. not enough analog
+    forward-window data), it returns ``grade="unknown"`` and the frontend
+    renders em-dashes in place of the numeric badges.
+
+    Fields:
+        coverage: Fraction of analog terminal returns that fell inside
+            their own P10-P90 cone. Target 0.80. In [0, 1].
+        crps: Mean CRPS across analog forward windows (lower is better).
+            Non-negative; 0 is perfect.
+        hit_rate: Direction accuracy at horizon across analogs. Chance
+            baseline is 0.50. In [0, 1].
+        grade: Discrete quality band derived from the three metrics above.
+        regime_drift: How unstable the matched regime looks vs its
+            historical baseline.
+        reliability: Up to ~10 (predicted, observed) points for the
+            reliability diagram.
+        n_analogs: Number of analogs used to compute these metrics.
+    """
+
+    coverage: Annotated[float, Field(ge=0.0, le=1.0)] = 0.0
+    crps: Annotated[float, Field(ge=0.0)] = 0.0
+    hit_rate: Annotated[float, Field(ge=0.0, le=1.0)] = 0.0
+    grade: Literal["A", "B", "C", "D", "F", "unknown"] = "unknown"
+    regime_drift: Literal["low", "elevated", "high", "unknown"] = "unknown"
+    reliability: list[ReliabilityBucketResponse] = Field(default_factory=list)
+    n_analogs: Annotated[int, Field(ge=0)] = 0
+
+
 class SearchResponse(ApiContract):
-    """Outbound search response containing matches and forecast."""
+    """Outbound search response containing matches, forecast, and calibration metrics."""
 
     query_values: list[float]  # Echo of input query (normalized)
     matches: list[MatchResultResponse]  # Ranked matches
     forecast: ForecastResponse | None = None  # Forward projection
+    # Calibration / trust metrics computed from the analog forward windows.
+    # ``None`` is legal but discouraged — adapters should emit an empty
+    # metrics block with grade="unknown" rather than null so the UI always
+    # has a concrete shape to bind against.
+    metrics: CalibrationMetricsResponse | None = None
