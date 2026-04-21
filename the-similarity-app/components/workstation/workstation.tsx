@@ -102,6 +102,38 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
   const [crosshairIdx, setCrosshairIdx] = useState<number | null>(null);
   const [trustOpen, setTrustOpen] = useState(false);
 
+  // ── Banner dismissal state ─────────────────────────────────────────
+  // Dismissed banners persist to sessionStorage keyed by banner id so they
+  // don't re-appear mid-session, but DO reappear in a new tab. We start
+  // with null (SSR-safe) and hydrate from sessionStorage on mount.
+  const [dismissedBanners, setDismissedBanners] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    // Lazy hydration from sessionStorage on the client. Wrapped in try/catch
+    // because sessionStorage access can throw in some sandboxed iframes.
+    try {
+      const raw = sessionStorage.getItem("workstation.dismissedBanners");
+      if (raw) {
+        const parsed = JSON.parse(raw) as string[];
+        if (Array.isArray(parsed)) setDismissedBanners(new Set(parsed));
+      }
+    } catch {
+      // sessionStorage unavailable — banner will just show until user dismisses
+    }
+  }, []);
+  const dismissBanner = useCallback((id: string) => {
+    setDismissedBanners(prev => {
+      const next = new Set(prev);
+      next.add(id);
+      try {
+        sessionStorage.setItem("workstation.dismissedBanners", JSON.stringify([...next]));
+      } catch {
+        // ignore — dismissal just won't persist
+      }
+      return next;
+    });
+  }, []);
+
+
   // ── Check API availability on mount ────────────────────────────────
   useEffect(() => {
     let cancelled = false;
@@ -287,8 +319,31 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
   // Grouped catalog for dropdown
   const groupedCatalog = useMemo(() => groupByAssetClass(catalog), [catalog]);
 
+  // ── Banner visibility logic ────────────────────────────────────────
+  // Offline banner: API is confirmed down (isOnline === false). We avoid
+  // flashing while the health check is in flight (isOnline === null).
+  const showOfflineBanner = isOnline === false && !dismissedBanners.has("offline");
+
   return (
     <div className="workstation">
+      {/* ── Responsive banners (offline / empty-catalog) ─────── */}
+      {showOfflineBanner && (
+        <div className="ws-banner ws-banner--warn" role="status">
+          <span className="ws-banner__icon" aria-hidden="true">&#x1F536;</span>
+          <span className="ws-banner__text">
+            Running in demo mode &mdash; API offline. Data is synthetic, not live SPX.
+          </span>
+          <button
+            type="button"
+            className="ws-banner__dismiss"
+            aria-label="Dismiss offline banner"
+            onClick={() => dismissBanner("offline")}
+          >
+            &times;
+          </button>
+        </div>
+      )}
+
       {/* ── LEFT SIDEBAR ─────────────────────────────────────── */}
       <aside className="side">
         {/* Dataset selector */}
