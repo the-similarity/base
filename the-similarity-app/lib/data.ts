@@ -430,6 +430,172 @@ export function buildCone(analogs: AnalogMatch[], horizon: number, queryLastPric
   return quants;
 }
 
+// ── Calibration metrics from the analog set ────────────────────────────
+/**
+ * Calibration metric shape — mirrors the TS `CalibrationMetrics` in
+ * `./types.ts`. Redeclared here so `data.ts` has no dependency on the
+ * API types module (which would pull zod + schemas into the synthetic
+ * path). Keep both in sync.
+ */
+export interface CalibrationResult {
+  coverage: number;
+  crps: number;
+  hitRate: number;
+  grade: "A" | "B" | "C" | "D" | "F" | "unknown";
+  regimeDrift: "low" | "elevated" | "high" | "unknown";
+  reliability: Array<{ predicted: number; observed: number }>;
+  nAnalogs: number;
+}
+
+/**
+ * Derive the grade band from the three continuous metrics.
+ * Thresholds match `the-similarity-api/app/services.py::_grade_from_metrics`
+ * exactly so the live and synthetic UIs render the same badge color.
+ */
+function gradeFromMetrics(coverageGap: number, crpsValue: number, hit: number): CalibrationResult["grade"] {
+  if (coverageGap <= 0.05 && crpsValue <= 0.05 && hit >= 0.58) return "A";
+  if (coverageGap <= 0.10 && crpsValue <= 0.08 && hit >= 0.54) return "B";
+  if (coverageGap <= 0.15 && crpsValue <= 0.12 && hit >= 0.52) return "C";
+  if (coverageGap <= 0.20 || crpsValue <= 0.20) return "D";
+  return "F";
+}
+
+/**
+ * Bucket cross-analog terminal-return dispersion into a regime drift
+ * label. Same thresholds as `_regime_drift_from_dispersion` in the
+ * Python service — see that function for the rationale.
+ */
+function regimeDriftFromDispersion(dispersion: number): CalibrationResult["regimeDrift"] {
+  if (dispersion < 0.03) return "low";
+  if (dispersion < 0.07) return "elevated";
+  return "high";
+}
+
+/**
+ * Compute calibration / trust metrics from the analog set + forecast cone.
+ *
+ * This is the client-side mirror of `build_calibration_metrics_response`
+ * in the Python services module. It runs in two situations:
+ *   1. Synthetic-fallback mode (no backend) — metrics change per query
+ *      because the analog set changes.
+ *   2. Live mode when the backend returned `null` for metrics — UI still
+ *      shows *something* rather than the old hardcoded "78.4%".
+ *
+ * Input convention:
+ *   - `analogs[i].after` is an array of *prices* (not returns) post-match
+ *     for the synthetic engine, anchored at `priceWindow[last]`.
+ *   - `cone[t].p50` etc. are absolute prices relative to the query's last
+ *     price, produced by `buildCone`.
+ *
+ * All values are converted to cumulative returns before comparison so the
+ * reliability buckets and coverage calculation are in a unit-free space.
+ * When fewer than 3 analogs have forward windows, the function returns
+ * an "unknown" grade with zeroed numerics (fail-closed).
+ */
+export function computeCalibrationMetrics(
+  analogs: AnalogMatch[],
+  cone: ConePoint[],
+  queryLastPrice: number,
+): CalibrationResult {
+  // Collect realized terminal cumulative returns (per analog).
+  const realized: number[] = [];
+  for (const a of analogs) {
+    if (!a.after || a.after.length === 0) continue;
+    const terminalIdx = Math.min(a.after.length, cone.length) - 1;
+    if (terminalIdx < 0) continue;
+    const anchor = a.priceWindow[a.priceWindow.length - 1];
+    if (!Number.isFinite(anchor) || anchor === 0) continue;
+    const r = a.after[terminalIdx] / anchor - 1;
+    if (!Number.isFinite(r)) continue;
+    realized.push(r);
+  }
+
+  const nAnalogs = realized.length;
+  if (cone.length === 0 || nAnalogs < 3 || !Number.isFinite(queryLastPrice) || queryLastPrice === 0) {
+    return {
+      coverage: 0,
+      crps: 0,
+      hitRate: 0,
+      grade: "unknown",
+      regimeDrift: "unknown",
+      reliability: [],
+      nAnalogs,
+    };
+  }
+
+  // Convert the terminal cone prices to cumulative returns relative to the
+  // query's last price so we can compare against `realized` directly.
+  const terminal = cone[cone.length - 1];
+  const pctToLevel: Record<string, number> = {
+    "10": terminal.p10 / queryLastPrice - 1,
+    "25": terminal.p25 / queryLastPrice - 1,
+    "50": terminal.p50 / queryLastPrice - 1,
+    "75": terminal.p75 / queryLastPrice - 1,
+    "90": terminal.p90 / queryLastPrice - 1,
+  };
+
+  // Coverage: fraction of realized terminals inside the P10-P90 envelope.
+  const lo = pctToLevel["10"];
+  const hi = pctToLevel["90"];
+  let inside = 0;
+  for (const r of realized) if (r >= lo && r <= hi) inside++;
+  const coverage = inside / nAnalogs;
+
+  // Hit rate: sign(P50) vs sign(realized). Zero-P50 never scores a hit.
+  const p50 = pctToLevel["50"];
+  const p50Dir = p50 > 0 ? 1 : p50 < 0 ? -1 : 0;
+  let hits = 0;
+  for (const r of realized) {
+    const realDir = r > 0 ? 1 : r < 0 ? -1 : 0;
+    if (p50Dir !== 0 && p50Dir === realDir) hits++;
+  }
+  const hitRate = hits / nAnalogs;
+
+  // Discrete CRPS across native percentile grid (10, 25, 50, 75, 90).
+  const pcts = [10, 25, 50, 75, 90];
+  const terminals = pcts.map(p => pctToLevel[String(p)]);
+  const cdfLevels = pcts.map(p => p / 100);
+  const crpsPer: number[] = [];
+  for (const r of realized) {
+    let sum = 0;
+    for (let i = 0; i < pcts.length; i++) {
+      const indicator = r <= terminals[i] ? 1 : 0;
+      const diff = indicator - cdfLevels[i];
+      sum += diff * diff;
+    }
+    crpsPer.push(sum / pcts.length);
+  }
+  const crpsValue = crpsPer.length ? crpsPer.reduce((a, b) => a + b, 0) / crpsPer.length : 0;
+
+  // Reliability: for each percentile, empirical fraction of realized at/below.
+  const reliability = pcts.map((p, i) => {
+    const observed = realized.filter(r => r <= terminals[i]).length / nAnalogs;
+    return {
+      predicted: p / 100,
+      observed: Math.max(0, Math.min(1, observed)),
+    };
+  });
+
+  // Regime drift from terminal-return dispersion.
+  const meanR = realized.reduce((a, b) => a + b, 0) / nAnalogs;
+  const variance = realized.reduce((a, b) => a + (b - meanR) ** 2, 0) / nAnalogs;
+  const dispersion = Math.sqrt(variance);
+  const regimeDrift = regimeDriftFromDispersion(dispersion);
+
+  const coverageGap = Math.abs(coverage - 0.80);
+  const grade = gradeFromMetrics(coverageGap, crpsValue, hitRate);
+
+  return {
+    coverage: Math.max(0, Math.min(1, coverage)),
+    crps: Math.max(0, crpsValue),
+    hitRate: Math.max(0, Math.min(1, hitRate)),
+    grade,
+    regimeDrift,
+    reliability,
+    nAnalogs,
+  };
+}
+
 // ── Formatting helpers ──────────────────────────────────────────────────
 export function fmtDate(d: Date): string {
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
