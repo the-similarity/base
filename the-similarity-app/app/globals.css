@@ -137,12 +137,23 @@ input, select, textarea { font: inherit; color: inherit; }
   height: 100vh;
 }
 
-/* Marquee strip (the 'one engine' reminder) */
+/*
+ * Marquee strip — the 44px ticker-style header above the nav.
+ *
+ * Theme-aware: uses --bg-inset (one shade off body in both light+dark)
+ * plus a bottom rule so it reads as a distinct header surface without
+ * flipping to the opposite theme. The previous implementation used
+ * `background: var(--ink); color: var(--bg)` which inverted with the
+ * theme — in dark mode that produced a cream strip sitting above a
+ * dark page (the "white bar on top" bug). Item text tokens are --ink-3
+ * for muted and --ink for bold, so both read in either theme.
+ */
 .marquee {
   display: flex; align-items: center; gap: var(--s-6);
   padding: 0 var(--s-6);
-  background: var(--ink);
-  color: var(--bg);
+  background: var(--bg-inset);
+  color: var(--ink-3);
+  border-bottom: 1px solid var(--rule);
   font-family: var(--mono);
   font-size: 10.5px;
   letter-spacing: 0.18em;
@@ -150,14 +161,14 @@ input, select, textarea { font: inherit; color: inherit; }
   overflow: hidden;
   white-space: nowrap;
 }
-.marquee__brand { font-weight: 600; letter-spacing: 0.24em; }
+.marquee__brand { font-weight: 600; letter-spacing: 0.24em; color: var(--ink); }
 .marquee__track {
   display: inline-flex; gap: 40px;
   animation: marquee 90s linear infinite;
   will-change: transform;
 }
-.marquee__item { color: rgba(255,255,255,0.55); }
-.marquee__item b { color: rgba(255,255,255,0.95); font-weight: 500; }
+.marquee__item { color: var(--ink-3); }
+.marquee__item b { color: var(--ink); font-weight: 500; }
 @keyframes marquee {
   from { transform: translateX(0); }
   to   { transform: translateX(-50%); }
