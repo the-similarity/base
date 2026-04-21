@@ -14,6 +14,7 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { cleanup, render, screen, fireEvent } from "@testing-library/react";
+import type { Dataset } from "../app/spatium/datasets";
 
 // ── Stub three.js before the component module loads ───────────────
 // jsdom has no WebGL, so WebGLRenderer normally throws. We replace the
@@ -244,7 +245,7 @@ describe("datasets helpers", () => {
 
   it("buildPoints accepts custom extras and appends their points", async () => {
     const ds = await import("../app/spatium/datasets");
-    const extras: ds.Dataset[] = [
+    const extras: Dataset[] = [
       {
         id: "custom1",
         name: "Custom One",

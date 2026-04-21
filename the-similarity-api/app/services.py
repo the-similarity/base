@@ -7,6 +7,7 @@ import numpy as np
 
 import the_similarity
 from the_similarity.contracts.api import (
+    CalibrationMetricsResponse,
     ConfidenceBreakdownItem,
     DashboardDataResponse,
     ForecastBands,
@@ -16,6 +17,7 @@ from the_similarity.contracts.api import (
     MatchResultResponse,
     ModuleCard,
     RangeView,
+    ReliabilityBucketResponse,
     ScoreBreakdownResponse,
     SearchRequest,
     SearchResponse,
@@ -268,6 +270,235 @@ def build_forecast_response(forecast) -> ForecastResponse:
     )
 
 
+def _grade_from_metrics(
+    coverage_gap: float,
+    crps_value: float,
+    hit_rate_value: float,
+) -> str:
+    """Derive a discrete quality grade from three continuous metrics.
+
+    Grading bands (sequential, first match wins):
+        A  — coverage within 5pp of the 80% target AND crps <= 0.05 AND hit >= 0.58
+        B  — within 10pp, crps <= 0.08, hit >= 0.54
+        C  — within 15pp, crps <= 0.12, hit >= 0.52
+        D  — within 20pp OR crps <= 0.20
+        F  — everything else
+
+    coverage_gap is the absolute distance from the 80% target, i.e.
+    ``abs(coverage - 0.80)``. Positive values mean the cone is mis-sized in
+    either direction (too wide OR too narrow — the sign-neutral distance is
+    what graders care about).
+
+    NOTE: The numeric thresholds are the same ones used in the TS fallback
+    (``the-similarity-app/lib/data.ts::computeCalibrationMetrics``). If you
+    change them here, change them there too or the live and synthetic UIs
+    will disagree on the grade badge color.
+    """
+    if coverage_gap <= 0.05 and crps_value <= 0.05 and hit_rate_value >= 0.58:
+        return "A"
+    if coverage_gap <= 0.10 and crps_value <= 0.08 and hit_rate_value >= 0.54:
+        return "B"
+    if coverage_gap <= 0.15 and crps_value <= 0.12 and hit_rate_value >= 0.52:
+        return "C"
+    if coverage_gap <= 0.20 or crps_value <= 0.20:
+        return "D"
+    return "F"
+
+
+def _regime_drift_from_dispersion(dispersion: float) -> str:
+    """Classify regime drift from cross-analog terminal-return dispersion.
+
+    dispersion is the population standard deviation of terminal returns
+    across the top-K analogs. Higher dispersion → the analog set disagrees
+    about what happens next → drift is elevated.
+
+    Thresholds were picked to roughly match the old hardcoded UI label's
+    "elevated" reading at ~2% daily-return dispersion. The bands are:
+        dispersion < 0.03 → "low"
+        0.03 <= dispersion < 0.07 → "elevated"
+        dispersion >= 0.07 → "high"
+    """
+    if dispersion < 0.03:
+        return "low"
+    if dispersion < 0.07:
+        return "elevated"
+    return "high"
+
+
+def build_calibration_metrics_response(
+    results,
+    forecast,
+    forward_bars: int,
+) -> CalibrationMetricsResponse:
+    """Compute trust + calibration metrics from the analog forward windows.
+
+    This is an *in-sample* diagnostic: we treat each analog's forward window
+    as one realized outcome against the engine's own forecast cone. That
+    gives the UI numbers that (a) change with every query and (b) are
+    derived from this query's actual analog set, not a stale global eval.
+
+    When the engine has too few analogs (< 3), or when the forward windows
+    are incomplete, the function returns a fail-closed "unknown" block with
+    zero numeric values — the UI renders em-dashes for those.
+
+    Mathematical specification:
+        coverage = fraction of analog terminal returns that fall inside
+                   their own P10–P90 cone at the terminal bar.
+        hit_rate = fraction of analogs whose terminal return sign matches
+                   the P50 forecast terminal sign.
+        crps     = mean discrete CRPS across analogs at the terminal bar,
+                   using the available percentile curves as the empirical
+                   forecast CDF.
+        reliability[i] = (percentile_i/100, empirical_below_rate_i) for the
+                         forecast's native percentile grid.
+
+    Args:
+        results: SearchResult with .matches[] (each has .forward_window).
+        forecast: Forecast object with .curves (percentile → per-bar array)
+            and .percentiles. Must already be projected over forward_bars.
+        forward_bars: The requested forecast horizon; used to truncate any
+            analog forward windows that are longer than the cone itself.
+
+    Returns:
+        CalibrationMetricsResponse — always a concrete object. "unknown"
+        grade signals the UI to render em-dashes rather than scores.
+    """
+    import math
+
+    # Collect analog terminal *cumulative returns*. The projector stores
+    # ``forward_window`` as ``(future_price - anchor) / anchor``, i.e. a
+    # cumulative return (0.05 == 5% above anchor). The forecast curves
+    # live in the same space, so no rescaling is needed — we compare
+    # realized cumulative return at the terminal bar directly against the
+    # forecast curve at that bar.
+    realized_terminals: list[float] = []
+    for match in results.matches:
+        forward = getattr(match, "forward_window", None)
+        if forward is None:
+            continue
+        forward_arr = np.asarray(forward, dtype=np.float64)
+        if forward_arr.size == 0:
+            continue
+        # Trim the analog forward window to at most ``forward_bars`` so
+        # longer analog histories don't skew the terminal comparison.
+        terminal_idx = min(forward_arr.size, forward_bars) - 1
+        if terminal_idx < 0:
+            continue
+        realized = float(forward_arr[terminal_idx])
+        if not math.isfinite(realized):
+            continue
+        realized_terminals.append(realized)
+
+    n_analogs = len(realized_terminals)
+
+    # Extract forecast terminal values per percentile for the realized-bar
+    # comparison. The projector returns curves keyed by integer percentiles
+    # (10, 25, 50, 75, 90 by default).
+    curves = getattr(forecast, "curves", {}) or {}
+    percentiles = sorted(int(p) for p in curves.keys())
+    if not percentiles or n_analogs < 3:
+        # Fail-closed: not enough data to grade. The UI renders em-dashes
+        # when grade == "unknown", so we don't need to fabricate scores.
+        return CalibrationMetricsResponse(
+            coverage=0.0,
+            crps=0.0,
+            hit_rate=0.0,
+            grade="unknown",
+            regime_drift="unknown",
+            reliability=[],
+            n_analogs=n_analogs,
+        )
+
+    def _terminal(p: int) -> float:
+        curve = curves.get(p)
+        if curve is None or len(curve) == 0:
+            return float("nan")
+        return float(curve[-1])
+
+    p10_term = _terminal(10) if 10 in percentiles else float("nan")
+    p50_term = _terminal(50) if 50 in percentiles else float("nan")
+    p90_term = _terminal(90) if 90 in percentiles else float("nan")
+
+    # ── Coverage ───────────────────────────────────────────────────────
+    # Fraction of analog terminals inside the P10-P90 envelope. Only
+    # counted when both bounds are finite (fail-closed otherwise).
+    coverage_value = 0.0
+    if math.isfinite(p10_term) and math.isfinite(p90_term):
+        inside = sum(
+            1 for r in realized_terminals if p10_term <= r <= p90_term
+        )
+        coverage_value = inside / n_analogs
+
+    # ── Hit rate ───────────────────────────────────────────────────────
+    # Forecast curves are cumulative returns (0.05 == 5%), so the predicted
+    # direction is sign(P50_terminal) and the realized direction is sign(r).
+    # A "hit" requires matching non-zero signs; zero-valued forecasts count
+    # as non-directional and never count as a hit.
+    hit_rate_value = 0.0
+    if math.isfinite(p50_term):
+        p50_dir = 1 if p50_term > 0.0 else (-1 if p50_term < 0.0 else 0)
+        hits = 0
+        for r in realized_terminals:
+            real_dir = 1 if r > 0.0 else (-1 if r < 0.0 else 0)
+            if p50_dir != 0 and p50_dir == real_dir:
+                hits += 1
+        hit_rate_value = hits / n_analogs
+
+    # ── CRPS (discrete approximation, per-analog, averaged) ────────────
+    # For each analog, compare indicator(realized <= F_p) to the nominal
+    # CDF level p/100 at every percentile, then average squared diffs.
+    forecast_terminals = np.array(
+        [_terminal(p) for p in percentiles], dtype=np.float64
+    )
+    cdf_levels = np.array(percentiles, dtype=np.float64) / 100.0
+    crps_per = []
+    for r in realized_terminals:
+        if not math.isfinite(r):
+            continue
+        # Skip percentiles whose terminal is NaN so we don't poison the mean.
+        valid = np.isfinite(forecast_terminals)
+        if not valid.any():
+            continue
+        indicators = (r <= forecast_terminals[valid]).astype(np.float64)
+        diffs = (indicators - cdf_levels[valid]) ** 2
+        crps_per.append(float(np.mean(diffs)))
+    crps_value = float(np.mean(crps_per)) if crps_per else 0.0
+
+    # ── Reliability diagram ────────────────────────────────────────────
+    # For each percentile, the empirical "observed" level is the fraction
+    # of realized terminals at or below that percentile's forecast. This
+    # is the standard reliability-diagram construction.
+    reliability_buckets: list[ReliabilityBucketResponse] = []
+    for pct, f_t in zip(percentiles, forecast_terminals):
+        if not math.isfinite(f_t):
+            continue
+        observed = sum(1 for r in realized_terminals if r <= f_t) / n_analogs
+        reliability_buckets.append(
+            ReliabilityBucketResponse(
+                predicted=float(pct) / 100.0,
+                observed=float(max(0.0, min(1.0, observed))),
+            )
+        )
+
+    # ── Regime drift from terminal-return dispersion ───────────────────
+    dispersion = float(np.std(np.asarray(realized_terminals, dtype=np.float64), ddof=0))
+    regime_drift_value = _regime_drift_from_dispersion(dispersion)
+
+    # ── Grade ──────────────────────────────────────────────────────────
+    coverage_gap = abs(coverage_value - 0.80)
+    grade_value = _grade_from_metrics(coverage_gap, crps_value, hit_rate_value)
+
+    return CalibrationMetricsResponse(
+        coverage=float(max(0.0, min(1.0, coverage_value))),
+        crps=float(max(0.0, crps_value)),
+        hit_rate=float(max(0.0, min(1.0, hit_rate_value))),
+        grade=grade_value,
+        regime_drift=regime_drift_value,
+        reliability=reliability_buckets,
+        n_analogs=n_analogs,
+    )
+
+
 def _resolve_series(
     raw_values: list[float] | None,
     dataset_id: str | None,
@@ -343,8 +574,19 @@ def execute_search(request: SearchRequest) -> SearchResponse:
         percentiles=request.percentiles or None,
     )
 
+    # Calibration / trust metrics are derived from the analog forward windows
+    # vs this query's own forecast cone. When insufficient analogs exist,
+    # build_calibration_metrics_response returns an "unknown" block — the
+    # frontend renders em-dashes rather than fabricating scores.
+    metrics = build_calibration_metrics_response(
+        results=results,
+        forecast=forecast,
+        forward_bars=request.forward_bars,
+    )
+
     return SearchResponse(
         query_values=_to_list(query_values),
         matches=[build_match_result_response(match) for match in results.matches],
         forecast=build_forecast_response(forecast),
+        metrics=metrics,
     )
