@@ -214,6 +214,40 @@ def mulberry32(seed: int) -> Callable[[], float]:
     return rng
 
 
+def _to_int32(u: int) -> int:
+    """Reinterpret a ``uint32`` as a signed ``int32``.
+
+    JavaScript's arithmetic operators (``>>``, unary ``-``, ``|``) treat
+    bit patterns as signed 32-bit; Python's ``int`` is arbitrary
+    precision and always treats values as their numeric magnitude. To
+    reproduce the JS behaviour for shifts/modulo we have to flip the
+    high bit into a negative number first.
+    """
+    u &= U32_MASK
+    return u - 0x1_0000_0000 if u & 0x8000_0000 else u
+
+
+def _js_shr_signed(u: int, n: int) -> int:
+    """Mirror of JS ``>>`` (signed arithmetic shift right on int32).
+
+    For values with the high bit set, sign-extends during the shift so
+    the result can be negative — unlike Python's ``>>`` on unsigned
+    ints which always yields a non-negative result.
+    """
+    return _to_int32(u) >> n
+
+
+def _js_mod(a: int, b: int) -> int:
+    """Mirror of JS ``%`` — remainder takes the sign of the dividend.
+
+    Python's ``%`` returns a remainder with the sign of the divisor
+    (so ``-5 % 3 == 1``); JS returns with the sign of the dividend
+    (``-5 % 3 === -2``). Match JS so fixtures line up byte-for-byte.
+    """
+    r = abs(a) % b
+    return -r if a < 0 else r
+
+
 def hash_str(s: str) -> int:
     """FNV-1a over the UTF-16 code units of ``s`` — mirror of JS hash.
 
@@ -450,9 +484,13 @@ def _domain_center(domain: str, canonical_index: int | None) -> Tuple[float, flo
         r = 9.0
         return (math.cos(a) * r, math.sin(canonical_index * 1.7) * 3.5, math.sin(a) * r)
     dh = hash_str("domain:" + domain)
-    a = ((dh % 1000) / 1000.0) * math.pi * 2
+    # Matches TS: ``(dh % 1000)`` — uint32 mod is unambiguous. But
+    # ``(dh >> 10)`` in JS is a signed shift that can go negative when
+    # the uint32 has its high bit set; replicate via _js_shr_signed +
+    # _js_mod so the sign flows through identically.
+    a = (_js_mod(dh, 1000) / 1000.0) * math.pi * 2
     r = 9.0
-    y = math.sin(((dh >> 10) % 1000) / 1000.0 * math.pi * 2) * 3.5
+    y = math.sin(_js_mod(_js_shr_signed(dh, 10), 1000) / 1000.0 * math.pi * 2) * 3.5
     return (math.cos(a) * r, y, math.sin(a) * r)
 
 
@@ -489,7 +527,13 @@ def build_points(
             # TS: ``const t = i / (perDs - 1)`` — division by zero cannot
             # occur because per_ds is always ≥ 15.
             t = i / (per_ds - 1)
-            year = round(ds.era[0] + t * span)
+            # ``Math.round`` in JavaScript rounds half toward +∞ (so
+            # ``round(2.5) == 3``) whereas Python's builtin ``round``
+            # uses banker's rounding (``round(2.5) == 2``). Years land
+            # on exact halves for several (span, t) combos — use
+            # ``floor(x + 0.5)`` to match JS semantics and keep the
+            # cross-language fixture byte-for-byte identical.
+            year = math.floor(ds.era[0] + t * span + 0.5)
             seed = hash_str(ds.id + "/" + str(i))
             series = gen_series(ds.kind, seed)
             feat = features(series)
@@ -518,10 +562,14 @@ def build_points(
             centers[ds.domain] = _domain_center(ds.domain, canonical.get(ds.domain))
         c = centers[ds.domain]
         off_seed = hash_str(ds.id)
+        # Use JS-semantics shift/mod so signed-shift + mod-of-negative
+        # produce the exact offsets the TS generator produces. See
+        # _js_shr_signed / _js_mod for why Python's native operators
+        # don't suffice for ``uint32`` values above 0x8000_0000.
         off = (
-            ((off_seed % 97) - 48) / 40.0,
-            (((off_seed >> 8) % 97) - 48) / 40.0,
-            (((off_seed >> 16) % 97) - 48) / 40.0,
+            (_js_mod(off_seed, 97) - 48) / 40.0,
+            (_js_mod(_js_shr_signed(off_seed, 8), 97) - 48) / 40.0,
+            (_js_mod(_js_shr_signed(off_seed, 16), 97) - 48) / 40.0,
         )
         f = p.feat
         dx = f.slope * 40 + (f.peak - 0.5) * 3 + (f.zc - 0.1) * 3
