@@ -10,8 +10,18 @@
  * Keyboard shortcuts:
  *   /  or Cmd+K  -> command palette
  *   g r/e/s/v/n/d -> jump to surface (two-key chord: press g, then letter)
+ *                   When NEXT_PUBLIC_SHOW_PREVIEW_SURFACES is not "true" only
+ *                   `g r` (retrieve) works — the other 5 surfaces are hidden.
  *   t            -> toggle theme
  *   Shift+T      -> toggle tweaks panel
+ *
+ * Feature flags (build-time, NEXT_PUBLIC_* inlined by Next):
+ *   NEXT_PUBLIC_DATA_MODE               -> "live" | "demo" (default "demo")
+ *                                          drives the status-bar feed label.
+ *   NEXT_PUBLIC_SHOW_PREVIEW_SURFACES   -> "true" | "false" (default "false")
+ *                                          shows the 5 preview surfaces when
+ *                                          true; clients see only Retrieve
+ *                                          when false.
  */
 
 import { useState, useEffect, useCallback } from "react";
@@ -37,8 +47,33 @@ import { TweaksPanel } from "../components/tweaks-panel";
 const DATA_MODE: "live" | "demo" =
   process.env.NEXT_PUBLIC_DATA_MODE === "live" ? "live" : "demo";
 
+/*
+ * Preview-surfaces flag.
+ *
+ * The 5 non-Retrieve verbs (Represent / Simulate / Evaluate / Render / Decide)
+ * are editorial mockups with no real interactivity. Clients clicking them
+ * expect working features and find theater. Until each surface has a real
+ * backend, it's hidden behind this flag.
+ *
+ * Default (false): only Retrieve renders, only Retrieve is nav-reachable,
+ * only `g r` works as a jump chord, command palette navigates only to
+ * retrieve. Clients never see inert mocks.
+ *
+ * True: the full 6-verb layout is preserved so devs can still preview
+ * surfaces in progress. Turn on by setting
+ *   NEXT_PUBLIC_SHOW_PREVIEW_SURFACES=true
+ *
+ * Important: this is a build-time constant (Next inlines NEXT_PUBLIC_*
+ * env vars at build time), so toggling requires a rebuild. That's fine —
+ * it's a deploy-level switch, not a runtime toggle.
+ */
+const SHOW_PREVIEW: boolean =
+  process.env.NEXT_PUBLIC_SHOW_PREVIEW_SURFACES === "true";
+
 // ── Verb definitions for the 6 surfaces ─────────────────────────────────
-const VERBS = [
+// ALL_VERBS is the full editorial roster. VERBS is the filtered view we
+// actually render: when SHOW_PREVIEW is false we ship with only Retrieve.
+const ALL_VERBS = [
   { k: "retrieve", n: "01", name: "Retrieve", q: "What rhymes?" },
   { k: "represent", n: "02", name: "Represent", q: "Map state" },
   { k: "simulate", n: "03", name: "Simulate", q: "Project futures" },
@@ -46,6 +81,7 @@ const VERBS = [
   { k: "render", n: "05", name: "Render", q: "Walk the space" },
   { k: "decide", n: "06", name: "Decide", q: "From analog to action" },
 ];
+const VERBS = SHOW_PREVIEW ? ALL_VERBS : ALL_VERBS.filter(v => v.k === "retrieve");
 
 const DEFAULTS: WorkstationSettings = {
   theme: "light",
@@ -139,10 +175,15 @@ export default function Page() {
   // ── Keyboard shortcuts ──────────────────────────────────────────────
   useEffect(() => {
     let lastG = 0;
-    const jumpMap: Record<string, string> = {
-      r: "retrieve", e: "represent", s: "simulate",
-      v: "evaluate", n: "render", d: "decide"
-    };
+    /*
+     * jumpMap — two-key chord destinations. When SHOW_PREVIEW is false we
+     * only allow `g r` (retrieve) so a keyboard-savvy client can't shortcut
+     * their way into a preview surface that isn't advertised in the nav.
+     */
+    const jumpMap: Record<string, string> = SHOW_PREVIEW
+      ? { r: "retrieve", e: "represent", s: "simulate",
+          v: "evaluate", n: "render", d: "decide" }
+      : { r: "retrieve" };
 
     const onKey = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement).tagName;
@@ -182,6 +223,16 @@ export default function Page() {
     } else if (v === "tweaks") {
       setTweaksOpen(o => !o);
     } else {
+      /*
+       * Surface navigation guard.
+       *
+       * When preview surfaces are hidden we ignore command-palette nav
+       * requests for any verb other than retrieve. The palette itself is
+       * a shared component that doesn't know about the flag — this is the
+       * enforcement point. Silently dropping the request is fine: the
+       * palette closes, the user stays on retrieve, nothing appears to break.
+       */
+      if (!SHOW_PREVIEW && v !== "retrieve") return;
       setSurface(v);
     }
   }, []);
@@ -265,13 +316,28 @@ export default function Page() {
       </header>
 
       {/* ── Page content ───────────────────────────────────────── */}
+      {/*
+       * Surface render guard.
+       *
+       * Retrieve is always rendered. The 5 preview surfaces only render when
+       * NEXT_PUBLIC_SHOW_PREVIEW_SURFACES=true. Because `surface` is also
+       * rehydrated from localStorage, a returning client who previously
+       * landed on (say) "simulate" while the flag was true and now visits
+       * with the flag false would fall through to nothing — we'd show an
+       * empty <main>. Guard against that by rendering Workstation as the
+       * default when SHOW_PREVIEW is false and surface is anything other
+       * than "retrieve".
+       */}
       <main className="page">
-        {surface === "retrieve" && <Workstation settings={settings} onSettings={updateSettings} />}
-        {surface === "represent" && <RepresentSurface />}
-        {surface === "simulate" && <SimulateSurface />}
-        {surface === "evaluate" && <EvaluateSurface />}
-        {surface === "render" && <RenderSurface />}
-        {surface === "decide" && <DecideSurface />}
+        {!SHOW_PREVIEW && (
+          <Workstation settings={settings} onSettings={updateSettings} />
+        )}
+        {SHOW_PREVIEW && surface === "retrieve" && <Workstation settings={settings} onSettings={updateSettings} />}
+        {SHOW_PREVIEW && surface === "represent" && <RepresentSurface />}
+        {SHOW_PREVIEW && surface === "simulate" && <SimulateSurface />}
+        {SHOW_PREVIEW && surface === "evaluate" && <EvaluateSurface />}
+        {SHOW_PREVIEW && surface === "render" && <RenderSurface />}
+        {SHOW_PREVIEW && surface === "decide" && <DecideSurface />}
       </main>
 
       {/* ── Status bar ─────────────────────────────────────────── */}
@@ -283,7 +349,15 @@ export default function Page() {
         <span className="statusbar__item">window <b>{currentVerb.name}</b></span>
         <div className="statusbar__right">
           <span className="statusbar__item">press <span className="kbd">/</span> to search</span>
-          <span className="statusbar__item">press <span className="kbd">g</span> <span className="kbd">r</span> / <span className="kbd">s</span> / <span className="kbd">v</span> to jump</span>
+          {/*
+           * Jump-chord hint. When preview surfaces are hidden there's only
+           * one jump target (retrieve), so advertising s/v would be a lie.
+           */}
+          {SHOW_PREVIEW ? (
+            <span className="statusbar__item">press <span className="kbd">g</span> <span className="kbd">r</span> / <span className="kbd">s</span> / <span className="kbd">v</span> to jump</span>
+          ) : (
+            <span className="statusbar__item">press <span className="kbd">g</span> <span className="kbd">r</span> to jump</span>
+          )}
           <span className="statusbar__item"><b>{nyClock}</b></span>
         </div>
       </footer>
