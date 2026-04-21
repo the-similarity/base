@@ -260,9 +260,314 @@ input, select, textarea { font: inherit; color: inherit; }
   height: 100%;
   overflow: hidden;
 }
-@media (max-width: 1280px) {
-  .workstation { grid-template-columns: 240px 1fr; }
+
+/* ------------------------------------------------------------------
+   Workstation banners (offline / empty-catalog).
+   Spans all grid columns via `grid-column: 1 / -1` so the banner
+   occupies a full-width row above the three-column body. Height is
+   driven by content, so the row collapses to zero when no banner
+   is shown (which is also why .workstation uses `auto 1fr` rows).
+   ------------------------------------------------------------------ */
+.ws-banner {
+  grid-column: 1 / -1;
+  display: flex; align-items: center; gap: var(--s-3);
+  padding: 8px var(--s-5);
+  font-size: 12.5px;
+  line-height: 1.4;
+  border-bottom: 1px solid var(--rule);
+}
+.ws-banner__icon {
+  font-size: 14px;
+  flex-shrink: 0;
+  line-height: 1;
+}
+.ws-banner__text {
+  flex: 1;
+  color: var(--ink);
+}
+.ws-banner__text code {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  padding: 1px 5px;
+  background: var(--bg-hover);
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+}
+.ws-banner__dismiss {
+  flex-shrink: 0;
+  width: 22px; height: 22px;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 16px; line-height: 1;
+  color: var(--ink-3);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  cursor: pointer;
+}
+.ws-banner__dismiss:hover {
+  color: var(--ink);
+  border-color: var(--rule);
+  background: var(--bg-hover);
+}
+.ws-banner--warn {
+  background: rgba(201, 161, 79, 0.08);
+  border-left: 3px solid var(--warn);
+  color: var(--ink);
+}
+.ws-banner--info {
+  background: rgba(90, 43, 43, 0.05);
+  border-left: 3px solid var(--accent);
+  color: var(--ink);
+}
+
+/* ------------------------------------------------------------------
+   Micro empty-states (no bars, no analogs) + mobile notice.
+   These are small, non-blocking messages that replace a silent empty
+   render. The "--strip" variant is sized for the horizontal analog
+   strip so the main chart layout above it doesn't reflow.
+   ------------------------------------------------------------------ */
+.ws-micro-empty {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: var(--s-6) var(--s-5);
+  text-align: center;
+  min-height: 120px;
+}
+.ws-micro-empty__title {
+  font-family: var(--serif);
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--ink);
+  margin-bottom: 6px;
+}
+.ws-micro-empty__body {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--ink-3);
+  max-width: 360px;
+}
+.ws-micro-empty--strip {
+  width: 100%;
+  min-height: 0;
+  padding: var(--s-4) var(--s-5);
+}
+
+.ws-mobile-notice {
+  display: none; /* hidden except at <768px */
+  grid-column: 1 / -1;
+  padding: 8px var(--s-5);
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--ink-2);
+  background: var(--bg-elevated);
+  border-bottom: 1px solid var(--rule);
+}
+@media (max-width: 767px) {
+  /* Stack everything vertically on phone-sized screens. Both side
+     panels are hidden (drawer toggles live at larger breakpoints).
+     The main column gets the full width, chart-stack scrolls normally. */
+  .workstation { grid-template-columns: 1fr; }
+  .workstation > .side,
   .workstation > .right { display: none; }
+  .ws-mobile-notice { display: block; }
+  .main__head {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--s-4);
+  }
+  .main__metrics {
+    flex-wrap: wrap;
+    gap: var(--s-4);
+  }
+}
+
+/* ------------------------------------------------------------------
+   Empty-state card (catalog has zero registered datasets).
+   Renders inside .chart-stack above the chart-card as a centered
+   call-to-action block. Intentionally serif + generous whitespace
+   to signal "this is a setup task" rather than a transient loading
+   state. Still lets the synthetic chart render below so the user
+   can tour the UI.
+   ------------------------------------------------------------------ */
+.ws-empty-state {
+  display: flex;
+  justify-content: center;
+  padding: var(--s-4) 0;
+}
+.ws-empty-state__card {
+  max-width: 520px;
+  width: 100%;
+  padding: var(--s-6) var(--s-6);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+  text-align: center;
+}
+.ws-empty-state__headline {
+  margin: 0 0 var(--s-3);
+  font-family: var(--serif);
+  font-weight: 500;
+  font-size: 22px;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+.ws-empty-state__body {
+  margin: 0 0 var(--s-5);
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--ink-2);
+}
+.ws-empty-state__actions {
+  display: flex;
+  gap: var(--s-3);
+  justify-content: center;
+  flex-wrap: wrap;
+}
+.ws-empty-state__cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 14px;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  letter-spacing: .04em;
+  color: var(--ink);
+  background: var(--bg);
+  border: 1px solid var(--rule-strong);
+  border-radius: 3px;
+  text-decoration: none;
+  cursor: pointer;
+}
+.ws-empty-state__cta:hover {
+  background: var(--bg-hover);
+}
+.ws-empty-state__cta--primary {
+  background: var(--ink);
+  color: var(--bg);
+  border-color: var(--ink);
+}
+.ws-empty-state__cta--primary:hover {
+  background: var(--ink-2);
+  border-color: var(--ink-2);
+}
+.ws-empty-state__cta:disabled {
+  color: var(--ink-4);
+  cursor: not-allowed;
+  background: var(--bg);
+}
+
+/* ------------------------------------------------------------------
+   Drawer toggle + close + backdrop (only visible at <1280px).
+   On large screens the drawer is docked (static grid column) and all
+   three of these are hidden by default.
+   ------------------------------------------------------------------ */
+.ws-drawer-toggles {
+  display: flex;
+  gap: var(--s-2);
+  margin-top: var(--s-3);
+}
+.ws-drawer-toggle {
+  display: none; /* hidden by default, shown in media queries below */
+  align-self: flex-start;
+  padding: 6px 10px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: .04em;
+  color: var(--ink-2);
+  background: var(--bg);
+  border: 1px solid var(--rule-strong);
+  border-radius: 3px;
+  cursor: pointer;
+}
+.ws-drawer-toggle:hover { background: var(--bg-hover); }
+.ws-drawer-close {
+  display: none; /* hidden by default, shown at midsize */
+  position: absolute;
+  top: 8px; right: 8px;
+  width: 28px; height: 28px;
+  align-items: center; justify-content: center;
+  font-size: 20px; line-height: 1;
+  color: var(--ink-3);
+  background: var(--bg);
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  cursor: pointer;
+  z-index: 2;
+}
+.ws-drawer-close:hover { color: var(--ink); background: var(--bg-hover); }
+.ws-drawer-backdrop {
+  display: none; /* hidden unless a drawer is open at midsize */
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  z-index: 40;
+}
+
+/* ------------------------------------------------------------------
+   Midsize layout: 1024-1279px.
+   Right panel becomes an off-canvas slide-in drawer. The grid goes
+   back to 2 columns (sidebar + main). The drawer overlays the main
+   content when open.
+   ------------------------------------------------------------------ */
+@media (max-width: 1279px) and (min-width: 1024px) {
+  .workstation { grid-template-columns: 240px 1fr; }
+  .workstation > .right {
+    /* Pull the right panel out of the grid and treat it as a fixed
+       overlay. Docked to the right edge, slides in via translateX. */
+    position: fixed;
+    top: 0; right: 0; bottom: 0;
+    width: 340px;
+    max-width: 90vw;
+    border-left: 1px solid var(--rule);
+    background: var(--bg-elevated);
+    z-index: 50;
+    transform: translateX(100%);
+    transition: transform .2s ease-out;
+    box-shadow: -4px 0 16px rgba(0, 0, 0, 0.08);
+  }
+  .workstation[data-right-drawer="open"] > .right {
+    transform: translateX(0);
+  }
+  .workstation[data-right-drawer="open"] > .ws-drawer-backdrop {
+    display: block;
+  }
+  .ws-drawer-toggle--right { display: inline-flex; }
+  .ws-drawer-close { display: inline-flex; }
+}
+
+/* ------------------------------------------------------------------
+   Compact layout: 768-1023px.
+   Left sidebar ALSO becomes a slide-in drawer so the chart gets full
+   width. Right panel stays hidden (only accessible above 1024px, or
+   via future re-design). The main column becomes the only docked
+   thing, and both drawers overlay it when opened.
+   ------------------------------------------------------------------ */
+/* At <768px we stack everything vertically — both side panels hidden
+   and a polite "best viewed on desktop" notice shown at the top. See
+   the later mobile block for those rules. */
+@media (max-width: 1023px) and (min-width: 768px) {
+  .workstation { grid-template-columns: 1fr; }
+  .workstation > .right { display: none; }
+
+  .workstation > .side {
+    position: fixed;
+    top: 0; left: 0; bottom: 0;
+    width: 300px;
+    max-width: 85vw;
+    border-right: 1px solid var(--rule);
+    background: var(--bg-elevated);
+    z-index: 50;
+    transform: translateX(-100%);
+    transition: transform .2s ease-out;
+    box-shadow: 4px 0 16px rgba(0, 0, 0, 0.08);
+  }
+  .workstation[data-left-drawer="open"] > .side {
+    transform: translateX(0);
+  }
+  .workstation[data-left-drawer="open"] > .ws-drawer-backdrop {
+    display: block;
+  }
+  .ws-drawer-toggle--left { display: inline-flex; }
+  .ws-drawer-close--left { display: inline-flex; }
 }
 
 /* Sidebar — query definition & saved analogs */

@@ -103,6 +103,48 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
   const [crosshairIdx, setCrosshairIdx] = useState<number | null>(null);
   const [trustOpen, setTrustOpen] = useState(false);
 
+  // ── Banner dismissal state ─────────────────────────────────────────
+  // Dismissed banners persist to sessionStorage keyed by banner id so they
+  // don't re-appear mid-session, but DO reappear in a new tab. We start
+  // with null (SSR-safe) and hydrate from sessionStorage on mount.
+  const [dismissedBanners, setDismissedBanners] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    // Lazy hydration from sessionStorage on the client. Wrapped in try/catch
+    // because sessionStorage access can throw in some sandboxed iframes.
+    try {
+      const raw = sessionStorage.getItem("workstation.dismissedBanners");
+      if (raw) {
+        const parsed = JSON.parse(raw) as string[];
+        if (Array.isArray(parsed)) setDismissedBanners(new Set(parsed));
+      }
+    } catch {
+      // sessionStorage unavailable — banner will just show until user dismisses
+    }
+  }, []);
+  // ── Drawer state for mid-size screens ──────────────────────────────
+  // At 1024-1279px the right panel (lens radar + reading) collapses into a
+  // slide-in drawer so the chart isn't crushed. At 768-1023px the left
+  // sidebar (dataset + query controls) ALSO collapses into a left-side
+  // slide-in drawer so the chart gets the full width. State is local;
+  // media queries gate whether the drawer styles apply — on large screens
+  // the data attributes have no effect because the overlay CSS doesn't.
+  const [rightDrawerOpen, setRightDrawerOpen] = useState(false);
+  const [leftDrawerOpen, setLeftDrawerOpen] = useState(false);
+
+  const dismissBanner = useCallback((id: string) => {
+    setDismissedBanners(prev => {
+      const next = new Set(prev);
+      next.add(id);
+      try {
+        sessionStorage.setItem("workstation.dismissedBanners", JSON.stringify([...next]));
+      } catch {
+        // ignore — dismissal just won't persist
+      }
+      return next;
+    });
+  }, []);
+
+
   // ── Check API availability on mount ────────────────────────────────
   useEffect(() => {
     let cancelled = false;
@@ -288,10 +330,75 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
   // Grouped catalog for dropdown
   const groupedCatalog = useMemo(() => groupByAssetClass(catalog), [catalog]);
 
+  // ── Banner visibility logic ────────────────────────────────────────
+  // Offline banner: API is confirmed down (isOnline === false). We avoid
+  // flashing while the health check is in flight (isOnline === null).
+  const showOfflineBanner = isOnline === false && !dismissedBanners.has("offline");
+  // Empty-catalog banner: API is up but returned zero datasets. Only show
+  // once the dataset fetch has resolved — by the time isOnline flips to
+  // true the catalog useEffect has already run and populated (or not).
+  const showEmptyCatalogBanner =
+    isOnline === true && catalog.length === 0 && !dismissedBanners.has("empty-catalog");
+
   return (
-    <div className="workstation">
+    <div
+      className="workstation"
+      data-right-drawer={rightDrawerOpen ? "open" : "closed"}
+      data-left-drawer={leftDrawerOpen ? "open" : "closed"}
+    >
+      {/* ── Small-screen notice (<768px) ─────────────────────── */}
+      {/* Polite, non-blocking: the layout below still renders, but this
+          hint appears at the top so a mobile visitor knows what to expect. */}
+      <div className="ws-mobile-notice" role="note">
+        Best viewed on a desktop display (&ge; 1024px). Layout is compact on this screen.
+      </div>
+
+      {/* ── Responsive banners (offline / empty-catalog) ─────── */}
+      {showOfflineBanner && (
+        <div className="ws-banner ws-banner--warn" role="status">
+          <span className="ws-banner__icon" aria-hidden="true">&#x1F536;</span>
+          <span className="ws-banner__text">
+            Running in demo mode &mdash; API offline. Data is synthetic, not live SPX.
+          </span>
+          <button
+            type="button"
+            className="ws-banner__dismiss"
+            aria-label="Dismiss offline banner"
+            onClick={() => dismissBanner("offline")}
+          >
+            &times;
+          </button>
+        </div>
+      )}
+      {showEmptyCatalogBanner && (
+        <div className="ws-banner ws-banner--info" role="status">
+          <span className="ws-banner__icon" aria-hidden="true">&#x2139;</span>
+          <span className="ws-banner__text">
+            Backend is online but has no registered datasets. See README for how to register one,
+            or run with synthetic fallback via <code>NEXT_PUBLIC_DATA_MODE=demo</code>.
+          </span>
+          <button
+            type="button"
+            className="ws-banner__dismiss"
+            aria-label="Dismiss empty catalog banner"
+            onClick={() => dismissBanner("empty-catalog")}
+          >
+            &times;
+          </button>
+        </div>
+      )}
+
       {/* ── LEFT SIDEBAR ─────────────────────────────────────── */}
-      <aside className="side">
+      <aside className="side" id="workstation-left-panel">
+        {/* Close button — visible only when the sidebar is a drawer (768-1023px) */}
+        <button
+          type="button"
+          className="ws-drawer-close ws-drawer-close--left"
+          aria-label="Close controls panel"
+          onClick={() => setLeftDrawerOpen(false)}
+        >
+          &times;
+        </button>
         {/* Dataset selector */}
         <div className="side__section">
           <div className="side__header">
@@ -339,7 +446,9 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
             </div>
           )}
           {datasetOpen && catalog.length === 0 && isOnline && (
-            <div style={{ fontSize: 11, color: "var(--ink-3)", padding: "6px 0" }}>No datasets in catalog</div>
+            <div style={{ fontSize: 11, color: "var(--ink-3)", padding: "6px 0" }}>
+              No datasets registered &mdash; see main panel for setup.
+            </div>
           )}
         </div>
 
@@ -429,6 +538,30 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
               Drag the query window along the timeline. The engine re-ranks {analogs.length} historical
               matches and redraws the forecast cone. Pin analogs to overlay them.
             </div>
+            {/* Drawer toggles — each only visible in its own breakpoint via CSS.
+                "Controls" (left drawer) appears at 768-1023px where the sidebar
+                is hidden. "Details" (right drawer) appears at 1024-1279px where
+                the right panel is hidden. */}
+            <div className="ws-drawer-toggles">
+              <button
+                type="button"
+                className="ws-drawer-toggle ws-drawer-toggle--left"
+                aria-expanded={leftDrawerOpen}
+                aria-controls="workstation-left-panel"
+                onClick={() => setLeftDrawerOpen(o => !o)}
+              >
+                &larr; {leftDrawerOpen ? "Hide controls" : "Controls"}
+              </button>
+              <button
+                type="button"
+                className="ws-drawer-toggle ws-drawer-toggle--right"
+                aria-expanded={rightDrawerOpen}
+                aria-controls="workstation-right-panel"
+                onClick={() => setRightDrawerOpen(o => !o)}
+              >
+                {rightDrawerOpen ? "Hide details" : "Details"} &rarr;
+              </button>
+            </div>
           </div>
           <div className="main__metrics">
             <div className="metric">
@@ -457,6 +590,43 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
         </header>
 
         <div className="chart-stack">
+          {showEmptyCatalogBanner && (
+            // Empty-state card: backend is live but has zero registered datasets.
+            // We still render the synthetic fallback chart below it so the user
+            // can evaluate the UI, but this card makes the "fix your setup" path
+            // obvious with two explicit CTAs.
+            <div className="ws-empty-state" role="region" aria-label="No datasets registered">
+              <div className="ws-empty-state__card">
+                <h2 className="ws-empty-state__headline">No datasets registered yet</h2>
+                <p className="ws-empty-state__body">
+                  The engine finds analogs by matching historical windows, so it needs at
+                  least one dataset to search against. Register a dataset via the platform
+                  registry, or flip the app into synthetic-demo mode to explore the UI.
+                </p>
+                <div className="ws-empty-state__actions">
+                  <button
+                    type="button"
+                    className="ws-empty-state__cta ws-empty-state__cta--primary"
+                    onClick={() => {
+                      // Flip isOnline false → the synthetic-fallback memo takes over
+                      // and populates SERIES + findAnalogs() immediately. No network.
+                      setIsOnline(false);
+                    }}
+                  >
+                    Load demo SPX data
+                  </button>
+                  <a
+                    className="ws-empty-state__cta"
+                    href="https://github.com/the-similarity/base#readme"
+                    target="_blank"
+                    rel="noreferrer noopener"
+                  >
+                    Open docs
+                  </a>
+                </div>
+              </div>
+            </div>
+          )}
           <div className="chart-card">
             <div className="chart-card__head">
               <div className="chart-card__title">
@@ -484,6 +654,17 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
                   <span className="mono" style={{ fontSize: 12, color: "var(--ink-2)" }}>Searching...</span>
                 </div>
               )}
+              {loadedSeries.length === 0 ? (
+                // Dataset loaded but returned zero bars — better to tell the
+                // user than silently render an empty chart axis.
+                <div className="ws-micro-empty" role="status">
+                  <div className="ws-micro-empty__title">No data in this window</div>
+                  <div className="ws-micro-empty__body">
+                    The current dataset returned zero bars. Try a different dataset
+                    or widen the view range.
+                  </div>
+                </div>
+              ) : (
               <LineChart
                 series={loadedSeries}
                 viewStart={viewRange.start}
@@ -498,6 +679,7 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
                 height={380}
                 showCone={settings.showCone !== false}
               />
+              )}
             </div>
           </div>
         </div>
@@ -689,6 +871,17 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
               <span className="mono" style={{ fontSize: 12, color: "var(--ink-3)" }}>Searching for analogs...</span>
             </div>
           )}
+          {!searching && analogs.length === 0 && loadedSeries.length > 0 && (
+            // Search finished with no matches — give the user a concrete next step
+            // instead of silently leaving the strip blank.
+            <div className="ws-micro-empty ws-micro-empty--strip" role="status">
+              <div className="ws-micro-empty__title">No analogs found</div>
+              <div className="ws-micro-empty__body">
+                Try widening the query window (pick a longer length chip), or drag
+                the window to a different section of the timeline.
+              </div>
+            </div>
+          )}
           {analogs.map(a => (
             <div key={a.id} className="analog-card"
               data-pinned={pinned.has(a.id) ? "true" : undefined}
@@ -712,8 +905,27 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
         </div>
       </section>
 
+      {/* Backdrop shown only when either drawer is open on midsize screens.
+          Clicking it closes both drawers. On large screens the drawer CSS
+          doesn't apply so the backdrop is hidden via display: none. */}
+      <div
+        className="ws-drawer-backdrop"
+        onClick={() => { setRightDrawerOpen(false); setLeftDrawerOpen(false); }}
+        aria-hidden="true"
+      />
+
       {/* ── RIGHT PANEL ──────────────────────────────────────── */}
-      <aside className="right">
+      <aside className="right" id="workstation-right-panel">
+        {/* Close button inside the drawer — hidden on large screens where
+            the panel is statically docked. */}
+        <button
+          type="button"
+          className="ws-drawer-close"
+          aria-label="Close details panel"
+          onClick={() => setRightDrawerOpen(false)}
+        >
+          &times;
+        </button>
         <div className="right__section">
           <div className="lens-head">
             <div>
