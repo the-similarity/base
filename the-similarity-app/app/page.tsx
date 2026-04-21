@@ -56,6 +56,14 @@ export default function Page() {
   const [tweaksOpen, setTweaksOpen] = useState(false);
   const [cmdOpen, setCmdOpen] = useState(false);
 
+  /*
+   * nyClock — the status-bar timestamp rendered in America/New_York time,
+   * formatted as "MMM D, YYYY · HH:mm NY" (24h). Initial value is empty so
+   * server-rendered HTML and the first client render agree (hydration-safe);
+   * the useEffect below fills it in and then ticks every 60s.
+   */
+  const [nyClock, setNyClock] = useState<string>("");
+
   // ── Persist theme + settings ────────────────────────────────────────
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", settings.theme);
@@ -64,6 +72,48 @@ export default function Page() {
   }, [settings]);
 
   useEffect(() => { localStorage.setItem("ts-surface", surface); }, [surface]);
+
+  /*
+   * Live NY-time clock for the status bar.
+   *
+   * Invariant: the rendered string is always the current America/New_York
+   * wall-clock time at minute resolution. It MUST NOT be a hardcoded literal —
+   * a frozen timestamp on the root page silently tells clients "this UI is
+   * a mock" and destroys credibility.
+   *
+   * Lifecycle: populate on mount (after hydration), then tick every 60s.
+   * We intentionally don't tick every second: the UI shows minute resolution
+   * and we don't want to cause a re-render 60x more often than needed.
+   *
+   * Format: "MMM D, YYYY · HH:mm NY" (24h), e.g. "Apr 20, 2026 · 09:47 NY".
+   * The middle-dot separator matches the surrounding status-bar typography.
+   */
+  useEffect(() => {
+    const formatNY = () => {
+      const now = new Date();
+      // Intl.DateTimeFormat is the only reliable way to render a Date in a
+      // specific IANA timezone without pulling in date-fns-tz or moment-tz.
+      const datePart = new Intl.DateTimeFormat("en-US", {
+        timeZone: "America/New_York",
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      }).format(now); // e.g. "Apr 20, 2026"
+      const timePart = new Intl.DateTimeFormat("en-US", {
+        timeZone: "America/New_York",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+      }).format(now); // e.g. "09:47"
+      return `${datePart} \u00B7 ${timePart} NY`;
+    };
+
+    setNyClock(formatNY());
+    // 60s tick — matches the minute-resolution format. Clearing the interval
+    // on unmount prevents a dangling timer updating state on a dead tree.
+    const id = window.setInterval(() => setNyClock(formatNY()), 60_000);
+    return () => window.clearInterval(id);
+  }, []);
 
   const updateSettings = useCallback((s: WorkstationSettings) => {
     setSettings(s);
@@ -217,7 +267,7 @@ export default function Page() {
         <div className="statusbar__right">
           <span className="statusbar__item">press <span className="kbd">/</span> to search</span>
           <span className="statusbar__item">press <span className="kbd">g</span> <span className="kbd">r</span> / <span className="kbd">s</span> / <span className="kbd">v</span> to jump</span>
-          <span className="statusbar__item"><b>Apr 17, 2026 &middot; 14:22 NY</b></span>
+          <span className="statusbar__item"><b>{nyClock}</b></span>
         </div>
       </footer>
 
