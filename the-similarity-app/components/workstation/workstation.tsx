@@ -345,6 +345,13 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
       data-right-drawer={rightDrawerOpen ? "open" : "closed"}
       data-left-drawer={leftDrawerOpen ? "open" : "closed"}
     >
+      {/* ── Small-screen notice (<768px) ─────────────────────── */}
+      {/* Polite, non-blocking: the layout below still renders, but this
+          hint appears at the top so a mobile visitor knows what to expect. */}
+      <div className="ws-mobile-notice" role="note">
+        Best viewed on a desktop display (&ge; 1024px). Layout is compact on this screen.
+      </div>
+
       {/* ── Responsive banners (offline / empty-catalog) ─────── */}
       {showOfflineBanner && (
         <div className="ws-banner ws-banner--warn" role="status">
@@ -646,6 +653,17 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
                   <span className="mono" style={{ fontSize: 12, color: "var(--ink-2)" }}>Searching...</span>
                 </div>
               )}
+              {loadedSeries.length === 0 ? (
+                // Dataset loaded but returned zero bars — better to tell the
+                // user than silently render an empty chart axis.
+                <div className="ws-micro-empty" role="status">
+                  <div className="ws-micro-empty__title">No data in this window</div>
+                  <div className="ws-micro-empty__body">
+                    The current dataset returned zero bars. Try a different dataset
+                    or widen the view range.
+                  </div>
+                </div>
+              ) : (
               <LineChart
                 series={loadedSeries}
                 viewStart={viewRange.start}
@@ -660,6 +678,7 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
                 height={380}
                 showCone={settings.showCone !== false}
               />
+              )}
             </div>
           </div>
         </div>
@@ -744,6 +763,17 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
           {searching && analogs.length === 0 && (
             <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "100%", padding: 32 }}>
               <span className="mono" style={{ fontSize: 12, color: "var(--ink-3)" }}>Searching for analogs...</span>
+            </div>
+          )}
+          {!searching && analogs.length === 0 && loadedSeries.length > 0 && (
+            // Search finished with no matches — give the user a concrete next step
+            // instead of silently leaving the strip blank.
+            <div className="ws-micro-empty ws-micro-empty--strip" role="status">
+              <div className="ws-micro-empty__title">No analogs found</div>
+              <div className="ws-micro-empty__body">
+                Try widening the query window (pick a longer length chip), or drag
+                the window to a different section of the timeline.
+              </div>
             </div>
           )}
           {analogs.map(a => (
