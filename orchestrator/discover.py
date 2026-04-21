@@ -122,17 +122,17 @@ def discover_from_codebase() -> list[dict]:
                 "source": "codebase-todos",
             })
 
-    # ── Missing tests ──
+    # ── Missing tests — one task per method file to stay within 30-min timeout ──
     missing = _find_untested_methods()
-    if missing:
-        method_list = "\n".join(f"  - {m}" for m in missing)
+    for method_path in missing:
+        method_stem = Path(method_path).stem  # e.g. "dtw_matcher"
         tasks.append({
-            "id": "add-missing-tests",
-            "title": "test: add tests for untested methods",
+            "id": f"test-{method_stem.replace('_', '-')}",
+            "title": f"test: add tests for {method_stem}",
             "prompt": (
-                f"The following method files have no corresponding test file:\n"
-                f"{method_list}\n\n"
-                f"For each, create a test file following the existing test patterns. "
+                f"The file `{method_path}` has no corresponding test file.\n\n"
+                f"Create `the_similarity/tests/test_{method_stem}.py` following "
+                f"the existing test patterns (look at other test_*.py files for style). "
                 f"Test basic functionality, edge cases, and type handling. "
                 f"Run all tests before opening a PR."
             ),
@@ -255,7 +255,8 @@ async def discover_from_planner(cfg: OrchestratorConfig) -> list[dict]:
         CLAUDE_BIN,
         "--print",
         "--model", cfg.model,
-        "--permission-mode", "bypassPermissions",
+        "--permission-mode", "acceptEdits",
+        "--allowedTools", "Bash,Read,Glob,Grep",
         "--output-format", "json",
         PLANNER_PROMPT,
     ]
