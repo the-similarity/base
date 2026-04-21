@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 
 from the_similarity.methods.sax_filter import (
     sax_mindist,
@@ -84,3 +85,36 @@ def test_sax_score_range():
         mindist = sax_mindist(sax_a, sax_b, original_length=50, alphabet_size=6)
         score = sax_score(mindist, 50)
         assert 0.0 <= score <= 1.0
+
+
+def test_sax_transform_output_dtype():
+    """SAX transform should return int8 array."""
+    series = np.random.default_rng(5).standard_normal(64)
+    result = sax_transform(series, n_segments=8, alphabet_size=4)
+    assert result.dtype == np.int8
+
+
+def test_sax_mindist_symmetry():
+    """MINDIST must be symmetric: MINDIST(a, b) == MINDIST(b, a)."""
+    rng = np.random.default_rng(77)
+    a = rng.standard_normal(80)
+    b = rng.standard_normal(80)
+    sax_a = sax_transform(a, n_segments=16, alphabet_size=8)
+    sax_b = sax_transform(b, n_segments=16, alphabet_size=8)
+    d_ab = sax_mindist(sax_a, sax_b, original_length=80, alphabet_size=8)
+    d_ba = sax_mindist(sax_b, sax_a, original_length=80, alphabet_size=8)
+    assert d_ab == pytest.approx(d_ba)
+
+
+def test_sax_transform_n_segments_exceeds_length():
+    """When n_segments >= series length, PAA is an identity copy; output length == series length."""
+    series = np.array([1.0, 2.0, 3.0])
+    result = sax_transform(series, n_segments=10, alphabet_size=4)
+    # PAA returns a copy of the series when n_segments >= len(series),
+    # so the SAX output has len(series) symbols, not n_segments.
+    assert len(result) == len(series)
+
+
+def test_sax_score_decreases_with_mindist():
+    """Higher MINDIST should produce a lower score."""
+    assert sax_score(0.0, 50) > sax_score(1.0, 50) > sax_score(10.0, 50)

@@ -73,3 +73,32 @@ def test_tda_constant_series():
     c = np.ones(100, dtype=np.float64)
     score = compare(c, c)
     assert score == 0.0
+
+
+def test_tda_score_zero_distance():
+    """Distance 0 should map to score 1.0."""
+    assert tda_score(0.0) == 1.0
+
+
+def test_tda_score_positive():
+    """tda_score output is always in [0, 1]."""
+    for dist in [0.0, 0.5, 1.0, 5.0, 100.0]:
+        sc = tda_score(dist)
+        assert 0.0 <= sc <= 1.0, f"tda_score({dist}) = {sc} out of range"
+
+
+def test_tda_empty_diagrams_distance_zero():
+    """Two empty persistence diagrams should have distance 0."""
+    empty_diag = {
+        "H0": np.empty((0, 2), dtype=np.float64),
+        "H1": np.empty((0, 2), dtype=np.float64),
+    }
+    dist = persistence_distance(empty_diag, empty_diag)
+    assert dist == 0.0
+
+
+def test_tda_short_candidate():
+    """If candidate is too short, compare should return 0."""
+    long_series = _sine_series()
+    short = np.arange(TDA_MIN_WINDOW - 1, dtype=np.float64)
+    assert compare(long_series, short) == 0.0

@@ -61,3 +61,33 @@ def test_mp_score_decreases_with_distance():
     score_near = mp_score(0.5, 40)
     score_far = mp_score(5.0, 40)
     assert score_near > score_far
+
+
+def test_mp_score_zero_distance():
+    """Distance 0 should produce score 1.0."""
+    assert mp_score(0.0, 40) == 1.0
+
+
+def test_query_profile_single_window():
+    """query_profile output has length 1 when history == query."""
+    query = np.array([1.0, 2.0, 3.0, 2.0, 1.0])
+    distances = query_profile(query, query)
+    assert len(distances) == 1
+    assert distances[0] < 0.01
+
+
+def test_mp_score_profile_shape():
+    """mp_score_profile output shape must match input distances shape."""
+    rng = np.random.default_rng(33)
+    distances = rng.uniform(0, 5, size=150)
+    scores = mp_score_profile(distances, window_size=40)
+    assert scores.shape == distances.shape
+
+
+def test_query_profile_distances_nonnegative():
+    """All distance values in the profile must be >= 0."""
+    rng = np.random.default_rng(88)
+    history = rng.standard_normal(300)
+    query = rng.standard_normal(50)
+    distances = query_profile(history, query)
+    assert np.all(distances >= 0.0)

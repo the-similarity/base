@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 
 from the_similarity.methods.dtw_matcher import (
     batch_dtw_scores,
@@ -69,3 +70,44 @@ def test_batch_dtw_matches_sequential():
 def test_batch_dtw_empty():
     """Batch DTW with no candidates should return empty list."""
     assert batch_dtw_scores(np.array([1.0, 2.0]), [], sakoe_chiba_radius=1) == []
+
+
+def test_batch_dtw_single_candidate():
+    """Batch DTW with one candidate should return a single score."""
+    query = np.array([1.0, 2.0, 3.0, 2.0, 1.0])
+    candidate = [np.array([1.0, 2.0, 3.0, 2.0, 1.0])]
+    scores = batch_dtw_scores(query, candidate)
+    assert len(scores) == 1
+    assert scores[0] == pytest.approx(1.0)
+
+
+def test_rank_candidates_empty():
+    """rank_candidates with no candidates should return empty list."""
+    query = np.array([1.0, 2.0, 3.0])
+    result = rank_candidates(query, np.empty((0, 3)))
+    assert result == []
+
+
+def test_rank_candidates_sorted_descending():
+    """rank_candidates result must be sorted by score descending."""
+    rng = np.random.default_rng(17)
+    query = rng.standard_normal(30)
+    candidates = np.array([rng.standard_normal(30) for _ in range(10)])
+    ranked = rank_candidates(query, candidates)
+    scores = [r[2] for r in ranked]
+    assert scores == sorted(scores, reverse=True)
+
+
+def test_dtw_score_range():
+    """dtw_score should always produce values in (0, 1]."""
+    for dist in [0.0, 0.1, 1.0, 10.0, 100.0]:
+        s = dtw_score(dist, window_size=50)
+        assert 0.0 < s <= 1.0, f"score {s} out of range for dist={dist}"
+
+
+def test_dtw_different_length_series():
+    """DTW should handle series of different lengths."""
+    a = np.array([1.0, 2.0, 3.0])
+    b = np.array([1.0, 1.5, 2.0, 2.5, 3.0])
+    dist = dtw_distance(a, b)
+    assert dist >= 0.0
