@@ -314,6 +314,11 @@ input, select, textarea { font: inherit; color: inherit; }
   border-left: 3px solid var(--warn);
   color: var(--ink);
 }
+.ws-banner--info {
+  background: rgba(90, 43, 43, 0.05);
+  border-left: 3px solid var(--accent);
+  color: var(--ink);
+}
 
 @media (max-width: 1280px) {
   .workstation { grid-template-columns: 240px 1fr; }

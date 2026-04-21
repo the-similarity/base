@@ -323,6 +323,11 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
   // Offline banner: API is confirmed down (isOnline === false). We avoid
   // flashing while the health check is in flight (isOnline === null).
   const showOfflineBanner = isOnline === false && !dismissedBanners.has("offline");
+  // Empty-catalog banner: API is up but returned zero datasets. Only show
+  // once the dataset fetch has resolved — by the time isOnline flips to
+  // true the catalog useEffect has already run and populated (or not).
+  const showEmptyCatalogBanner =
+    isOnline === true && catalog.length === 0 && !dismissedBanners.has("empty-catalog");
 
   return (
     <div className="workstation">
@@ -338,6 +343,23 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
             className="ws-banner__dismiss"
             aria-label="Dismiss offline banner"
             onClick={() => dismissBanner("offline")}
+          >
+            &times;
+          </button>
+        </div>
+      )}
+      {showEmptyCatalogBanner && (
+        <div className="ws-banner ws-banner--info" role="status">
+          <span className="ws-banner__icon" aria-hidden="true">&#x2139;</span>
+          <span className="ws-banner__text">
+            Backend is online but has no registered datasets. See README for how to register one,
+            or run with synthetic fallback via <code>NEXT_PUBLIC_DATA_MODE=demo</code>.
+          </span>
+          <button
+            type="button"
+            className="ws-banner__dismiss"
+            aria-label="Dismiss empty catalog banner"
+            onClick={() => dismissBanner("empty-catalog")}
           >
             &times;
           </button>
