@@ -20,6 +20,23 @@ import { RepresentSurface, SimulateSurface, EvaluateSurface, RenderSurface, Deci
 import { CommandPalette } from "../components/command-palette";
 import { TweaksPanel } from "../components/tweaks-panel";
 
+/*
+ * Feed mode — honest label for the status-bar "feed X" badge.
+ *
+ * Values: "live" (connected to real market data) | "demo" (synthetic /
+ * fallback / canned data). Sourced from NEXT_PUBLIC_DATA_MODE; defaults
+ * to "demo" when unset so we never falsely claim to be live.
+ *
+ * Rationale: the previous label was "feed SPX / synthetic" regardless of
+ * actual state — misleading in both directions (says "SPX" even when the
+ * backend is offline, says "synthetic" even when a live feed is attached).
+ * An explicit env-var-driven label is honest: it says exactly what it is.
+ * When we later gain a reliable hook into the workstation's online/offline
+ * state, this can become a derived value instead of a deploy-time constant.
+ */
+const DATA_MODE: "live" | "demo" =
+  process.env.NEXT_PUBLIC_DATA_MODE === "live" ? "live" : "demo";
+
 // ── Verb definitions for the 6 surfaces ─────────────────────────────────
 const VERBS = [
   { k: "retrieve", n: "01", name: "Retrieve", q: "What rhymes?" },
@@ -261,7 +278,7 @@ export default function Page() {
       <footer className="statusbar">
         <span className="statusbar__item"><b>engine</b> v4.14 &middot; nine lenses</span>
         <span className="statusbar__sep">&boxv;</span>
-        <span className="statusbar__item">feed <b>SPX / synthetic</b></span>
+        <span className="statusbar__item">feed <b>{DATA_MODE}</b></span>
         <span className="statusbar__sep">&boxv;</span>
         <span className="statusbar__item">window <b>{currentVerb.name}</b></span>
         <div className="statusbar__right">
