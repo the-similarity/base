@@ -12,7 +12,6 @@ from __future__ import annotations
 import os
 import tempfile
 
-import numpy as np
 import pytest
 
 # Import the demo module's components directly. The demo is structured

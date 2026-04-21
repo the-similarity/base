@@ -1,12 +1,12 @@
 """Alert system API routes: watchlists + alert history.
 
 State Management & Connection Singletons:
-- SQLite Concurrency: The module enforces a strict Singleton access pattern for 
-  `AlertManager`. FastAPI spins up multiple concurrent requests; centralizing the 
+- SQLite Concurrency: The module enforces a strict Singleton access pattern for
+  `AlertManager`. FastAPI spins up multiple concurrent requests; centralizing the
   SQLite driver instance prevents multi-connection lock contention.
-- Operational Boundary: This REST interface is purely configurational (CRUD). 
-  It does NOT govern the operational loop of the alerting scanner itself. External 
-  cron pollers or continuous WebSocket listeners consume these configurational entities 
+- Operational Boundary: This REST interface is purely configurational (CRUD).
+  It does NOT govern the operational loop of the alerting scanner itself. External
+  cron pollers or continuous WebSocket listeners consume these configurational entities
   to dispatch underlying search loads.
 """
 from __future__ import annotations

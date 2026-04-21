@@ -9,11 +9,9 @@ Covers the three public functions in ``the_similarity.narrative.retrieval``:
 from __future__ import annotations
 
 import numpy as np
-import pytest
 
 from the_similarity.narrative.retrieval import (
     NARRATIVE_FEATURE_DIM,
-    NL_TS_DIM,
     _CANONICAL_EVENT_TYPES,
     extract_narrative_features,
     extract_nl_ts_state,

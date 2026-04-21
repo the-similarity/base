@@ -284,6 +284,11 @@ _SELECT_ARTIFACTS_BY_RUN_SQL = (
     "FROM artifacts WHERE run_id = ? ORDER BY name ASC;"
 )
 
+_SELECT_ARTIFACT_BY_PK_SQL = (
+    "SELECT run_id, name, path, content_type, size_bytes, checksum, created_at "
+    "FROM artifacts WHERE run_id = ? AND name = ?;"
+)
+
 _DELETE_ARTIFACTS_BY_RUN_SQL = "DELETE FROM artifacts WHERE run_id = ?;"
 
 _UPSERT_SCORECARD_SQL = """
@@ -323,6 +328,11 @@ _SELECT_SCENARIOS_SQL = (
     "FROM scenarios ORDER BY name ASC;"
 )
 
+_SELECT_SCENARIO_BY_ID_SQL = (
+    "SELECT scenario_id, name, version, engine, params_json, metadata_json "
+    "FROM scenarios WHERE scenario_id = ?;"
+)
+
 _UPSERT_DATASET_SQL = """
 INSERT INTO datasets (
     dataset_id, name, version, source, schema_uri,
@@ -343,6 +353,11 @@ ON CONFLICT(dataset_id) DO UPDATE SET
 _SELECT_DATASETS_SQL = (
     "SELECT dataset_id, name, version, source, schema_uri, "
     "n_rows, n_columns, checksum, metadata_json FROM datasets ORDER BY name ASC;"
+)
+
+_SELECT_DATASET_BY_ID_SQL = (
+    "SELECT dataset_id, name, version, source, schema_uri, "
+    "n_rows, n_columns, checksum, metadata_json FROM datasets WHERE dataset_id = ?;"
 )
 
 
@@ -667,6 +682,14 @@ class RunRegistry:
         cursor = self._conn.execute(_SELECT_ARTIFACTS_BY_RUN_SQL, (run_id,))
         return [self._row_to_artifact_record(row) for row in cursor.fetchall()]
 
+    def get_artifact(self, run_id: str, name: str) -> Optional[ArtifactRecord]:
+        """Return a single artifact by ``(run_id, name)`` or ``None`` if absent."""
+        cursor = self._conn.execute(_SELECT_ARTIFACT_BY_PK_SQL, (run_id, name))
+        row = cursor.fetchone()
+        if row is None:
+            return None
+        return self._row_to_artifact_record(row)
+
     # ======================================================================
     # Scorecards
     # ======================================================================
@@ -726,6 +749,14 @@ class RunRegistry:
         cursor = self._conn.execute(_SELECT_SCENARIOS_SQL)
         return [self._row_to_scenario_spec(row) for row in cursor.fetchall()]
 
+    def get_scenario(self, scenario_id: str) -> Optional[ScenarioSpec]:
+        """Return a single scenario by ``scenario_id`` or ``None`` if absent."""
+        cursor = self._conn.execute(_SELECT_SCENARIO_BY_ID_SQL, (scenario_id,))
+        row = cursor.fetchone()
+        if row is None:
+            return None
+        return self._row_to_scenario_spec(row)
+
     # ======================================================================
     # Datasets
     # ======================================================================
@@ -753,6 +784,14 @@ class RunRegistry:
         """Return all registered datasets ordered by name ASC."""
         cursor = self._conn.execute(_SELECT_DATASETS_SQL)
         return [self._row_to_dataset_spec(row) for row in cursor.fetchall()]
+
+    def get_dataset(self, dataset_id: str) -> Optional[DatasetSpec]:
+        """Return a single dataset by ``dataset_id`` or ``None`` if absent."""
+        cursor = self._conn.execute(_SELECT_DATASET_BY_ID_SQL, (dataset_id,))
+        row = cursor.fetchone()
+        if row is None:
+            return None
+        return self._row_to_dataset_spec(row)
 
     # ======================================================================
     # Legacy RunArtifact API — kept byte-compatible with the pre-spine

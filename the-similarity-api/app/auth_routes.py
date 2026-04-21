@@ -1,21 +1,21 @@
 """Auth API routes: register, login, refresh, API keys.
 
 Security Lifecycle & Dependency Injection:
-- Request Interception: Protected routes universally rely on FastAPI Dependency 
-  Injection (`Depends(get_current_user)`). This acts as a declarative security 
+- Request Interception: Protected routes universally rely on FastAPI Dependency
+  Injection (`Depends(get_current_user)`). This acts as a declarative security
   barrier, preempting the handler execution context if authentication is invalid.
-- Stateful Asymmetry: The API accommodates two parallel authentication lifecycles. 
-  UI sessions use short-lived sliding JWT pairs (access + refresh) for bounded TTL 
+- Stateful Asymmetry: The API accommodates two parallel authentication lifecycles.
+  UI sessions use short-lived sliding JWT pairs (access + refresh) for bounded TTL
   state, while programmed clients generate non-expiring programmatic `API Keys`.
 """
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Response
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, Field
 
-from the_similarity.core.auth import AuthManager, Tier, User
+from the_similarity.core.auth import AuthManager, User
 
-from app.auth_deps import enforce_rate_limit, get_auth_manager, get_current_user
+from app.auth_deps import get_auth_manager, get_current_user
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
