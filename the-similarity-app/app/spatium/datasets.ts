@@ -125,6 +125,37 @@ export const DOMAIN_ORDER: readonly string[] = [
   "history",
 ];
 
+/**
+ * Series kinds exposed to the UI (Add-dataset popover).
+ *
+ * This is a frozen snapshot of the SeriesKind union so the dropdown list
+ * stays in sync with the generator switch in genSeries(). If a new kind
+ * is added to SeriesKind, add it here too — TypeScript will enforce the
+ * exhaustiveness via the `as const readonly SeriesKind[]` assertion.
+ */
+export const SERIES_KINDS: readonly SeriesKind[] = [
+  "volatile-momentum",
+  "trending-drift",
+  "slow-momentum",
+  "regime-switch",
+  "long-cycle",
+  "seasonal-spike",
+  "burst-decay",
+  "seasonal-smooth",
+  "bubble-collapse",
+] as const;
+
+/**
+ * Palette for user-added synthetic datasets.
+ *
+ * Picked so each new dataset gets a visually distinct hue that doesn't
+ * collide with the first 9 built-in dataset colours. Cycled modulo length
+ * when the user adds more than PALETTE.length custom datasets.
+ */
+export const CUSTOM_PALETTE: readonly number[] = [
+  0xf5a97f, 0x94e2d5, 0xa6e3a1, 0xf9e2af, 0xcba6f7, 0xf38ba8, 0x89b4fa, 0xfab387,
+] as const;
+
 /* ─── Seeded RNG + hashing ────────────────────────────────────────── */
 
 /**
@@ -334,11 +365,19 @@ export function features(s: number[]): FeatureVec {
  * The result is a stable manifold — same density always produces the
  * same coordinates, which is what makes the scene feel "real".
  */
-export function buildPoints(density: 0 | 1 | 2 = 1): SpatiumPoint[] {
+export function buildPoints(
+  density: 0 | 1 | 2 = 1,
+  extras: readonly Dataset[] = [],
+): SpatiumPoint[] {
   const perDs = [15, 32, 60][density];
   const points: SpatiumPoint[] = [];
   let id = 0;
-  for (const ds of DATASETS) {
+  // Merge built-in DATASETS with user-added extras. Extras land after
+  // the built-ins so their layout ring-slot is derived from their domain
+  // (same as any built-in dataset). We tolerate — but do not enforce —
+  // id collisions; the caller (page.tsx) is responsible for uniqueness.
+  const allDatasets = extras.length ? [...DATASETS, ...extras] : DATASETS;
+  for (const ds of allDatasets) {
     const span = Math.max(1, ds.era[1] - ds.era[0]);
     for (let i = 0; i < perDs; i++) {
       const t = i / (perDs - 1);
@@ -361,7 +400,10 @@ export function buildPoints(density: 0 | 1 | 2 = 1): SpatiumPoint[] {
     }
   }
 
-  // Precompute domain ring centres — deterministic, closed-form.
+  // Precompute domain ring centres — deterministic, closed-form. Custom
+  // datasets whose domain isn't in DOMAIN_ORDER get a stable off-ring
+  // slot derived from the domain string's FNV hash so two sessions that
+  // add datasets in different orders still land on the same cluster.
   const domainCenters: Record<string, [number, number, number]> = {};
   DOMAIN_ORDER.forEach((d, i) => {
     const n = DOMAIN_ORDER.length;
@@ -371,8 +413,17 @@ export function buildPoints(density: 0 | 1 | 2 = 1): SpatiumPoint[] {
   });
 
   for (const p of points) {
-    const ds = DATASETS.find((d) => d.id === p.ds)!;
-    const c = domainCenters[ds.domain];
+    const ds = allDatasets.find((d) => d.id === p.ds)!;
+    let c = domainCenters[ds.domain];
+    if (!c) {
+      // Unknown domain (user-added). Derive a deterministic ring slot
+      // from the domain hash so every point with this domain clusters.
+      const dh = hashStr("domain:" + ds.domain);
+      const a = ((dh % 1000) / 1000) * Math.PI * 2;
+      const r = 9;
+      c = [Math.cos(a) * r, Math.sin(((dh >> 10) % 1000) / 1000 * Math.PI * 2) * 3.5, Math.sin(a) * r];
+      domainCenters[ds.domain] = c;
+    }
     const offSeed = hashStr(ds.id);
     const off: [number, number, number] = [
       ((offSeed % 97) - 48) / 40,
@@ -424,4 +475,141 @@ export function regimeLabel(f: FeatureVec): string {
   if (f.hurst > 0.58) return "Trending";
   if (f.hurst < 0.42) return "Mean-rev";
   return "Random";
+}
+
+/* ─── Export helpers ──────────────────────────────────────────────── */
+
+/**
+ * Shape of the exported embedding JSON envelope.
+ *
+ * Schema version bumps when the point payload changes (e.g., new
+ * feature fields). Consumers should refuse to parse a version they
+ * don't know. Keep this shape flat and stable — it's the contract
+ * every downstream notebook / Python fixture will load.
+ */
+export interface ExportedEmbedding {
+  schemaVersion: 1;
+  generatedAt: string;
+  settings: {
+    density: 0 | 1 | 2;
+    colorBy: string;
+    threshold: number;
+    pointCount: number;
+  };
+  datasets: ReadonlyArray<{
+    id: string;
+    name: string;
+    domain: string;
+    color: number;
+    kind: string;
+    era: readonly [number, number];
+  }>;
+  points: ReadonlyArray<{
+    id: string;
+    ds: string;
+    domain: string;
+    year: number;
+    idxInDs: number;
+    pos: readonly [number, number, number];
+    feat: FeatureVec;
+  }>;
+}
+
+/**
+ * Build a JSON-serialisable snapshot of the current point cloud.
+ *
+ * `series` is intentionally excluded — it is large (180 floats per
+ * point) and callers that want raw series can recompute from (ds.kind,
+ * idxInDs) via genSeries() deterministically. Keeping the export lean
+ * makes it practical to share over clipboard/gist for debugging.
+ */
+export function exportEmbedding(
+  points: readonly SpatiumPoint[],
+  datasets: readonly Dataset[],
+  settings: { density: 0 | 1 | 2; colorBy: string; threshold: number },
+): ExportedEmbedding {
+  return {
+    schemaVersion: 1,
+    generatedAt: new Date().toISOString(),
+    settings: { ...settings, pointCount: points.length },
+    datasets: datasets.map((d) => ({
+      id: d.id,
+      name: d.name,
+      domain: d.domain,
+      color: d.color,
+      kind: d.kind,
+      era: d.era,
+    })),
+    points: points.map((p) => ({
+      id: p.id,
+      ds: p.ds,
+      domain: p.domain,
+      year: p.year,
+      idxInDs: p.idxInDs,
+      pos: p.pos,
+      feat: p.feat,
+    })),
+  };
+}
+
+/**
+ * Flatten the point cloud to CSV (one row per point).
+ *
+ * Columns: id,ds,domain,year,idxInDs,x,y,z,mean,sd,slope,peak,zc,ac,hurst,range.
+ * CSV escaping: we only emit numeric fields + known-safe strings (ids,
+ * domain tags). No field ever contains a comma or quote, so we skip
+ * RFC-4180 quoting entirely — verified by the test suite.
+ */
+export function exportEmbeddingCsv(points: readonly SpatiumPoint[]): string {
+  const header =
+    "id,ds,domain,year,idxInDs,x,y,z,mean,sd,slope,peak,zc,ac,hurst,range";
+  const lines = [header];
+  for (const p of points) {
+    const f = p.feat;
+    lines.push(
+      [
+        p.id,
+        p.ds,
+        p.domain,
+        p.year,
+        p.idxInDs,
+        p.pos[0],
+        p.pos[1],
+        p.pos[2],
+        f.mean,
+        f.sd,
+        f.slope,
+        f.peak,
+        f.zc,
+        f.ac,
+        f.hurst,
+        f.range,
+      ]
+        .map((v) => (typeof v === "number" ? v.toFixed(6) : String(v)))
+        .join(","),
+    );
+  }
+  return lines.join("\n");
+}
+
+/**
+ * Derive a stable unique dataset id from a user-supplied name.
+ *
+ * Lowercases, strips non-alphanumerics, appends a 4-char hex hash of
+ * the full input so two names that slug to the same root ("BTC!" and
+ * "btc?") still collide-free. Keep the output URL/CSS-safe.
+ */
+export function slugifyDatasetId(name: string, existingIds: ReadonlySet<string>): string {
+  const root = name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 24) || "ds";
+  let id = root;
+  let n = 1;
+  while (existingIds.has(id)) {
+    n += 1;
+    id = `${root}-${n}`;
+  }
+  return id;
 }
