@@ -395,7 +395,84 @@ input, select, textarea { font: inherit; color: inherit; }
   background: var(--bg);
 }
 
-@media (max-width: 1280px) {
+/* ------------------------------------------------------------------
+   Drawer toggle + close + backdrop (only visible at <1280px).
+   On large screens the drawer is docked (static grid column) and all
+   three of these are hidden by default.
+   ------------------------------------------------------------------ */
+.ws-drawer-toggle {
+  display: none; /* hidden by default, shown in media queries below */
+  align-self: flex-start;
+  margin-top: var(--s-3);
+  padding: 6px 10px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: .04em;
+  color: var(--ink-2);
+  background: var(--bg);
+  border: 1px solid var(--rule-strong);
+  border-radius: 3px;
+  cursor: pointer;
+}
+.ws-drawer-toggle:hover { background: var(--bg-hover); }
+.ws-drawer-close {
+  display: none; /* hidden by default, shown at midsize */
+  position: absolute;
+  top: 8px; right: 8px;
+  width: 28px; height: 28px;
+  align-items: center; justify-content: center;
+  font-size: 20px; line-height: 1;
+  color: var(--ink-3);
+  background: var(--bg);
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  cursor: pointer;
+  z-index: 2;
+}
+.ws-drawer-close:hover { color: var(--ink); background: var(--bg-hover); }
+.ws-drawer-backdrop {
+  display: none; /* hidden unless a drawer is open at midsize */
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  z-index: 40;
+}
+
+/* ------------------------------------------------------------------
+   Midsize layout: 1024-1279px.
+   Right panel becomes an off-canvas slide-in drawer. The grid goes
+   back to 2 columns (sidebar + main). The drawer overlays the main
+   content when open.
+   ------------------------------------------------------------------ */
+@media (max-width: 1279px) and (min-width: 1024px) {
+  .workstation { grid-template-columns: 240px 1fr; }
+  .workstation > .right {
+    /* Pull the right panel out of the grid and treat it as a fixed
+       overlay. Docked to the right edge, slides in via translateX. */
+    position: fixed;
+    top: 0; right: 0; bottom: 0;
+    width: 340px;
+    max-width: 90vw;
+    border-left: 1px solid var(--rule);
+    background: var(--bg-elevated);
+    z-index: 50;
+    transform: translateX(100%);
+    transition: transform .2s ease-out;
+    box-shadow: -4px 0 16px rgba(0, 0, 0, 0.08);
+  }
+  .workstation[data-right-drawer="open"] > .right {
+    transform: translateX(0);
+  }
+  .workstation[data-right-drawer="open"] > .ws-drawer-backdrop {
+    display: block;
+  }
+  .ws-drawer-toggle--right { display: inline-flex; }
+  .ws-drawer-close { display: inline-flex; }
+}
+
+/* Preserve the old <1024 behaviour for now (handled further in the
+   next breakpoint rule): hide the right panel entirely. */
+@media (max-width: 1023px) {
   .workstation { grid-template-columns: 240px 1fr; }
   .workstation > .right { display: none; }
 }

@@ -120,6 +120,13 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
       // sessionStorage unavailable — banner will just show until user dismisses
     }
   }, []);
+  // ── Drawer state for mid-size screens (1024-1279px) ───────────────
+  // At this width the right panel (lens radar + reading) collapses into a
+  // slide-in drawer so the chart isn't crushed. State is local; the CSS
+  // media query gates whether it visually applies — on large screens the
+  // data attribute has no effect because the drawer styles don't apply.
+  const [rightDrawerOpen, setRightDrawerOpen] = useState(false);
+
   const dismissBanner = useCallback((id: string) => {
     setDismissedBanners(prev => {
       const next = new Set(prev);
@@ -330,7 +337,10 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
     isOnline === true && catalog.length === 0 && !dismissedBanners.has("empty-catalog");
 
   return (
-    <div className="workstation">
+    <div
+      className="workstation"
+      data-right-drawer={rightDrawerOpen ? "open" : "closed"}
+    >
       {/* ── Responsive banners (offline / empty-catalog) ─────── */}
       {showOfflineBanner && (
         <div className="ws-banner ws-banner--warn" role="status">
@@ -507,6 +517,16 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
               Drag the query window along the timeline. The engine re-ranks {analogs.length} historical
               matches and redraws the forecast cone. Pin analogs to overlay them.
             </div>
+            {/* Drawer toggle — only visible on midsize screens via CSS */}
+            <button
+              type="button"
+              className="ws-drawer-toggle ws-drawer-toggle--right"
+              aria-expanded={rightDrawerOpen}
+              aria-controls="workstation-right-panel"
+              onClick={() => setRightDrawerOpen(o => !o)}
+            >
+              {rightDrawerOpen ? "Hide details" : "Details"} &rarr;
+            </button>
           </div>
           <div className="main__metrics">
             <div className="metric">
@@ -722,8 +742,28 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
         </div>
       </section>
 
+      {/* Backdrop shown only when the right drawer is open on midsize screens.
+          Clicking it closes the drawer. On large screens the drawer CSS
+          doesn't apply so the backdrop is hidden via display: none. */}
+      <div
+        className="ws-drawer-backdrop"
+        data-visible={rightDrawerOpen ? "true" : "false"}
+        onClick={() => setRightDrawerOpen(false)}
+        aria-hidden="true"
+      />
+
       {/* ── RIGHT PANEL ──────────────────────────────────────── */}
-      <aside className="right">
+      <aside className="right" id="workstation-right-panel">
+        {/* Close button inside the drawer — hidden on large screens where
+            the panel is statically docked. */}
+        <button
+          type="button"
+          className="ws-drawer-close"
+          aria-label="Close details panel"
+          onClick={() => setRightDrawerOpen(false)}
+        >
+          &times;
+        </button>
         <div className="right__section">
           <div className="lens-head">
             <div>
