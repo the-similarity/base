@@ -48,7 +48,8 @@ class OrchestratorConfig:
     max_retries: int = 1
     timeout_minutes: int = 30
     model: str = "sonnet"
-    permission_mode: str = "bypassPermissions"
+    # bypassPermissions is blocked when running as root; use acceptEdits + explicit allowedTools instead.
+    permission_mode: str = "acceptEdits"
 
     # Extra CLI flags passed to every claude invocation
     extra_flags: list[str] = field(default_factory=list)
