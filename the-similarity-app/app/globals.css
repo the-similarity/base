@@ -320,6 +320,81 @@ input, select, textarea { font: inherit; color: inherit; }
   color: var(--ink);
 }
 
+/* ------------------------------------------------------------------
+   Empty-state card (catalog has zero registered datasets).
+   Renders inside .chart-stack above the chart-card as a centered
+   call-to-action block. Intentionally serif + generous whitespace
+   to signal "this is a setup task" rather than a transient loading
+   state. Still lets the synthetic chart render below so the user
+   can tour the UI.
+   ------------------------------------------------------------------ */
+.ws-empty-state {
+  display: flex;
+  justify-content: center;
+  padding: var(--s-4) 0;
+}
+.ws-empty-state__card {
+  max-width: 520px;
+  width: 100%;
+  padding: var(--s-6) var(--s-6);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+  text-align: center;
+}
+.ws-empty-state__headline {
+  margin: 0 0 var(--s-3);
+  font-family: var(--serif);
+  font-weight: 500;
+  font-size: 22px;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+.ws-empty-state__body {
+  margin: 0 0 var(--s-5);
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--ink-2);
+}
+.ws-empty-state__actions {
+  display: flex;
+  gap: var(--s-3);
+  justify-content: center;
+  flex-wrap: wrap;
+}
+.ws-empty-state__cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 14px;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  letter-spacing: .04em;
+  color: var(--ink);
+  background: var(--bg);
+  border: 1px solid var(--rule-strong);
+  border-radius: 3px;
+  text-decoration: none;
+  cursor: pointer;
+}
+.ws-empty-state__cta:hover {
+  background: var(--bg-hover);
+}
+.ws-empty-state__cta--primary {
+  background: var(--ink);
+  color: var(--bg);
+  border-color: var(--ink);
+}
+.ws-empty-state__cta--primary:hover {
+  background: var(--ink-2);
+  border-color: var(--ink-2);
+}
+.ws-empty-state__cta:disabled {
+  color: var(--ink-4);
+  cursor: not-allowed;
+  background: var(--bg);
+}
+
 @media (max-width: 1280px) {
   .workstation { grid-template-columns: 240px 1fr; }
   .workstation > .right { display: none; }

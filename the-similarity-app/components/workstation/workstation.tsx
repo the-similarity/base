@@ -415,7 +415,9 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
             </div>
           )}
           {datasetOpen && catalog.length === 0 && isOnline && (
-            <div style={{ fontSize: 11, color: "var(--ink-3)", padding: "6px 0" }}>No datasets in catalog</div>
+            <div style={{ fontSize: 11, color: "var(--ink-3)", padding: "6px 0" }}>
+              No datasets registered &mdash; see main panel for setup.
+            </div>
           )}
         </div>
 
@@ -533,6 +535,43 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
         </header>
 
         <div className="chart-stack">
+          {showEmptyCatalogBanner && (
+            // Empty-state card: backend is live but has zero registered datasets.
+            // We still render the synthetic fallback chart below it so the user
+            // can evaluate the UI, but this card makes the "fix your setup" path
+            // obvious with two explicit CTAs.
+            <div className="ws-empty-state" role="region" aria-label="No datasets registered">
+              <div className="ws-empty-state__card">
+                <h2 className="ws-empty-state__headline">No datasets registered yet</h2>
+                <p className="ws-empty-state__body">
+                  The engine finds analogs by matching historical windows, so it needs at
+                  least one dataset to search against. Register a dataset via the platform
+                  registry, or flip the app into synthetic-demo mode to explore the UI.
+                </p>
+                <div className="ws-empty-state__actions">
+                  <button
+                    type="button"
+                    className="ws-empty-state__cta ws-empty-state__cta--primary"
+                    onClick={() => {
+                      // Flip isOnline false → the synthetic-fallback memo takes over
+                      // and populates SERIES + findAnalogs() immediately. No network.
+                      setIsOnline(false);
+                    }}
+                  >
+                    Load demo SPX data
+                  </button>
+                  <a
+                    className="ws-empty-state__cta"
+                    href="https://github.com/the-similarity/base#readme"
+                    target="_blank"
+                    rel="noreferrer noopener"
+                  >
+                    Open docs
+                  </a>
+                </div>
+              </div>
+            </div>
+          )}
           <div className="chart-card">
             <div className="chart-card__head">
               <div className="chart-card__title">
