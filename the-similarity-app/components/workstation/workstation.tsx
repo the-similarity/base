@@ -1354,7 +1354,42 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
               </div>
               <div className="chart-card__legend">
                 <span className="legend-dot"><i />Query</span>
-                <span className="legend-dot analog"><i />Analogs ({analogOverlays.length})</span>
+                {/* Per-rank legend dots — one colored pip per analog, colored
+                    to match the chart overlay AND the card's left border. A
+                    click on a dot toggles the pin on that analog (same as
+                    clicking the card). The dot's alpha ring marks pinned
+                    state so the legend mirrors the card strip's pin state.
+                    We render up to analogOverlays.length dots; the
+                    "Analogs (N)" label stays as a text prefix so the
+                    existing "is it only showing top 1?" question lands a
+                    visible count even when dots wrap. */}
+                <span className="legend-dot analog">
+                  <i />Analogs ({analogOverlays.length})
+                </span>
+                {analogOverlays.map((a, i) => {
+                  const id = a.id;
+                  const isPinned = !!a.pinned;
+                  return (
+                    <span
+                      key={`legend-rank-${id ?? i}`}
+                      className="legend-dot analog-rank"
+                      data-rank={i}
+                      data-pinned={isPinned ? "true" : undefined}
+                    >
+                      <button
+                        type="button"
+                        aria-label={`Toggle pin on analog ${i + 1}`}
+                        title={isPinned ? "Unpin this analog" : "Pin this analog"}
+                        onClick={() => { if (id) togglePin(id); }}
+                        onMouseEnter={() => { if (id) setHoverAnalog(id); }}
+                        onMouseLeave={() => setHoverAnalog(null)}
+                      >
+                        <i />
+                        <span>#{i + 1}</span>
+                      </button>
+                    </span>
+                  );
+                })}
                 <span className="legend-dot cone"><i />P10&ndash;P90 cone</span>
                 {searching && (
                   <span className="mono" style={{ fontSize: 10, color: "var(--ink-3)", marginLeft: 8 }}>
@@ -1402,6 +1437,10 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
                     crosshairIdx,
                     height: 380,
                     showCone: settings.showCone !== false,
+                    // Drives the per-analog hover preview in both chart
+                    // renderers. Set from the .analog-card mouse
+                    // enter/leave handlers in the strip below.
+                    hoveredAnalogId: hoverAnalog,
                   };
                   return (settings.chartMode ?? "fast") === "pro"
                     ? <LineChartLW {...sharedChartProps} />
@@ -1618,8 +1657,14 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
               </div>
             </div>
           )}
-          {analogs.map(a => (
+          {analogs.map((a, i) => (
+            // `data-rank` drives the rank-indexed left-border color
+            // defined in globals.css (.analog-card[data-rank="N"]).
+            // `i` is 0-indexed over the display order, which matches
+            // the chart overlay's rank index so card and chart line
+            // share the same palette color.
             <div key={a.id} className="analog-card"
+              data-rank={i}
               data-pinned={pinned.has(a.id) ? "true" : undefined}
               onClick={() => togglePin(a.id)}
               onMouseEnter={() => setHoverAnalog(a.id)}
