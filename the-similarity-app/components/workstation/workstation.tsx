@@ -75,6 +75,139 @@ function groupByAssetClass(items: CatalogItem[]): Record<string, CatalogItem[]> 
 }
 
 /**
+ * Filter catalog items by a free-form search query.
+ *
+ * The query matches against the symbol (primary) and the asset class
+ * (secondary) so users can narrow either axis: typing "btc" hits BTCUSD
+ * regardless of asset class, typing "crypto" collapses the list to the
+ * crypto group. Empty / whitespace queries pass everything through
+ * unchanged.
+ *
+ * Intentionally case-insensitive: the UI shows symbols uppercase but
+ * the user's expectation is that typing matches regardless of case.
+ */
+export function filterCatalog(items: CatalogItem[], query: string): CatalogItem[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return items;
+  return items.filter(item =>
+    item.symbol.toLowerCase().includes(q) ||
+    item.assetClass.toLowerCase().includes(q)
+  );
+}
+
+/**
+ * Format a bar count with a thousands separator.
+ *
+ * Kept as a separate helper so the dropdown item card renders the same
+ * "7,500 bars" string everywhere (selected summary, per-item card,
+ * offline note) without each call site re-implementing locale rules.
+ */
+export function formatBarCount(n: number): string {
+  if (!n || n <= 0) return "";
+  return `${n.toLocaleString("en-US")} bars`;
+}
+
+/**
+ * Parse an ISO timestamp into a Date, returning null on failure.
+ *
+ * Central place to handle the "manifest may be missing or malformed"
+ * case. Callers in the dropdown render "—" when the result is null
+ * rather than letting `new Date(null)` silently yield a valid epoch or
+ * `new Date("garbage")` produce an Invalid Date that formats as "NaN".
+ */
+export function parseIsoOrNull(iso: string | null | undefined): Date | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+/**
+ * Detect stale data. "Stale" means the last-updated timestamp is older
+ * than `thresholdHours` and the dataset frequency is daily or faster
+ * (i.e. a 1m/5m/1h/1d dataset). Weekly / monthly datasets are never
+ * flagged because they're *expected* to lag multiple days.
+ *
+ * Returns false when we can't tell (missing timestamp, unrecognised
+ * frequency) — the UI prefers silence over noisy false positives.
+ */
+export function isStale(
+  item: CatalogItem,
+  now: Date,
+  thresholdHours: number = 48,
+): boolean {
+  const updated = parseIsoOrNull(item.lastUpdatedAt);
+  if (!updated) return false;
+  // Anything coarser than 1 day is expected to have multi-day gaps.
+  // The bare timeframe code is a fine proxy: "1w" / "1M" etc. all skip
+  // the staleness check.
+  const tf = item.timeframe.toLowerCase();
+  const isIntradayOrDaily =
+    tf.endsWith("m") || tf.endsWith("h") || tf === "1d";
+  if (!isIntradayOrDaily) return false;
+  const deltaHours = (now.getTime() - updated.getTime()) / 3_600_000;
+  return deltaHours > thresholdHours;
+}
+
+/**
+ * Format a short ISO date as "YYYY-MM-DD" (or "—" if null).
+ *
+ * The dropdown item cards render a compact `startDate → endDate` range
+ * line; using ISO-style dates keeps alignment consistent regardless of
+ * the user's locale and avoids the "Apr 22, 2026" vs "22 Apr 2026"
+ * confusion that locale-dependent formatting would introduce.
+ */
+export function formatShortDate(iso: string | null | undefined): string {
+  const d = parseIsoOrNull(iso);
+  if (!d) return "\u2014";
+  return d.toISOString().slice(0, 10);
+}
+
+/**
+ * Format an ISO timestamp as "MMM DD, YYYY · HH:MM" in UTC.
+ *
+ * Used for the "Updated: …" sub-line on each dropdown item card. We
+ * display in UTC to match the backend's source-of-truth timezone; the
+ * alternative (convert to the user's locale) would make the displayed
+ * value differ from what shows up in server logs, complicating support.
+ */
+export function formatUpdatedAt(iso: string | null | undefined): string {
+  const d = parseIsoOrNull(iso);
+  if (!d) return "\u2014";
+  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
+                  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const m = months[d.getUTCMonth()];
+  const day = d.getUTCDate();
+  const year = d.getUTCFullYear();
+  const hh = String(d.getUTCHours()).padStart(2, "0");
+  const mm = String(d.getUTCMinutes()).padStart(2, "0");
+  return `${m} ${day}, ${year} \u00B7 ${hh}:${mm}`;
+}
+
+/**
+ * The static synthetic-fallback entry used when the API is unreachable.
+ *
+ * Exported so tests can pin the exact wire shape the dropdown renders
+ * in offline / demo mode. Kept as a frozen-value factory (not a module
+ * constant) so each call returns a fresh object the caller can mutate
+ * without polluting the canonical reference.
+ */
+export function offlineSyntheticCatalog(): CatalogItem[] {
+  return [
+    {
+      assetClass: "stocks",
+      symbol: "spy",
+      timeframe: "1d",
+      source: "Synthetic \u00B7 seeded PRNG",
+      rowCount: 0,
+      startTimestamp: null,
+      endTimestamp: null,
+      lastUpdatedAt: null,
+      frequency: "1 day",
+    },
+  ];
+}
+
+/**
  * Format a past Date as a compact relative "last run" label.
  *
  * Buckets:
@@ -122,6 +255,10 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
   const [loadedDates, setLoadedDates] = useState<string[]>([]);
   const [loadedValues, setLoadedValues] = useState<number[]>([]);
   const [datasetOpen, setDatasetOpen] = useState(false);
+  // Free-form filter query for the dataset dropdown search input.
+  // Scoped to the dropdown panel — closing the dropdown resets it so
+  // re-opening always starts fresh.
+  const [datasetSearch, setDatasetSearch] = useState("");
 
   // ── Search state ───────────────────────────────────────────────────
   const [searching, setSearching] = useState(false);
@@ -166,15 +303,19 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
    * just wastes re-renders, but ticking less often means "just now" can
    * linger for several minutes after a search which feels stale.
    *
-   * The interval is installed lazily only when we have a lastRunAt to
-   * render, and torn down when the component unmounts.
+   * The interval is installed whenever there's a relative timestamp
+   * being rendered somewhere — currently that's either the Search
+   * button's "last run" label OR the dataset freshness line under the
+   * sidebar header. We always keep it running because the freshness
+   * line appears as soon as /catalog resolves with metadata, which is
+   * typically within a second of mount. A 30s interval is cheap
+   * compared to the full Workstation re-render cost.
    */
   const [nowTick, setNowTick] = useState<Date>(() => new Date());
   useEffect(() => {
-    if (!lastRunAt) return;
     const id = window.setInterval(() => setNowTick(new Date()), 30_000);
     return () => window.clearInterval(id);
-  }, [lastRunAt]);
+  }, []);
 
   // ── Window state ───────────────────────────────────────────────────
   const N = loadedSeries.length;
@@ -784,8 +925,41 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
     return "SPX \u00B7 daily";
   }, [activeDataset]);
 
-  // Grouped catalog for dropdown
-  const groupedCatalog = useMemo(() => groupByAssetClass(catalog), [catalog]);
+  // Catalog source for the dropdown.
+  //
+  // Online mode: use the live /catalog response.
+  // Offline / demo mode: use a static synthetic entry so the dropdown
+  // still renders something legible rather than an empty panel. We
+  // intentionally DO NOT fetch /catalog in offline mode (see the mount
+  // effect), so this is the sole source of items in that path.
+  const dropdownCatalog = useMemo<CatalogItem[]>(() => {
+    if (isOnline === false) return offlineSyntheticCatalog();
+    return catalog;
+  }, [catalog, isOnline]);
+
+  // Filtered + grouped catalog for the dropdown panel. Filter runs
+  // first so empty groups disappear when the user narrows by symbol.
+  const filteredCatalog = useMemo(
+    () => filterCatalog(dropdownCatalog, datasetSearch),
+    [dropdownCatalog, datasetSearch],
+  );
+  const groupedCatalog = useMemo(
+    () => groupByAssetClass(filteredCatalog),
+    [filteredCatalog],
+  );
+
+  // The catalog entry for the currently-selected dataset. Used for the
+  // compact selected-summary rendered on the trigger button and for the
+  // freshness line under the Dataset header. Null when the active
+  // dataset id doesn't (yet) appear in the catalog — that's a legit
+  // transient state between mount and the first /catalog response.
+  const selectedItem = useMemo<CatalogItem | null>(() => {
+    return (
+      dropdownCatalog.find(
+        d => `${d.assetClass}/${d.symbol}/${d.timeframe}` === activeDataset,
+      ) ?? null
+    );
+  }, [dropdownCatalog, activeDataset]);
 
   // ── Banner visibility logic ────────────────────────────────────────
   // Offline banner: API is confirmed down (isOnline === false). We avoid
@@ -856,7 +1030,26 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
         >
           &times;
         </button>
-        {/* Dataset selector */}
+        {/* ──────────────────────────────────────────────────────────
+            Dataset selector — custom dropdown with rich metadata cards.
+
+            Contract:
+            - The trigger button shows the currently-selected dataset
+              as a single-line summary (symbol · timeframe · bar count
+              · relative update).
+            - A freshness line ("updated · 16m ago") sits directly
+              under the "Dataset" label so the user can read liveness
+              at a glance without opening the dropdown. It flips to the
+              --warn colour once the data is >7 days old.
+            - Opening the dropdown reveals grouped per-item cards with
+              source, row count, date range, and an absolute "Updated:"
+              timestamp. A staleness dot appears on items that are
+              >48h old (for daily-or-faster timeframes).
+            - A search input at the top filters by symbol / asset class
+              substring and dissolves empty groups.
+            - Offline mode renders a single "Synthetic · seeded PRNG"
+              entry; /catalog is NOT fetched in that path.
+         ─────────────────────────────────────────────────────────── */}
         <div className="side__section">
           <div className="side__header">
             <span className="label">Dataset</span>
@@ -869,42 +1062,153 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
               <span className="mono" style={{ fontSize: 9, color: "var(--ink-3)" }}>checking...</span>
             )}
           </div>
+          {/* Freshness line under the header. Visible whenever we have
+              a last-updated timestamp; styled warn when >7d old. */}
+          {selectedItem?.lastUpdatedAt && (() => {
+            const updatedAt = parseIsoOrNull(selectedItem.lastUpdatedAt);
+            if (!updatedAt) return null;
+            const ageDays = (nowTick.getTime() - updatedAt.getTime()) / 86_400_000;
+            const warn = ageDays > 7;
+            return (
+              <div
+                className="dataset-freshness"
+                data-warn={warn ? "true" : undefined}
+                title={`Last updated ${formatUpdatedAt(selectedItem.lastUpdatedAt)}`}
+              >
+                updated &middot; {formatRelativeTime(updatedAt, nowTick)}
+              </div>
+            );
+          })()}
           <button
-            className="chip"
-            style={{ width: "100%", justifyContent: "space-between", display: "flex", padding: "6px 10px" }}
-            onClick={() => setDatasetOpen(o => !o)}
+            type="button"
+            className="dataset-trigger"
+            aria-haspopup="listbox"
+            aria-expanded={datasetOpen}
+            onClick={() => {
+              setDatasetOpen(o => !o);
+              // Reset the in-panel search whenever we open/close so the
+              // user always starts from the full list.
+              setDatasetSearch("");
+            }}
           >
-            <span className="mono" style={{ fontSize: 11 }}>{datasetLabel}</span>
-            <span style={{ fontSize: 9 }}>{datasetOpen ? "\u25B2" : "\u25BC"}</span>
+            <span className="dataset-trigger__main">
+              <span className="dataset-trigger__symbol">
+                {datasetLabel}
+              </span>
+              <span className="dataset-trigger__meta">
+                {selectedItem
+                  ? [
+                      formatBarCount(selectedItem.rowCount),
+                      selectedItem.lastUpdatedAt
+                        ? `updated ${formatRelativeTime(
+                            parseIsoOrNull(selectedItem.lastUpdatedAt) ?? nowTick,
+                            nowTick,
+                          )}`
+                        : null,
+                    ]
+                      .filter(Boolean)
+                      .join(" \u00B7 ")
+                  : "—"}
+              </span>
+            </span>
+            <span className="dataset-trigger__caret" aria-hidden="true">
+              {datasetOpen ? "\u25B2" : "\u25BC"}
+            </span>
           </button>
-          {datasetOpen && catalog.length > 0 && (
-            <div className="saved-list" style={{ maxHeight: 200, overflow: "auto", marginTop: 4 }}>
-              {Object.entries(groupedCatalog).map(([assetClass, items]) => (
-                <div key={assetClass}>
-                  <div className="label" style={{ fontSize: 9, color: "var(--ink-3)", margin: "6px 0 2px", textTransform: "uppercase", letterSpacing: ".12em" }}>
-                    {assetClass}
+          {datasetOpen && (
+            <div className="dataset-panel" role="listbox" aria-label="Select dataset">
+              <input
+                type="search"
+                className="dataset-panel__search"
+                placeholder="Filter by symbol or asset class"
+                value={datasetSearch}
+                onChange={e => setDatasetSearch(e.target.value)}
+                autoFocus
+                aria-label="Filter datasets"
+              />
+              <div className="dataset-panel__list">
+                {Object.entries(groupedCatalog).length === 0 && (
+                  <div className="dataset-panel__empty">
+                    {isOnline === false
+                      ? "Offline — synthetic entry above."
+                      : catalog.length === 0
+                      ? "No datasets registered."
+                      : "No matches."}
                   </div>
-                  {items.map(item => {
-                    const id = `${item.assetClass}/${item.symbol}/${item.timeframe}`;
-                    return (
-                      <div
-                        key={id}
-                        className="saved"
-                        style={{ cursor: "pointer", fontWeight: id === activeDataset ? 600 : 400 }}
-                        onClick={() => { setActiveDataset(id); setDatasetOpen(false); }}
-                      >
-                        <span className="saved__name">{item.symbol.toUpperCase()}</span>
-                        <span className="saved__score" style={{ fontSize: 10 }}>{item.timeframe}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              ))}
-            </div>
-          )}
-          {datasetOpen && catalog.length === 0 && isOnline && (
-            <div style={{ fontSize: 11, color: "var(--ink-3)", padding: "6px 0" }}>
-              No datasets registered &mdash; see main panel for setup.
+                )}
+                {Object.entries(groupedCatalog).map(([assetClass, items]) => (
+                  <div key={assetClass} className="dataset-panel__group">
+                    <div className="dataset-panel__group-header">
+                      {assetClass}
+                    </div>
+                    {items.map(item => {
+                      const id = `${item.assetClass}/${item.symbol}/${item.timeframe}`;
+                      const selected = id === activeDataset;
+                      const stale = isStale(item, nowTick);
+                      // Only show staleness for online data (synthetic
+                      // has no concept of freshness).
+                      const showStaleDot = stale && isOnline !== false;
+                      return (
+                        <button
+                          key={id}
+                          type="button"
+                          role="option"
+                          aria-selected={selected}
+                          className="dataset-card"
+                          data-selected={selected ? "true" : undefined}
+                          onClick={() => {
+                            setActiveDataset(id);
+                            setDatasetOpen(false);
+                            setDatasetSearch("");
+                          }}
+                        >
+                          <div className="dataset-card__title-row">
+                            <span className="dataset-card__title">
+                              {item.symbol.toUpperCase()} &middot; {item.timeframe}
+                            </span>
+                            {showStaleDot && (
+                              <span
+                                className="dataset-card__stale-dot"
+                                aria-hidden="true"
+                                title={`Data may be stale (last updated ${
+                                  item.lastUpdatedAt
+                                    ? formatRelativeTime(
+                                        parseIsoOrNull(item.lastUpdatedAt) ?? nowTick,
+                                        nowTick,
+                                      )
+                                    : "unknown"
+                                })`}
+                              />
+                            )}
+                          </div>
+                          <div className="dataset-card__sub">
+                            {item.source}
+                            {item.rowCount > 0 && (
+                              <> &middot; {formatBarCount(item.rowCount)}</>
+                            )}
+                          </div>
+                          {(item.startTimestamp || item.endTimestamp) && (
+                            <div className="dataset-card__sub">
+                              {formatShortDate(item.startTimestamp)} &rarr;{" "}
+                              {formatShortDate(item.endTimestamp)}
+                            </div>
+                          )}
+                          {item.lastUpdatedAt && (
+                            <div className="dataset-card__sub dataset-card__sub--muted">
+                              Updated: {formatUpdatedAt(item.lastUpdatedAt)}
+                            </div>
+                          )}
+                          {isOnline === false && (
+                            <div className="dataset-card__sub dataset-card__sub--muted">
+                              Demo mode &mdash; data is synthetic, not real.
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>

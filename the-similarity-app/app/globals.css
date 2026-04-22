@@ -2184,3 +2184,213 @@ input, select, textarea { font: inherit; color: inherit; }
   font-size: 10px;
   text-align: right;
 }
+
+/* ──────────────────────────────────────────────────────────────────
+   Dataset dropdown (workstation left sidebar)
+
+   Lives in the `Dataset` side__section. The native <select> / simple
+   chip-row used previously is replaced by a trigger button + a
+   popover-style panel with searchable, grouped, metadata-rich cards.
+
+   Visual hierarchy (per-item):
+     ┌ SYMBOL · TIMEFRAME         ← bold title (14px, --ink-1)
+     │ Source · 7,500 bars        ← sub-line 1 (11px, --ink-2)
+     │ 2020-01-01 → 2026-04-20    ← sub-line 2 (11px, --ink-2)
+     │ Updated: Apr 22, 2026      ← sub-line 3 (10.5px, --ink-3)
+     └─────────────────────────────
+
+   Keep this block self-contained — every selector is prefixed with
+   `dataset-` so it can't collide with other components.
+   ────────────────────────────────────────────────────────────────── */
+
+/* Freshness line under the "DATASET" label. Lives on its own row; the
+   colour flips to --warn when the data is more than 7 days old so the
+   user can notice the problem without opening the dropdown. */
+.dataset-freshness {
+  font-family: var(--mono, ui-monospace, SFMono-Regular, monospace);
+  font-size: 10.5px;
+  color: var(--ink-3);
+  margin: 2px 0 6px;
+  letter-spacing: 0.02em;
+}
+.dataset-freshness[data-warn="true"] {
+  color: var(--warn, #c08400);
+}
+
+/* The always-visible trigger button that opens the dropdown. Uses the
+   same chip aesthetic as the rest of the left sidebar but is taller
+   (two text rows) so we can pack the selected summary. */
+.dataset-trigger {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  background: var(--surface-1, #fff);
+  border: 1px solid var(--rule, #d9d6ce);
+  border-radius: 4px;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  transition: border-color 120ms ease, background-color 120ms ease;
+}
+.dataset-trigger:hover,
+.dataset-trigger:focus-visible {
+  border-color: var(--ink-3);
+  background: var(--surface-2, #faf8f4);
+  outline: none;
+}
+.dataset-trigger__main {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+  gap: 1px;
+}
+.dataset-trigger__symbol {
+  font-family: var(--mono, ui-monospace, SFMono-Regular, monospace);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-1, #1b1b1b);
+  letter-spacing: 0.02em;
+}
+.dataset-trigger__meta {
+  font-family: var(--mono, ui-monospace, SFMono-Regular, monospace);
+  font-size: 10px;
+  color: var(--ink-3, #8a867d);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+.dataset-trigger__caret {
+  font-size: 9px;
+  color: var(--ink-3, #8a867d);
+  flex: 0 0 auto;
+}
+
+/* Popover panel that opens when the trigger is clicked. We use a
+   simple in-flow block (not position:absolute) so it doesn't overflow
+   the scroll container of the sidebar — users at 768-1023px see it
+   inside the drawer naturally. */
+.dataset-panel {
+  margin-top: 4px;
+  border: 1px solid var(--rule, #d9d6ce);
+  border-radius: 4px;
+  background: var(--surface-1, #fff);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  /* Bound total height so long catalogs scroll inside the panel
+     rather than pushing the rest of the sidebar off-screen. */
+  max-height: 360px;
+}
+.dataset-panel__search {
+  flex: 0 0 auto;
+  border: 0;
+  border-bottom: 1px solid var(--rule, #d9d6ce);
+  padding: 8px 10px;
+  font: inherit;
+  font-family: var(--mono, ui-monospace, SFMono-Regular, monospace);
+  font-size: 12px;
+  background: var(--surface-2, #faf8f4);
+  color: var(--ink-1, #1b1b1b);
+  outline: none;
+}
+.dataset-panel__search::placeholder {
+  color: var(--ink-3, #8a867d);
+}
+.dataset-panel__search:focus-visible {
+  background: var(--surface-1, #fff);
+}
+.dataset-panel__list {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 4px 0;
+}
+.dataset-panel__empty {
+  padding: 14px 12px;
+  font-size: 11px;
+  color: var(--ink-3, #8a867d);
+  text-align: center;
+}
+.dataset-panel__group {
+  padding: 4px 0;
+}
+.dataset-panel__group-header {
+  padding: 4px 10px 2px;
+  font-family: var(--mono, ui-monospace, SFMono-Regular, monospace);
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--ink-3, #8a867d);
+}
+
+/* Individual item card. Rendered as a <button> so keyboard navigation
+   gets it for free. The hover / selected states use background tints
+   rather than border-colour so the visual rhythm of the stacked cards
+   stays intact. */
+.dataset-card {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  padding: 6px 10px;
+  background: transparent;
+  border: 0;
+  border-left: 2px solid transparent;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  transition: background-color 100ms ease, border-color 100ms ease;
+}
+.dataset-card:hover,
+.dataset-card:focus-visible {
+  background: var(--surface-2, #faf8f4);
+  outline: none;
+}
+.dataset-card[data-selected="true"] {
+  background: var(--surface-2, #faf8f4);
+  border-left-color: var(--ink-1, #1b1b1b);
+}
+.dataset-card__title-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.dataset-card__title {
+  font-family: var(--mono, ui-monospace, SFMono-Regular, monospace);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-1, #1b1b1b);
+  letter-spacing: 0.02em;
+  flex: 1 1 auto;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dataset-card__stale-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--warn, #c08400);
+  flex: 0 0 auto;
+  opacity: 0.75;
+}
+.dataset-card__sub {
+  font-family: var(--mono, ui-monospace, SFMono-Regular, monospace);
+  font-size: 10.5px;
+  color: var(--ink-2, #5a5850);
+  line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dataset-card__sub--muted {
+  color: var(--ink-3, #8a867d);
+  font-size: 10px;
+}
