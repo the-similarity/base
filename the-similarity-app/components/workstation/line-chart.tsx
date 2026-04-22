@@ -70,13 +70,17 @@ interface LineChartProps {
   onHover?: (idx: number | null) => void;
   /** Whether to show the draggable query window */
   showWindow?: boolean;
-  /** Whether to show the forecast cone */
+  /** Whether to show the forecast cone (p10..p90 filled band). */
   showCone?: boolean;
+  /** Whether to show the P50 median line inside the cone. Default true. */
+  showMedian?: boolean;
   /**
-   * The `id` of the analog currently hovered in the card strip — drives
-   * a "preview" emphasis on the matching overlay path (brighter, bolder
-   * stroke). Null when nothing is hovered. Ignored if the overlay lacks
-   * `id` fields.
+   * The `id` of the analog currently hovered in the card strip. Kept
+   * on the prop surface for API compatibility with callers that pass
+   * it, but the Fast view no longer applies any emphasis (opacity /
+   * stroke bump) to the matching line — the user explicitly asked for
+   * "show it like normally is ok". Activation still happens through
+   * the `activeAnalogIds` set in the workstation.
    */
   hoveredAnalogId?: string | null;
 }
@@ -96,6 +100,7 @@ export function LineChart({
   onHover,
   showWindow = true,
   showCone = true,
+  showMedian = true,
   hoveredAnalogId = null,
 }: LineChartProps) {
   const ref = useRef<HTMLDivElement>(null);
@@ -406,13 +411,58 @@ export function LineChart({
   const qWinEndIdx = win.start + win.len - 1;
   const qAnchorP = series[qWinEndIdx]?.p;
 
+  /*
+   * Vol-normalization helpers — used by BOTH the y-range expand pass
+   * below and the render loop further down. Computing these once here
+   * means each analog only picks up a single per-analog volRatio +
+   * mapPrice pair, and the two downstream passes can't disagree about
+   * where the dashed line should sit.
+   *
+   * qStd is the standard deviation of the query window's log-returns
+   * relative to its own endpoint. That's the target "amplitude" every
+   * analog match gets stretched/compressed toward. Without this, an
+   * analog with 20% swings scaled to a query with 2% swings would
+   * shoot off the top of the chart.
+   */
+  const queryValuesForVol =
+    win.start >= 0 && win.start + win.len <= series.length && qAnchorP
+      ? series.slice(win.start, win.start + win.len).map(d => d.p)
+      : [];
+  const stdLogDev = (values: number[], anchor: number): number => {
+    if (values.length < 2 || anchor <= 0) return 0;
+    let sum = 0, sumSq = 0, n = 0;
+    for (const v of values) {
+      if (v <= 0) continue;
+      const l = Math.log(v / anchor);
+      sum += l; sumSq += l * l; n++;
+    }
+    if (n < 2) return 0;
+    const mean = sum / n;
+    const variance = Math.max(0, sumSq / n - mean * mean);
+    return Math.sqrt(variance);
+  };
+  const qStd = qAnchorP ? stdLogDev(queryValuesForVol, qAnchorP) : 0;
+  // Build a per-analog price mapper: analog-space price → query-space
+  // price. Endpoint-anchored (mapPriceFor(analog)(analogEnd) = qAnchorP)
+  // with log-deviation magnitude scaled by qStd/aStd. Ratio capped at
+  // 2.0 so a near-flat analog doesn't get stretched into noise.
+  const mapPriceFor = (analogEnd: number | undefined, priceWindow: number[]): ((p: number) => number) => {
+    if (!qAnchorP || !analogEnd || analogEnd <= 0) return () => qAnchorP ?? 0;
+    const aStd = stdLogDev(priceWindow, analogEnd);
+    const volRatio = qStd > 1e-9 && aStd > 1e-9 ? Math.min(2.0, qStd / aStd) : 1;
+    return (p: number) => {
+      if (p <= 0) return qAnchorP;
+      return qAnchorP * Math.exp(Math.log(p / analogEnd) * volRatio);
+    };
+  };
+
   if (analogsOverlay && qAnchorP) {
     analogsOverlay.forEach(a => {
       const analogEnd = a.priceWindow[a.priceWindow.length - 1];
       if (!analogEnd) return;
-      const scale = qAnchorP / analogEnd;
-      a.priceWindow.forEach(p => expand(p * scale));
-      a.after.forEach((p, i) => { if (i < forecastHorizon) expand(p * scale); });
+      const mapP = mapPriceFor(analogEnd, a.priceWindow);
+      a.priceWindow.forEach(p => expand(mapP(p)));
+      a.after.forEach((p, i) => { if (i < forecastHorizon) expand(mapP(p)); });
     });
   }
 
@@ -626,7 +676,11 @@ export function LineChart({
       // renumber whenever the user's activated subset changes — which is
       // the exact behavior we're trying to avoid.
       const rank = a.rank ?? idxInArray;
-      const scale = qAnchorP / a.priceWindow[a.priceWindow.length - 1];
+      const analogEnd = a.priceWindow[a.priceWindow.length - 1];
+      // Share the same vol-normalized mapper the y-range expand pass
+      // used up above — keeps the dashed match in the same visual
+      // bounds as the price axis it helped set.
+      const mapPrice = mapPriceFor(analogEnd, a.priceWindow);
       // Split the line at the query-window / forward boundary:
       //   - priceWindow → inside the query window → rendered DASHED
       //     (the analog's matched historical segment, context material)
@@ -643,7 +697,7 @@ export function LineChart({
       a.priceWindow.forEach((p, k) => {
         const idx = startOffset + k;
         if (idx < viewStart || idx > viewEnd) return;
-        matchPts.push(`${xOf(idx).toFixed(1)} ${yOf(p * scale).toFixed(1)}`);
+        matchPts.push(`${xOf(idx).toFixed(1)} ${yOf(mapPrice(p)).toFixed(1)}`);
       });
       // Anchor the forward segment to the match's last point so the two
       // paths share a joining vertex — no visible gap at the boundary.
@@ -651,13 +705,13 @@ export function LineChart({
       if (lastMatch !== undefined) {
         const idx = qWinEndIdx;
         if (idx >= viewStart && idx <= viewEnd) {
-          forwardPts.push(`${xOf(idx).toFixed(1)} ${yOf(lastMatch * scale).toFixed(1)}`);
+          forwardPts.push(`${xOf(idx).toFixed(1)} ${yOf(mapPrice(lastMatch)).toFixed(1)}`);
         }
       }
       a.after.slice(0, forecastHorizon).forEach((p, k) => {
         const idx = qWinEndIdx + 1 + k;
         if (idx < viewStart || idx > viewEnd) return;
-        forwardPts.push(`${xOf(idx).toFixed(1)} ${yOf(p * scale).toFixed(1)}`);
+        forwardPts.push(`${xOf(idx).toFixed(1)} ${yOf(mapPrice(p)).toFixed(1)}`);
       });
       // Visibility guard: the overlay is shown if EITHER segment has
       // >= 2 points. We still build one AnalogPath per analog with both
@@ -665,37 +719,28 @@ export function LineChart({
       // stroke-dasharray in a single pass.
       const combined = [...a.priceWindow, ...a.after.slice(0, forecastHorizon)];
       if (matchPts.length + forwardPts.length > 1) {
-        const isHovered = !!(a.id && hoveredAnalogId && a.id === hoveredAnalogId);
         const variant: "default" | "strong" | "context" =
           !hasAnyPin ? "default"
           : a.pinned ? "strong"
           : "context";
-        // Compute inline style for the palette/hover cases. The CSS
-        // class continues to handle the pinned .strong/.context cases
-        // as well as the baseline defaults (stroke-width, etc.) — we
-        // only override when we have a per-rank or hover decision.
+        // Compute inline style for the palette cases. The CSS class
+        // continues to handle the pinned .strong/.context cases as
+        // well as the baseline defaults (stroke-width, etc.) — we
+        // only override when we have a per-rank decision.
+        //
+        // Hover emphasis was removed here (used to bump strokeWidth,
+        // opacity, and add a brightness filter when the user hovered
+        // an analog card). The reveal-on-hover from the activeAnalogIds
+        // set is enough signal on its own; bolding the line felt
+        // heavy and was the user's explicit ask.
         let stroke: string | undefined;
         let strokeWidth: number | undefined;
         let opacity: number | undefined;
-        let filter: string | undefined;
+        const filter: string | undefined = undefined;
         if (!hasAnyPin) {
-          // Mode 1 / 2 — palette + optional hover bump.
           stroke = PALETTE_VAR(rank);
-          strokeWidth = isHovered ? 2.0 : RAMP_WIDTH[Math.min(rank, 5)];
-          opacity = isHovered ? 1.0 : RAMP_OPACITY[Math.min(rank, 5)];
-          if (isHovered) filter = "brightness(1.15)";
-        } else if (isHovered) {
-          // Mode 4 — emphasize hover within pin mode.
-          if (a.pinned) {
-            strokeWidth = 2.2;
-          } else {
-            // Un-fade the hovered-but-not-pinned overlay so the user
-            // can preview what pinning it would contribute. We bump
-            // opacity on top of the `.context` baseline via inline
-            // style — CSS context opacity is .18, here we raise it
-            // to .7 while keeping the muted ink color.
-            opacity = 0.7;
-          }
+          strokeWidth = RAMP_WIDTH[Math.min(rank, 5)];
+          opacity = RAMP_OPACITY[Math.min(rank, 5)];
         }
         // Badge placement — only when palette mode is active (no pins).
         // We anchor to the forward terminal (last k-index in combined,
@@ -711,7 +756,7 @@ export function LineChart({
           if (terminalIdx >= viewStart && terminalIdx <= viewEnd) {
             badge = {
               x: xOf(terminalIdx),
-              y: yOf(combined[terminalK] * scale),
+              y: yOf(mapPrice(combined[terminalK])),
             };
             badgeLabel = String(rank + 1);
             badgeColor = PALETTE_VAR(rank);
@@ -822,7 +867,7 @@ export function LineChart({
         {/* Cone (behind everything) */}
         {coneUpper && <path className="cone-fill" d={coneUpper + coneLower} />}
         {coneUpper && <path className="cone-line" d={coneUpper} />}
-        {medianPath && <path className="median" d={medianPath} />}
+        {medianPath && showMedian && <path className="median" d={medianPath} />}
 
         {/* Analog overlays — classname picks one of three variants and
             inline style overrides apply the rank-indexed palette, the

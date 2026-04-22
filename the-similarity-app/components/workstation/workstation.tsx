@@ -61,6 +61,10 @@ export interface WorkstationSettings {
    * default via `(settings.chartMode ?? "fast")`.
    */
   chartMode?: "fast" | "candle";
+  /** Show the query-window band. Default true. */
+  showWindow?: boolean;
+  /** Show the P50 (median) line inside the forecast cone. Default true. */
+  showMedian?: boolean;
 }
 
 interface WorkstationProps {
@@ -446,6 +450,33 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
   const [hoverAnalog, setHoverAnalog] = useState<string | null>(null);
   const [crosshairIdx, setCrosshairIdx] = useState<number | null>(null);
   const [trustOpen, setTrustOpen] = useState(false);
+  /*
+   * Chart-settings popover. Opened by the gear button sitting opposite
+   * the Fast/Candle toggle in the chart mode row. Keeps chart-only
+   * toggles out of the global tweaks panel so they live next to the
+   * thing they affect. Close on outside click via the ref/useEffect
+   * pair below.
+   */
+  const [chartSettingsOpen, setChartSettingsOpen] = useState(false);
+  const chartSettingsRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!chartSettingsOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (!chartSettingsRef.current) return;
+      if (!chartSettingsRef.current.contains(e.target as Node)) {
+        setChartSettingsOpen(false);
+      }
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setChartSettingsOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [chartSettingsOpen]);
   /*
    * Active (chart-visible) analog set.
    *
@@ -2081,6 +2112,67 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
             role="region"
             aria-label="Chart view mode"
           >
+            {/* Chart-settings gear — anchors a subtle popover with
+                chart-only toggles. Sits opposite the Fast/Candle
+                segmented control on the other end of the row. */}
+            <div className="ws-chart-settings" ref={chartSettingsRef}>
+              <button
+                type="button"
+                className="ws-chart-settings__btn"
+                aria-haspopup="menu"
+                aria-expanded={chartSettingsOpen}
+                aria-label="Chart settings"
+                title="Chart settings"
+                onClick={() => setChartSettingsOpen(o => !o)}
+              >
+                <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="1.2" aria-hidden="true">
+                  <circle cx="6.5" cy="6.5" r="2" />
+                  <line x1="6.5" y1="1" x2="6.5" y2="3.5" />
+                  <line x1="6.5" y1="9.5" x2="6.5" y2="12" />
+                  <line x1="1" y1="6.5" x2="3.5" y2="6.5" />
+                  <line x1="9.5" y1="6.5" x2="12" y2="6.5" />
+                </svg>
+              </button>
+              {chartSettingsOpen && (
+                <div className="ws-chart-settings__pop" role="menu">
+                  {([
+                    {
+                      key: "showCone",
+                      label: "P10–P90 cone",
+                      hint: "Fan of forecast quantiles from the analog set",
+                      value: settings.showCone !== false,
+                    },
+                    {
+                      key: "showMedian",
+                      label: "P50 median line",
+                      hint: "Single-line median forecast through the cone",
+                      value: settings.showMedian !== false,
+                    },
+                    {
+                      key: "showWindow",
+                      label: "Query window band",
+                      hint: "Shaded rectangle marking the query slice",
+                      value: settings.showWindow !== false,
+                    },
+                  ] as const).map(opt => (
+                    <label
+                      key={opt.key}
+                      className="ws-chart-settings__row"
+                      title={opt.hint}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={opt.value}
+                        onChange={(e) =>
+                          onSettings({ ...settings, [opt.key]: e.target.checked })
+                        }
+                      />
+                      <span>{opt.label}</span>
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
             <div className="ws-chartmode" role="tablist" aria-label="Chart view">
               {([
                 { id: "fast", label: "Fast", hint: "SVG chart, draggable query window" },
@@ -2232,6 +2324,8 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
                     crosshairIdx,
                     height: 300,
                     showCone: settings.showCone !== false,
+                    showMedian: settings.showMedian !== false,
+                    showWindow: settings.showWindow !== false,
                     // Wheel-driven time-axis zoom: rebound through the
                     // existing viewRange state. The guardrail effect
                     // above enforces `viewEnd ≥ queryEnd + horizon + 5`,
