@@ -977,6 +977,38 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
             })()}
           </div>
           <div className="ws-search-row__group ws-search-row__group--end">
+            {/*
+             * Fewer-matches warning.
+             *
+             * From the_similarity/core/projector.py: a candidate match is
+             * dropped when `match.end_idx + forward_bars > len(history)` —
+             * i.e. there aren't enough post-match bars to realize the
+             * forecast. At long horizons (180, 250, 365) this can
+             * collapse the analog set dramatically on short series.
+             *
+             * Guard conditions:
+             *   - Only render AFTER a search has run (lastSearch !== null).
+             *     Before the first search it would be misleading ("0 of 6"
+             *     when we simply haven't searched yet).
+             *   - Only render when we got strictly fewer results than the
+             *     requested K. Equal or greater is a clean run.
+             *   - Not while a search is in flight (stale while refreshing).
+             *
+             * The warning is inline-muted rather than a banner because it
+             * reflects a data-property (history depth), not an error
+             * state. Quants can read it, digest it, and decide whether
+             * to pick a shorter horizon or accept the smaller analog set.
+             */}
+            {!searching && lastSearch !== null && searchedAnalogs !== null && searchedAnalogs.length < lastSearch.k && (
+              <span
+                className="ws-search-row__fewer-matches mono"
+                role="note"
+                aria-live="polite"
+              >
+                Only {searchedAnalogs.length} of {lastSearch.k} analogs have
+                enough forward history at this horizon.
+              </span>
+            )}
             {lastRunAt && (
               <span className="ws-search-row__lastrun mono" aria-live="polite">
                 Last run &middot; {formatRelativeTime(lastRunAt, nowTick)}
