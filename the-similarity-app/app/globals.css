@@ -994,9 +994,72 @@ input, select, textarea { font: inherit; color: inherit; }
    as members of the same family. */
 .ws-chartmode-row {
   display: flex;
-  justify-content: flex-end;
+  /* Gear button on the left, Fast/Candle toggle on the right, with the
+     row stretching between them. `justify-content: space-between` keeps
+     them anchored to opposite ends of the chart-card header strip. */
+  justify-content: space-between;
+  align-items: center;
   margin-bottom: calc(var(--s-3) * -1); /* pull toggle snug against chart-card */
 }
+
+/* Chart-settings gear + popover. Sits on the left end of .ws-chartmode-row,
+   opposite the Fast/Candle segmented control. Popover is intentionally
+   subtle — thin border, no shadow, same monospace + spacing idiom as
+   the rest of the chart chrome. */
+.ws-chart-settings {
+  position: relative;
+}
+.ws-chart-settings__btn {
+  width: 22px; height: 22px;
+  display: grid; place-items: center;
+  color: var(--ink-3);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+.ws-chart-settings__btn:hover,
+.ws-chart-settings__btn[aria-expanded="true"] {
+  color: var(--ink);
+  background: var(--bg-hover);
+  border-color: var(--rule);
+}
+.ws-chart-settings__btn:focus-visible {
+  outline: 2px solid var(--rule-focus);
+  outline-offset: 1px;
+}
+.ws-chart-settings__pop {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 12;
+  min-width: 172px;
+  padding: 6px 2px;
+  background: var(--bg-card);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-sm);
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-2);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, .04);
+}
+.ws-chart-settings__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px;
+  cursor: pointer;
+  user-select: none;
+}
+.ws-chart-settings__row:hover { background: var(--bg-hover); }
+.ws-chart-settings__row input[type="checkbox"] {
+  width: 12px; height: 12px;
+  margin: 0;
+  accent-color: var(--ink);
+  cursor: pointer;
+}
+.ws-chart-settings__row span { color: var(--ink-2); }
 .ws-chartmode {
   display: inline-flex;
   border: 1px solid var(--rule);

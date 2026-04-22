@@ -194,13 +194,23 @@ describe("LineChart multi-analog palette", () => {
     expect(paths[1].getAttribute("class")).toContain("context");
   });
 
-  it("hovered analog gets a heavier stroke-width than its siblings", () => {
+  it("hovered analog keeps its normal rank stroke-width (no emphasis bump)", () => {
     const analogs: AnalogOverlay[] = [
       makeOverlay(series, qEnd, "a", 0.05),
       makeOverlay(series, qEnd, "hovered", 0.10),
       makeOverlay(series, qEnd, "c", 0.15),
     ];
-    const { container } = render(
+    const { container: plain } = render(
+      <LineChart
+        series={series}
+        viewStart={0}
+        viewEnd={series.length}
+        window={windowState}
+        onWindowChange={() => {}}
+        analogsOverlay={analogs}
+      />,
+    );
+    const { container: hovered } = render(
       <LineChart
         series={series}
         viewStart={0}
@@ -211,18 +221,15 @@ describe("LineChart multi-analog palette", () => {
         hoveredAnalogId="hovered"
       />,
     );
-    const paths = container.querySelectorAll('path.analog[data-segment="forward"]');
-    // Extract the stroke-width inline style value for each path.
-    const widths = Array.from(paths).map(p => {
-      const style = p.getAttribute("style") || "";
-      const m = style.match(/stroke-width:\s*([\d.]+)/);
-      return m ? parseFloat(m[1]) : NaN;
-    });
-    // The hovered analog (id="hovered", index 1) must have the largest
-    // stroke-width (2.0 by contract); siblings at index 0 and 2 are on
-    // the ramp (1.5 and 1.1 respectively).
-    expect(widths[1]).toBeGreaterThan(widths[0]);
-    expect(widths[1]).toBeGreaterThan(widths[2]);
-    expect(widths[1]).toBeCloseTo(2.0, 5);
+    // Both renders must produce identical forward-segment stroke-widths.
+    // The user explicitly asked for no "bolding on hover" — the hover
+    // signal comes from the activeAnalogIds reveal, not line weight.
+    const widthsFor = (c: Element) =>
+      Array.from(c.querySelectorAll('path.analog[data-segment="forward"]')).map(p => {
+        const style = p.getAttribute("style") || "";
+        const m = style.match(/stroke-width:\s*([\d.]+)/);
+        return m ? parseFloat(m[1]) : NaN;
+      });
+    expect(widthsFor(hovered)).toEqual(widthsFor(plain));
   });
 });

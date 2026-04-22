@@ -95,8 +95,10 @@ export interface LineChartLWProps {
   onHover?: (idx: number | null) => void;
   /** Whether to show the (read-only) query window band */
   showWindow?: boolean;
-  /** Whether to show the forecast cone */
+  /** Whether to show the forecast cone (p10..p90 filled band). */
   showCone?: boolean;
+  /** Whether to show the P50 median line inside the cone. Default true. */
+  showMedian?: boolean;
   /**
    * The `id` of the analog currently hovered in the card strip — drives
    * a "preview" emphasis on the matching overlay line. Mirrors
@@ -422,8 +424,36 @@ function buildAnalogData(
   const qAnchorP = anchor.p;
   const analogEnd = analog.priceWindow[analog.priceWindow.length - 1];
   if (!analogEnd) return empty;
-  const scale = qAnchorP / analogEnd;
   const anchorTime = Math.floor(anchor.d.getTime() / 1000);
+
+  /*
+   * Vol-normalized price mapping — matches the Fast view's logic so the
+   * two renderers draw the dashed match segment at the same amplitude.
+   * Compresses (or stretches) the analog's log-deviations so its
+   * standard deviation matches the query window's. Endpoint still
+   * lands on qAnchorP, shape is preserved.
+   */
+  const stdLogDev = (vals: number[], base: number): number => {
+    if (vals.length < 2 || base <= 0) return 0;
+    let sum = 0, sumSq = 0, n = 0;
+    for (const v of vals) {
+      if (v <= 0) continue;
+      const l = Math.log(v / base);
+      sum += l; sumSq += l * l; n++;
+    }
+    if (n < 2) return 0;
+    const m = sum / n;
+    const variance = Math.max(0, sumSq / n - m * m);
+    return Math.sqrt(variance);
+  };
+  const qValues = series.slice(win.start, win.start + win.len).map(d => d.p);
+  const qStd = stdLogDev(qValues, qAnchorP);
+  const aStd = stdLogDev(analog.priceWindow, analogEnd);
+  const volRatio = qStd > 1e-9 && aStd > 1e-9 ? Math.min(2.0, qStd / aStd) : 1;
+  const mapPrice = (p: number): number => {
+    if (p <= 0) return qAnchorP;
+    return qAnchorP * Math.exp(Math.log(p / analogEnd) * volRatio);
+  };
 
   const timeFor = (idx: number): UTCTimestamp | null => {
     if (idx >= 0 && idx < series.length) {
@@ -450,20 +480,20 @@ function buildAnalogData(
   for (let k = 0; k < analog.priceWindow.length; k++) {
     const t = timeFor(matchStart + k);
     if (t === null) continue;
-    match.push({ time: t, value: analog.priceWindow[k] * scale });
+    match.push({ time: t, value: mapPrice(analog.priceWindow[k]) });
   }
 
   // Forward segment: anchor the line at the match's terminal so the
   // two segments meet without a visible gap, then extend through `after`.
   const forward: LineData<UTCTimestamp>[] = [];
   if (match.length > 0) {
-    // Reuse the scaled last-match value as the joining vertex.
+    // Reuse the vol-normalized last-match value as the joining vertex.
     forward.push(match[match.length - 1]);
   }
   for (let k = 0; k < Math.min(analog.after.length, forecastHorizon); k++) {
     const t = timeFor(anchorIdx + 1 + k);
     if (t === null) continue;
-    forward.push({ time: t, value: analog.after[k] * scale });
+    forward.push({ time: t, value: mapPrice(analog.after[k]) });
   }
 
   return { match: dedupSort(match), forward: dedupSort(forward) };
@@ -480,6 +510,7 @@ export function LineChartLW({
   forecastHorizon = 60,
   showWindow = true,
   showCone = true,
+  showMedian = true,
   hoveredAnalogId = null,
   ohlc = null,
   candleMode = false,
@@ -792,8 +823,11 @@ export function LineChartLW({
     p10.setData(p10Data);
     p75.setData(built.p25p75);
     p25.setData(p25Data);
-    med.setData(built.median);
-  }, [cone, showCone, series, win, forecastHorizon]);
+    // Median follows its own toggle. When showMedian is false we
+    // empty the series rather than skipping it entirely so the user
+    // can flip the toggle back on without the chart needing a rebuild.
+    med.setData(showMedian ? built.median : []);
+  }, [cone, showCone, showMedian, series, win, forecastHorizon]);
 
   // ── Push analog overlays ────────────────────────────────────────────
   //
@@ -847,32 +881,31 @@ export function LineChartLW({
       const { match, forward } = buildAnalogData(series, win, a, forecastHorizon);
       if (match.length + forward.length < 2) return;
 
-      const isHovered = !!(a.id && hoveredAnalogId && a.id === hoveredAnalogId);
       const variant: "default" | "strong" | "context" =
         !hasAnyPin ? "default"
         : a.pinned ? "strong"
         : "context";
 
       let color: string;
-      // lightweight-charts v5 accepts 1 | 2 | 3 | 4 as lineWidth. We
-      // type this as `1 | 2 | 3` so we never exceed the hover bump.
+      // lightweight-charts v5 accepts 1 | 2 | 3 | 4 as lineWidth. Hover
+      // emphasis was removed (see Fast view for the same change) —
+      // the reveal-on-hover from the activeAnalogIds set is enough
+      // signal; bolding the line was too loud.
       let lineWidth: 1 | 2 | 3;
 
       if (variant === "strong") {
         color = tokens.analogStrong;
-        lineWidth = isHovered ? 3 : 2;
+        lineWidth = 2;
       } else if (variant === "context") {
-        // Hovered-but-unpinned: un-fade from .35 to .7 so the user can
-        // preview the overlay before deciding to pin it.
-        color = hexToRgba(tokens.analogContext, isHovered ? 0.7 : 0.35);
+        color = hexToRgba(tokens.analogContext, 0.35);
         lineWidth = 1;
       } else {
-        // Default palette mode — rank color with ramped alpha. The
-        // hovered overlay pops to full alpha + width 3.
+        // Default palette mode — rank color with ramped alpha. Rank 0
+        // keeps its slightly heavier width so the top-ranked line
+        // still reads as the primary one without needing hover.
         const basePalette = tokens.palette[Math.min(rank, 5)];
-        const alpha = isHovered ? 1.0 : RAMP_ALPHA[Math.min(rank, 5)];
-        color = hexToRgba(basePalette, alpha);
-        lineWidth = isHovered ? 3 : (rank === 0 ? 2 : 1);
+        color = hexToRgba(basePalette, RAMP_ALPHA[Math.min(rank, 5)]);
+        lineWidth = rank === 0 ? 2 : 1;
       }
 
       // Match segment — dashed, rendered only when we have enough
@@ -884,7 +917,11 @@ export function LineChartLW({
       // forward we drop the match to 1; for a hovered 3-wide forward
       // we drop to 2 (still visibly lighter without disappearing).
       if (match.length >= 2) {
-        const matchWidth: 1 | 2 = lineWidth === 1 ? 1 : (lineWidth === 3 ? 2 : 1);
+        // Match stroke is always one step thinner than the forward, so
+        // a 1-wide forward stays at 1 (lowest lightweight-charts lets
+        // us go) and a 2-wide forward drops to 1. Hover-bump path is
+        // gone, so we never see a 3 here anymore.
+        const matchWidth: 1 | 2 = lineWidth === 2 ? 1 : 1;
         const s = chart.addSeries(LineSeries, {
           color,
           lineWidth: matchWidth,
