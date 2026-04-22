@@ -181,6 +181,23 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
   const [windowState, setWindowState] = useState({ start: Math.max(0, N - 240), len: 120 });
   const [viewRange, setViewRange] = useState({ start: Math.max(0, N - 900), end: Math.max(0, N - 30) });
   const [pinned, setPinned] = useState<Set<string>>(new Set());
+  /*
+   * Hydration flag for the pin-persistence effects.
+   *
+   * The pair of effects below (load-from-storage, save-to-storage) runs
+   * once per query identity. Without a flag, the SAVE effect would fire
+   * on the initial mount with `pinned = empty Set`, clobbering any
+   * pin set that was about to be LOADED for the same key. The flag
+   * gates the save until at least one load has completed for the
+   * current key, so the first write to a fresh key is always a
+   * user-initiated togglePin, never an accidental mount-time empty.
+   *
+   * Reset semantics: whenever the query identity (dataset/start/len)
+   * changes, pinHydrated flips back to false, the load effect runs,
+   * then subsequent toggles persist to the new key. This keeps the
+   * per-query isolation guarantee from the task spec.
+   */
+  const [pinHydrated, setPinHydrated] = useState(false);
   const [hoverAnalog, setHoverAnalog] = useState<string | null>(null);
   const [crosshairIdx, setCrosshairIdx] = useState<number | null>(null);
   const [trustOpen, setTrustOpen] = useState(false);
@@ -480,6 +497,87 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
     // one-shot check.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOnline, loadedValues.length, lastSearch]);
+
+  /*
+   * Per-query localStorage key for the pinned analog set.
+   *
+   * Different queries should have different pin sets — pinning "Q4 '18"
+   * under a query centered on 2020 shouldn't bleed into a query centered
+   * on 2015. The key identity is (dataset, windowStart, windowLen) of
+   * the LAST successful search; we deliberately key off `lastSearch`
+   * rather than `windowState` so dragging the window doesn't cause a
+   * live pin-set swap mid-edit. The pin set belongs to the search that
+   * produced the analogs, not to the window the user is about to search.
+   *
+   * When there's no lastSearch yet, we return null — the persistence
+   * effects below bail in that case, so the initial one-shot search
+   * always starts with an empty pin set.
+   */
+  const pinKey = useMemo(() => {
+    if (!lastSearch) return null;
+    return `ts-pinned:${activeDataset}:${lastSearch.start}:${lastSearch.len}`;
+  }, [activeDataset, lastSearch]);
+
+  /*
+   * Load persisted pin set on key change.
+   *
+   * Runs on first mount after a search completes, and again whenever
+   * the query identity (pinKey) changes — e.g. the user re-searches a
+   * different window. We reset pinHydrated to false BEFORE loading so
+   * the save effect can't race ahead and clobber what we're about to
+   * write. After a successful load (or an explicit "no data" resolution)
+   * pinHydrated flips to true and the save effect begins tracking
+   * user-initiated toggles.
+   *
+   * sessionStorage-style fault tolerance: localStorage access can throw
+   * in some sandboxed iframes or private modes. We swallow errors and
+   * let the in-memory Set take over — persistence is best-effort, not
+   * load-bearing for correctness.
+   */
+  useEffect(() => {
+    if (!pinKey) return;
+    // Block any save until we've finished loading this key.
+    setPinHydrated(false);
+    try {
+      const raw = localStorage.getItem(pinKey);
+      if (raw) {
+        const parsed = JSON.parse(raw) as string[];
+        if (Array.isArray(parsed)) {
+          setPinned(new Set(parsed));
+        } else {
+          setPinned(new Set());
+        }
+      } else {
+        // No entry for this query — start with an empty set. Do NOT
+        // preserve the previous query's pins; that would violate the
+        // "per-query isolation" contract.
+        setPinned(new Set());
+      }
+    } catch {
+      // localStorage unavailable — carry forward with an empty set.
+      setPinned(new Set());
+    } finally {
+      setPinHydrated(true);
+    }
+  }, [pinKey]);
+
+  /*
+   * Persist pin set on every change, once hydrated.
+   *
+   * We only write AFTER pinHydrated has flipped to true for the current
+   * key, so the load-race case described above can't happen. Empty sets
+   * still persist (as an empty array) so clearing pins is remembered
+   * too — otherwise a Clear pins + refresh would rehydrate the old
+   * pins from storage.
+   */
+  useEffect(() => {
+    if (!pinKey || !pinHydrated) return;
+    try {
+      localStorage.setItem(pinKey, JSON.stringify([...pinned]));
+    } catch {
+      // best-effort persistence — swallow quota/private-mode failures
+    }
+  }, [pinKey, pinHydrated, pinned]);
 
   /*
    * Resolved analogs + cone.
