@@ -1469,35 +1469,68 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
             // Em-dash placeholders whenever the engine returned unknown,
             // so a quant can distinguish "no data yet" from "zero".
             const dash = "\u2014";
+            // ℹ glyph — rendered next to each metric label so quants get
+            // a one-sentence definition on hover without leaving the page.
+            // Intentionally uses the native `title` attribute: acceptable
+            // shortcut per the calibration-panel audit spec, avoids adding
+            // a custom tooltip layer (and its accessibility footguns) to
+            // the workstation bundle. Screen readers announce `title` as
+            // an accessible name, so the explanations are surfaced there
+            // as well. 12px sizing matches the muted .label typography.
+            const infoGlyph = (tip: string) => (
+              <span
+                className="trust__info"
+                role="img"
+                aria-label={tip}
+                title={tip}
+              >
+                &#9432;
+              </span>
+            );
             return (
               <>
                 <div className="trust">
                   <div className="trust__item">
-                    <span className="label">Coverage 80%</span>
+                    <span className="label">
+                      Coverage 80%
+                      {infoGlyph("Coverage: fraction of realized moves that landed inside the P10-P90 cone. Target 80%.")}
+                    </span>
                     <span className={"v " + coverageClass}>
                       {isUnknown ? dash : fmtPct(trustMetrics.coverage, 1)}
                     </span>
                   </div>
                   <div className="trust__item">
-                    <span className="label">CRPS</span>
+                    <span className="label">
+                      CRPS
+                      {infoGlyph("CRPS (Continuous Ranked Probability Score): lower is better. Measures how well the probability distribution matched the realized outcome.")}
+                    </span>
                     <span className="v">
                       {isUnknown ? dash : trustMetrics.crps.toFixed(3)}
                     </span>
                   </div>
                   <div className="trust__item">
-                    <span className="label">Hit rate &middot; sign</span>
+                    <span className="label">
+                      Hit rate &middot; sign
+                      {infoGlyph("Hit rate: fraction of analogs whose forward direction matched the realized direction at horizon. Chance baseline is 0.50.")}
+                    </span>
                     <span className={"v " + hitClass}>
                       {isUnknown ? dash : trustMetrics.hitRate.toFixed(2)}
                     </span>
                   </div>
                   <div className="trust__item">
-                    <span className="label">Regime drift</span>
+                    <span className="label">
+                      Regime drift
+                      {infoGlyph("Regime drift: how much the market regime has changed between the analogs and now. Low is good; high means the analog set may be stale.")}
+                    </span>
                     <span className={"v " + driftClass}>
                       {isUnknown ? dash : trustMetrics.regimeDrift}
                     </span>
                   </div>
                   <div className="trust__item">
-                    <span className="label">N analogs used</span>
+                    <span className="label">
+                      N analogs used
+                      {infoGlyph("Number of analogs with realized forward windows used to compute these metrics. Pinning filters this set.")}
+                    </span>
                     <span className="v">{trustMetrics.nAnalogs}</span>
                   </div>
                   <button className="trust__expand" onClick={() => setTrustOpen(o => !o)}>
