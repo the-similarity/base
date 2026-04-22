@@ -344,13 +344,18 @@ export function LineChart({
           </g>
         )}
 
-        {/* Crosshair */}
+        {/* Crosshair — the annotation reads from `series[idx]`, so the label
+            is suppressed when the cursor is in the synthesized future region
+            (idx ≥ N). The vertical rule still renders there as a visual
+            reference; we just can't annotate a price that doesn't exist yet. */}
         {crosshairIdx != null && crosshairIdx >= viewStart && crosshairIdx < viewEnd && (
           <g>
             <line className="crosshair" x1={xOf(crosshairIdx)} x2={xOf(crosshairIdx)} y1={padT} y2={padT + plotH} />
-            <text className="annot" x={xOf(crosshairIdx) + 4} y={padT + 12}>
-              {fmtDate(series[crosshairIdx].d)} &middot; {series[crosshairIdx].p.toFixed(1)}
-            </text>
+            {crosshairIdx < N && series[crosshairIdx] && (
+              <text className="annot" x={xOf(crosshairIdx) + 4} y={padT + 12}>
+                {fmtDate(series[crosshairIdx].d)} &middot; {series[crosshairIdx].p.toFixed(1)}
+              </text>
+            )}
           </g>
         )}
       </svg>
