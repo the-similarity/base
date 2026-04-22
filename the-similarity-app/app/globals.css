@@ -133,7 +133,11 @@ input, select, textarea { font: inherit; color: inherit; }
    ==================================================================== */
 .app {
   display: grid;
-  grid-template-rows: 44px 56px 1fr 26px;
+  /* 3 rows now: marquee (44px) + main content (1fr) + status bar (26px).
+     The old 56px nav row was dropped when header.nav was deleted; leaving
+     it here pushed `main.page` into the 56px slot and dumped the status
+     bar into the `1fr` row, making the footer fill the screen. */
+  grid-template-rows: 44px 1fr 26px;
   height: 100vh;
 }
 
