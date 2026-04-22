@@ -64,6 +64,32 @@ function groupByAssetClass(items: CatalogItem[]): Record<string, CatalogItem[]> 
   return groups;
 }
 
+/**
+ * Format a past Date as a compact relative "last run" label.
+ *
+ * Buckets:
+ *   < 45s   -> "just now"
+ *   < 60m   -> "Nm ago"
+ *   < 24h   -> "Nh ago"
+ *   otherwise -> "Nd ago"
+ *
+ * Intentionally coarse: the UI refreshes every 30s (see the tick below),
+ * so sub-minute precision would thrash without telling the user anything
+ * useful. "just now" covers the freshly-run state; minute-resolution is
+ * the right granularity for an analytical workstation.
+ */
+function formatRelativeTime(when: Date, now: Date): string {
+  const deltaMs = Math.max(0, now.getTime() - when.getTime());
+  const deltaSec = Math.floor(deltaMs / 1000);
+  if (deltaSec < 45) return "just now";
+  const deltaMin = Math.floor(deltaSec / 60);
+  if (deltaMin < 60) return `${deltaMin}m ago`;
+  const deltaHr = Math.floor(deltaMin / 60);
+  if (deltaHr < 24) return `${deltaHr}h ago`;
+  const deltaDay = Math.floor(deltaHr / 24);
+  return `${deltaDay}d ago`;
+}
+
 /** Convert a DatasetSeries-style response into DataPoint[] for the chart. */
 function seriesToDataPoints(values: number[], dates: string[]): DataPoint[] {
   return values.map((p, i) => {
@@ -120,6 +146,25 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
   const [searchedAnalogs, setSearchedAnalogs] = useState<AnalogMatch[] | null>(null);
   const [searchedCone, setSearchedCone] = useState<ConePoint[] | null>(null);
   const [lastRunAt, setLastRunAt] = useState<Date | null>(null);
+
+  /*
+   * Ticking "now" for the relative last-run label.
+   *
+   * We can't compute "2m ago" once and cache it — the label has to update
+   * as time passes. A 30s tick is the right cadence: the label is
+   * minute-resolution (see formatRelativeTime), so ticking more often
+   * just wastes re-renders, but ticking less often means "just now" can
+   * linger for several minutes after a search which feels stale.
+   *
+   * The interval is installed lazily only when we have a lastRunAt to
+   * render, and torn down when the component unmounts.
+   */
+  const [nowTick, setNowTick] = useState<Date>(() => new Date());
+  useEffect(() => {
+    if (!lastRunAt) return;
+    const id = window.setInterval(() => setNowTick(new Date()), 30_000);
+    return () => window.clearInterval(id);
+  }, [lastRunAt]);
 
   // ── Window state ───────────────────────────────────────────────────
   const N = loadedSeries.length;
@@ -726,6 +771,75 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
             </div>
           </div>
         </header>
+
+        {/* ── Search control row ───────────────────────────────────────
+            Visible manual-search controls. Left group:
+              - Top-K selector — compact segmented control mirroring the
+                tweaks-panel setting so users don't have to open a panel
+                to change how many analogs come back.
+              - Search button — primary; pulses when isDirty (window or
+                settings changed since last search).
+              - Last-run timestamp — relative, ticks every 30s.
+            The tweaks-panel K control is NOT removed; this is a mirror
+            surface for discoverability. */}
+        <div className="ws-search-row" role="group" aria-label="Search controls">
+          <div className="ws-search-row__group">
+            <span className="label ws-search-row__label">Top K</span>
+            <div className="ws-topk" role="radiogroup" aria-label="Number of analog matches to return">
+              {[1, 3, 6, 10].map(k => (
+                <button
+                  key={k}
+                  type="button"
+                  role="radio"
+                  aria-checked={currentK === k}
+                  className="ws-topk__btn"
+                  data-active={currentK === k ? "true" : undefined}
+                  onClick={() => onSettings({ ...settings, kAnalogs: k })}
+                >
+                  {k}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="ws-search-row__group ws-search-row__group--end">
+            {lastRunAt && (
+              <span className="ws-search-row__lastrun mono" aria-live="polite">
+                Last run &middot; {formatRelativeTime(lastRunAt, nowTick)}
+              </span>
+            )}
+            <button
+              type="button"
+              className="ws-search-btn"
+              data-dirty={isDirty && !searching ? "true" : undefined}
+              data-searching={searching ? "true" : undefined}
+              onClick={() => runSearch()}
+              disabled={searching}
+              aria-label={
+                searching
+                  ? "Searching"
+                  : isDirty
+                  ? "Search (pending changes)"
+                  : "Search"
+              }
+            >
+              {searching ? (
+                <>
+                  <span className="ws-search-btn__spinner" aria-hidden="true" />
+                  <span>Searching&hellip;</span>
+                </>
+              ) : (
+                <>
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden="true">
+                    <circle cx="5" cy="5" r="3.5" />
+                    <line x1="7.5" y1="7.5" x2="11" y2="11" />
+                  </svg>
+                  <span>Search</span>
+                  {isDirty && <span className="ws-search-btn__dot" aria-hidden="true" />}
+                </>
+              )}
+            </button>
+          </div>
+        </div>
 
         <div className="chart-stack">
           {showEmptyCatalogBanner && (
