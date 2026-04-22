@@ -488,8 +488,18 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
    * `isDirty` derivation below tells the user when the displayed result
    * is stale relative to the current inputs.
    */
-  const analogs: AnalogMatch[] = (isOnline && apiAnalogs) ? apiAnalogs : (searchedAnalogs ?? []);
-  const cone: ConePoint[] = (isOnline && apiCone) ? apiCone : (searchedCone ?? []);
+  // Wrapped in useMemo so the identity only changes when one of the
+  // underlying arrays actually changes — downstream useMemo hooks that
+  // depend on `analogs`/`cone` otherwise re-run on every render because
+  // the conditional ternary returns a fresh expression each time.
+  const analogs: AnalogMatch[] = useMemo(
+    () => ((isOnline && apiAnalogs) ? apiAnalogs : (searchedAnalogs ?? [])),
+    [isOnline, apiAnalogs, searchedAnalogs],
+  );
+  const cone: ConePoint[] = useMemo(
+    () => ((isOnline && apiCone) ? apiCone : (searchedCone ?? [])),
+    [isOnline, apiCone, searchedCone],
+  );
 
   /*
    * Dirty detection — true when the current windowState+settings no
