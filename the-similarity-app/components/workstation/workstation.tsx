@@ -375,19 +375,39 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOnline, loadedValues.length, lastSearch]);
 
-  // ── Synthetic fallback analogs + cone ──────────────────────────────
-  const syntheticResult = useMemo(() => {
-    if (isOnline && apiAnalogs !== null) return null; // Using API data
-    const anal = findAnalogs(windowState.start, windowState.len,
-      { k: settings.kAnalogs || 6, horizon: settings.horizon || 60 });
-    const lastP = loadedSeries[windowState.start + windowState.len - 1]?.p ?? 1;
-    const c = buildCone(anal, settings.horizon || 60, lastP);
-    return { analogs: anal, cone: c };
-  }, [isOnline, apiAnalogs, windowState.start, windowState.len, settings.kAnalogs, settings.horizon, loadedSeries]);
+  /*
+   * Resolved analogs + cone.
+   *
+   * Resolution order:
+   *   1. API result (apiAnalogs / apiCone) if online and present.
+   *   2. Persisted search result (searchedAnalogs / searchedCone) — this
+   *      is what the manual `runSearch()` writes for both the API and
+   *      synthetic paths.
+   *   3. Empty array — first render before any search has run.
+   *
+   * Previously a `useMemo` recomputed `findAnalogs(...)` on EVERY change
+   * to windowState, which meant the cone flickered continuously as the
+   * user dragged. Now the displayed cone is strictly the output of the
+   * last `runSearch()` call — dragging no longer mutates it. The
+   * `isDirty` derivation below tells the user when the displayed result
+   * is stale relative to the current inputs.
+   */
+  const analogs: AnalogMatch[] = (isOnline && apiAnalogs) ? apiAnalogs : (searchedAnalogs ?? []);
+  const cone: ConePoint[] = (isOnline && apiCone) ? apiCone : (searchedCone ?? []);
 
-  // ── Resolved analogs and cone (API or synthetic) ───────────────────
-  const analogs = (isOnline && apiAnalogs) ? apiAnalogs : (syntheticResult?.analogs ?? []);
-  const cone = (isOnline && apiCone) ? apiCone : (syntheticResult?.cone ?? []);
+  /*
+   * Dirty detection — true when the current windowState+settings no
+   * longer match the snapshot captured at last-search time. Used to
+   * pulse the Search button so the user knows the displayed cone
+   * doesn't reflect the current query window / top-K / horizon.
+   */
+  const currentK = settings.kAnalogs || 6;
+  const currentHorizon = settings.horizon || 60;
+  const isDirty = !lastSearch
+    || lastSearch.start !== windowState.start
+    || lastSearch.len !== windowState.len
+    || lastSearch.k !== currentK
+    || lastSearch.horizon !== currentHorizon;
 
   // Composite lenses = mean across top analogs
   const compLenses = useMemo(() => {
