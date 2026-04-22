@@ -78,7 +78,7 @@ function groupByAssetClass(items: CatalogItem[]): Record<string, CatalogItem[]> 
  * useful. "just now" covers the freshly-run state; minute-resolution is
  * the right granularity for an analytical workstation.
  */
-function formatRelativeTime(when: Date, now: Date): string {
+export function formatRelativeTime(when: Date, now: Date): string {
   const deltaMs = Math.max(0, now.getTime() - when.getTime());
   const deltaSec = Math.floor(deltaMs / 1000);
   if (deltaSec < 45) return "just now";
