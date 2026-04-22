@@ -476,7 +476,10 @@ export function LineChart({
 
   /** Inline-style payload for a single analog path. */
   type AnalogPath = {
-    d: string;
+    /** Dashed segment — priceWindow portion (inside the query window). */
+    dMatch: string;
+    /** Solid segment — `after` portion (outside the query window). */
+    dForward: string;
     variant: "default" | "strong" | "context";
     // Per-rank palette fields — null when pinning is active (the
     // .strong / .context CSS classes take over).
@@ -507,14 +510,44 @@ export function LineChart({
   if (analogsOverlay && qAnchorP) {
     analogsOverlay.forEach((a, rank) => {
       const scale = qAnchorP / a.priceWindow[a.priceWindow.length - 1];
-      const combined = [...a.priceWindow, ...a.after.slice(0, forecastHorizon)];
+      // Split the line at the query-window / forward boundary:
+      //   - priceWindow → inside the query window → rendered DASHED
+      //     (the analog's matched historical segment, context material)
+      //   - after       → outside the query window → rendered SOLID
+      //     (the forward projection — the part the user actually cares
+      //      about for "what happens next")
+      // We emit two path strings per analog so the stroke-dasharray can
+      // differ. They share color/width so the eye still reads them as
+      // one continuous overlay — the dash vs solid is the visual cue
+      // for "matched" vs "projected".
+      const matchPts: string[] = [];
+      const forwardPts: string[] = [];
       const startOffset = qWinEndIdx - (a.priceWindow.length - 1);
-      const pts = combined.map((p, k) => {
+      a.priceWindow.forEach((p, k) => {
         const idx = startOffset + k;
-        if (idx < viewStart || idx > viewEnd) return null;
-        return `${xOf(idx).toFixed(1)} ${yOf(p * scale).toFixed(1)}`;
-      }).filter(Boolean);
-      if (pts.length > 1) {
+        if (idx < viewStart || idx > viewEnd) return;
+        matchPts.push(`${xOf(idx).toFixed(1)} ${yOf(p * scale).toFixed(1)}`);
+      });
+      // Anchor the forward segment to the match's last point so the two
+      // paths share a joining vertex — no visible gap at the boundary.
+      const lastMatch = a.priceWindow[a.priceWindow.length - 1];
+      if (lastMatch !== undefined) {
+        const idx = qWinEndIdx;
+        if (idx >= viewStart && idx <= viewEnd) {
+          forwardPts.push(`${xOf(idx).toFixed(1)} ${yOf(lastMatch * scale).toFixed(1)}`);
+        }
+      }
+      a.after.slice(0, forecastHorizon).forEach((p, k) => {
+        const idx = qWinEndIdx + 1 + k;
+        if (idx < viewStart || idx > viewEnd) return;
+        forwardPts.push(`${xOf(idx).toFixed(1)} ${yOf(p * scale).toFixed(1)}`);
+      });
+      // Visibility guard: the overlay is shown if EITHER segment has
+      // >= 2 points. We still build one AnalogPath per analog with both
+      // segments on it so the renderer can draw them with different
+      // stroke-dasharray in a single pass.
+      const combined = [...a.priceWindow, ...a.after.slice(0, forecastHorizon)];
+      if (matchPts.length + forwardPts.length > 1) {
         const isHovered = !!(a.id && hoveredAnalogId && a.id === hoveredAnalogId);
         const variant: "default" | "strong" | "context" =
           !hasAnyPin ? "default"
@@ -568,7 +601,8 @@ export function LineChart({
           }
         }
         analogPaths.push({
-          d: "M " + pts.join(" L "),
+          dMatch: matchPts.length > 1 ? "M " + matchPts.join(" L ") : "",
+          dForward: forwardPts.length > 1 ? "M " + forwardPts.join(" L ") : "",
           variant,
           stroke,
           strokeWidth,
@@ -662,17 +696,35 @@ export function LineChart({
           if (a.strokeWidth != null) inline.strokeWidth = a.strokeWidth;
           if (a.opacity != null) inline.opacity = a.opacity;
           if (a.filter) inline.filter = a.filter;
+          const variantClass = a.variant === "strong" ? " strong"
+            : a.variant === "context" ? " context" : "";
+          // Two paths share style — dashed for the matched segment
+          // (analog history inside the query window), solid for the
+          // forward segment (the projected "what happens next"). The
+          // stroke-dasharray override on the match segment is inline
+          // so it cleanly composes with the palette styles above
+          // without needing a new CSS class.
           return (
-            <path
-              key={a.rank}
-              className={
-                "analog" + (a.variant === "strong" ? " strong"
-                  : a.variant === "context" ? " context" : "")
-              }
-              d={a.d}
-              style={inline}
-              data-rank={a.rank}
-            />
+            <g key={a.rank} data-rank={a.rank}>
+              {a.dMatch && (
+                <path
+                  className={"analog" + variantClass}
+                  data-segment="match"
+                  data-rank={a.rank}
+                  d={a.dMatch}
+                  style={{ ...inline, strokeDasharray: "3 3" }}
+                />
+              )}
+              {a.dForward && (
+                <path
+                  className={"analog" + variantClass}
+                  data-segment="forward"
+                  data-rank={a.rank}
+                  d={a.dForward}
+                  style={inline}
+                />
+              )}
+            </g>
           );
         })}
 

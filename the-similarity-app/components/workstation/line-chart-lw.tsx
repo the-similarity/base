@@ -364,48 +364,71 @@ function buildAnalogData(
   win: { start: number; len: number },
   analog: AnalogOverlay,
   forecastHorizon: number,
-): LineData<UTCTimestamp>[] {
+): { match: LineData<UTCTimestamp>[]; forward: LineData<UTCTimestamp>[] } {
+  /*
+   * Returns TWO slices so the caller can render them with different
+   * stroke styles (dashed for `match`, solid for `forward`). The match
+   * segment is the analog's priceWindow — the historical slice that
+   * overlays the query window for "what rhymes here" comparison — and
+   * the forward segment is `after` — the projected "what came next
+   * after that historical match".
+   *
+   * Both slices share the same scale factor (qAnchorP / analogEnd) and
+   * both are de-duplicated on strictly-increasing timestamps so
+   * lightweight-charts doesn't reject them.
+   */
+  const empty = { match: [] as LineData<UTCTimestamp>[], forward: [] as LineData<UTCTimestamp>[] };
   const anchorIdx = win.start + win.len - 1;
   const anchor = series[anchorIdx];
-  if (!anchor) return [];
+  if (!anchor) return empty;
   const qAnchorP = anchor.p;
   const analogEnd = analog.priceWindow[analog.priceWindow.length - 1];
-  if (!analogEnd) return [];
+  if (!analogEnd) return empty;
   const scale = qAnchorP / analogEnd;
-
-  const combined = [
-    ...analog.priceWindow,
-    ...analog.after.slice(0, forecastHorizon),
-  ];
-  const startOffset = anchorIdx - (analog.priceWindow.length - 1);
   const anchorTime = Math.floor(anchor.d.getTime() / 1000);
 
-  const out: LineData<UTCTimestamp>[] = [];
-  for (let k = 0; k < combined.length; k++) {
-    const idx = startOffset + k;
-    // For bars inside `series` use the real date; for bars past the end
-    // (forward window beyond the last bar) fabricate a daily cadence.
-    let t: UTCTimestamp;
+  const timeFor = (idx: number): UTCTimestamp | null => {
     if (idx >= 0 && idx < series.length) {
-      t = Math.floor(series[idx].d.getTime() / 1000) as UTCTimestamp;
-    } else if (idx >= series.length) {
-      t = (anchorTime + (idx - anchorIdx) * 86400) as UTCTimestamp;
-    } else {
-      // idx < 0 — analog window extends before history starts. Skip.
-      continue;
+      return Math.floor(series[idx].d.getTime() / 1000) as UTCTimestamp;
     }
-    out.push({ time: t, value: combined[k] * scale });
-  }
-  // De-duplicate non-monotonic times (e.g. weekends) to satisfy the
-  // lightweight-charts contract of strictly increasing timestamps.
-  out.sort((a, b) => (a.time as number) - (b.time as number));
-  const dedup: LineData<UTCTimestamp>[] = [];
-  for (const p of out) {
-    if (!dedup.length || (p.time as number) > (dedup[dedup.length - 1].time as number)) {
-      dedup.push(p);
+    if (idx >= series.length) {
+      return (anchorTime + (idx - anchorIdx) * 86400) as UTCTimestamp;
     }
+    return null;
+  };
+
+  const dedupSort = (arr: LineData<UTCTimestamp>[]) => {
+    arr.sort((a, b) => (a.time as number) - (b.time as number));
+    const out: LineData<UTCTimestamp>[] = [];
+    for (const p of arr) {
+      if (!out.length || (p.time as number) > (out[out.length - 1].time as number)) out.push(p);
+    }
+    return out;
+  };
+
+  // Match segment: priceWindow spans [anchorIdx - (N-1), anchorIdx].
+  const matchStart = anchorIdx - (analog.priceWindow.length - 1);
+  const match: LineData<UTCTimestamp>[] = [];
+  for (let k = 0; k < analog.priceWindow.length; k++) {
+    const t = timeFor(matchStart + k);
+    if (t === null) continue;
+    match.push({ time: t, value: analog.priceWindow[k] * scale });
   }
-  return dedup;
+
+  // Forward segment: anchor the line at the match's terminal so the
+  // two segments meet without a visible gap, then extend through `after`.
+  const forward: LineData<UTCTimestamp>[] = [];
+  if (match.length > 0) {
+    // Reuse the scaled last-match value as the joining vertex.
+    forward.push(match[match.length - 1]);
+  }
+  for (let k = 0; k < Math.min(analog.after.length, forecastHorizon); k++) {
+    const t = timeFor(anchorIdx + 1 + k);
+    if (t === null) continue;
+    forward.push({ time: t, value: analog.after[k] * scale });
+  }
+
+  return { match: dedupSort(match), forward: dedupSort(forward) };
 }
 
 export function LineChartLW({
@@ -779,8 +802,8 @@ export function LineChartLW({
     const RAMP_ALPHA = [0.95, 0.85, 0.75, 0.65, 0.55, 0.45];
 
     analogsOverlay.forEach((a, rank) => {
-      const data = buildAnalogData(series, win, a, forecastHorizon);
-      if (data.length < 2) return;
+      const { match, forward } = buildAnalogData(series, win, a, forecastHorizon);
+      if (match.length + forward.length < 2) return;
 
       const isHovered = !!(a.id && hoveredAnalogId && a.id === hoveredAnalogId);
       const variant: "default" | "strong" | "context" =
@@ -810,16 +833,36 @@ export function LineChartLW({
         lineWidth = isHovered ? 3 : (rank === 0 ? 2 : 1);
       }
 
-      const s = chart.addSeries(LineSeries, {
-        color,
-        lineWidth,
-        lineStyle: LineStyle.Solid,
-        priceLineVisible: false,
-        lastValueVisible: false,
-        crosshairMarkerVisible: false,
-      });
-      s.setData(data);
-      analogSeriesRefs.current.push(s);
+      // Match segment — dashed, rendered only when we have enough
+      // points to draw a line. Shares color/width with the forward
+      // segment below so the eye reads them as one overlay that
+      // changes style at the query-window / future boundary.
+      if (match.length >= 2) {
+        const s = chart.addSeries(LineSeries, {
+          color,
+          lineWidth,
+          lineStyle: LineStyle.Dashed,
+          priceLineVisible: false,
+          lastValueVisible: false,
+          crosshairMarkerVisible: false,
+        });
+        s.setData(match);
+        analogSeriesRefs.current.push(s);
+      }
+
+      // Forward segment — solid, the actual "what happens next" path.
+      if (forward.length >= 2) {
+        const s = chart.addSeries(LineSeries, {
+          color,
+          lineWidth,
+          lineStyle: LineStyle.Solid,
+          priceLineVisible: false,
+          lastValueVisible: false,
+          crosshairMarkerVisible: false,
+        });
+        s.setData(forward);
+        analogSeriesRefs.current.push(s);
+      }
     });
   }, [analogsOverlay, series, win, forecastHorizon, hoveredAnalogId]);
 
