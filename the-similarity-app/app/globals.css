@@ -187,69 +187,14 @@ input, select, textarea { font: inherit; color: inherit; }
   flex-shrink: 0;
 }
 
-/* ── Top navigation: product brand row ─────────────────────────
-   Previously held the per-verb tabs, a word-mark, and a search/tools
-   cluster on the right. Now just the brand — the verbs are gone and
-   the right cluster migrated into the marquee bar. Rules below keep
-   the old classnames working for legacy markup but relax the sizing
-   to match the new minimal content. */
-.nav {
-  display: flex; align-items: stretch;
-  border-bottom: 1px solid var(--rule);
-  background: var(--bg-elevated);
-  padding-left: var(--s-6); padding-right: var(--s-4);
-  gap: var(--s-6);
-  min-height: 48px;
-}
-.nav__brand {
-  display: flex; align-items: center; gap: var(--s-3);
-  /* Drop the right-side rule + min-width — the verb tabs that used to
-     sit next to the brand are gone, so a divider would hang in space. */
-  padding-right: var(--s-6);
-}
-/* When the marquee-style wordmark is embedded as the nav brand it
-   inherits the marquee's tracking and weight; lift the font-size so
-   it reads as a product title rather than a marquee tag. */
-.nav__brand .marquee__brand {
-  font-size: 15px;
-  letter-spacing: 0.26em;
-}
-.nav__logo {
-  width: 26px; height: 26px;
-  display: grid; place-items: center;
-}
-.nav__word {
-  font-family: var(--serif);
-  font-size: 18px; font-weight: 600; letter-spacing: -0.02em;
-  line-height: 1;
-}
-.nav__word em {
-  font-style: italic; font-weight: 400; color: var(--ink-3);
-}
-.nav__verbs { display: flex; align-items: stretch; gap: 0; flex: 1; }
-.nav__verb {
-  display: flex; flex-direction: column; justify-content: center;
-  padding: 0 var(--s-5);
-  border-right: 1px solid transparent;
-  border-left: 1px solid transparent;
-  min-width: 132px;
-  position: relative;
-  color: var(--ink-2);
-  transition: color .15s;
-}
-.nav__verb:hover { color: var(--ink); background: var(--bg-hover); }
-.nav__verb[data-active="true"] {
-  color: var(--ink);
-  background: var(--bg);
-  border-left: 1px solid var(--rule);
-  border-right: 1px solid var(--rule);
-}
-.nav__verb[data-active="true"]::after {
-  content: ""; position: absolute; left: -1px; right: -1px; bottom: -1px; height: 1px;
-  background: var(--bg);
-}
-.nav__verb__num { font-family: var(--mono); font-size: 9.5px; letter-spacing: .14em; color: var(--ink-4); }
-.nav__verb__name { font-family: var(--serif); font-size: 17px; font-weight: 500; letter-spacing: -0.01em; }
+/* ── Top navigation ─────────────────────────────────────────────
+   The old header.nav element is gone — the product ships a single
+   surface, the marquee carries the brand + utility cluster, and a
+   second chrome row wasn't earning its keep. The .nav* classes below
+   that REMAIN are the ones the marquee still renders (.nav__right,
+   .nav__search, .nav__iconbtn). Everything else (.nav, .nav__brand,
+   .nav__logo, .nav__word, .nav__verbs, .nav__verb) was removed with
+   the header. */
 .nav__right { display: flex; align-items: center; gap: var(--s-4); }
 .nav__search {
   display: flex; align-items: center; gap: var(--s-2);

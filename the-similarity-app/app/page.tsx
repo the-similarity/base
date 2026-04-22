@@ -338,11 +338,12 @@ export default function Page() {
   return (
     <div className="app">
       {/* ── Marquee strip ──────────────────────────────────────────
-          Houses the rolling tagline + (moved here from the nav) the
-          search button / tweaks toggle / account chip. The word-mark
-          brand that used to live here has been swapped down into the
-          header below to give the app a firmer title landing. */}
+          The only top-of-page chrome now. Holds the brand wordmark,
+          the rolling tagline, and the moved-over search/tweaks/account
+          cluster. The old `header.nav` was deleted — single-surface
+          product, no verbs to gate, no second row of chrome needed. */}
       <div className="marquee">
+        <span className="marquee__brand">THE SIMILARITY</span>
         <div style={{ overflow: "hidden", flex: 1 }}>
           <div className="marquee__track">
             {/*
@@ -392,16 +393,6 @@ export default function Page() {
           <span>engine live</span>
         </div>
       </div>
-
-      {/* ── Top navigation ─────────────────────────────────────────
-          Now just the app brand. The per-verb buttons (`.nav__verbs`)
-          are gone — a single-surface product didn't need them, and the
-          header search/tweaks chips moved up into the marquee. */}
-      <header className="nav">
-        <div className="nav__brand">
-          <span className="marquee__brand">THE SIMILARITY</span>
-        </div>
-      </header>
 
       {/* ── Page content ───────────────────────────────────────── */}
       {/*
