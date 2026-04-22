@@ -121,13 +121,31 @@ export function LineChart({
    */
   const autoPriceRangeRef = useRef<[number, number]>([0, 1]);
 
-  // Drag state ref — must be declared before any early return
-  const dragRef = useRef<{
-    mode: "move" | "left" | "right";
-    startX: number;
-    origStart: number;
-    origLen: number;
-  } | null>(null);
+  /*
+   * Drag state ref — must be declared before any early return.
+   *
+   * Four modes:
+   *   - "move" / "left" / "right" : query-window manipulation; payload is
+   *     the window origin (origStart, origLen).
+   *   - "pan" : view-range pan; payload is the viewRange origin
+   *     (origViewStart, origViewEnd). We use discriminated types so the
+   *     handler can't accidentally mix window/view state across modes.
+   */
+  const dragRef = useRef<
+    | {
+        mode: "move" | "left" | "right";
+        startX: number;
+        origStart: number;
+        origLen: number;
+      }
+    | {
+        mode: "pan";
+        startX: number;
+        origViewStart: number;
+        origViewEnd: number;
+      }
+    | null
+  >(null);
 
   const padL = 54, padR = 20, padT = 16, padB = 28;
   const plotW = Math.max(100, w - padL - padR);
@@ -231,22 +249,36 @@ export function LineChart({
     const N = series.length;
     const maxAnchor = Math.max(0, N - 1);
     const mm = (e: MouseEvent) => {
-      if (!dragRef.current) return;
-      const dx = e.clientX - dragRef.current.startX;
+      const drag = dragRef.current;
+      if (!drag) return;
+      const dx = e.clientX - drag.startX;
       const dIdx = Math.round((dx / plotW) * (viewEnd - viewStart));
-      if (dragRef.current.mode === "move") {
+      if (drag.mode === "move") {
         const ns = Math.max(viewStart + 1, Math.min(maxAnchor - win.len + 1,
-          dragRef.current.origStart + dIdx));
+          drag.origStart + dIdx));
         onWindowChange({ start: ns, len: win.len });
-      } else if (dragRef.current.mode === "left") {
-        const ne = dragRef.current.origStart + dragRef.current.origLen;
-        const ns = Math.max(viewStart + 1, Math.min(ne - 20, dragRef.current.origStart + dIdx));
+      } else if (drag.mode === "left") {
+        const ne = drag.origStart + drag.origLen;
+        const ns = Math.max(viewStart + 1, Math.min(ne - 20, drag.origStart + dIdx));
         onWindowChange({ start: ns, len: ne - ns });
-      } else if (dragRef.current.mode === "right") {
-        const ns = dragRef.current.origStart;
+      } else if (drag.mode === "right") {
+        const ns = drag.origStart;
         const newLen = Math.max(20, Math.min(maxAnchor - ns + 1,
-          dragRef.current.origLen + dIdx));
+          drag.origLen + dIdx));
         onWindowChange({ start: ns, len: newLen });
+      } else if (drag.mode === "pan" && onRangeChange) {
+        // Pan the whole view by the mouse delta. Dragging right should
+        // move the visible range backwards in time (standard chart
+        // convention), hence the minus sign on dIdx.
+        const width = drag.origViewEnd - drag.origViewStart;
+        const rawStart = drag.origViewStart - dIdx;
+        // Clamp so we can't scroll off the left of history; the right
+        // side is intentionally uncapped so the user can drag into the
+        // forecast's "future" space past N. The guardrail in
+        // workstation.tsx keeps viewEnd ≥ queryEnd + horizon + 5, so
+        // this will never hide the cone.
+        const newStart = Math.max(0, Math.min(rawStart, maxAnchor));
+        onRangeChange({ start: newStart, end: newStart + width });
       }
     };
     const mu = () => { dragRef.current = null; };
@@ -256,7 +288,7 @@ export function LineChart({
       globalThis.removeEventListener("mousemove", mm);
       globalThis.removeEventListener("mouseup", mu);
     };
-  }, [win, viewStart, viewEnd, plotW, forecastHorizon, onWindowChange, series.length]);
+  }, [win, viewStart, viewEnd, plotW, forecastHorizon, onWindowChange, onRangeChange, series.length]);
 
   // ── Early return for empty visible slice ───────────────────────────
   const vis = series.slice(viewStart, viewEnd);
@@ -367,6 +399,24 @@ export function LineChart({
 
   const onMouseDown = (e: React.MouseEvent, mode: "move" | "left" | "right") => {
     dragRef.current = { mode, startX: e.clientX, origStart: win.start, origLen: win.len };
+    e.preventDefault();
+  };
+
+  // Pan the view when the user mousedowns on the chart background (i.e.,
+  // anywhere inside the plot area that isn't the query window rect/handles).
+  // The window has its own onMouseDown={move/left/right} handlers that
+  // stopPropagation via e.preventDefault, so those still win when clicked.
+  const onPanStart = (e: React.MouseEvent) => {
+    if (!onRangeChange) return;
+    // Primary button only — right-click should remain available for
+    // future context-menu use.
+    if (e.button !== 0) return;
+    dragRef.current = {
+      mode: "pan",
+      startX: e.clientX,
+      origViewStart: viewStart,
+      origViewEnd: viewEnd,
+    };
     e.preventDefault();
   };
 
@@ -568,8 +618,22 @@ export function LineChart({
         onMouseLeave={onLeave}
         onDoubleClick={onDoubleClick}
       >
+        {/* Invisible pan-capture rect covering the plot area. Must sit
+            BELOW the query window in render order so the window's own
+            mousedown handlers still win when the user grabs the window.
+            `fill="transparent"` keeps it invisible but hittable;
+            `pointer-events="all"` is implicit for a filled rect. */}
+        <rect
+          className="pan-catcher"
+          x={padL}
+          y={padT}
+          width={Math.max(1, plotW)}
+          height={Math.max(1, plotH)}
+          fill="transparent"
+          onMouseDown={onPanStart}
+        />
         {/* Grid lines */}
-        <g className="grid">
+        <g className="grid" style={{ pointerEvents: "none" }}>
           {yTicks.map((t, i) => <line key={i} x1={padL} x2={w - padR} y1={t.y} y2={t.y} />)}
         </g>
         <g className="axis">

@@ -1125,6 +1125,29 @@ input, select, textarea { font: inherit; color: inherit; }
 .svg-chart .median { fill: none; stroke: var(--c-cone-line); stroke-width: 1.5; }
 .svg-chart .data-end { stroke: var(--ink-4); stroke-width: 1; stroke-dasharray: 2 3; opacity: .5; }
 .svg-chart .data-end-label { font-family: var(--mono); font-size: 9px; fill: var(--ink-3); letter-spacing: .05em; text-transform: uppercase; }
+/*
+ * Drag-to-pan: the `.pan-catcher` rect behind the grid catches mouse
+ * events on empty plot space so the whole view can be dragged around.
+ * Every non-interactive chart shape (grid, axis text, price line,
+ * median, cone paths, data-end marker, analog overlays) is marked
+ * pointer-events: none so the catcher actually receives the event.
+ * The query window rect and its handles explicitly opt back in —
+ * they still need mousedown to resize/move the query selection.
+ */
+.svg-chart .pan-catcher { cursor: grab; }
+.svg-chart .pan-catcher:active { cursor: grabbing; }
+.svg-chart .price,
+.svg-chart .median,
+.svg-chart .analog,
+.svg-chart .cone-fill,
+.svg-chart .cone-line,
+.svg-chart .data-end,
+.svg-chart .data-end-label,
+.svg-chart .crosshair,
+.svg-chart .annot,
+.svg-chart .axis { pointer-events: none; }
+.svg-chart .window-rect,
+.svg-chart .window-handle { pointer-events: auto; }
 .svg-chart .window-rect { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 1; cursor: grab; }
 .svg-chart .window-rect:active { cursor: grabbing; }
 .svg-chart .window-handle { fill: var(--accent); cursor: ew-resize; }
