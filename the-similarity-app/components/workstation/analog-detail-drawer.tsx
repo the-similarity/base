@@ -174,7 +174,11 @@ export function AnalogDetailDrawer({
           className="adrawer__pin-toggle"
           onClick={() => { if (analog) onTogglePin(analog.id); }}
           aria-pressed={pinned}
-          aria-label={pinned ? "Unpin this analog" : "Pin this analog"}
+          // Accessible name differs from the footer action button so
+          // role-and-name queries can unambiguously target one or the
+          // other. The footer carries the canonical "Pin this analog";
+          // the header is the quick toggle.
+          aria-label={pinned ? "Unpin (header toggle)" : "Pin (header toggle)"}
           disabled={!analog}
         >
           {pinned ? "Unpin" : "Pin"}
