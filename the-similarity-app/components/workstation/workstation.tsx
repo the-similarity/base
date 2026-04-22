@@ -31,6 +31,11 @@ import {
   mapMatchesToAnalogs, mapForecastToCone, mapScoreBreakdownToLenses,
 } from "../../lib/api";
 import type { CatalogItem } from "../../lib/types";
+import {
+  parseUrlState,
+  serializeUrlState,
+  type WorkstationUrlState,
+} from "../../lib/url-state";
 import { LineChart, AnalogOverlay } from "./line-chart";
 import { LineChartLW } from "./line-chart-lw";
 import { LensRadar } from "./lens-radar";
@@ -247,11 +252,59 @@ function seriesToDataPoints(values: number[], dates: string[]): DataPoint[] {
   });
 }
 
+/**
+ * Read URL state at mount time.
+ *
+ * Safe to call inside useState lazy initializers — guards against SSR by
+ * returning an empty object when `window` is unavailable. The returned
+ * object is a snapshot: subsequent URL changes (share-link navigations,
+ * forward/back) are NOT tracked here — we write via replaceState and
+ * don't treat the URL as a reactive source.
+ */
+function readInitialUrlState(): WorkstationUrlState {
+  if (typeof window === "undefined") return {};
+  try {
+    return parseUrlState(window.location.search);
+  } catch {
+    // parseUrlState is defensive and shouldn't throw, but defense-in-depth
+    // — a malformed URL should never crash the workstation.
+    return {};
+  }
+}
+
 export function Workstation({ settings, onSettings }: WorkstationProps) {
+  /*
+   * URL-state snapshot captured at mount.
+   *
+   * We read the URL exactly ONCE. The lazy-initializer pattern makes this
+   * safe during React 19 strict-mode double-renders: `readInitialUrlState`
+   * runs only on the first mount. The snapshot is stored in a ref so
+   * downstream effects can consult the ORIGINAL share-link intent without
+   * being confused by our own `history.replaceState` writes.
+   *
+   * Priority contract: URL state > localStorage > defaults. Every call
+   * site that merges state must check `urlStateRef.current` FIRST and
+   * fall through to localStorage/defaults only when the URL field is
+   * undefined.
+   */
+  const urlStateRef = useRef<WorkstationUrlState>(readInitialUrlState());
+
   // ── Data source state ──────────────────────────────────────────────
   const [isOnline, setIsOnline] = useState<boolean | null>(null); // null = checking
   const [catalog, setCatalog] = useState<CatalogItem[]>([]);
-  const [activeDataset, setActiveDataset] = useState("stocks/spy/1d");
+  /*
+   * Active dataset — URL override takes precedence over the default.
+   *
+   * If the share-link carries `?ds=...`, we initialize with it so the
+   * catalog-load effect fires against the right dataset immediately,
+   * sparing the user a flash-of-default-spy before the override applies.
+   * When the URL dataset doesn't exist in the catalog (checked after
+   * /catalog resolves), we fall back silently — see the catalog-ready
+   * effect below.
+   */
+  const [activeDataset, setActiveDataset] = useState(
+    () => urlStateRef.current.dataset ?? "stocks/spy/1d",
+  );
   const [loadedSeries, setLoadedSeries] = useState<DataPoint[]>(SERIES);
   const [loadedDates, setLoadedDates] = useState<string[]>([]);
   const [loadedValues, setLoadedValues] = useState<number[]>([]);
@@ -320,9 +373,49 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
 
   // ── Window state ───────────────────────────────────────────────────
   const N = loadedSeries.length;
-  const [windowState, setWindowState] = useState({ start: Math.max(0, N - 240), len: 120 });
-  const [viewRange, setViewRange] = useState({ start: Math.max(0, N - 900), end: Math.max(0, N - 30) });
-  const [pinned, setPinned] = useState<Set<string>>(new Set());
+  /*
+   * Window / view state — initialized from URL when present, falling back
+   * to sensible defaults over the synthetic SERIES. When a real series is
+   * loaded asynchronously (see the catalog-ready effect), the window is
+   * reset to fit unless URL overrides are present; the post-series-load
+   * effect below re-applies URL overrides so a share-link dataset + window
+   * restores correctly even with async series loading.
+   *
+   * Note: we ONLY read urlStateRef for initial values here. All subsequent
+   * window changes come from user interaction (drag, chip-click, "use as
+   * query"). The URL is a write-target for those changes (see the
+   * debounced URL-writer effect below), not a reactive input.
+   */
+  const [windowState, setWindowState] = useState(() => {
+    const u = urlStateRef.current;
+    const qs = u.queryStart;
+    const ql = u.queryLen;
+    if (qs !== undefined && ql !== undefined) {
+      return { start: qs, len: ql };
+    }
+    return { start: Math.max(0, N - 240), len: 120 };
+  });
+  const [viewRange, setViewRange] = useState(() => {
+    const u = urlStateRef.current;
+    if (u.viewStart !== undefined && u.viewEnd !== undefined) {
+      return { start: u.viewStart, end: u.viewEnd };
+    }
+    return { start: Math.max(0, N - 900), end: Math.max(0, N - 30) };
+  });
+  /*
+   * Pinned analog ids — initialized from URL when present, otherwise
+   * empty. The URL takes precedence over localStorage here so a link like
+   * `?p=abc,def` always shows those two even if the recipient has a
+   * different saved set. localStorage rehydrates after the first search
+   * completes (see pinKey-based load effect below); to keep URL-as-truth
+   * during that window, we ALSO write `urlStateRef.current.pinned` into
+   * the hydrate path so it wins when both are present.
+   */
+  const [pinned, setPinned] = useState<Set<string>>(() => {
+    const u = urlStateRef.current;
+    if (u.pinned && u.pinned.length > 0) return new Set(u.pinned);
+    return new Set();
+  });
   /*
    * Hydration flag for the pin-persistence effects.
    *
@@ -429,7 +522,21 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
     return () => { cancelled = true; };
   }, []);
 
-  // ── Load series when dataset changes and API is online ─────────────
+  /*
+   * Load series when dataset changes and API is online.
+   *
+   * URL-state interaction: on the FIRST successful load, URL-provided
+   * window/view overrides take precedence over the "reset-to-defaults"
+   * behavior. This restores share-links that pin (dataset, queryStart,
+   * queryLen, viewStart, viewEnd) — otherwise the default reset would
+   * clobber the override milliseconds after mount.
+   *
+   * We gate the override to the first load via `urlHydratedRef` so
+   * subsequent dataset switches (user clicking a different dataset in
+   * the dropdown) still reset cleanly — the URL intent is a one-shot
+   * applied at mount, not a permanent lock.
+   */
+  const urlHydratedRef = useRef(false);
   useEffect(() => {
     if (!isOnline) return;
     let cancelled = false;
@@ -448,10 +555,35 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
         setLoadedDates(res.dates);
         setLoadedValues(res.values);
 
-        // Reset window to reasonable defaults for the new series
         const newN = dp.length;
-        setWindowState({ start: Math.max(0, newN - 240), len: Math.min(120, Math.floor(newN / 3)) });
-        setViewRange({ start: Math.max(0, newN - 900), end: Math.max(0, newN - 30) });
+        const u = urlStateRef.current;
+        const firstHydration = !urlHydratedRef.current;
+
+        /*
+         * Window reset: honor URL overrides on the first hydration only.
+         * Clamp the URL values to the actual series length so a link with
+         * `qs=5000&ql=200` against a 300-bar series doesn't index out of
+         * range. Clamping yields a best-effort restore instead of a
+         * crash — the link still "works" on smaller datasets.
+         */
+        if (firstHydration && u.queryStart !== undefined && u.queryLen !== undefined) {
+          const clampedStart = Math.max(0, Math.min(u.queryStart, newN - 2));
+          const maxLen = Math.max(2, newN - clampedStart - 1);
+          const clampedLen = Math.max(2, Math.min(u.queryLen, maxLen));
+          setWindowState({ start: clampedStart, len: clampedLen });
+        } else {
+          setWindowState({ start: Math.max(0, newN - 240), len: Math.min(120, Math.floor(newN / 3)) });
+        }
+
+        if (firstHydration && u.viewStart !== undefined && u.viewEnd !== undefined) {
+          const clampedVs = Math.max(0, Math.min(u.viewStart, newN - 2));
+          const clampedVe = Math.max(clampedVs + 1, Math.min(u.viewEnd, newN - 1));
+          setViewRange({ start: clampedVs, end: clampedVe });
+        } else {
+          setViewRange({ start: Math.max(0, newN - 900), end: Math.max(0, newN - 30) });
+        }
+
+        urlHydratedRef.current = true;
         // Clear previous search results
         setApiAnalogs(null);
         setApiCone(null);
