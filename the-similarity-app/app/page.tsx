@@ -87,7 +87,11 @@ const DEFAULTS: WorkstationSettings = {
   theme: "light",
   kAnalogs: 6,
   horizon: 60,
-  showAnalogs: "top3",
+  // Show every top-K match as its own forward projection by default.
+  // This is the product's core loop: "here are K analogs, each drawing
+  // a different possible future" — gating the chart to only 3 hid most
+  // of the signal we just computed.
+  showAnalogs: "all",
   showCone: true,
 };
 
@@ -97,7 +101,12 @@ export default function Page() {
     if (typeof window === "undefined") return DEFAULTS;
     try {
       const saved = JSON.parse(localStorage.getItem("ts-settings") || "null");
-      return { ...DEFAULTS, ...(saved || {}) };
+      const merged = { ...DEFAULTS, ...(saved || {}) };
+      // One-time migration: the old `"top3"` default silently dropped 3+
+      // of the top-K analogs from the chart. Promote it to `"all"` once
+      // so returning users see every match as its own forward line.
+      if (merged.showAnalogs === "top3") merged.showAnalogs = "all";
+      return merged;
     } catch { return DEFAULTS; }
   });
 
