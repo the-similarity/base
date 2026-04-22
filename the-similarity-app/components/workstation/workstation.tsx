@@ -91,8 +91,35 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
   const [searching, setSearching] = useState(false);
   const [apiAnalogs, setApiAnalogs] = useState<AnalogMatch[] | null>(null);
   const [apiCone, setApiCone] = useState<ConePoint[] | null>(null);
-  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+
+  /*
+   * Manual-search state (replaces the old "auto-search on every drag" loop).
+   *
+   * `lastSearch` is a snapshot of the input parameters that produced the
+   * currently-displayed analogs + cone. It lets us detect when the user
+   * has moved the window / changed top-K / changed the horizon without
+   * re-running — the Search button then visually pulses ("dirty") to
+   * prompt the user to re-run.
+   *
+   * `searchedAnalogs` and `searchedCone` persist the LAST successfully
+   * computed results. Unlike the old `useMemo`-based synthetic pipeline
+   * which recomputed on every windowState change, these are only written
+   * inside `runSearch()` — so dragging the query window does NOT mutate
+   * them.
+   *
+   * `lastRunAt` is the wall-clock Date when the current results were
+   * produced; the UI renders it as a relative "2m ago" timestamp.
+   */
+  const [lastSearch, setLastSearch] = useState<{
+    start: number;
+    len: number;
+    k: number;
+    horizon: number;
+  } | null>(null);
+  const [searchedAnalogs, setSearchedAnalogs] = useState<AnalogMatch[] | null>(null);
+  const [searchedCone, setSearchedCone] = useState<ConePoint[] | null>(null);
+  const [lastRunAt, setLastRunAt] = useState<Date | null>(null);
 
   // ── Window state ───────────────────────────────────────────────────
   const N = loadedSeries.length;
