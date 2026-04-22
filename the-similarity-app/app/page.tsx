@@ -398,6 +398,14 @@ export default function Page() {
           ) : (
             <span className="statusbar__item">press <span className="kbd">g</span> <span className="kbd">r</span> to jump</span>
           )}
+          {/*
+           * `?` hint — discoverability anchor for the shortcuts-help modal.
+           * Deliberately placed just before the NY timestamp so it's the
+           * last thing the user's eye lands on in the status bar. ink-3
+           * (muted) + mono-font kbd keeps it quiet: power-user affordance
+           * for those who scan the status bar, not a visual shout.
+           */}
+          <span className="statusbar__item">press <span className="kbd">?</span> for shortcuts</span>
           <span className="statusbar__item"><b>{nyClock}</b></span>
         </div>
       </footer>
