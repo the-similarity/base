@@ -19,7 +19,24 @@ interface LensRadarProps {
 }
 
 export function LensRadar({ lenses, size = 240 }: LensRadarProps) {
-  const cx = size / 2, cy = size / 2, r = size / 2 - 26;
+  /*
+   * Horizontal padding reserved for outer labels. Words like
+   * "Decomposition" (the longest lens label) are ~82px wide at the
+   * 9px mono font; we reserve 60px on each side so the text never
+   * clips off the viewBox even in tight right-panel widths. The
+   * viewBox itself is widened by 2*LABEL_PAD so the polygon stays
+   * centered in a true square on the inside while labels sit in
+   * the padding strip outside it.
+   */
+  const LABEL_PAD = 60;
+  const RADIUS_INSET = 18;
+  const LABEL_GAP = 12;
+
+  const vbW = size + LABEL_PAD * 2;
+  const vbH = size;
+  const cx = vbW / 2;
+  const cy = vbH / 2;
+  const r = size / 2 - RADIUS_INSET;
   const n = LENS_DEFS.length;
 
   // Compute positions for each lens axis
@@ -31,8 +48,8 @@ export function LensRadar({ lenses, size = 240 }: LensRadarProps) {
       y: cy + Math.sin(ang) * r * v,
       ax: cx + Math.cos(ang) * r,
       ay: cy + Math.sin(ang) * r,
-      lx: cx + Math.cos(ang) * (r + 14),
-      ly: cy + Math.sin(ang) * (r + 14),
+      lx: cx + Math.cos(ang) * (r + LABEL_GAP),
+      ly: cy + Math.sin(ang) * (r + LABEL_GAP),
       label: def.name,
       anchor: Math.abs(Math.cos(ang)) < 0.25 ? "middle" as const : (Math.cos(ang) > 0 ? "start" as const : "end" as const),
     };
@@ -41,7 +58,13 @@ export function LensRadar({ lenses, size = 240 }: LensRadarProps) {
   const gridLevels = [0.25, 0.5, 0.75, 1];
 
   return (
-    <svg className="lens-radar" viewBox={`0 0 ${size} ${size}`} width="100%" height={size}>
+    <svg
+      className="lens-radar"
+      viewBox={`0 0 ${vbW} ${vbH}`}
+      width="100%"
+      height={size}
+      preserveAspectRatio="xMidYMid meet"
+    >
       {/* Concentric grid polygons */}
       {gridLevels.map((lvl, gi) => {
         const pts = LENS_DEFS.map((_, i) => {
