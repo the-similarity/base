@@ -1469,35 +1469,68 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
             // Em-dash placeholders whenever the engine returned unknown,
             // so a quant can distinguish "no data yet" from "zero".
             const dash = "\u2014";
+            // ℹ glyph — rendered next to each metric label so quants get
+            // a one-sentence definition on hover without leaving the page.
+            // Intentionally uses the native `title` attribute: acceptable
+            // shortcut per the calibration-panel audit spec, avoids adding
+            // a custom tooltip layer (and its accessibility footguns) to
+            // the workstation bundle. Screen readers announce `title` as
+            // an accessible name, so the explanations are surfaced there
+            // as well. 12px sizing matches the muted .label typography.
+            const infoGlyph = (tip: string) => (
+              <span
+                className="trust__info"
+                role="img"
+                aria-label={tip}
+                title={tip}
+              >
+                &#9432;
+              </span>
+            );
             return (
               <>
                 <div className="trust">
                   <div className="trust__item">
-                    <span className="label">Coverage 80%</span>
+                    <span className="label">
+                      Coverage 80%
+                      {infoGlyph("Coverage: fraction of realized moves that landed inside the P10-P90 cone. Target 80%.")}
+                    </span>
                     <span className={"v " + coverageClass}>
                       {isUnknown ? dash : fmtPct(trustMetrics.coverage, 1)}
                     </span>
                   </div>
                   <div className="trust__item">
-                    <span className="label">CRPS</span>
+                    <span className="label">
+                      CRPS
+                      {infoGlyph("CRPS (Continuous Ranked Probability Score): lower is better. Measures how well the probability distribution matched the realized outcome.")}
+                    </span>
                     <span className="v">
                       {isUnknown ? dash : trustMetrics.crps.toFixed(3)}
                     </span>
                   </div>
                   <div className="trust__item">
-                    <span className="label">Hit rate &middot; sign</span>
+                    <span className="label">
+                      Hit rate &middot; sign
+                      {infoGlyph("Hit rate: fraction of analogs whose forward direction matched the realized direction at horizon. Chance baseline is 0.50.")}
+                    </span>
                     <span className={"v " + hitClass}>
                       {isUnknown ? dash : trustMetrics.hitRate.toFixed(2)}
                     </span>
                   </div>
                   <div className="trust__item">
-                    <span className="label">Regime drift</span>
+                    <span className="label">
+                      Regime drift
+                      {infoGlyph("Regime drift: how much the market regime has changed between the analogs and now. Low is good; high means the analog set may be stale.")}
+                    </span>
                     <span className={"v " + driftClass}>
                       {isUnknown ? dash : trustMetrics.regimeDrift}
                     </span>
                   </div>
                   <div className="trust__item">
-                    <span className="label">N analogs used</span>
+                    <span className="label">
+                      N analogs used
+                      {infoGlyph("Number of analogs with realized forward windows used to compute these metrics. Pinning filters this set.")}
+                    </span>
                     <span className="v">{trustMetrics.nAnalogs}</span>
                   </div>
                   <button className="trust__expand" onClick={() => setTrustOpen(o => !o)}>
@@ -1505,7 +1538,37 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
                   </button>
                 </div>
 
-                {trustOpen && (
+                {trustOpen && isUnknown && (
+                  // Empty-state card: we avoid rendering the reliability
+                  // diagram or per-bucket bar chart at all when the engine
+                  // has insufficient data, because drawing either with zero
+                  // buckets produces visually-empty plots that quants read
+                  // as "calibration is broken" rather than "not enough
+                  // runs yet". Instead we surface a concrete explanation
+                  // and a CTA. The link target is a placeholder — once
+                  // backtest-sweep UI lands it should point at that route
+                  // (see Batch 2 finance operating product roadmap).
+                  <div className="trust-panel trust-panel--empty" role="status">
+                    <div className="trust-panel__empty-card">
+                      <h3>Calibration needs more runs</h3>
+                      <p>
+                        The engine has fewer than 3 analogs with realised
+                        forward windows against this query. Coverage, CRPS,
+                        and the reliability diagram need at least a handful
+                        of observed outcomes before they carry signal. Trust
+                        score will appear automatically once the engine has
+                        accumulated at least 30 runs against this dataset.
+                      </p>
+                      <a
+                        href="/finance/reviews"
+                        className="trust-panel__cta"
+                      >
+                        Trigger backtest sweep &rarr;
+                      </a>
+                    </div>
+                  </div>
+                )}
+                {trustOpen && !isUnknown && (
                   <div className="trust-panel">
                     <div>
                       <h3>Reliability diagram</h3>
@@ -1514,10 +1577,17 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
                         {/* Identity line y=x → perfect calibration reference.
                             Plot region: x in [20, 240], y in [140, 20]. */}
                         <line x1="20" y1="140" x2="240" y2="20" stroke="var(--ink-4)" strokeDasharray="3 3" />
-                        {/* Empirical (predicted, observed) scatter. When the
-                            buckets are missing (e.g. unknown grade) render
-                            a "not enough data" placeholder instead of a
-                            misleading synthetic scatter. */}
+                        {/* Empirical (predicted, observed) scatter, coloured
+                            by deviation from the identity line.
+                            •  |obs − pred| < 0.10  → green  (well-calibrated)
+                            •  0.10 ≤ |…| < 0.20    → amber  (watch)
+                            •  |obs − pred| ≥ 0.20  → red    (mis-calibrated)
+                            Prior behaviour painted every dot green, which
+                            hid bad buckets — fixed as of the calibration-
+                            panel audit (obsidian/topics/calibration panel
+                            audit 2026-04-20). Each dot carries a native
+                            <title> so hovering surfaces the raw numbers
+                            without requiring a custom tooltip layer. */}
                         {trustMetrics.reliability.length === 0 ? (
                           <text x="130" y="80" textAnchor="middle" fontSize="11" fill="var(--ink-3)">
                             not enough data
@@ -1526,14 +1596,24 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
                           trustMetrics.reliability.map((pt, i) => {
                             const pClamped = Math.max(0, Math.min(1, pt.predicted));
                             const oClamped = Math.max(0, Math.min(1, pt.observed));
+                            const deviation = Math.abs(oClamped - pClamped);
+                            const color = deviation < 0.10
+                              ? "var(--positive)"
+                              : deviation < 0.20
+                              ? "var(--warn)"
+                              : "var(--negative)";
                             return (
                               <circle
                                 key={i}
                                 cx={20 + pClamped * 220}
                                 cy={140 - oClamped * 120}
                                 r="3.5"
-                                fill="var(--positive)"
-                              />
+                                fill={color}
+                              >
+                                <title>
+                                  {`predicted ${pClamped.toFixed(2)} · observed ${oClamped.toFixed(2)} · deviation ${deviation.toFixed(2)}`}
+                                </title>
+                              </circle>
                             );
                           })
                         )}
@@ -1555,43 +1635,162 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
                       </div>
                     </div>
                     <div>
-                      <h3>Coverage vs target</h3>
+                      <h3>Per-bucket observed frequency</h3>
                       <svg viewBox="0 0 260 160" width="100%" height="160">
                         <rect x="1" y="1" width="258" height="158" fill="none" stroke="var(--rule)" />
-                        {/* 80% target line at y = 160 - 0.80 * 150 = 40. */}
-                        <line x1="10" y1="40" x2="250" y2="40" stroke="var(--rule-strong)" strokeDasharray="3 3" />
-                        <text x="12" y="36" className="axis-label" fontSize="9" fill="var(--ink-3)">80% target</text>
-                        {/* Per-analog terminal containment visualization.
-                            Each bar height = this query's coverage rate.
-                            This is a single-query summary, not a time
-                            series — when a dedicated rolling coverage
-                            series is added it should replace this. */}
-                        {isUnknown ? (
+                        {/* Previous implementation drew 12 IDENTICAL bars,
+                            all at height = trustMetrics.coverage. That
+                            looked like a rolling time-series but was a
+                            synthetic placeholder (same number painted 12
+                            times). It's been replaced with the real per-
+                            percentile observed frequency derived from
+                            trustMetrics.reliability[] — the thing that
+                            actually changes per query and per pin set.
+                            A perfectly calibrated engine has every bar
+                            at height = its predicted quantile. */}
+                        {trustMetrics.reliability.length === 0 ? (
                           <text x="130" y="90" textAnchor="middle" fontSize="11" fill="var(--ink-3)">
                             not enough data
                           </text>
-                        ) : (
-                          Array.from({ length: 12 }).map((_, i) => {
-                            const v = trustMetrics.coverage;
-                            const x = 20 + i * 18;
-                            const y = 160 - v * 150;
-                            return <line key={i} x1={x} x2={x} y1={160} y2={y} stroke="var(--ink-2)" strokeWidth="1.4" />;
-                          })
-                        )}
+                        ) : (() => {
+                            // Plot region: x in [30, 250], y in [140, 20].
+                            // Bar slot width derived from the number of
+                            // reliability buckets so the layout scales
+                            // correctly if the backend adds more.
+                            const n = trustMetrics.reliability.length;
+                            const plotLeft = 30;
+                            const plotRight = 250;
+                            const plotTop = 20;
+                            const plotBottom = 140;
+                            const slotW = (plotRight - plotLeft) / n;
+                            const barW = Math.max(8, slotW * 0.55);
+                            const plotH = plotBottom - plotTop;
+                            // Guide lines at y = 0, 0.5, 1.0 so the eye can
+                            // read deviation without counting pixels.
+                            const guideYs = [0, 0.5, 1];
+                            return (
+                              <g>
+                                {guideYs.map(g => (
+                                  <line
+                                    key={`g-${g}`}
+                                    x1={plotLeft}
+                                    x2={plotRight}
+                                    y1={plotBottom - g * plotH}
+                                    y2={plotBottom - g * plotH}
+                                    stroke="var(--rule)"
+                                    strokeDasharray="2 3"
+                                  />
+                                ))}
+                                {trustMetrics.reliability.map((pt, i) => {
+                                  const oClamped = Math.max(0, Math.min(1, pt.observed));
+                                  const pClamped = Math.max(0, Math.min(1, pt.predicted));
+                                  const deviation = Math.abs(oClamped - pClamped);
+                                  const barColor = deviation < 0.10
+                                    ? "var(--positive)"
+                                    : deviation < 0.20
+                                    ? "var(--warn)"
+                                    : "var(--negative)";
+                                  const cx = plotLeft + slotW * (i + 0.5);
+                                  const x = cx - barW / 2;
+                                  const y = plotBottom - oClamped * plotH;
+                                  const predY = plotBottom - pClamped * plotH;
+                                  return (
+                                    <g key={`bar-${i}`}>
+                                      {/* Observed bar (colored by deviation). */}
+                                      <rect
+                                        x={x}
+                                        y={y}
+                                        width={barW}
+                                        height={plotBottom - y}
+                                        fill={barColor}
+                                        opacity={0.85}
+                                      >
+                                        <title>
+                                          {`P${Math.round(pClamped * 100)} · observed ${oClamped.toFixed(2)} · predicted ${pClamped.toFixed(2)} · deviation ${deviation.toFixed(2)}`}
+                                        </title>
+                                      </rect>
+                                      {/* Predicted-quantile tick: where the
+                                          bar WOULD end for a perfectly
+                                          calibrated engine. */}
+                                      <line
+                                        x1={x - 2}
+                                        x2={x + barW + 2}
+                                        y1={predY}
+                                        y2={predY}
+                                        stroke="var(--ink)"
+                                        strokeWidth="1"
+                                        strokeDasharray="2 2"
+                                      />
+                                      {/* Per-bucket x-label: the predicted
+                                          quantile, so a quant can read e.g.
+                                          "P25 observed 0.32" at a glance. */}
+                                      <text
+                                        x={cx}
+                                        y={plotBottom + 12}
+                                        textAnchor="middle"
+                                        fontSize="9"
+                                        fill="var(--ink-3)"
+                                      >
+                                        {`P${Math.round(pClamped * 100)}`}
+                                      </text>
+                                    </g>
+                                  );
+                                })}
+                                {/* y-axis reference labels (0 / 0.5 / 1). */}
+                                {guideYs.map(g => (
+                                  <text
+                                    key={`yl-${g}`}
+                                    x={plotLeft - 4}
+                                    y={plotBottom - g * plotH + 3}
+                                    textAnchor="end"
+                                    fontSize="9"
+                                    fill="var(--ink-3)"
+                                  >
+                                    {g.toFixed(1)}
+                                  </text>
+                                ))}
+                              </g>
+                            );
+                          })()}
                       </svg>
                       <div style={{ fontSize: 12, color: "var(--ink-2)", marginTop: 8 }}>
-                        {isUnknown
-                          ? "Coverage will appear here once the engine has at least 3 analogs with forward windows."
-                          : `This query's cone contains ${(trustMetrics.coverage * 100).toFixed(0)}% of analog terminals vs the 80% target. Drift is ${trustMetrics.regimeDrift}.`}
+                        {trustMetrics.reliability.length === 0
+                          ? "Observed frequencies will appear once the engine has at least 3 analogs with forward windows."
+                          : `Bars = observed fraction of analogs at or below each predicted quantile. Dashed ticks mark the predicted value. Coverage P10→P90 is ${(trustMetrics.coverage * 100).toFixed(0)}% vs 80% target; drift is ${trustMetrics.regimeDrift}.`}
                       </div>
                     </div>
-                    <div>
-                      <h3>Honesty note</h3>
-                      <p style={{ fontFamily: "var(--serif)", fontSize: 15, lineHeight: 1.5, color: "var(--ink-2)", fontStyle: "italic" }}>
-                        Similarity is not a guarantee. Markets regime-shift. The cone reports what
-                        <span style={{ fontStyle: "normal", fontWeight: 500 }}> tended to happen</span> after similar
-                        structural patterns &mdash; nothing more, nothing less.
-                      </p>
+                    <div className="trust-panel__narrative">
+                      {/* Grade explanation — thresholds are the source-of-
+                          truth from `the-similarity-app/lib/data.ts
+                          ::gradeFromMetrics`. If those thresholds change
+                          there, they must change here too (or be lifted to
+                          a shared const). Kept inline so the user can see
+                          WHY the grade is what it is without leaving the
+                          panel. */}
+                      <div>
+                        <h3>Grade &middot; {trustMetrics.grade}</h3>
+                        <p className="trust-panel__grade-copy">
+                          Composite letter grade from coverage gap, CRPS,
+                          and hit rate.
+                        </p>
+                        <ul className="trust-panel__grade-list">
+                          <li><b>A</b> · gap &le; 5%, CRPS &le; 0.05, hit &ge; 0.58</li>
+                          <li><b>B</b> · gap &le; 10%, CRPS &le; 0.08, hit &ge; 0.54</li>
+                          <li><b>C</b> · gap &le; 15%, CRPS &le; 0.12, hit &ge; 0.52</li>
+                          <li><b>D / F</b> · anything looser</li>
+                        </ul>
+                        <p className="trust-panel__grade-current">
+                          This query: gap {(Math.abs(trustMetrics.coverage - 0.80) * 100).toFixed(1)}% &middot; CRPS {trustMetrics.crps.toFixed(3)} &middot; hit {trustMetrics.hitRate.toFixed(2)}.
+                        </p>
+                      </div>
+                      <div>
+                        <h3>Honesty note</h3>
+                        <p style={{ fontFamily: "var(--serif)", fontSize: 15, lineHeight: 1.5, color: "var(--ink-2)", fontStyle: "italic" }}>
+                          Similarity is not a guarantee. Markets regime-shift. The cone reports what
+                          <span style={{ fontStyle: "normal", fontWeight: 500 }}> tended to happen</span> after similar
+                          structural patterns &mdash; nothing more, nothing less.
+                        </p>
+                      </div>
                     </div>
                   </div>
                 )}
