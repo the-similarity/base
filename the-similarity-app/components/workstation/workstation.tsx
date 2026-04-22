@@ -1514,10 +1514,17 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
                         {/* Identity line y=x → perfect calibration reference.
                             Plot region: x in [20, 240], y in [140, 20]. */}
                         <line x1="20" y1="140" x2="240" y2="20" stroke="var(--ink-4)" strokeDasharray="3 3" />
-                        {/* Empirical (predicted, observed) scatter. When the
-                            buckets are missing (e.g. unknown grade) render
-                            a "not enough data" placeholder instead of a
-                            misleading synthetic scatter. */}
+                        {/* Empirical (predicted, observed) scatter, coloured
+                            by deviation from the identity line.
+                            •  |obs − pred| < 0.10  → green  (well-calibrated)
+                            •  0.10 ≤ |…| < 0.20    → amber  (watch)
+                            •  |obs − pred| ≥ 0.20  → red    (mis-calibrated)
+                            Prior behaviour painted every dot green, which
+                            hid bad buckets — fixed as of the calibration-
+                            panel audit (obsidian/topics/calibration panel
+                            audit 2026-04-20). Each dot carries a native
+                            <title> so hovering surfaces the raw numbers
+                            without requiring a custom tooltip layer. */}
                         {trustMetrics.reliability.length === 0 ? (
                           <text x="130" y="80" textAnchor="middle" fontSize="11" fill="var(--ink-3)">
                             not enough data
@@ -1526,14 +1533,24 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
                           trustMetrics.reliability.map((pt, i) => {
                             const pClamped = Math.max(0, Math.min(1, pt.predicted));
                             const oClamped = Math.max(0, Math.min(1, pt.observed));
+                            const deviation = Math.abs(oClamped - pClamped);
+                            const color = deviation < 0.10
+                              ? "var(--positive)"
+                              : deviation < 0.20
+                              ? "var(--warn)"
+                              : "var(--negative)";
                             return (
                               <circle
                                 key={i}
                                 cx={20 + pClamped * 220}
                                 cy={140 - oClamped * 120}
                                 r="3.5"
-                                fill="var(--positive)"
-                              />
+                                fill={color}
+                              >
+                                <title>
+                                  {`predicted ${pClamped.toFixed(2)} · observed ${oClamped.toFixed(2)} · deviation ${deviation.toFixed(2)}`}
+                                </title>
+                              </circle>
                             );
                           })
                         )}
