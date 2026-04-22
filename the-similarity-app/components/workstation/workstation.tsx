@@ -623,17 +623,24 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
     || lastSearch.k !== currentK
     || lastSearch.horizon !== currentHorizon;
 
-  // Composite lenses = mean across top analogs
+  // Composite lenses = mean across the EFFECTIVE analog set.
+  // When the user has pinned analogs, these are just the pinned ones —
+  // so the radar/bars show the mean agreement of their curated set,
+  // not the original top-K. This is the whole reason effectiveAnalogs
+  // exists: pinning drives what the workstation displays.
   const compLenses = useMemo(() => {
     const keys = LENS_DEFS.map(d => d.key);
     const out: Record<string, number> = {};
     keys.forEach(k => {
-      out[k] = analogs.reduce((s, a) => s + (a.lenses[k as keyof LensScores] || 0), 0) / (analogs.length || 1);
+      out[k] = effectiveAnalogs.reduce((s, a) => s + (a.lenses[k as keyof LensScores] || 0), 0) / (effectiveAnalogs.length || 1);
     });
     return out as unknown as LensScores;
-  }, [analogs]);
+  }, [effectiveAnalogs]);
 
-  // Cone endpoint statistics for the header metrics
+  // Cone endpoint statistics for the header metrics. Cone itself is
+  // already pin-gated upstream (see the `cone` useMemo), so these
+  // summary stats inherit pin-gating automatically — no further changes
+  // needed here. Kept the dependency list the same.
   const coneStats = useMemo(() => {
     if (!cone || !cone.length) return null;
     const lastP = loadedSeries[windowState.start + windowState.len - 1]?.p ?? 1;
@@ -918,7 +925,10 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
           <div className="main__metrics">
             <div className="metric">
               <span className="label">Composite</span>
-              <span className="v">{(analogs[0]?.composite ?? 0).toFixed(2)}</span>
+              {/* Top-of-set composite score. Reads from effectiveAnalogs so
+                  when the user pins a curated subset, this reports the
+                  best score AMONG the pins, not the original top-K. */}
+              <span className="v">{(effectiveAnalogs[0]?.composite ?? 0).toFixed(2)}</span>
               <span className="d">top match</span>
             </div>
             <div className="metric">
