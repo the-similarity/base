@@ -32,6 +32,7 @@ import {
 } from "../../lib/api";
 import type { CatalogItem } from "../../lib/types";
 import { LineChart, AnalogOverlay } from "./line-chart";
+import { LineChartLW } from "./line-chart-lw";
 import { LensRadar } from "./lens-radar";
 import { LensBars } from "./lens-bars";
 import { Sparkline } from "./sparkline";
@@ -43,6 +44,15 @@ export interface WorkstationSettings {
   horizon: number;
   showAnalogs: string;
   showCone: boolean;
+  /**
+   * Which chart engine renders the main price/cone/analog view.
+   * - "fast" → SVG LineChart, supports draggable query window (default).
+   * - "pro"  → lightweight-charts LineChartLW, read-only window,
+   *   crosshair + pan/zoom via the native canvas engine.
+   * Optional so older persisted settings decode cleanly; read sites must
+   * default via `(settings.chartMode ?? "fast")`.
+   */
+  chartMode?: "fast" | "pro";
 }
 
 interface WorkstationProps {
@@ -903,6 +913,39 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
         </div>
 
         <div className="chart-stack">
+          {/* Chart-mode toggle — "Fast" SVG vs "Pro" lightweight-charts.
+              Sits just above the chart-card so it doesn't collide with the
+              search/top-K row (owned by another agent). Keeping this a tiny
+              right-aligned segmented control keeps it in the same
+              .ws-chartmode pattern as the nearby chip rows. */}
+          <div
+            className="ws-chartmode-row"
+            role="region"
+            aria-label="Chart view mode"
+          >
+            <div className="ws-chartmode" role="tablist" aria-label="Chart view">
+              {([
+                { id: "fast", label: "Fast", hint: "SVG chart, draggable query window" },
+                { id: "pro",  label: "Pro",  hint: "TradingView-grade canvas, read-only window" },
+              ] as const).map(opt => {
+                const active = (settings.chartMode ?? "fast") === opt.id;
+                return (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={active}
+                    title={opt.hint}
+                    className="ws-chartmode__btn"
+                    data-active={active ? "true" : undefined}
+                    onClick={() => onSettings({ ...settings, chartMode: opt.id })}
+                  >
+                    {opt.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
           {showEmptyCatalogBanner && (
             // Empty-state card: backend is live but has zero registered datasets.
             // We still render the synthetic fallback chart below it so the user
@@ -978,20 +1021,29 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
                   </div>
                 </div>
               ) : (
-              <LineChart
-                series={loadedSeries}
-                viewStart={viewRange.start}
-                viewEnd={viewRange.end}
-                window={windowState}
-                onWindowChange={setWindowState}
-                analogsOverlay={analogOverlays}
-                cone={cone}
-                forecastHorizon={settings.horizon || 60}
-                onHover={setCrosshairIdx}
-                crosshairIdx={crosshairIdx}
-                height={380}
-                showCone={settings.showCone !== false}
-              />
+                // Pro view uses lightweight-charts; Fast view uses the SVG chart.
+                // Props are identical so we spread the same object into whichever
+                // component is active — keeps behavior drift between the two
+                // views localised to each renderer's internals.
+                (() => {
+                  const sharedChartProps = {
+                    series: loadedSeries,
+                    viewStart: viewRange.start,
+                    viewEnd: viewRange.end,
+                    window: windowState,
+                    onWindowChange: setWindowState,
+                    analogsOverlay: analogOverlays,
+                    cone,
+                    forecastHorizon: settings.horizon || 60,
+                    onHover: setCrosshairIdx,
+                    crosshairIdx,
+                    height: 380,
+                    showCone: settings.showCone !== false,
+                  };
+                  return (settings.chartMode ?? "fast") === "pro"
+                    ? <LineChartLW {...sharedChartProps} />
+                    : <LineChart {...sharedChartProps} />;
+                })()
               )}
             </div>
           </div>
