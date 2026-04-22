@@ -1022,10 +1022,40 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
    * let the in-memory Set take over — persistence is best-effort, not
    * load-bearing for correctness.
    */
+  /*
+   * Guard flag preventing the first pinKey-load from clobbering the
+   * URL-seeded pin set.
+   *
+   * When a share-link carries `?p=abc,def`, we initialize `pinned` at
+   * mount from those ids. Some time later the first search completes,
+   * which sets `lastSearch` → pinKey → the per-query localStorage load
+   * effect fires. Without this gate, that load would REPLACE the
+   * URL-seeded set with whatever is saved under the first pinKey (often
+   * empty), silently dropping the shared pins.
+   *
+   * We flip the flag to false ONCE after the first pinKey-load runs,
+   * so all subsequent query identity changes (new dataset, new window)
+   * still hydrate from localStorage cleanly.
+   */
+  const urlPinsHonoredRef = useRef<boolean>(
+    (urlStateRef.current.pinned?.length ?? 0) > 0,
+  );
+
   useEffect(() => {
     if (!pinKey) return;
     // Block any save until we've finished loading this key.
     setPinHydrated(false);
+
+    // First-load URL priority: if the share-link carried pins, skip the
+    // localStorage load for this pinKey so the URL pins survive. We
+    // still set pinHydrated = true so the save effect takes over and
+    // persists the URL pins under the pinKey for future sessions.
+    if (urlPinsHonoredRef.current) {
+      urlPinsHonoredRef.current = false;
+      setPinHydrated(true);
+      return;
+    }
+
     try {
       const raw = localStorage.getItem(pinKey);
       if (raw) {
