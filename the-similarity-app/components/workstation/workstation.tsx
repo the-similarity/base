@@ -519,6 +519,37 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
    */
   const currentK = settings.kAnalogs || 6;
   const currentHorizon = settings.horizon || 60;
+
+  /*
+   * View-range sanity check.
+   *
+   * When the user picks a long horizon (e.g. 365 bars on daily data),
+   * the forecast cone extends ~17 months past the query window. If
+   * viewRange.end is shorter than `queryEnd + horizon + 5`, the right
+   * edge of the cone gets clipped off the chart and the visualization
+   * lies about how long the forecast runs.
+   *
+   * Guardrail: when horizon or windowState changes, if the cone would
+   * be clipped, extend viewRange.end just enough to fit it (+5 bar
+   * pad). We NEVER contract the view — that would yank context out
+   * from under the user. We also clamp to the series length so we
+   * don't scroll past the end of data.
+   *
+   * This runs in an effect rather than inline in setViewRange because
+   * horizon changes come from onSettings (owned by app/page.tsx) and
+   * we can't intercept them here — we have to react.
+   */
+  useEffect(() => {
+    const queryEnd = windowState.start + windowState.len - 1;
+    const minRequiredEnd = Math.min(N - 1, queryEnd + currentHorizon + 5);
+    if (viewRange.end < minRequiredEnd) {
+      setViewRange(v => ({ ...v, end: minRequiredEnd }));
+    }
+    // Only re-run when the inputs to the clip-check change. viewRange.end
+    // is intentionally omitted from deps to avoid a feedback loop (we
+    // write to it inside this effect).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentHorizon, windowState.start, windowState.len, N]);
   const isDirty = !lastSearch
     || lastSearch.start !== windowState.start
     || lastSearch.len !== windowState.len
@@ -871,8 +902,123 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
                 </button>
               ))}
             </div>
+            {/* ── Horizon selector ──────────────────────────────────────
+                Presets: 30/60/120/180/250/365 bars. The backend (FastAPI
+                /search) accepts any forward_bars value — this control is
+                purely a UI affordance to drive `settings.horizon` without
+                opening the tweaks panel.
+
+                Behavior:
+                  - Changing the value updates settings via onSettings;
+                    horizon is a field on WorkstationSettings that already
+                    persists through localStorage in app/page.tsx, so no
+                    new persistence wiring is needed.
+                  - This flips isDirty (see the derivation below which
+                    already diffs lastSearch.horizon vs currentHorizon),
+                    which makes the Search button pulse. Searches do NOT
+                    auto-fire — user clicks Search or presses Enter/r.
+                  - The `d` suffix on each button disambiguates the unit
+                    (bars-on-a-daily-series) without cluttering the label.
+                  - Tabular-num is applied via the .ws-horizon__btn CSS so
+                    three-digit vs two-digit values don't cause width jitter.
+
+                Coordination note: top-K is on the left of the search row;
+                Agent D is adding a chart-mode toggle elsewhere in this file.
+                This selector stays adjacent to .ws-topk to keep "what the
+                search computes" controls grouped together. */}
+            <span className="label ws-search-row__label ws-search-row__label--secondary">
+              Horizon
+            </span>
+            <div
+              className="ws-horizon"
+              role="radiogroup"
+              aria-label="Forecast horizon in bars"
+            >
+              {[30, 60, 120, 180, 250, 365].map(h => (
+                <button
+                  key={h}
+                  type="button"
+                  role="radio"
+                  aria-checked={currentHorizon === h}
+                  className="ws-horizon__btn"
+                  data-active={currentHorizon === h ? "true" : undefined}
+                  onClick={() => onSettings({ ...settings, horizon: h })}
+                  title={`Forecast ${h} bars forward`}
+                >
+                  {h}d
+                </button>
+              ))}
+            </div>
+            {/*
+             * View-range clip hint.
+             *
+             * The forecast cone is drawn from query_end → query_end + horizon
+             * on the chart's x-axis. If the current viewRange ends before
+             * that, the right end of the cone gets clipped and the user
+             * sees a truncated forecast. We surface a passive hint here so
+             * the user knows *why* the cone looks short, without being
+             * intrusive (it's just a small info icon with a tooltip — no
+             * modal, no auto-scroll).
+             *
+             * Math: viewRange.end must be at least `queryEnd + horizon + 5`
+             * for the cone to sit comfortably inside the view. We add the
+             * 5-bar pad so the terminal marker isn't flush against the
+             * right edge.
+             */}
+            {(() => {
+              const queryEnd = windowState.start + windowState.len - 1;
+              const coneEnd = queryEnd + currentHorizon;
+              const wouldClip = viewRange.end < coneEnd + 5;
+              if (!wouldClip) return null;
+              return (
+                <span
+                  className="ws-horizon__clip-hint"
+                  role="note"
+                  aria-label="View range warning"
+                  title="View range doesn't cover forecast — expand to see the full cone."
+                >
+                  <svg width="11" height="11" viewBox="0 0 12 12" aria-hidden="true">
+                    <circle cx="6" cy="6" r="5" fill="none" stroke="currentColor" strokeWidth="1.2" />
+                    <line x1="6" y1="4" x2="6" y2="7" stroke="currentColor" strokeWidth="1.2" />
+                    <circle cx="6" cy="9" r="0.7" fill="currentColor" />
+                  </svg>
+                </span>
+              );
+            })()}
           </div>
           <div className="ws-search-row__group ws-search-row__group--end">
+            {/*
+             * Fewer-matches warning.
+             *
+             * From the_similarity/core/projector.py: a candidate match is
+             * dropped when `match.end_idx + forward_bars > len(history)` —
+             * i.e. there aren't enough post-match bars to realize the
+             * forecast. At long horizons (180, 250, 365) this can
+             * collapse the analog set dramatically on short series.
+             *
+             * Guard conditions:
+             *   - Only render AFTER a search has run (lastSearch !== null).
+             *     Before the first search it would be misleading ("0 of 6"
+             *     when we simply haven't searched yet).
+             *   - Only render when we got strictly fewer results than the
+             *     requested K. Equal or greater is a clean run.
+             *   - Not while a search is in flight (stale while refreshing).
+             *
+             * The warning is inline-muted rather than a banner because it
+             * reflects a data-property (history depth), not an error
+             * state. Quants can read it, digest it, and decide whether
+             * to pick a shorter horizon or accept the smaller analog set.
+             */}
+            {!searching && lastSearch !== null && searchedAnalogs !== null && searchedAnalogs.length < lastSearch.k && (
+              <span
+                className="ws-search-row__fewer-matches mono"
+                role="note"
+                aria-live="polite"
+              >
+                Only {searchedAnalogs.length} of {lastSearch.k} analogs have
+                enough forward history at this horizon.
+              </span>
+            )}
             {lastRunAt && (
               <span className="ws-search-row__lastrun mono" aria-live="polite">
                 Last run &middot; {formatRelativeTime(lastRunAt, nowTick)}

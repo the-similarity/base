@@ -730,6 +730,83 @@ input, select, textarea { font: inherit; color: inherit; }
   color: var(--bg);
 }
 
+/* Horizon selector — forecast bars forward (30/60/120/180/250/365).
+   Mirrors .ws-topk visually so the "what to search" controls read as
+   a coherent row. The single differentiator is tabular-num numerics:
+   at 6 presets with 3-digit values (120, 180, 250, 365), proportional
+   figures would cause visible width jitter as the active button swaps. */
+.ws-horizon {
+  display: inline-flex;
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  overflow: hidden;
+  background: var(--bg);
+}
+.ws-horizon__btn {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: .04em;
+  padding: 3px 8px;
+  border: none;
+  border-right: 1px solid var(--rule);
+  background: transparent;
+  color: var(--ink-2);
+  cursor: pointer;
+  min-width: 32px;
+  /* Tabular figures keep 30d / 365d aligned in the segmented row so
+     swapping the active button doesn't jiggle neighbors. */
+  font-variant-numeric: tabular-nums;
+}
+.ws-horizon__btn:last-child { border-right: none; }
+.ws-horizon__btn:hover:not([data-active="true"]) { background: var(--bg-hover); }
+.ws-horizon__btn[data-active="true"] {
+  background: var(--ink);
+  color: var(--bg);
+}
+
+/* Secondary micro-cap label inside the same search-row group. The
+   primary .ws-search-row__label is bright ink; this one is muted so
+   "Top K" visually anchors the row and "Horizon" reads as the
+   follow-on control, not a peer heading. */
+.ws-search-row__label--secondary {
+  margin: 0 0 0 var(--s-2);
+  color: var(--ink-3);
+}
+
+/* Passive clip-hint icon surfaced next to the horizon selector when
+   viewRange.end would crop the cone. Purely informational — a tiny
+   amber glyph with a :title tooltip. Sits inline in the flex group,
+   no layout shift. */
+.ws-horizon__clip-hint {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  color: var(--warn);
+  cursor: help;
+  /* Slight left margin separates the icon from the last horizon button
+     without forcing an ugly gap in the segmented control itself. */
+  margin-left: 4px;
+}
+
+/* Fewer-matches warning — the search returned < requested K because
+   horizon exceeds available post-match history. Mirrors the last-run
+   timestamp typography (muted mono) because it's data-context, not
+   an error: a quant can glance at it and either lower the horizon
+   or accept the smaller N. */
+.ws-search-row__fewer-matches {
+  font-size: 10.5px;
+  color: var(--warn);
+  letter-spacing: .02em;
+  /* max-width keeps the message from pushing the Search button off
+     the row on midsize screens; it wraps onto the second flex row
+     under the search controls instead. */
+  max-width: 28ch;
+  line-height: 1.35;
+  text-align: right;
+}
+
 /* Primary Search button. Three visual states:
      - neutral (default, !isDirty)
      - dirty (accent border + dot + subtle pulse)
