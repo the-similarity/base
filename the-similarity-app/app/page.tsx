@@ -133,6 +133,21 @@ export default function Page() {
     // of the top-K analogs from the chart. Promote it to `"all"` once
     // so returning users see every match as its own forward line.
     if (saved.showAnalogs === "top3") saved.showAnalogs = "all";
+    // Force-hide the P10-P90 cone ONCE for returning users. Anyone who
+    // loaded the app before the default flip has `showCone: true`
+    // baked into localStorage and keeps seeing the band no matter
+    // what we change in DEFAULTS. A one-shot migration flag stops us
+    // from clobbering a user who later turns the cone back on via
+    // the tweaks panel — we only flip to false if we haven't already
+    // run this migration on their machine.
+    try {
+      if (!localStorage.getItem("ts-migration-hide-cone")) {
+        if (saved.showCone === true) saved.showCone = false;
+        localStorage.setItem("ts-migration-hide-cone", "1");
+      }
+    } catch {
+      // localStorage unavailable — no-op; fall back to the raw saved value.
+    }
     // `"pro"` chart mode was replaced by `"candle"` (which still uses
     // lightweight-charts, but renders OHLC candlesticks when available).
     // Cast the saved value loosely since stale localStorage may carry
