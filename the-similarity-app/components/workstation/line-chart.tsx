@@ -226,6 +226,31 @@ export function LineChart({
       if (x < padL || x > padL + plotW || y < padT || y > padT + plotH) return;
       e.preventDefault();
 
+      // ── Horizontal trackpad scroll → pan ──────────────────────────
+      // Two-finger horizontal swipe on a trackpad arrives as wheel events
+      // with non-zero `deltaX`. Route those to a pan (same semantics as
+      // dragging the plot body) so the Fast chart matches lightweight-
+      // charts' trackpad behavior. We prefer the dominant axis so a
+      // diagonal scroll doesn't fight itself: |dx| > |dy| → pan,
+      // otherwise fall through to the zoom branch.
+      //
+      // Scroll-direction convention: deltaX > 0 (two fingers right)
+      // advances the view FORWARD in time, same as holding the
+      // plot-body and dragging LEFT. Matches Finder / Chrome natural
+      // scroll expectations.
+      if (Math.abs(e.deltaX) > Math.abs(e.deltaY) && onRangeChange) {
+        const width = viewEnd - viewStart;
+        if (width < 2) return;
+        // Scale deltaX (in px) to bars by the same ratio the chart uses.
+        const dBars = Math.round((e.deltaX / plotW) * width);
+        if (dBars === 0) return;
+        const N = series.length;
+        const maxAnchor = Math.max(0, N - 1);
+        const newStart = Math.max(0, Math.min(maxAnchor, viewStart + dBars));
+        onRangeChange({ start: newStart, end: newStart + width });
+        return;
+      }
+
       // Normalize wheel delta. Trackpads report small fractional deltas,
       // mice report ~100 per notch — `deltaY` sign is all we need.
       // zoomFactor < 1 = zoom IN, > 1 = zoom OUT.
