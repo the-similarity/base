@@ -133,13 +133,25 @@ export default function Page() {
     // of the top-K analogs from the chart. Promote it to `"all"` once
     // so returning users see every match as its own forward line.
     if (saved.showAnalogs === "top3") saved.showAnalogs = "all";
+    // `"pro"` chart mode was replaced by `"candle"` (which still uses
+    // lightweight-charts, but renders OHLC candlesticks when available).
+    // Cast the saved value loosely since stale localStorage may carry
+    // a mode that's no longer in the union.
+    if ((saved as { chartMode?: string }).chartMode === "pro") {
+      (saved as { chartMode?: string }).chartMode = "candle";
+    }
     // URL takes priority per-key over both defaults and saved.
     const u = parseUrlState(window.location.search);
     const fromUrl: Partial<WorkstationSettings> = {};
     if (u.theme !== undefined) fromUrl.theme = u.theme;
     if (u.k !== undefined) fromUrl.kAnalogs = u.k;
     if (u.horizon !== undefined) fromUrl.horizon = u.horizon;
-    if (u.chartMode !== undefined) fromUrl.chartMode = u.chartMode;
+    if (u.chartMode !== undefined) {
+      // URL may still carry a legacy "pro" token; promote to "candle"
+      // on the way into settings, same rule as the localStorage migration
+      // a few lines above.
+      fromUrl.chartMode = u.chartMode === "pro" ? "candle" : u.chartMode;
+    }
     if (u.showAnalogs !== undefined) fromUrl.showAnalogs = u.showAnalogs;
     return { ...DEFAULTS, ...saved, ...fromUrl };
   });

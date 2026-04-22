@@ -49,6 +49,7 @@ import {
   createChart,
   AreaSeries,
   LineSeries,
+  CandlestickSeries,
   CrosshairMode,
   LineStyle,
   type IChartApi,
@@ -56,9 +57,11 @@ import {
   type UTCTimestamp,
   type LineData,
   type AreaData,
+  type CandlestickData,
   type Time,
 } from "lightweight-charts";
 import { DataPoint, ConePoint } from "../../lib/data";
+import type { OhlcData } from "../../lib/types";
 import type { AnalogOverlay } from "./line-chart";
 
 /**
@@ -99,6 +102,18 @@ export interface LineChartLWProps {
    * a "preview" emphasis on the matching overlay line. Mirrors
    * `hoveredAnalogId` on the Fast view. Null when nothing is hovered. */
   hoveredAnalogId?: string | null;
+  /**
+   * Optional OHLC payload for candle mode. Null / missing when the
+   * dataset is quote-only or the `/ohlc` endpoint failed. Indices are
+   * aligned with `series` so the chart can pair bars by index.
+   */
+  ohlc?: OhlcData | null;
+  /**
+   * When true AND `ohlc` is provided, render candlesticks for the main
+   * price instead of a line. When true but `ohlc` is missing, silently
+   * falls back to the line renderer so the chart never goes blank.
+   */
+  candleMode?: boolean;
 }
 
 /**
@@ -124,6 +139,9 @@ function readThemeTokens(): {
   coneFill: string;
   coneLine: string;
   accent: string;
+  /** Candle up/down colors — mirror globals.css --positive / --negative. */
+  positive: string;
+  negative: string;
   /** Six-slot rank palette — `palette[0]` is rank 1, etc. Mirrors the
    *  --c-analog-1..6 tokens introduced by Agent G; resolved at theme
    *  switch time so both light and dark forks pick up the right shade. */
@@ -146,6 +164,8 @@ function readThemeTokens(): {
       coneFill: "rgba(20,19,15,0.08)",
       coneLine: "#6b6858",
       accent: "#5a2b2b",
+      positive: "#1c5b3d",
+      negative: "#8a2a2a",
       palette: [
         "#5a2b2b", // oxblood (rank 1)
         "#8a6200", // amber
@@ -183,6 +203,8 @@ function readThemeTokens(): {
     coneFill: v("--c-cone-fill", "rgba(20,19,15,0.08)"),
     coneLine: v("--c-cone-line", "#6b6858"),
     accent,
+    positive: v("--positive", "#1c5b3d"),
+    negative: v("--negative", "#8a2a2a"),
     palette: [
       v("--c-analog-1", "#5a2b2b"),
       v("--c-analog-2", "#8a6200"),
@@ -398,10 +420,20 @@ export function LineChartLW({
   showWindow = true,
   showCone = true,
   hoveredAnalogId = null,
+  ohlc = null,
+  candleMode = false,
 }: LineChartLWProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const priceSeriesRef = useRef<ISeriesApi<"Line"> | null>(null);
+  /*
+   * Candle series sibling to `priceSeriesRef`. Created at chart init
+   * alongside the line series; exactly one of the two carries data at
+   * any time (driven by `candleMode` + OHLC availability). Keeping both
+   * alive avoids a full chart rebuild when the user toggles modes —
+   * switching is a `setData([])` on the inactive one.
+   */
+  const candleSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
   const coneP90Ref = useRef<ISeriesApi<"Area"> | null>(null);
   const coneP10Ref = useRef<ISeriesApi<"Area"> | null>(null);
   const coneP75Ref = useRef<ISeriesApi<"Area"> | null>(null);
@@ -518,6 +550,19 @@ export function LineChartLW({
       crosshairMarkerVisible: true,
       crosshairMarkerRadius: 3,
     });
+    // Candle series — added alongside the line so mode toggles are a
+    // cheap setData swap. Colors use the product positive/negative
+    // palette so ups/downs read consistently with the rest of the app.
+    const candle = chart.addSeries(CandlestickSeries, {
+      upColor: tokens.positive,
+      downColor: tokens.negative,
+      borderUpColor: tokens.positive,
+      borderDownColor: tokens.negative,
+      wickUpColor: tokens.positive,
+      wickDownColor: tokens.negative,
+      priceLineVisible: false,
+      lastValueVisible: true,
+    });
 
     coneP90Ref.current = p90;
     coneP10Ref.current = p10;
@@ -525,6 +570,7 @@ export function LineChartLW({
     coneP25Ref.current = p25;
     medianSeriesRef.current = median;
     priceSeriesRef.current = price;
+    candleSeriesRef.current = candle;
 
     // Resize observer — keeps the chart width pinned to its container.
     const ro = new ResizeObserver((entries) => {
@@ -539,6 +585,7 @@ export function LineChartLW({
       chart.remove();
       chartRef.current = null;
       priceSeriesRef.current = null;
+      candleSeriesRef.current = null;
       coneP90Ref.current = null;
       coneP10Ref.current = null;
       coneP75Ref.current = null;
@@ -566,6 +613,14 @@ export function LineChartLW({
         },
       });
       priceSeriesRef.current?.applyOptions({ color: t.query });
+      candleSeriesRef.current?.applyOptions({
+        upColor: t.positive,
+        downColor: t.negative,
+        borderUpColor: t.positive,
+        borderDownColor: t.negative,
+        wickUpColor: t.positive,
+        wickDownColor: t.negative,
+      });
       medianSeriesRef.current?.applyOptions({ color: t.coneLine });
       coneP90Ref.current?.applyOptions({
         topColor: t.coneFill,
@@ -606,11 +661,38 @@ export function LineChartLW({
   // `viewEnd` can exceed `series.length`, giving the forecast cone
   // somewhere to render when the query anchor is at the end of history.
   useEffect(() => {
-    const s = priceSeriesRef.current;
+    const lineS = priceSeriesRef.current;
+    const candleS = candleSeriesRef.current;
     const chart = chartRef.current;
-    if (!s || !chart || series.length === 0) return;
-    const data = series.map(toLineData);
-    s.setData(data);
+    if (!lineS || !candleS || !chart || series.length === 0) return;
+
+    // Decide which series holds data for this mode. Candle mode requires
+    // an OHLC payload aligned with `series`; if the dataset is quote-only
+    // we silently fall back to the line renderer (the parent passes
+    // candleMode=true anyway, but ohlc is missing).
+    const useCandles = !!candleMode && !!ohlc
+      && ohlc.close.length === series.length
+      && ohlc.open.length === series.length
+      && ohlc.high.length === series.length
+      && ohlc.low.length === series.length;
+
+    if (useCandles) {
+      const rows: CandlestickData<UTCTimestamp>[] = [];
+      for (let i = 0; i < series.length; i++) {
+        rows.push({
+          time: Math.floor(series[i].d.getTime() / 1000) as UTCTimestamp,
+          open: ohlc!.open[i],
+          high: ohlc!.high[i],
+          low: ohlc!.low[i],
+          close: ohlc!.close[i],
+        });
+      }
+      candleS.setData(rows);
+      lineS.setData([]);
+    } else {
+      lineS.setData(series.map(toLineData));
+      candleS.setData([]);
+    }
 
     const N = series.length;
     const vs = series[Math.max(0, viewStart)];
@@ -628,7 +710,7 @@ export function LineChartLW({
       from: Math.floor(vs.d.getTime() / 1000) as Time,
       to: rightTimeSec as Time,
     });
-  }, [series, viewStart, viewEnd]);
+  }, [series, viewStart, viewEnd, ohlc, candleMode]);
 
   // ── Push cone data ───────────────────────────────────────────────────
   useEffect(() => {

@@ -27,10 +27,10 @@ import {
   type CalibrationResult,
 } from "../../lib/data";
 import {
-  isApiAvailable, fetchCatalog, fetchSeries, searchApi,
+  isApiAvailable, fetchCatalog, fetchSeries, fetchOhlc, searchApi,
   mapMatchesToAnalogs, mapForecastToCone, mapScoreBreakdownToLenses,
 } from "../../lib/api";
-import type { CatalogItem } from "../../lib/types";
+import type { CatalogItem, OhlcData } from "../../lib/types";
 import {
   parseUrlState,
   serializeUrlState,
@@ -52,13 +52,15 @@ export interface WorkstationSettings {
   showCone: boolean;
   /**
    * Which chart engine renders the main price/cone/analog view.
-   * - "fast" → SVG LineChart, supports draggable query window (default).
-   * - "pro"  → lightweight-charts LineChartLW, read-only window,
-   *   crosshair + pan/zoom via the native canvas engine.
+   * - "fast"   → SVG LineChart, supports draggable query window (default).
+   * - "candle" → lightweight-charts LineChartLW in candle mode — uses
+   *              the OHLC payload from `/ohlc` to render candlesticks
+   *              instead of a line. Falls back to line rendering when
+   *              the backend didn't return OHLC for this dataset.
    * Optional so older persisted settings decode cleanly; read sites must
    * default via `(settings.chartMode ?? "fast")`.
    */
-  chartMode?: "fast" | "pro";
+  chartMode?: "fast" | "candle";
 }
 
 interface WorkstationProps {
@@ -308,6 +310,14 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
   const [loadedSeries, setLoadedSeries] = useState<DataPoint[]>(SERIES);
   const [loadedDates, setLoadedDates] = useState<string[]>([]);
   const [loadedValues, setLoadedValues] = useState<number[]>([]);
+  /*
+   * OHLC companion to `loadedSeries`. Only consumed by the Pro
+   * (lightweight-charts) view when candle mode is active; null when
+   * the dataset is quote-only or the OHLC endpoint is unreachable.
+   * Kept as a separate state so a missing OHLC fetch never blocks the
+   * main line-chart render.
+   */
+  const [loadedOhlc, setLoadedOhlc] = useState<OhlcData | null>(null);
   const [datasetOpen, setDatasetOpen] = useState(false);
   // Free-form filter query for the dataset dropdown search input.
   // Scoped to the dropdown panel — closing the dropdown resets it so
@@ -720,13 +730,23 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
       const [assetClass, symbol, timeframe] = parts;
 
       try {
-        const res = await fetchSeries(assetClass, symbol, timeframe);
+        // Fetch series + OHLC in parallel. OHLC is best-effort: if the
+        // backend doesn't expose candles for this timeframe, we just
+        // render as a line. `Promise.allSettled` keeps the failure
+        // isolated so the line view still loads.
+        const [seriesRes, ohlcRes] = await Promise.allSettled([
+          fetchSeries(assetClass, symbol, timeframe),
+          fetchOhlc(assetClass, symbol, timeframe),
+        ]);
         if (cancelled) return;
+        if (seriesRes.status !== "fulfilled") throw seriesRes.reason;
+        const res = seriesRes.value;
 
         const dp = seriesToDataPoints(res.values, res.dates);
         setLoadedSeries(dp);
         setLoadedDates(res.dates);
         setLoadedValues(res.values);
+        setLoadedOhlc(ohlcRes.status === "fulfilled" ? ohlcRes.value : null);
 
         const newN = dp.length;
         const u = urlStateRef.current;
@@ -2058,7 +2078,7 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
             <div className="ws-chartmode" role="tablist" aria-label="Chart view">
               {([
                 { id: "fast", label: "Fast", hint: "SVG chart, draggable query window" },
-                { id: "pro",  label: "Pro",  hint: "TradingView-grade canvas, read-only window" },
+                { id: "candle", label: "Candle", hint: "TradingView-grade canvas, OHLC candles" },
               ] as const).map(opt => {
                 const active = (settings.chartMode ?? "fast") === opt.id;
                 return (
@@ -2217,9 +2237,19 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
                     // enter/leave handlers in the strip below.
                     hoveredAnalogId: hoverAnalog,
                   };
-                  return (settings.chartMode ?? "fast") === "pro"
-                    ? <LineChartLW {...sharedChartProps} />
-                    : <LineChart {...sharedChartProps} />;
+                  const mode = settings.chartMode ?? "fast";
+                  if (mode === "fast") return <LineChart {...sharedChartProps} />;
+                  // Pro + Candle share the lightweight-charts renderer; the
+                  // candle flag + ohlc payload decide whether to render
+                  // a line or OHLC candles. Missing OHLC silently falls
+                  // back to the line renderer inside LineChartLW.
+                  return (
+                    <LineChartLW
+                      {...sharedChartProps}
+                      ohlc={loadedOhlc}
+                      candleMode={mode === "candle"}
+                    />
+                  );
                 })()
               )}
             </div>

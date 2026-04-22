@@ -63,7 +63,12 @@ const MAX_HORIZON = 2000;
 const MAX_QUERY_LEN = 2000;
 
 // Whitelisted enum values for fields that must round-trip a specific set.
-const CHART_MODES = ["fast", "pro"] as const;
+// `pro` was the lightweight-charts line mode and has been superseded by
+// `candle`, which uses the same renderer but draws OHLC candles when a
+// dataset exposes them. We keep both strings valid in parse so older
+// share-links don't suddenly break on the client — pre-migration "pro"
+// is mapped to "candle" during settings hydration in app/page.tsx.
+const CHART_MODES = ["fast", "pro", "candle"] as const;
 const SHOW_ANALOGS = ["top3", "all", "pinned"] as const;
 const THEMES = ["light", "dark"] as const;
 
@@ -80,7 +85,7 @@ export interface WorkstationUrlState {
   queryLen?: number;
   k?: number;
   horizon?: number;
-  chartMode?: "fast" | "pro";
+  chartMode?: "fast" | "pro" | "candle";
   viewStart?: number;
   viewEnd?: number;
   pinned?: string[];
