@@ -139,8 +139,22 @@ function generateLensNote(l: LensScores): string {
 
 /**
  * Map the API's ForecastResponse to the workstation's ConePoint[] format.
- * The API returns percentile curves keyed by percentile number (10, 25, 50, 75, 90).
- * We convert these to absolute price levels relative to queryLastPrice.
+ *
+ * Unit contract: the backend `/search` endpoint returns percentile curves
+ * expressed as *centered cumulative returns* — i.e. `(future_price - anchor)
+ * / anchor`. A value of `0.05` means "5% above the anchor price", not
+ * "5 percent of the anchor price". See `the_similarity/core/projector.py`
+ * (function `project`, line `returns = (future - anchor) / anchor`).
+ *
+ * LineChart / ConePoint expects *absolute price levels* on the same scale
+ * as the main series, so we convert with `(1 + return) * anchor`. The
+ * previous implementation used `return * anchor`, which treated the curves
+ * as fractions of anchor rather than deltas — the cone rendered near zero
+ * on the raw-price axis (the 'cone drawn at the bottom' bug) and the
+ * derived `p50Return` metric printed impossible values like −104.8%.
+ *
+ * Default sentinel is 0 (no move from anchor), not 1: if the backend drops
+ * a bar, the cone stays pinned at the anchor instead of jumping to 2×.
  */
 export function mapForecastToCone(
   forecast: ForecastResult,
@@ -153,18 +167,18 @@ export function mapForecastToCone(
   const p75 = forecast.curves["75"] ?? [];
   const p90 = forecast.curves["90"] ?? [];
 
+  // Convert centered returns to absolute prices: price = (1 + r) * anchor.
+  const toPrice = (r: number | undefined) => (1 + (r ?? 0)) * queryLastPrice;
+
   const cone: ConePoint[] = [];
   for (let t = 0; t < bars; t++) {
-    // API curves are cumulative return ratios — multiply by last price
-    // to get absolute price levels. If curves are already absolute, the
-    // queryLastPrice factor acts as a scaling anchor.
     cone.push({
       t,
-      p10: (p10[t] ?? 1) * queryLastPrice,
-      p25: (p25[t] ?? 1) * queryLastPrice,
-      p50: (p50[t] ?? 1) * queryLastPrice,
-      p75: (p75[t] ?? 1) * queryLastPrice,
-      p90: (p90[t] ?? 1) * queryLastPrice,
+      p10: toPrice(p10[t]),
+      p25: toPrice(p25[t]),
+      p50: toPrice(p50[t]),
+      p75: toPrice(p75[t]),
+      p90: toPrice(p90[t]),
     });
   }
   return cone;
