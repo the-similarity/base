@@ -388,6 +388,57 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
   }, [isOnline, loadedValues, loadedDates, loadedSeries, windowState.start, windowState.len, settings.kAnalogs, settings.horizon]);
 
   /*
+   * Live ref to the latest runSearch closure.
+   *
+   * The keyboard-shortcut effect below is attached once on mount (empty
+   * deps) to mirror the style used in `app/page.tsx` for jump/theme
+   * chords — that avoids tearing down and reinstalling listeners on
+   * every render. But a stale closure would call the FIRST runSearch
+   * forever with stale snapshot inputs; the ref solves that by always
+   * pointing at the latest closure.
+   */
+  const runSearchRef = useRef(runSearch);
+  useEffect(() => { runSearchRef.current = runSearch; }, [runSearch]);
+
+  /*
+   * Keyboard shortcut: `Enter` or `r` re-runs the search.
+   *
+   * Matches the style of the top-level shortcuts in `app/page.tsx`
+   * (t = theme, Shift+T = tweaks, g+letter = jump). We skip the
+   * shortcut when focus is in an editable element so typing "r" into
+   * a future text input wouldn't hijack the keystroke.
+   *
+   * We also skip when any modifier is held so Cmd+R (browser reload)
+   * and Cmd+Enter (future send-command shortcuts) keep working.
+   */
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      const tag = target?.tagName;
+      // Don't hijack keystrokes inside editable elements.
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      if (target && target.isContentEditable) return;
+      // Skip if any modifier is pressed — leave those for the browser / OS.
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+      if (e.key === "Enter" || e.key === "r" || e.key === "R") {
+        // Don't preventDefault on plain "r" because of the existing `g r`
+        // jump chord in the root page — but for the shortcut to actually
+        // fire on standalone "r" we need to not conflict. The chord key
+        // handler at the page level sets `lastG` only when `g` was just
+        // pressed; a standalone `r` without a preceding `g` does nothing
+        // there, so re-using it here is safe. We still call
+        // preventDefault for `Enter` to avoid default button activation
+        // on any focused element.
+        if (e.key === "Enter") e.preventDefault();
+        runSearchRef.current();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  /*
    * One-shot initial search on mount.
    *
    * Previously the component auto-fired an API search 500ms after every
