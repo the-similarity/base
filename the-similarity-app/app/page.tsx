@@ -416,10 +416,9 @@ export default function Page() {
             <span className="mono" style={{ fontSize: 10, fontWeight: 600 }}>LN</span>
           </button>
         </div>
-        <div className="marquee__right">
-          <span className="dot" />
-          <span>engine live</span>
-        </div>
+        {/* The "engine live" status pill was removed — it was decorative,
+            not wired to a real health check, so leaving it on-screen was
+            theater. The account/tools cluster above ends the bar now. */}
       </div>
 
       {/* ── Page content ───────────────────────────────────────── */}
