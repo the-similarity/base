@@ -53,7 +53,15 @@ app.include_router(state_router)
 app.include_router(backtest_router)
 
 
+# Health probe — registered on both /health and /healthz.
+#
+# `/healthz` is the Kubernetes-style convention and is what the frontend
+# probes on mount (the-similarity-app/lib/api.ts). Without this alias the
+# frontend flips into "API offline" / synthetic-fallback mode even when
+# the backend is up and healthy. `/health` is kept for any existing
+# operator tooling that already points at it.
 @app.get("/health")
+@app.get("/healthz")
 def health() -> dict[str, str]:
     return {
         "status": "ok",
