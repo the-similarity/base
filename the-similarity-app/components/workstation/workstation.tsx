@@ -486,6 +486,61 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
   const [detailAnalogId, setDetailAnalogId] = useState<string | null>(null);
   const [useAsQueryBanner, setUseAsQueryBanner] = useState<string | null>(null);
 
+  /*
+   * Share-link toast state.
+   *
+   * `shareToast` is non-null while the "Link copied" confirmation is on
+   * screen, and null when it's dismissed. It auto-dismisses after 2s via
+   * a one-shot setTimeout in the ShareToast component. We use a React
+   * state flag (not imperative DOM) so the toast participates cleanly in
+   * concurrent re-renders and unmount cleanup.
+   */
+  const [shareToast, setShareToast] = useState<string | null>(null);
+
+  /*
+   * Share-link handler.
+   *
+   * Copies the current URL (which the URL-writer effect keeps in sync
+   * with workstation state) to the clipboard, shows a transient "Link
+   * copied" toast, and dispatches a `ts:share-link-copied` custom event
+   * so a future analytics layer can observe the action without being
+   * coupled to this component.
+   *
+   * Fallback path: `navigator.clipboard.writeText` requires a secure
+   * context (HTTPS or localhost) and user-gesture on some browsers. If
+   * it's unavailable or rejects, we still show the toast but with a
+   * "fallback" label so the user knows to copy manually. We don't throw;
+   * a broken clipboard shouldn't break the UI.
+   */
+  const onShareClick = useCallback(() => {
+    if (typeof window === "undefined") return;
+    const href = window.location.href;
+    // Best-effort clipboard write. The legacy execCommand("copy") path
+    // would need a selection + textarea dance — we don't bother because
+    // modern Next deployments always run in a secure context.
+    const writeClipboard = async () => {
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(href);
+          setShareToast("Link copied \u00B7 pastes to colleague");
+        } else {
+          // Fallback label: URL isn't copied but the user sees a hint.
+          setShareToast("Copy this URL from your address bar");
+        }
+      } catch {
+        setShareToast("Copy this URL from your address bar");
+      }
+      try {
+        window.dispatchEvent(
+          new CustomEvent("ts:share-link-copied", { detail: { href } }),
+        );
+      } catch {
+        // CustomEvent construction can throw in some sandboxed iframes.
+      }
+    };
+    void writeClipboard();
+  }, []);
+
   const dismissBanner = useCallback((id: string) => {
     setDismissedBanners(prev => {
       const next = new Set(prev);
@@ -1894,6 +1949,45 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
                 </>
               )}
             </button>
+            {/*
+             * Share button — copies the current URL to clipboard.
+             *
+             * The URL is kept in sync with workstation state by the
+             * debounced writer effect above, so clicking Share at any
+             * moment yields a link that restores EXACTLY what the user
+             * is looking at. A 400ms debounce means the user's most
+             * recent interaction is flushed before they click Share —
+             * in practice imperceptible.
+             *
+             * Visual: mirrors .ws-search-btn layout but styled as a
+             * secondary / bordered button so it doesn't compete with
+             * the primary Search CTA. Icon + "Share" label keeps the
+             * affordance discoverable without cluttering the row.
+             */}
+            <button
+              type="button"
+              className="ws-share-btn"
+              onClick={onShareClick}
+              aria-label="Copy share link to clipboard"
+              title="Copy share link — restores this exact view for a colleague"
+            >
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 12 12"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.3"
+                aria-hidden="true"
+              >
+                {/* Paperclip / link glyph — two overlapping rounded rects
+                    approximating a share/link affordance without pulling
+                    in an icon library. */}
+                <path d="M5 3.5 a2 2 0 0 1 2 -2 h1.5 a2 2 0 0 1 2 2 v1.5 a2 2 0 0 1 -2 2 h-0.5" />
+                <path d="M7 8.5 a2 2 0 0 1 -2 2 h-1.5 a2 2 0 0 1 -2 -2 v-1.5 a2 2 0 0 1 2 -2 h0.5" />
+              </svg>
+              <span>Share</span>
+            </button>
           </div>
         </div>
 
@@ -2671,6 +2765,18 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
           onDismiss={() => setUseAsQueryBanner(null)}
         />
       )}
+
+      {/* Share-link confirmation toast — appears when the user clicks
+          Share. Self-dismisses after 2s (compact confirmation, not a
+          persistent notification). Positioned at the bottom-center of the
+          workstation as a floating toast with its own z-index so it sits
+          above the chart but below modals. */}
+      {shareToast !== null && (
+        <ShareToast
+          label={shareToast}
+          onDismiss={() => setShareToast(null)}
+        />
+      )}
     </div>
   );
 }
@@ -2709,6 +2815,34 @@ function UseAsQueryBanner({
       >
         &times;
       </button>
+    </div>
+  );
+}
+
+/**
+ * Transient toast shown after the user clicks the Share button and the
+ * clipboard write resolves. Self-dismisses after 2s — much shorter than
+ * UseAsQueryBanner because it's pure confirmation, no call-to-action
+ * the user needs to read.
+ *
+ * Positioned at the bottom of the workstation via CSS so it doesn't
+ * reflow layout; z-index sits it above the chart card but below modals.
+ */
+function ShareToast({
+  label,
+  onDismiss,
+}: {
+  label: string;
+  onDismiss: () => void;
+}) {
+  useEffect(() => {
+    const id = window.setTimeout(onDismiss, 2000);
+    return () => window.clearTimeout(id);
+  }, [onDismiss]);
+  return (
+    <div className="ws-share-toast" role="status" aria-live="polite">
+      <span className="ws-share-toast__icon" aria-hidden="true">&#128279;</span>
+      <span className="ws-share-toast__text">{label}</span>
     </div>
   );
 }
