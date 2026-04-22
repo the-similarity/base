@@ -1821,3 +1821,139 @@ input, select, textarea { font: inherit; color: inherit; }
 .cal-chart .data-line { fill: none; stroke: var(--accent); stroke-width: 1.5; }
 .cal-chart .data-dot { fill: var(--accent); }
 .cal-chart .axis-label { font-family: var(--mono); font-size: 9px; fill: var(--ink-3); letter-spacing: 0.06em; }
+
+/* ====================================================================
+   COMMAND PALETTE — section headers + empty state
+   (extends the .cmdk block above; kept in a separate block at the end
+    so parallel agents editing the original cmdk section have a clean
+    3-way merge point)
+   ==================================================================== */
+.cmdk__section {
+  padding: 10px 18px 4px;
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  color: var(--ink-3);
+  /* Subtle top separator when this isn't the first section. First-of-type
+     has no top border (nothing to separate from) — :not(:first-child)
+     targets the 2nd+ section headers regardless of parent wrapper div. */
+  border-top: 1px solid var(--rule);
+}
+.cmdk__list > div:first-child > .cmdk__section {
+  /* The very first header has no list content above it, so suppress the
+     divider to keep the top edge of the panel clean. */
+  border-top: 0;
+}
+.cmdk__empty {
+  padding: 16px 18px;
+  text-align: center;
+  color: var(--ink-3);
+}
+
+/* ====================================================================
+   SHORTCUTS HELP MODAL — ? key
+   ==================================================================== */
+.shortcuts-help__overlay {
+  /* Backdrop: same translucent ink as the command palette so they feel
+     like siblings, not unrelated overlays. */
+  position: fixed; inset: 0; background: rgba(20,19,15,.35);
+  display: grid; place-items: flex-start center;
+  padding-top: 96px;
+  z-index: 100;
+}
+.shortcuts-help__card {
+  width: 480px; max-width: 92vw;
+  background: var(--bg-elevated);
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius-md);
+  box-shadow: 0 20px 60px rgba(0,0,0,.25);
+  overflow: hidden;
+  /* max-height keeps the card compact on short viewports; body scrolls
+     internally so the close button stays reachable. */
+  max-height: calc(100vh - 140px);
+  display: flex; flex-direction: column;
+}
+.shortcuts-help__header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--rule);
+}
+.shortcuts-help__title {
+  font-size: 16px;
+  color: var(--ink);
+  margin: 0;
+}
+.shortcuts-help__close {
+  /* Minimal icon button — follows the idiom of .nav__iconbtn but without
+     importing those styles directly to keep this block self-contained. */
+  width: 24px; height: 24px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: transparent;
+  color: var(--ink-3);
+  border: 1px solid transparent;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: color 0.12s, border-color 0.12s, background 0.12s;
+}
+.shortcuts-help__close:hover {
+  color: var(--ink);
+  background: var(--bg-hover);
+  border-color: var(--rule);
+}
+.shortcuts-help__body {
+  padding: 8px 18px 12px;
+  overflow: auto;
+}
+.shortcuts-help__section { margin: 14px 0 10px; }
+.shortcuts-help__section:first-child { margin-top: 8px; }
+.shortcuts-help__section-title {
+  /* Section header — small-caps serif via the shared .label class
+     (mono, uppercase, tracked); we bump the size just slightly so it
+     reads as a header and not as an inline label. */
+  font-size: 10px;
+  margin-bottom: 6px;
+  color: var(--ink-3);
+}
+.shortcuts-help__rows {
+  margin: 0; padding: 0;
+  /* Two-column grid: keys on the left (auto-width, max ~160px),
+     description fills the rest. Gap between rows is consistent. */
+  display: grid;
+  grid-template-columns: minmax(110px, max-content) 1fr;
+  row-gap: 6px;
+  column-gap: 14px;
+  align-items: baseline;
+}
+.shortcuts-help__row {
+  /* Each dt/dd pair is wrapped in a contents display so the grid layout
+     applies to dt and dd directly (dl semantics preserved). */
+  display: contents;
+}
+.shortcuts-help__keys {
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+  /* dt defaults to font-weight: bold in some UA sheets; reset so the
+     kbd chips drive the visual weight. */
+  font-weight: 400;
+}
+.shortcuts-help__plus {
+  /* Whitespace-only separator between chord chips. Kept as a CSS rule
+     (not a hardcoded nbsp) so future styling (e.g. a faint "+" glyph)
+     can be added without touching JSX. */
+  width: 2px;
+}
+.shortcuts-help__desc {
+  margin: 0;
+  font-size: 13px;
+  color: var(--ink-2);
+  font-family: var(--serif);
+}
+.shortcuts-help__footer {
+  padding: 10px 18px;
+  border-top: 1px solid var(--rule);
+  color: var(--ink-3);
+  font-size: 10px;
+  text-align: right;
+}
