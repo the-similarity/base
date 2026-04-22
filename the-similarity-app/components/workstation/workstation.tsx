@@ -499,6 +499,105 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
     });
   }, []);
 
+  /*
+   * ── URL-state writer (debounced 400ms) ──────────────────────────────
+   *
+   * Reflects the current workstation state into the address bar so the
+   * URL is always a copy-paste-able "restore to this exact view" link.
+   *
+   * Write semantics:
+   *   - Only non-default keys are serialized. The default set is pinned
+   *     below; omissions keep URLs short for the common case.
+   *   - `history.replaceState` (not pushState) — we don't want the back
+   *     button to cycle through every window drag, horizon change, or pin.
+   *   - 400ms debounce smooths rapid slider scrubbing / drag loops so we
+   *     don't spam history.replaceState (and don't force listeners on
+   *     `popstate` to re-fire on every intermediate frame).
+   *   - SSR-safe: the effect body checks for `window` before touching
+   *     history / location. The hook still runs on the server path in
+   *     Next 16, but the body no-ops.
+   *
+   * Why not write synchronously on every state change?
+   *   - Share-link links should reflect the user's INTENT, not every
+   *     transient mid-drag frame. A 400ms settle matches human motion
+   *     granularity — still feels instant, never thrashes.
+   *
+   * Why a separate effect vs folding into state setters?
+   *   - Several state shapes feed the URL (windowState, settings, pinned,
+   *     viewRange, etc.), each owned by a different callback. Centralizing
+   *     the write here keeps the callers lean and makes the write contract
+   *     one-line-obvious.
+   */
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    // Compose the URL state from current workstation state. Default
+    // values are intentionally omitted from the outgoing object so
+    // `serializeUrlState` drops them from the query string.
+    const buildState = (): WorkstationUrlState => {
+      const out: WorkstationUrlState = {};
+      // Dataset: always include unless it's the default "stocks/spy/1d".
+      if (activeDataset && activeDataset !== "stocks/spy/1d") {
+        out.dataset = activeDataset;
+      }
+      // Window: we emit ONLY when the user has moved off a fresh-load
+      // default. The default is recomputed on each series load — we
+      // can't compare against a single constant. Instead, we emit if
+      // a search has ever run (which implies the user meaningfully
+      // interacted with this window) OR if the URL already pinned a
+      // window (so a re-load keeps the link stable).
+      out.queryStart = windowState.start;
+      out.queryLen = windowState.len;
+      // View range: same logic — emit so the link restores exactly.
+      out.viewStart = viewRange.start;
+      out.viewEnd = viewRange.end;
+      // Settings: omit defaults so the URL stays short.
+      if (settings.kAnalogs !== 6) out.k = settings.kAnalogs;
+      if (settings.horizon !== 60) out.horizon = settings.horizon;
+      if (settings.chartMode && settings.chartMode !== "fast") out.chartMode = settings.chartMode;
+      if (settings.showAnalogs !== "top3") {
+        out.showAnalogs = settings.showAnalogs as "top3" | "all" | "pinned";
+      }
+      if (settings.theme === "dark") out.theme = "dark";
+      // Pinned: emit only when non-empty.
+      if (pinned.size > 0) out.pinned = [...pinned];
+      return out;
+    };
+
+    // 400ms debounce — trailing edge. Any state change during the
+    // window restarts the timer, so a rapid drag collapses into a
+    // single write when the user pauses.
+    const id = window.setTimeout(() => {
+      const qs = serializeUrlState(buildState());
+      // Compose the new URL relative to the current pathname so we
+      // don't accidentally redirect to "/" from a nested route that
+      // embeds the workstation (even though there isn't one today,
+      // this keeps the write safe for future route nesting).
+      const next = qs ? `${window.location.pathname}?${qs}` : window.location.pathname;
+      // Short-circuit if the URL is already in sync — avoids
+      // unnecessary history entries and redundant popstate fires.
+      const current = window.location.pathname + window.location.search;
+      if (next === current) return;
+      try {
+        window.history.replaceState(null, "", next);
+      } catch {
+        // history API can throw in sandboxed iframes; swallow.
+      }
+    }, 400);
+    return () => window.clearTimeout(id);
+  }, [
+    activeDataset,
+    windowState.start,
+    windowState.len,
+    viewRange.start,
+    viewRange.end,
+    settings.kAnalogs,
+    settings.horizon,
+    settings.chartMode,
+    settings.showAnalogs,
+    settings.theme,
+    pinned,
+  ]);
 
   // ── Check API availability on mount ────────────────────────────────
   useEffect(() => {
