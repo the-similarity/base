@@ -509,6 +509,37 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
    */
   const currentK = settings.kAnalogs || 6;
   const currentHorizon = settings.horizon || 60;
+
+  /*
+   * View-range sanity check.
+   *
+   * When the user picks a long horizon (e.g. 365 bars on daily data),
+   * the forecast cone extends ~17 months past the query window. If
+   * viewRange.end is shorter than `queryEnd + horizon + 5`, the right
+   * edge of the cone gets clipped off the chart and the visualization
+   * lies about how long the forecast runs.
+   *
+   * Guardrail: when horizon or windowState changes, if the cone would
+   * be clipped, extend viewRange.end just enough to fit it (+5 bar
+   * pad). We NEVER contract the view — that would yank context out
+   * from under the user. We also clamp to the series length so we
+   * don't scroll past the end of data.
+   *
+   * This runs in an effect rather than inline in setViewRange because
+   * horizon changes come from onSettings (owned by app/page.tsx) and
+   * we can't intercept them here — we have to react.
+   */
+  useEffect(() => {
+    const queryEnd = windowState.start + windowState.len - 1;
+    const minRequiredEnd = Math.min(N - 1, queryEnd + currentHorizon + 5);
+    if (viewRange.end < minRequiredEnd) {
+      setViewRange(v => ({ ...v, end: minRequiredEnd }));
+    }
+    // Only re-run when the inputs to the clip-check change. viewRange.end
+    // is intentionally omitted from deps to avoid a feedback loop (we
+    // write to it inside this effect).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentHorizon, windowState.start, windowState.len, N]);
   const isDirty = !lastSearch
     || lastSearch.start !== windowState.start
     || lastSearch.len !== windowState.len
