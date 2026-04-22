@@ -1353,6 +1353,58 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
     return out as unknown as LensScores;
   }, [effectiveAnalogs]);
 
+  /*
+   * `displayLenses` drives the radar + bars in the right panel. Priority:
+   *   1. Hover wins — show the exact scores of whichever analog card the
+   *      cursor is over, so the user can scan options and see each
+   *      analog's profile without clicking.
+   *   2. A single activated analog shows its own profile (same behavior
+   *      as hover but sticky; "click to pin this view").
+   *   3. Multiple activated analogs → mean across the active set.
+   *   4. Nothing activated yet → fall back to `compLenses` so the
+   *      initial render still has something sensible in the panel.
+   *
+   * `displayLensesMeta` carries the matching label + composite so the
+   * right-panel header can render a specific analog's ID instead of the
+   * generic "nine lenses · mean agreement" when appropriate.
+   */
+  const [displayLenses, displayLensesMeta] = useMemo((): [
+    LensScores,
+    { kind: "aggregate" | "single"; label: string; composite: number },
+  ] => {
+    const byId = (id: string | null | undefined) =>
+      id ? analogs.find(a => a.id === id) : undefined;
+    const hovered = byId(hoverAnalog);
+    if (hovered) {
+      return [hovered.lenses, { kind: "single", label: `#${hovered.rank} \u00b7 ${hovered.label}`, composite: hovered.composite }];
+    }
+    if (activeAnalogIds.size === 1) {
+      const only = analogs.find(a => activeAnalogIds.has(a.id));
+      if (only) {
+        return [only.lenses, { kind: "single", label: `#${only.rank} \u00b7 ${only.label}`, composite: only.composite }];
+      }
+    }
+    const activeList = analogs.filter(a => activeAnalogIds.has(a.id));
+    if (activeList.length > 1) {
+      const keys = LENS_DEFS.map(d => d.key);
+      const meanAgg: Record<string, number> = {};
+      keys.forEach(k => {
+        meanAgg[k] =
+          activeList.reduce((s, a) => s + (a.lenses[k as keyof LensScores] || 0), 0) /
+          activeList.length;
+      });
+      const mean = meanAgg as unknown as LensScores;
+      const composite = Object.values(mean).reduce((a, b) => a + b, 0) / 9;
+      return [mean, { kind: "aggregate", label: `${activeList.length} active analogs`, composite }];
+    }
+    const fallbackComposite =
+      Object.values(compLenses).reduce((a: number, b: number) => a + b, 0) / 9;
+    return [
+      compLenses,
+      { kind: "aggregate", label: "Nine lenses \u00b7 mean agreement", composite: fallbackComposite },
+    ];
+  }, [hoverAnalog, activeAnalogIds, analogs, compLenses]);
+
   // Cone endpoint statistics for the header metrics. Cone itself is
   // already pin-gated upstream (see the `cone` useMemo), so these
   // summary stats inherit pin-gating automatically — no further changes
@@ -2891,18 +2943,21 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
         >
           &times;
         </button>
-        <div className="right__section">
+        <div
+          className="right__section"
+          data-lens-view={displayLensesMeta.kind}
+        >
           <div className="lens-head">
             <div>
-              <div className="label">Nine lenses &middot; mean agreement</div>
+              <div className="label">{displayLensesMeta.label}</div>
               <div className="score">
-                {(Object.values(compLenses).reduce((a: number, b: number) => a + b, 0) / 9).toFixed(2)}
+                {displayLensesMeta.composite.toFixed(2)}
                 <span className="d"> / 1.00</span>
               </div>
             </div>
           </div>
-          <LensRadar lenses={compLenses} size={220} />
-          <LensBars lenses={compLenses} compact={false} />
+          <LensRadar lenses={displayLenses} size={220} />
+          <LensBars lenses={displayLenses} compact={false} />
         </div>
 
         <div className="right__section">
