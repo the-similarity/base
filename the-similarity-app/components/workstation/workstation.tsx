@@ -64,6 +64,32 @@ function groupByAssetClass(items: CatalogItem[]): Record<string, CatalogItem[]> 
   return groups;
 }
 
+/**
+ * Format a past Date as a compact relative "last run" label.
+ *
+ * Buckets:
+ *   < 45s   -> "just now"
+ *   < 60m   -> "Nm ago"
+ *   < 24h   -> "Nh ago"
+ *   otherwise -> "Nd ago"
+ *
+ * Intentionally coarse: the UI refreshes every 30s (see the tick below),
+ * so sub-minute precision would thrash without telling the user anything
+ * useful. "just now" covers the freshly-run state; minute-resolution is
+ * the right granularity for an analytical workstation.
+ */
+export function formatRelativeTime(when: Date, now: Date): string {
+  const deltaMs = Math.max(0, now.getTime() - when.getTime());
+  const deltaSec = Math.floor(deltaMs / 1000);
+  if (deltaSec < 45) return "just now";
+  const deltaMin = Math.floor(deltaSec / 60);
+  if (deltaMin < 60) return `${deltaMin}m ago`;
+  const deltaHr = Math.floor(deltaMin / 60);
+  if (deltaHr < 24) return `${deltaHr}h ago`;
+  const deltaDay = Math.floor(deltaHr / 24);
+  return `${deltaDay}d ago`;
+}
+
 /** Convert a DatasetSeries-style response into DataPoint[] for the chart. */
 function seriesToDataPoints(values: number[], dates: string[]): DataPoint[] {
   return values.map((p, i) => {
@@ -91,8 +117,54 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
   const [searching, setSearching] = useState(false);
   const [apiAnalogs, setApiAnalogs] = useState<AnalogMatch[] | null>(null);
   const [apiCone, setApiCone] = useState<ConePoint[] | null>(null);
-  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+
+  /*
+   * Manual-search state (replaces the old "auto-search on every drag" loop).
+   *
+   * `lastSearch` is a snapshot of the input parameters that produced the
+   * currently-displayed analogs + cone. It lets us detect when the user
+   * has moved the window / changed top-K / changed the horizon without
+   * re-running — the Search button then visually pulses ("dirty") to
+   * prompt the user to re-run.
+   *
+   * `searchedAnalogs` and `searchedCone` persist the LAST successfully
+   * computed results. Unlike the old `useMemo`-based synthetic pipeline
+   * which recomputed on every windowState change, these are only written
+   * inside `runSearch()` — so dragging the query window does NOT mutate
+   * them.
+   *
+   * `lastRunAt` is the wall-clock Date when the current results were
+   * produced; the UI renders it as a relative "2m ago" timestamp.
+   */
+  const [lastSearch, setLastSearch] = useState<{
+    start: number;
+    len: number;
+    k: number;
+    horizon: number;
+  } | null>(null);
+  const [searchedAnalogs, setSearchedAnalogs] = useState<AnalogMatch[] | null>(null);
+  const [searchedCone, setSearchedCone] = useState<ConePoint[] | null>(null);
+  const [lastRunAt, setLastRunAt] = useState<Date | null>(null);
+
+  /*
+   * Ticking "now" for the relative last-run label.
+   *
+   * We can't compute "2m ago" once and cache it — the label has to update
+   * as time passes. A 30s tick is the right cadence: the label is
+   * minute-resolution (see formatRelativeTime), so ticking more often
+   * just wastes re-renders, but ticking less often means "just now" can
+   * linger for several minutes after a search which feels stale.
+   *
+   * The interval is installed lazily only when we have a lastRunAt to
+   * render, and torn down when the component unmounts.
+   */
+  const [nowTick, setNowTick] = useState<Date>(() => new Date());
+  useEffect(() => {
+    if (!lastRunAt) return;
+    const id = window.setInterval(() => setNowTick(new Date()), 30_000);
+    return () => window.clearInterval(id);
+  }, [lastRunAt]);
 
   // ── Window state ───────────────────────────────────────────────────
   const N = loadedSeries.length;
@@ -202,74 +274,246 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
     return () => { cancelled = true; };
   }, [isOnline, activeDataset]);
 
-  // ── Debounced API search on window change ──────────────────────────
-  const runApiSearch = useCallback(async () => {
-    if (!isOnline || loadedValues.length < 10) return;
+  /*
+   * Unified manual-search entry point.
+   *
+   * Invariants:
+   *   - Takes a SNAPSHOT of the current inputs (start/len/k/horizon) before
+   *     any async work starts. This is what guarantees that dragging the
+   *     window mid-flight can't corrupt the resolved result: the snapshot
+   *     locks in the "what we searched for" tuple.
+   *   - Writes ALL result state (searchedAnalogs, searchedCone, lastSearch,
+   *     lastRunAt) atomically on success. On failure it doesn't mutate
+   *     result state — the previous search stays displayed.
+   *   - Honors the abort controller so a second runSearch() call cancels
+   *     the first in-flight request instead of racing.
+   *
+   * Control flow:
+   *   1. If online + series has enough data → try API.
+   *   2. If API fails for any reason (including transient errors) OR we're
+   *      offline → fall back to the synthetic engine.
+   *   3. Either way, write results + snapshot + lastRunAt.
+   *
+   * This function is stable across renders via useCallback so the
+   * keyboard-shortcut effect and the Search button share identical call
+   * semantics.
+   */
+  const runSearch = useCallback(async () => {
+    if (loadedValues.length < 10 && loadedSeries.length < 10) return;
 
-    // Abort any in-flight search
+    // Snapshot inputs before the async boundary. These values are frozen
+    // for the remainder of this search — even if the user drags the
+    // window immediately afterwards, this search will write results that
+    // describe this exact snapshot.
+    const snapshot = {
+      start: windowState.start,
+      len: windowState.len,
+      k: settings.kAnalogs || 6,
+      horizon: settings.horizon || 60,
+    };
+
+    // Cancel any in-flight search; the new one supersedes it.
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
 
     setSearching(true);
-    try {
-      const queryValues = loadedValues.slice(windowState.start, windowState.start + windowState.len);
-      if (queryValues.length < 2) return;
 
-      const result = await searchApi({
-        queryValues,
-        historyValues: loadedValues,
-        topK: settings.kAnalogs || 6,
-        forwardBars: settings.horizon || 60,
-      }, controller.signal);
+    // Try API path first when online and we have enough real data.
+    if (isOnline && loadedValues.length >= 10) {
+      try {
+        const queryValues = loadedValues.slice(snapshot.start, snapshot.start + snapshot.len);
+        if (queryValues.length >= 2) {
+          const result = await searchApi({
+            queryValues,
+            historyValues: loadedValues,
+            topK: snapshot.k,
+            forwardBars: snapshot.horizon,
+          }, controller.signal);
 
-      if (controller.signal.aborted) return;
+          if (controller.signal.aborted) {
+            setSearching(false);
+            return;
+          }
 
-      // Map API response to workstation formats
-      const analogs = mapMatchesToAnalogs(result, loadedDates, loadedValues, windowState.len);
-      setApiAnalogs(analogs);
+          const analogs = mapMatchesToAnalogs(result, loadedDates, loadedValues, snapshot.len);
+          let cone: ConePoint[] = [];
+          if (result.forecast) {
+            const lastP = loadedValues[snapshot.start + snapshot.len - 1] ?? 1;
+            cone = mapForecastToCone(result.forecast, lastP);
+          }
 
-      if (result.forecast) {
-        const lastP = loadedValues[windowState.start + windowState.len - 1] ?? 1;
-        const cone = mapForecastToCone(result.forecast, lastP);
-        setApiCone(cone);
+          // Commit all result state atomically.
+          setApiAnalogs(analogs);
+          setApiCone(cone);
+          setSearchedAnalogs(analogs);
+          setSearchedCone(cone);
+          setLastSearch(snapshot);
+          setLastRunAt(new Date());
+          setSearching(false);
+          return;
+        }
+      } catch (err) {
+        if (err instanceof Error && err.name === "AbortError") {
+          // Superseded by a newer search — the newer one will flip
+          // setSearching back to false when it finishes.
+          return;
+        }
+        console.warn("API search failed, using synthetic fallback:", err);
+        // Fall through to synthetic path below.
       }
-    } catch (err) {
-      if (err instanceof Error && err.name === "AbortError") return;
-      console.warn("API search failed, using synthetic fallback:", err);
-      // Don't flip isOnline off for transient errors — just use synthetic for this search
+    }
+
+    // Synthetic fallback path. Used when offline, when API fails, or when
+    // we simply don't have enough loaded values to query the API with.
+    try {
+      const anal = findAnalogs(snapshot.start, snapshot.len, {
+        k: snapshot.k,
+        horizon: snapshot.horizon,
+      });
+      const lastP = loadedSeries[snapshot.start + snapshot.len - 1]?.p ?? 1;
+      const c = buildCone(anal, snapshot.horizon, lastP);
+      // Synthetic results live in searchedAnalogs/Cone; apiAnalogs/apiCone
+      // are cleared so the resolve-order below (api over synthetic) doesn't
+      // show a stale API result alongside a fresh synthetic one.
       setApiAnalogs(null);
       setApiCone(null);
+      setSearchedAnalogs(anal);
+      setSearchedCone(c);
+      setLastSearch(snapshot);
+      setLastRunAt(new Date());
     } finally {
       setSearching(false);
     }
-  }, [isOnline, loadedValues, loadedDates, windowState.start, windowState.len, settings.kAnalogs, settings.horizon]);
+  }, [isOnline, loadedValues, loadedDates, loadedSeries, windowState.start, windowState.len, settings.kAnalogs, settings.horizon]);
 
-  // Debounce search: 500ms after window change
+  /*
+   * Live ref to the latest runSearch closure.
+   *
+   * The keyboard-shortcut effect below is attached once on mount (empty
+   * deps) to mirror the style used in `app/page.tsx` for jump/theme
+   * chords — that avoids tearing down and reinstalling listeners on
+   * every render. But a stale closure would call the FIRST runSearch
+   * forever with stale snapshot inputs; the ref solves that by always
+   * pointing at the latest closure.
+   */
+  const runSearchRef = useRef(runSearch);
+  useEffect(() => { runSearchRef.current = runSearch; }, [runSearch]);
+
+  /*
+   * Keyboard shortcut: `Enter` or `r` re-runs the search.
+   *
+   * Matches the style of the top-level shortcuts in `app/page.tsx`
+   * (t = theme, Shift+T = tweaks, g+letter = jump). We skip the
+   * shortcut when focus is in an editable element so typing "r" into
+   * a future text input wouldn't hijack the keystroke.
+   *
+   * We also skip when any modifier is held so Cmd+R (browser reload)
+   * and Cmd+Enter (future send-command shortcuts) keep working.
+   */
   useEffect(() => {
-    if (!isOnline) return;
-    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
-    searchTimerRef.current = setTimeout(() => {
-      runApiSearch();
-    }, 500);
-    return () => {
-      if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    const onKey = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      const tag = target?.tagName;
+      // Don't hijack keystrokes inside editable elements.
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      if (target && target.isContentEditable) return;
+      // Skip if any modifier is pressed — leave those for the browser / OS.
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+      if (e.key === "Enter" || e.key === "r" || e.key === "R") {
+        // Don't preventDefault on plain "r" because of the existing `g r`
+        // jump chord in the root page — but for the shortcut to actually
+        // fire on standalone "r" we need to not conflict. The chord key
+        // handler at the page level sets `lastG` only when `g` was just
+        // pressed; a standalone `r` without a preceding `g` does nothing
+        // there, so re-using it here is safe. We still call
+        // preventDefault for `Enter` to avoid default button activation
+        // on any focused element.
+        if (e.key === "Enter") e.preventDefault();
+        runSearchRef.current();
+      }
     };
-  }, [runApiSearch, isOnline]);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
-  // ── Synthetic fallback analogs + cone ──────────────────────────────
-  const syntheticResult = useMemo(() => {
-    if (isOnline && apiAnalogs !== null) return null; // Using API data
-    const anal = findAnalogs(windowState.start, windowState.len,
-      { k: settings.kAnalogs || 6, horizon: settings.horizon || 60 });
-    const lastP = loadedSeries[windowState.start + windowState.len - 1]?.p ?? 1;
-    const c = buildCone(anal, settings.horizon || 60, lastP);
-    return { analogs: anal, cone: c };
-  }, [isOnline, apiAnalogs, windowState.start, windowState.len, settings.kAnalogs, settings.horizon, loadedSeries]);
+  /*
+   * One-shot initial search on mount.
+   *
+   * Previously the component auto-fired an API search 500ms after every
+   * window drag, which meant each drag = one network request and a
+   * thrashing cone. The new model is: run exactly ONCE when the component
+   * has enough data to search, then wait for user action (button click
+   * or keyboard shortcut) for all subsequent searches.
+   *
+   * Gate conditions:
+   *   - `isOnline !== null` → health check has resolved (so we know whether
+   *     to hit the API or use synthetic).
+   *   - `lastSearch === null` → we haven't run yet. This is the one-shot
+   *     guard; once the first search completes, this effect stops firing.
+   *   - When online: require loadedValues to be populated (series fetched).
+   *     Offline: synthetic SERIES is always available so no data-gate.
+   *
+   * We deliberately DO NOT depend on windowState here — otherwise any
+   * drag before the first successful search would re-trigger this loop.
+   */
+  useEffect(() => {
+    if (isOnline === null) return; // Still probing.
+    if (lastSearch !== null) return; // Already ran.
+    if (isOnline && loadedValues.length < 10) return; // Wait for series.
+    runSearch();
+    // We intentionally exclude `runSearch` from deps: runSearch identity
+    // changes every time windowState or settings change, which would
+    // cause this one-shot effect to repeatedly fire until lastSearch is
+    // set. The `lastSearch === null` guard above is the authoritative
+    // one-shot check.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOnline, loadedValues.length, lastSearch]);
 
-  // ── Resolved analogs and cone (API or synthetic) ───────────────────
-  const analogs = (isOnline && apiAnalogs) ? apiAnalogs : (syntheticResult?.analogs ?? []);
-  const cone = (isOnline && apiCone) ? apiCone : (syntheticResult?.cone ?? []);
+  /*
+   * Resolved analogs + cone.
+   *
+   * Resolution order:
+   *   1. API result (apiAnalogs / apiCone) if online and present.
+   *   2. Persisted search result (searchedAnalogs / searchedCone) — this
+   *      is what the manual `runSearch()` writes for both the API and
+   *      synthetic paths.
+   *   3. Empty array — first render before any search has run.
+   *
+   * Previously a `useMemo` recomputed `findAnalogs(...)` on EVERY change
+   * to windowState, which meant the cone flickered continuously as the
+   * user dragged. Now the displayed cone is strictly the output of the
+   * last `runSearch()` call — dragging no longer mutates it. The
+   * `isDirty` derivation below tells the user when the displayed result
+   * is stale relative to the current inputs.
+   */
+  // Wrapped in useMemo so the identity only changes when one of the
+  // underlying arrays actually changes — downstream useMemo hooks that
+  // depend on `analogs`/`cone` otherwise re-run on every render because
+  // the conditional ternary returns a fresh expression each time.
+  const analogs: AnalogMatch[] = useMemo(
+    () => ((isOnline && apiAnalogs) ? apiAnalogs : (searchedAnalogs ?? [])),
+    [isOnline, apiAnalogs, searchedAnalogs],
+  );
+  const cone: ConePoint[] = useMemo(
+    () => ((isOnline && apiCone) ? apiCone : (searchedCone ?? [])),
+    [isOnline, apiCone, searchedCone],
+  );
+
+  /*
+   * Dirty detection — true when the current windowState+settings no
+   * longer match the snapshot captured at last-search time. Used to
+   * pulse the Search button so the user knows the displayed cone
+   * doesn't reflect the current query window / top-K / horizon.
+   */
+  const currentK = settings.kAnalogs || 6;
+  const currentHorizon = settings.horizon || 60;
+  const isDirty = !lastSearch
+    || lastSearch.start !== windowState.start
+    || lastSearch.len !== windowState.len
+    || lastSearch.k !== currentK
+    || lastSearch.horizon !== currentHorizon;
 
   // Composite lenses = mean across top analogs
   const compLenses = useMemo(() => {
@@ -588,6 +832,75 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
             </div>
           </div>
         </header>
+
+        {/* ── Search control row ───────────────────────────────────────
+            Visible manual-search controls. Left group:
+              - Top-K selector — compact segmented control mirroring the
+                tweaks-panel setting so users don't have to open a panel
+                to change how many analogs come back.
+              - Search button — primary; pulses when isDirty (window or
+                settings changed since last search).
+              - Last-run timestamp — relative, ticks every 30s.
+            The tweaks-panel K control is NOT removed; this is a mirror
+            surface for discoverability. */}
+        <div className="ws-search-row" role="group" aria-label="Search controls">
+          <div className="ws-search-row__group">
+            <span className="label ws-search-row__label">Top K</span>
+            <div className="ws-topk" role="radiogroup" aria-label="Number of analog matches to return">
+              {[1, 3, 6, 10].map(k => (
+                <button
+                  key={k}
+                  type="button"
+                  role="radio"
+                  aria-checked={currentK === k}
+                  className="ws-topk__btn"
+                  data-active={currentK === k ? "true" : undefined}
+                  onClick={() => onSettings({ ...settings, kAnalogs: k })}
+                >
+                  {k}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="ws-search-row__group ws-search-row__group--end">
+            {lastRunAt && (
+              <span className="ws-search-row__lastrun mono" aria-live="polite">
+                Last run &middot; {formatRelativeTime(lastRunAt, nowTick)}
+              </span>
+            )}
+            <button
+              type="button"
+              className="ws-search-btn"
+              data-dirty={isDirty && !searching ? "true" : undefined}
+              data-searching={searching ? "true" : undefined}
+              onClick={() => runSearch()}
+              disabled={searching}
+              aria-label={
+                searching
+                  ? "Searching"
+                  : isDirty
+                  ? "Search (pending changes)"
+                  : "Search"
+              }
+            >
+              {searching ? (
+                <>
+                  <span className="ws-search-btn__spinner" aria-hidden="true" />
+                  <span>Searching&hellip;</span>
+                </>
+              ) : (
+                <>
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden="true">
+                    <circle cx="5" cy="5" r="3.5" />
+                    <line x1="7.5" y1="7.5" x2="11" y2="11" />
+                  </svg>
+                  <span>Search</span>
+                  {isDirty && <span className="ws-search-btn__dot" aria-hidden="true" />}
+                </>
+              )}
+            </button>
+          </div>
+        </div>
 
         <div className="chart-stack">
           {showEmptyCatalogBanner && (
