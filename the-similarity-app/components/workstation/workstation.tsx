@@ -506,10 +506,77 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
     () => ((isOnline && apiAnalogs) ? apiAnalogs : (searchedAnalogs ?? [])),
     [isOnline, apiAnalogs, searchedAnalogs],
   );
-  const cone: ConePoint[] = useMemo(
-    () => ((isOnline && apiCone) ? apiCone : (searchedCone ?? [])),
-    [isOnline, apiCone, searchedCone],
-  );
+
+  /*
+   * Pin-gated analog set — the heart of "curation drives the forecast".
+   *
+   * Semantics:
+   *   - pinned.size === 0 → baseline: the full top-K analog set is
+   *     the basis for the cone, metrics, and lens radar.
+   *   - pinned.size >= 1  → curated: every downstream consumer
+   *     (compLenses, coneStats, trust strip, lens radar, composite metric)
+   *     reads ONLY the pinned subset. The user is asserting "these are
+   *     the analogs I trust" and the UI honors that assertion by
+   *     recomputing everything as if the top-K set were exactly those pins.
+   *
+   * Defensive floor: if every pinned id somehow fails to resolve
+   * (e.g. stale pins loaded from localStorage pointing at analogs a
+   * re-search no longer returned), the filter collapses to zero. We
+   * fall back to the full analog set in that case — a silent degrade
+   * beats a blank forecast — and surface a note in the banner so the
+   * user understands why their pins aren't filtering.
+   *
+   * Identity stability: when pinned is empty we return the exact
+   * `analogs` array by reference (not a new filtered copy) so downstream
+   * memos that depend on `effectiveAnalogs` don't thrash on every render.
+   */
+  const effectiveAnalogs: AnalogMatch[] = useMemo(() => {
+    if (pinned.size === 0) return analogs;
+    const filtered = analogs.filter(a => pinned.has(a.id));
+    // Degrade: a non-empty pin set that resolved to zero results falls
+    // back to the full set so the UI doesn't blank out. The banner will
+    // tell the user the pins didn't match any current analogs.
+    return filtered.length > 0 ? filtered : analogs;
+  }, [analogs, pinned]);
+
+  /*
+   * Pin-gated forecast cone.
+   *
+   * When pinned.size > 0 we IGNORE the backend-computed apiCone (which
+   * was computed server-side over the full top-K) and recompute locally
+   * via buildCone() — same algorithm as the synthetic fallback path.
+   * This keeps the cone semantically tied to `effectiveAnalogs`: the
+   * quantiles reflect the curated subset, not the original top-K.
+   *
+   * When pinned.size === 0 the baseline resolution order applies:
+   *   1. apiCone (if online and present)
+   *   2. searchedCone (last successful runSearch result)
+   *   3. empty array
+   *
+   * Note: the price anchor for local buildCone is `queryLastPrice` from
+   * the CURRENT windowState, not lastSearch.start — this matches what
+   * the chart displays as the query terminal bar.
+   */
+  const cone: ConePoint[] = useMemo(() => {
+    if (pinned.size > 0 && effectiveAnalogs.length > 0) {
+      const queryLastIdx = windowState.start + windowState.len - 1;
+      const queryLastPrice = loadedSeries[queryLastIdx]?.p ?? 1;
+      const horizon = lastSearch?.horizon ?? settings.horizon ?? 60;
+      return buildCone(effectiveAnalogs, horizon, queryLastPrice);
+    }
+    return (isOnline && apiCone) ? apiCone : (searchedCone ?? []);
+  }, [
+    pinned,
+    effectiveAnalogs,
+    isOnline,
+    apiCone,
+    searchedCone,
+    windowState.start,
+    windowState.len,
+    loadedSeries,
+    lastSearch?.horizon,
+    settings.horizon,
+  ]);
 
   /*
    * Dirty detection — true when the current windowState+settings no
