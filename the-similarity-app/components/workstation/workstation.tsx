@@ -2125,12 +2125,24 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
                 title="Chart settings"
                 onClick={() => setChartSettingsOpen(o => !o)}
               >
-                <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="1.2" aria-hidden="true">
-                  <circle cx="6.5" cy="6.5" r="2" />
-                  <line x1="6.5" y1="1" x2="6.5" y2="3.5" />
-                  <line x1="6.5" y1="9.5" x2="6.5" y2="12" />
-                  <line x1="1" y1="6.5" x2="3.5" y2="6.5" />
-                  <line x1="9.5" y1="6.5" x2="12" y2="6.5" />
+                {/* Toothed gear. Previously this was a circle + four
+                    radial strokes — which read as a sun/asterisk, not
+                    a gear. Path below is an 8-toothed cog with a
+                    center hub, lifted from the Lucide 'settings' icon
+                    and sized to fit the 22×22 button. */}
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.6"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.09a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+                  <circle cx="12" cy="12" r="3" />
                 </svg>
               </button>
               {chartSettingsOpen && (
