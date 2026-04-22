@@ -36,6 +36,7 @@ import { LineChartLW } from "./line-chart-lw";
 import { LensRadar } from "./lens-radar";
 import { LensBars } from "./lens-bars";
 import { Sparkline } from "./sparkline";
+import { AnalogDetailDrawer } from "./analog-detail-drawer";
 
 /** Settings shape passed from the app shell */
 export interface WorkstationSettings {
@@ -229,6 +230,27 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
   // the data attributes have no effect because the overlay CSS doesn't.
   const [rightDrawerOpen, setRightDrawerOpen] = useState(false);
   const [leftDrawerOpen, setLeftDrawerOpen] = useState(false);
+
+  /*
+   * Analog detail drawer state.
+   *
+   * `detailAnalogId` is the id of the analog the user clicked into for
+   * inspection. When non-null the AnalogDetailDrawer slides in from the
+   * right with that analog's context / lens breakdown / sparklines. When
+   * null, the drawer renders closed (mounted but translated off-screen)
+   * so the slide-out transition plays cleanly.
+   *
+   * The drawer is a SEPARATE affordance from pinning: clicking the card
+   * body opens the drawer, while clicking a dedicated pin icon in the
+   * card corner toggles pin. This lets a user inspect an analog without
+   * committing to pin it.
+   *
+   * Null-safety: `detailAnalog` resolves to null whenever the id is null
+   * OR the id no longer matches any current analog (e.g. search re-ran
+   * with different results). Drawer is defensive about that case.
+   */
+  const [detailAnalogId, setDetailAnalogId] = useState<string | null>(null);
+  const [useAsQueryBanner, setUseAsQueryBanner] = useState<string | null>(null);
 
   const dismissBanner = useCallback((id: string) => {
     setDismissedBanners(prev => {
@@ -428,6 +450,18 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
   useEffect(() => { runSearchRef.current = runSearch; }, [runSearch]);
 
   /*
+   * Live ref to the current analog list, consumed by the 1..6 keyboard
+   * shortcut inside the keydown effect. The effect is installed once
+   * (empty deps) to avoid re-binding on every analog-set change; the ref
+   * lets the handler read the latest list without a stale closure.
+   *
+   * Declared here (before the keyboard effect) so the ref identity is
+   * stable across renders. The useEffect below rewrites the ref target
+   * whenever analogs shifts — cheap, and it never triggers a re-render.
+   */
+  const analogsRef = useRef<AnalogMatch[]>([]);
+
+  /*
    * Keyboard shortcut: `Enter` or `r` re-runs the search.
    *
    * Matches the style of the top-level shortcuts in `app/page.tsx`
@@ -448,6 +482,17 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
       // Skip if any modifier is pressed — leave those for the browser / OS.
       if (e.metaKey || e.ctrlKey || e.altKey) return;
 
+      // Escape closes the analog detail drawer when open. We check first
+      // so it wins over the page-level Escape handler (which closes the
+      // help modal). setDetailAnalogId(null) is idempotent when already
+      // null — guard here is a performance nicety, not a correctness one.
+      if (e.key === "Escape") {
+        // Peek via ref so this effect doesn't need to re-install on every
+        // drawer open/close. We don't preventDefault because the page-
+        // level Escape handler is also interested (e.g. to close help /
+        // cmd palette) — both should cooperate, not clobber.
+        setDetailAnalogId(prev => prev !== null ? null : prev);
+      }
       if (e.key === "Enter" || e.key === "r" || e.key === "R") {
         // Don't preventDefault on plain "r" because of the existing `g r`
         // jump chord in the root page — but for the shortcut to actually
@@ -459,6 +504,22 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
         // on any focused element.
         if (e.key === "Enter") e.preventDefault();
         runSearchRef.current();
+      }
+
+      // 1..6 → open the drawer for analog #1..#6. We use rowKeys rather
+      // than e.key to keep the mapping 1:1 with ranks; shifted variants
+      // (!/@/#/$/%/^) are ignored so the user's shift-typed intent
+      // doesn't surprise-open a drawer. Reads analogs via ref for the
+      // same reason runSearchRef exists — analogs identity changes per
+      // search but we don't want to reinstall the listener each time.
+      if (/^[1-6]$/.test(e.key) && !e.shiftKey) {
+        const rank = parseInt(e.key, 10);
+        const list = analogsRef.current;
+        const target = list[rank - 1];
+        if (target) {
+          e.preventDefault();
+          setDetailAnalogId(target.id);
+        }
       }
     };
     window.addEventListener("keydown", onKey);
@@ -604,6 +665,32 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
     () => ((isOnline && apiAnalogs) ? apiAnalogs : (searchedAnalogs ?? [])),
     [isOnline, apiAnalogs, searchedAnalogs],
   );
+
+  /*
+   * Resolve the currently-inspected analog.
+   *
+   * We look up by id on each render rather than caching the analog itself,
+   * because a re-search replaces the analog set wholesale — stale pointers
+   * from the previous search would leave the drawer showing outdated lens
+   * scores. Falling through to null when the id no longer resolves also
+   * auto-closes the drawer on a new search if the selection didn't carry
+   * over (the drawer only renders `open` when both detailAnalogId AND the
+   * resolved analog are present).
+   */
+  const detailAnalog = useMemo(
+    () => (detailAnalogId ? analogs.find(a => a.id === detailAnalogId) ?? null : null),
+    [analogs, detailAnalogId],
+  );
+
+  /*
+   * Keep `analogsRef` in sync with the latest analog list.
+   *
+   * The 1..6 keyboard handler reads the ref rather than closing over
+   * `analogs` directly so the listener (installed once on mount) always
+   * sees the current set. Without this sync the shortcut would fire for
+   * the ORIGINAL search's analogs forever, even after a re-search.
+   */
+  useEffect(() => { analogsRef.current = analogs; }, [analogs]);
 
   /*
    * Pin-gated analog set — the heart of "curation drives the forecast".
@@ -1856,32 +1943,95 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
               </div>
             </div>
           )}
-          {analogs.map((a, i) => (
+          {analogs.map((a, i) => {
             // `data-rank` drives the rank-indexed left-border color
             // defined in globals.css (.analog-card[data-rank="N"]).
             // `i` is 0-indexed over the display order, which matches
             // the chart overlay's rank index so card and chart line
             // share the same palette color.
-            <div key={a.id} className="analog-card"
-              data-rank={i}
-              data-pinned={pinned.has(a.id) ? "true" : undefined}
-              onClick={() => togglePin(a.id)}
-              onMouseEnter={() => setHoverAnalog(a.id)}
-              onMouseLeave={() => setHoverAnalog(null)}>
-              <div className="analog-card__head">
-                <span className="analog-card__date">#{a.rank} &middot; {fmtDateShort(a.date)}</span>
-                <span className="analog-card__score">{a.composite.toFixed(2)}</span>
+            //
+            // Click affordance split (PR #K):
+            //   - Card body click    → open the analog detail drawer
+            //   - Pin icon click     → toggle pin (existing behavior,
+            //                           now scoped to just the icon)
+            //   - Hover              → chart path preview (PR #231)
+            //
+            // The pin icon's onClick calls stopPropagation so the card's
+            // click handler doesn't ALSO open the drawer when the user
+            // clicks the icon. Without stopPropagation the user's "pin
+            // only" intent would still open the drawer as a side effect.
+            const isPinned = pinned.has(a.id);
+            return (
+              <div key={a.id} className="analog-card"
+                data-rank={i}
+                data-pinned={isPinned ? "true" : undefined}
+                role="button"
+                tabIndex={0}
+                aria-label={`Open detail for analog ${a.rank}: ${a.label}`}
+                onClick={() => setDetailAnalogId(a.id)}
+                onKeyDown={(e) => {
+                  // Keyboard activation for the card body. Only Enter
+                  // and Space should trigger — arrow keys remain the
+                  // user's normal focus-navigation chord. We avoid
+                  // hijacking Space from input-like descendants by
+                  // checking the event target — no inputs live in
+                  // this card today, but future-proof the handler.
+                  const target = e.target as HTMLElement;
+                  const tag = target?.tagName;
+                  if (tag === "INPUT" || tag === "TEXTAREA" || tag === "BUTTON") return;
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    setDetailAnalogId(a.id);
+                  }
+                }}
+                onMouseEnter={() => setHoverAnalog(a.id)}
+                onMouseLeave={() => setHoverAnalog(null)}>
+                <div className="analog-card__head">
+                  <span className="analog-card__date">#{a.rank} &middot; {fmtDateShort(a.date)}</span>
+                  <div className="analog-card__head-right">
+                    <span className="analog-card__score">{a.composite.toFixed(2)}</span>
+                    <button
+                      type="button"
+                      className="analog-card__pin-btn"
+                      data-pinned={isPinned ? "true" : undefined}
+                      aria-pressed={isPinned}
+                      aria-label={isPinned ? `Unpin analog ${a.rank}` : `Pin analog ${a.rank}`}
+                      title={isPinned ? "Unpin this analog" : "Pin this analog"}
+                      onClick={(e) => {
+                        // Stop bubbling so the card's click (drawer open)
+                        // doesn't fire. The pin icon is the ONLY affordance
+                        // that toggles pin from the card strip now.
+                        e.stopPropagation();
+                        togglePin(a.id);
+                      }}
+                    >
+                      <svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                        {/* Simple pushpin glyph — head + body + tip. When
+                            pinned we fill the whole glyph; when unpinned
+                            we render the outline only. Path sized for a
+                            12px box so it reads clearly in the card head. */}
+                        <path
+                          d="M9.5 1.5 L14.5 6.5 L11.5 7.5 L10.5 11.5 L8 9 L3.5 13.5 L2.5 12.5 L7 8 L4.5 5.5 L8.5 4.5 Z"
+                          fill={isPinned ? "currentColor" : "none"}
+                          stroke="currentColor"
+                          strokeWidth="1.2"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+                <div className="analog-card__title">{a.label}</div>
+                <div className="analog-card__note">{a.note}</div>
+                <div className="analog-card__spark">
+                  <Sparkline values={[...a.priceWindow, ...a.after.slice(0, 60)]} width={110} highlight={0.35} />
+                  <span className={"analog-card__after " + (a.afterReturn >= 0 ? "pos" : "neg")}>
+                    {fmtPct(a.afterReturn)}
+                  </span>
+                </div>
               </div>
-              <div className="analog-card__title">{a.label}</div>
-              <div className="analog-card__note">{a.note}</div>
-              <div className="analog-card__spark">
-                <Sparkline values={[...a.priceWindow, ...a.after.slice(0, 60)]} width={110} highlight={0.35} />
-                <span className={"analog-card__after " + (a.afterReturn >= 0 ? "pos" : "neg")}>
-                  {fmtPct(a.afterReturn)}
-                </span>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </section>
 
@@ -1934,6 +2084,96 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
           </div>
         </div>
       </aside>
+
+      {/* ── Analog detail drawer ─────────────────────────────────
+          Slides in from the right when the user clicks a card body.
+          Open state is driven by `detailAnalogId` — null = closed.
+          The drawer itself is stateless beyond the controlled props. */}
+      <AnalogDetailDrawer
+        analog={detailAnalog}
+        open={detailAnalog !== null}
+        pinned={detailAnalog ? pinned.has(detailAnalog.id) : false}
+        onClose={() => setDetailAnalogId(null)}
+        onTogglePin={togglePin}
+        onUseAsQuery={(analog) => {
+          // Move the query window to the analog's [startIdx, priceWindow.length]
+          // range. We DO NOT auto-fire search — the user must click Search so
+          // the new window is visible first. `isDirty` already flips on the
+          // windowState change (see derivation below) so the Search button
+          // starts pulsing immediately.
+          const newStart = Math.max(0, Math.min(N - 2, analog.startIdx));
+          const newLen = Math.max(2, Math.min(N - newStart - 1, analog.priceWindow.length || 120));
+          setWindowState({ start: newStart, len: newLen });
+          // Also close the drawer so the chart is fully visible, and surface
+          // a toast-style banner telling the user what just happened + how
+          // to proceed. Banner clears itself after 8s so it doesn't linger
+          // if the user ignores it; manual dismiss is also wired up.
+          setDetailAnalogId(null);
+          const label = `${fmtDate(analog.date)} → ${fmtDate(analog.endDate)}`;
+          setUseAsQueryBanner(label);
+          // Fire a custom event on window so other parts of the app (e.g.
+          // a future analytics listener) can observe the "use as query"
+          // intent without being coupled to this component.
+          try {
+            window.dispatchEvent(
+              new CustomEvent("ts:use-analog-as-query", {
+                detail: { analogId: analog.id, label },
+              }),
+            );
+          } catch {
+            // CustomEvent can throw in some sandboxed iframes — safe to ignore.
+          }
+        }}
+      />
+
+      {/* Transient "use as query" banner — appears when the user clicks
+          "Find similar analogs" in the drawer. Self-clears after 8s or on
+          manual dismiss. Positioned as a floating toast so it doesn't
+          reflow the layout when it appears/disappears. */}
+      {useAsQueryBanner !== null && (
+        <UseAsQueryBanner
+          label={useAsQueryBanner}
+          onDismiss={() => setUseAsQueryBanner(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+/**
+ * Transient toast shown after "Find similar analogs" moves the query
+ * window. Self-dismisses after 8 seconds — long enough for the PM to
+ * read the sentence, short enough that it doesn't linger if ignored.
+ *
+ * Extracted as its own component purely so the setTimeout can live in
+ * its own effect without polluting the Workstation component's already-
+ * crowded hook list. The effect cleans up on unmount / prop change.
+ */
+function UseAsQueryBanner({
+  label,
+  onDismiss,
+}: {
+  label: string;
+  onDismiss: () => void;
+}) {
+  useEffect(() => {
+    const id = window.setTimeout(onDismiss, 8000);
+    return () => window.clearTimeout(id);
+  }, [onDismiss]);
+  return (
+    <div className="ws-use-as-query-banner" role="status" aria-live="polite">
+      <span className="ws-use-as-query-banner__icon" aria-hidden="true">&#x1F4CD;</span>
+      <span className="ws-use-as-query-banner__text">
+        Query window moved to <strong>{label}</strong> &mdash; click Search to find new analogs.
+      </span>
+      <button
+        type="button"
+        className="ws-use-as-query-banner__dismiss"
+        onClick={onDismiss}
+        aria-label="Dismiss notice"
+      >
+        &times;
+      </button>
     </div>
   );
 }
