@@ -49,6 +49,7 @@ import {
   createChart,
   AreaSeries,
   LineSeries,
+  CandlestickSeries,
   CrosshairMode,
   LineStyle,
   type IChartApi,
@@ -56,9 +57,11 @@ import {
   type UTCTimestamp,
   type LineData,
   type AreaData,
+  type CandlestickData,
   type Time,
 } from "lightweight-charts";
 import { DataPoint, ConePoint } from "../../lib/data";
+import type { OhlcData } from "../../lib/types";
 import type { AnalogOverlay } from "./line-chart";
 
 /**
@@ -99,6 +102,18 @@ export interface LineChartLWProps {
    * a "preview" emphasis on the matching overlay line. Mirrors
    * `hoveredAnalogId` on the Fast view. Null when nothing is hovered. */
   hoveredAnalogId?: string | null;
+  /**
+   * Optional OHLC payload for candle mode. Null / missing when the
+   * dataset is quote-only or the `/ohlc` endpoint failed. Indices are
+   * aligned with `series` so the chart can pair bars by index.
+   */
+  ohlc?: OhlcData | null;
+  /**
+   * When true AND `ohlc` is provided, render candlesticks for the main
+   * price instead of a line. When true but `ohlc` is missing, silently
+   * falls back to the line renderer so the chart never goes blank.
+   */
+  candleMode?: boolean;
 }
 
 /**
@@ -124,6 +139,9 @@ function readThemeTokens(): {
   coneFill: string;
   coneLine: string;
   accent: string;
+  /** Candle up/down colors — mirror globals.css --positive / --negative. */
+  positive: string;
+  negative: string;
   /** Six-slot rank palette — `palette[0]` is rank 1, etc. Mirrors the
    *  --c-analog-1..6 tokens introduced by Agent G; resolved at theme
    *  switch time so both light and dark forks pick up the right shade. */
@@ -146,6 +164,8 @@ function readThemeTokens(): {
       coneFill: "rgba(20,19,15,0.08)",
       coneLine: "#6b6858",
       accent: "#5a2b2b",
+      positive: "#1c5b3d",
+      negative: "#8a2a2a",
       palette: [
         "#5a2b2b", // oxblood (rank 1)
         "#8a6200", // amber
@@ -183,6 +203,8 @@ function readThemeTokens(): {
     coneFill: v("--c-cone-fill", "rgba(20,19,15,0.08)"),
     coneLine: v("--c-cone-line", "#6b6858"),
     accent,
+    positive: v("--positive", "#1c5b3d"),
+    negative: v("--negative", "#8a2a2a"),
     palette: [
       v("--c-analog-1", "#5a2b2b"),
       v("--c-analog-2", "#8a6200"),
@@ -269,6 +291,16 @@ function buildConeData(
   const anchor = series[anchorIdx];
   if (!anchor) return { p10p90: [], p25p75: [], median: [] };
   const anchorTime = Math.floor(anchor.d.getTime() / 1000);
+  const N = series.length;
+  // Cadence for fabricated bars past the series end. Read from the gap
+  // between the final two real bars so intraday datasets (4h, 1h) don't
+  // get day-spaced fabrications that collide with the real timeline —
+  // the bug that tripped the lightweight-charts
+  // "data must be asc ordered by time" assertion on GOLD 4h candles.
+  const cadenceSec = N >= 2
+    ? Math.max(1, Math.floor((series[N - 1].d.getTime() - series[N - 2].d.getTime()) / 1000))
+    : 86400;
+  const lastRealTime = N > 0 ? Math.floor(series[N - 1].d.getTime() / 1000) : anchorTime;
 
   const pts = cone.slice(0, forecastHorizon);
   const p10p90: AreaData<UTCTimestamp>[] = [];
@@ -277,30 +309,41 @@ function buildConeData(
 
   pts.forEach((q, i) => {
     // Prefer the real future bar's timestamp when series has it — this keeps
-    // weekends/holidays aligned between the price line and the cone. Fall back
-    // to synthetic +N*86400 seconds for any bars past the end of the series.
+    // weekends/holidays aligned between the price line and the cone. Past
+    // the end of the series, synthesize a future timestamp by stepping
+    // forward from the LAST REAL BAR (not the anchor), so mid-series
+    // queries don't produce fabricated times that collide with later
+    // real-bar times.
     const futureBar = series[anchorIdx + i];
+    const fabIdx = anchorIdx + i - (N - 1); // >0 once we're past series end
     const t = (futureBar
       ? Math.floor(futureBar.d.getTime() / 1000)
-      : anchorTime + i * 86400) as UTCTimestamp;
-    // AreaData encodes a single `value`; to draw a band we create TWO area
-    // series (top=p90, bottom=p10) and set the bottom's background to the
-    // page bg so only the gap between them is visible. lightweight-charts v5
-    // does not natively expose a band primitive.
+      : lastRealTime + fabIdx * cadenceSec) as UTCTimestamp;
     p10p90.push({ time: t, value: q.p90 });
-    // We stash p10 as a separate record the consumer passes to a second
-    // AreaSeries whose top color is transparent and bottom covers the
-    // [minPrice, p10] region — see component below.
-    // For the p25..p75 band we use the same pattern (p75 top, p25 bottom).
     p25p75.push({ time: t, value: q.p75 });
     median.push({ time: t, value: q.p50 });
   });
 
-  // Note: we only need the TOP (p90, p75) series for rendering because we
-  // express "band" as two stacked AreaSeries. The LOWER edge is drawn by
-  // independent AreaSeries the caller will build below. Keeping this
-  // helper pure — caller handles the lower edges.
-  return { p10p90, p25p75, median };
+  // Final safety net: drop any non-monotonic entry. The cadence fix above
+  // covers the common case, but malformed series (duplicate dates, bad
+  // resample, etc.) can still sneak through — lightweight-charts rejects
+  // the whole setData call on a single out-of-order point, so we'd
+  // rather silently drop a bad sample than blank the chart.
+  const monotonic = <T extends { time: UTCTimestamp }>(arr: T[]): T[] => {
+    const out: T[] = [];
+    let last = -Infinity;
+    for (const row of arr) {
+      const tNum = row.time as number;
+      if (tNum > last) { out.push(row); last = tNum; }
+    }
+    return out;
+  };
+
+  return {
+    p10p90: monotonic(p10p90),
+    p25p75: monotonic(p25p75),
+    median: monotonic(median),
+  };
 }
 
 /**
@@ -321,13 +364,30 @@ function buildConeLowerEdge(
   const anchor = series[anchorIdx];
   if (!anchor) return [];
   const anchorTime = Math.floor(anchor.d.getTime() / 1000);
-  return cone.slice(0, forecastHorizon).map((q, i) => {
+  const N = series.length;
+  const cadenceSec = N >= 2
+    ? Math.max(1, Math.floor((series[N - 1].d.getTime() - series[N - 2].d.getTime()) / 1000))
+    : 86400;
+  const lastRealTime = N > 0 ? Math.floor(series[N - 1].d.getTime() / 1000) : anchorTime;
+
+  // Same cadence + monotonic-filter guarantee as buildConeData above —
+  // the upper/lower edges must share a strictly-increasing time index
+  // since they render as stacked AreaSeries.
+  const raw = cone.slice(0, forecastHorizon).map((q, i) => {
     const futureBar = series[anchorIdx + i];
+    const fabIdx = anchorIdx + i - (N - 1);
     const t = (futureBar
       ? Math.floor(futureBar.d.getTime() / 1000)
-      : anchorTime + i * 86400) as UTCTimestamp;
+      : lastRealTime + fabIdx * cadenceSec) as UTCTimestamp;
     return { time: t, value: q[key] };
   });
+  const out: AreaData<UTCTimestamp>[] = [];
+  let last = -Infinity;
+  for (const row of raw) {
+    const tNum = row.time as number;
+    if (tNum > last) { out.push(row); last = tNum; }
+  }
+  return out;
 }
 
 /**
@@ -342,48 +402,71 @@ function buildAnalogData(
   win: { start: number; len: number },
   analog: AnalogOverlay,
   forecastHorizon: number,
-): LineData<UTCTimestamp>[] {
+): { match: LineData<UTCTimestamp>[]; forward: LineData<UTCTimestamp>[] } {
+  /*
+   * Returns TWO slices so the caller can render them with different
+   * stroke styles (dashed for `match`, solid for `forward`). The match
+   * segment is the analog's priceWindow — the historical slice that
+   * overlays the query window for "what rhymes here" comparison — and
+   * the forward segment is `after` — the projected "what came next
+   * after that historical match".
+   *
+   * Both slices share the same scale factor (qAnchorP / analogEnd) and
+   * both are de-duplicated on strictly-increasing timestamps so
+   * lightweight-charts doesn't reject them.
+   */
+  const empty = { match: [] as LineData<UTCTimestamp>[], forward: [] as LineData<UTCTimestamp>[] };
   const anchorIdx = win.start + win.len - 1;
   const anchor = series[anchorIdx];
-  if (!anchor) return [];
+  if (!anchor) return empty;
   const qAnchorP = anchor.p;
   const analogEnd = analog.priceWindow[analog.priceWindow.length - 1];
-  if (!analogEnd) return [];
+  if (!analogEnd) return empty;
   const scale = qAnchorP / analogEnd;
-
-  const combined = [
-    ...analog.priceWindow,
-    ...analog.after.slice(0, forecastHorizon),
-  ];
-  const startOffset = anchorIdx - (analog.priceWindow.length - 1);
   const anchorTime = Math.floor(anchor.d.getTime() / 1000);
 
-  const out: LineData<UTCTimestamp>[] = [];
-  for (let k = 0; k < combined.length; k++) {
-    const idx = startOffset + k;
-    // For bars inside `series` use the real date; for bars past the end
-    // (forward window beyond the last bar) fabricate a daily cadence.
-    let t: UTCTimestamp;
+  const timeFor = (idx: number): UTCTimestamp | null => {
     if (idx >= 0 && idx < series.length) {
-      t = Math.floor(series[idx].d.getTime() / 1000) as UTCTimestamp;
-    } else if (idx >= series.length) {
-      t = (anchorTime + (idx - anchorIdx) * 86400) as UTCTimestamp;
-    } else {
-      // idx < 0 — analog window extends before history starts. Skip.
-      continue;
+      return Math.floor(series[idx].d.getTime() / 1000) as UTCTimestamp;
     }
-    out.push({ time: t, value: combined[k] * scale });
-  }
-  // De-duplicate non-monotonic times (e.g. weekends) to satisfy the
-  // lightweight-charts contract of strictly increasing timestamps.
-  out.sort((a, b) => (a.time as number) - (b.time as number));
-  const dedup: LineData<UTCTimestamp>[] = [];
-  for (const p of out) {
-    if (!dedup.length || (p.time as number) > (dedup[dedup.length - 1].time as number)) {
-      dedup.push(p);
+    if (idx >= series.length) {
+      return (anchorTime + (idx - anchorIdx) * 86400) as UTCTimestamp;
     }
+    return null;
+  };
+
+  const dedupSort = (arr: LineData<UTCTimestamp>[]) => {
+    arr.sort((a, b) => (a.time as number) - (b.time as number));
+    const out: LineData<UTCTimestamp>[] = [];
+    for (const p of arr) {
+      if (!out.length || (p.time as number) > (out[out.length - 1].time as number)) out.push(p);
+    }
+    return out;
+  };
+
+  // Match segment: priceWindow spans [anchorIdx - (N-1), anchorIdx].
+  const matchStart = anchorIdx - (analog.priceWindow.length - 1);
+  const match: LineData<UTCTimestamp>[] = [];
+  for (let k = 0; k < analog.priceWindow.length; k++) {
+    const t = timeFor(matchStart + k);
+    if (t === null) continue;
+    match.push({ time: t, value: analog.priceWindow[k] * scale });
   }
-  return dedup;
+
+  // Forward segment: anchor the line at the match's terminal so the
+  // two segments meet without a visible gap, then extend through `after`.
+  const forward: LineData<UTCTimestamp>[] = [];
+  if (match.length > 0) {
+    // Reuse the scaled last-match value as the joining vertex.
+    forward.push(match[match.length - 1]);
+  }
+  for (let k = 0; k < Math.min(analog.after.length, forecastHorizon); k++) {
+    const t = timeFor(anchorIdx + 1 + k);
+    if (t === null) continue;
+    forward.push({ time: t, value: analog.after[k] * scale });
+  }
+
+  return { match: dedupSort(match), forward: dedupSort(forward) };
 }
 
 export function LineChartLW({
@@ -393,15 +476,25 @@ export function LineChartLW({
   window: win,
   analogsOverlay,
   cone,
-  height = 380,
+  height = 300,
   forecastHorizon = 60,
   showWindow = true,
   showCone = true,
   hoveredAnalogId = null,
+  ohlc = null,
+  candleMode = false,
 }: LineChartLWProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const priceSeriesRef = useRef<ISeriesApi<"Line"> | null>(null);
+  /*
+   * Candle series sibling to `priceSeriesRef`. Created at chart init
+   * alongside the line series; exactly one of the two carries data at
+   * any time (driven by `candleMode` + OHLC availability). Keeping both
+   * alive avoids a full chart rebuild when the user toggles modes —
+   * switching is a `setData([])` on the inactive one.
+   */
+  const candleSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
   const coneP90Ref = useRef<ISeriesApi<"Area"> | null>(null);
   const coneP10Ref = useRef<ISeriesApi<"Area"> | null>(null);
   const coneP75Ref = useRef<ISeriesApi<"Area"> | null>(null);
@@ -518,6 +611,19 @@ export function LineChartLW({
       crosshairMarkerVisible: true,
       crosshairMarkerRadius: 3,
     });
+    // Candle series — added alongside the line so mode toggles are a
+    // cheap setData swap. Colors use the product positive/negative
+    // palette so ups/downs read consistently with the rest of the app.
+    const candle = chart.addSeries(CandlestickSeries, {
+      upColor: tokens.positive,
+      downColor: tokens.negative,
+      borderUpColor: tokens.positive,
+      borderDownColor: tokens.negative,
+      wickUpColor: tokens.positive,
+      wickDownColor: tokens.negative,
+      priceLineVisible: false,
+      lastValueVisible: true,
+    });
 
     coneP90Ref.current = p90;
     coneP10Ref.current = p10;
@@ -525,6 +631,7 @@ export function LineChartLW({
     coneP25Ref.current = p25;
     medianSeriesRef.current = median;
     priceSeriesRef.current = price;
+    candleSeriesRef.current = candle;
 
     // Resize observer — keeps the chart width pinned to its container.
     const ro = new ResizeObserver((entries) => {
@@ -539,6 +646,7 @@ export function LineChartLW({
       chart.remove();
       chartRef.current = null;
       priceSeriesRef.current = null;
+      candleSeriesRef.current = null;
       coneP90Ref.current = null;
       coneP10Ref.current = null;
       coneP75Ref.current = null;
@@ -566,6 +674,14 @@ export function LineChartLW({
         },
       });
       priceSeriesRef.current?.applyOptions({ color: t.query });
+      candleSeriesRef.current?.applyOptions({
+        upColor: t.positive,
+        downColor: t.negative,
+        borderUpColor: t.positive,
+        borderDownColor: t.negative,
+        wickUpColor: t.positive,
+        wickDownColor: t.negative,
+      });
       medianSeriesRef.current?.applyOptions({ color: t.coneLine });
       coneP90Ref.current?.applyOptions({
         topColor: t.coneFill,
@@ -599,25 +715,63 @@ export function LineChartLW({
   }, []);
 
   // ── Push price data ──────────────────────────────────────────────────
+  //
+  // The visible range's right edge is allowed to extend PAST the last real
+  // bar by synthesizing a future timestamp (cadence from the final two
+  // bars, fallback 1 day). This matches the Fast view's rule that
+  // `viewEnd` can exceed `series.length`, giving the forecast cone
+  // somewhere to render when the query anchor is at the end of history.
   useEffect(() => {
-    const s = priceSeriesRef.current;
+    const lineS = priceSeriesRef.current;
+    const candleS = candleSeriesRef.current;
     const chart = chartRef.current;
-    if (!s || !chart || series.length === 0) return;
-    const data = series.map(toLineData);
-    s.setData(data);
+    if (!lineS || !candleS || !chart || series.length === 0) return;
 
-    // Clamp the visible time range to [viewStart, viewEnd] to match the SVG
-    // Fast view's range selection. fitContent is avoided because it would
-    // override the user's selected range chips.
-    const vs = series[Math.max(0, viewStart)];
-    const ve = series[Math.min(series.length - 1, viewEnd - 1)];
-    if (vs && ve) {
-      chart.timeScale().setVisibleRange({
-        from: Math.floor(vs.d.getTime() / 1000) as Time,
-        to: Math.floor(ve.d.getTime() / 1000) as Time,
-      });
+    // Decide which series holds data for this mode. Candle mode requires
+    // an OHLC payload aligned with `series`; if the dataset is quote-only
+    // we silently fall back to the line renderer (the parent passes
+    // candleMode=true anyway, but ohlc is missing).
+    const useCandles = !!candleMode && !!ohlc
+      && ohlc.close.length === series.length
+      && ohlc.open.length === series.length
+      && ohlc.high.length === series.length
+      && ohlc.low.length === series.length;
+
+    if (useCandles) {
+      const rows: CandlestickData<UTCTimestamp>[] = [];
+      for (let i = 0; i < series.length; i++) {
+        rows.push({
+          time: Math.floor(series[i].d.getTime() / 1000) as UTCTimestamp,
+          open: ohlc!.open[i],
+          high: ohlc!.high[i],
+          low: ohlc!.low[i],
+          close: ohlc!.close[i],
+        });
+      }
+      candleS.setData(rows);
+      lineS.setData([]);
+    } else {
+      lineS.setData(series.map(toLineData));
+      candleS.setData([]);
     }
-  }, [series, viewStart, viewEnd]);
+
+    const N = series.length;
+    const vs = series[Math.max(0, viewStart)];
+    if (!vs) return;
+    const cadenceSec = N >= 2
+      ? Math.max(1, Math.floor((series[N - 1].d.getTime() - series[N - 2].d.getTime()) / 1000))
+      : 86400;
+    // Right edge: if viewEnd is still inside the series, use the real bar;
+    // otherwise fabricate a timestamp past the last bar by the cadence.
+    const rightIdx = Math.max(0, viewEnd - 1);
+    const rightTimeSec = rightIdx < N
+      ? Math.floor(series[rightIdx].d.getTime() / 1000)
+      : Math.floor(series[N - 1].d.getTime() / 1000) + (rightIdx - (N - 1)) * cadenceSec;
+    chart.timeScale().setVisibleRange({
+      from: Math.floor(vs.d.getTime() / 1000) as Time,
+      to: rightTimeSec as Time,
+    });
+  }, [series, viewStart, viewEnd, ohlc, candleMode]);
 
   // ── Push cone data ───────────────────────────────────────────────────
   useEffect(() => {
@@ -686,8 +840,8 @@ export function LineChartLW({
     const RAMP_ALPHA = [0.95, 0.85, 0.75, 0.65, 0.55, 0.45];
 
     analogsOverlay.forEach((a, rank) => {
-      const data = buildAnalogData(series, win, a, forecastHorizon);
-      if (data.length < 2) return;
+      const { match, forward } = buildAnalogData(series, win, a, forecastHorizon);
+      if (match.length + forward.length < 2) return;
 
       const isHovered = !!(a.id && hoveredAnalogId && a.id === hoveredAnalogId);
       const variant: "default" | "strong" | "context" =
@@ -717,16 +871,36 @@ export function LineChartLW({
         lineWidth = isHovered ? 3 : (rank === 0 ? 2 : 1);
       }
 
-      const s = chart.addSeries(LineSeries, {
-        color,
-        lineWidth,
-        lineStyle: LineStyle.Solid,
-        priceLineVisible: false,
-        lastValueVisible: false,
-        crosshairMarkerVisible: false,
-      });
-      s.setData(data);
-      analogSeriesRefs.current.push(s);
+      // Match segment — dashed, rendered only when we have enough
+      // points to draw a line. Shares color/width with the forward
+      // segment below so the eye reads them as one overlay that
+      // changes style at the query-window / future boundary.
+      if (match.length >= 2) {
+        const s = chart.addSeries(LineSeries, {
+          color,
+          lineWidth,
+          lineStyle: LineStyle.Dashed,
+          priceLineVisible: false,
+          lastValueVisible: false,
+          crosshairMarkerVisible: false,
+        });
+        s.setData(match);
+        analogSeriesRefs.current.push(s);
+      }
+
+      // Forward segment — solid, the actual "what happens next" path.
+      if (forward.length >= 2) {
+        const s = chart.addSeries(LineSeries, {
+          color,
+          lineWidth,
+          lineStyle: LineStyle.Solid,
+          priceLineVisible: false,
+          lastValueVisible: false,
+          crosshairMarkerVisible: false,
+        });
+        s.setData(forward);
+        analogSeriesRefs.current.push(s);
+      }
     });
   }, [analogsOverlay, series, win, forecastHorizon, hoveredAnalogId]);
 

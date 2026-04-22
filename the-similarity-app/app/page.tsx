@@ -91,8 +91,16 @@ const DEFAULTS: WorkstationSettings = {
   theme: "light",
   kAnalogs: 6,
   horizon: 60,
-  showAnalogs: "top3",
-  showCone: true,
+  // Show every top-K match as its own forward projection by default.
+  // This is the product's core loop: "here are K analogs, each drawing
+  // a different possible future" — gating the chart to only 3 hid most
+  // of the signal we just computed.
+  showAnalogs: "all",
+  // P10-P90 cone hidden by default — the individual analog lines already
+  // show the range of possible futures and the cone adds visual clutter
+  // on top of them. Users can toggle it on from the tweaks panel when
+  // they want the band back.
+  showCone: false,
 };
 
 export default function Page() {
@@ -121,13 +129,44 @@ export default function Page() {
     } catch {
       // localStorage parse failed — carry on with empty saved.
     }
+    // One-time migration: the old `"top3"` default silently dropped 3+
+    // of the top-K analogs from the chart. Promote it to `"all"` once
+    // so returning users see every match as its own forward line.
+    if (saved.showAnalogs === "top3") saved.showAnalogs = "all";
+    // Force-hide the P10-P90 cone ONCE for returning users. Anyone who
+    // loaded the app before the default flip has `showCone: true`
+    // baked into localStorage and keeps seeing the band no matter
+    // what we change in DEFAULTS. A one-shot migration flag stops us
+    // from clobbering a user who later turns the cone back on via
+    // the tweaks panel — we only flip to false if we haven't already
+    // run this migration on their machine.
+    try {
+      if (!localStorage.getItem("ts-migration-hide-cone")) {
+        if (saved.showCone === true) saved.showCone = false;
+        localStorage.setItem("ts-migration-hide-cone", "1");
+      }
+    } catch {
+      // localStorage unavailable — no-op; fall back to the raw saved value.
+    }
+    // `"pro"` chart mode was replaced by `"candle"` (which still uses
+    // lightweight-charts, but renders OHLC candlesticks when available).
+    // Cast the saved value loosely since stale localStorage may carry
+    // a mode that's no longer in the union.
+    if ((saved as { chartMode?: string }).chartMode === "pro") {
+      (saved as { chartMode?: string }).chartMode = "candle";
+    }
     // URL takes priority per-key over both defaults and saved.
     const u = parseUrlState(window.location.search);
     const fromUrl: Partial<WorkstationSettings> = {};
     if (u.theme !== undefined) fromUrl.theme = u.theme;
     if (u.k !== undefined) fromUrl.kAnalogs = u.k;
     if (u.horizon !== undefined) fromUrl.horizon = u.horizon;
-    if (u.chartMode !== undefined) fromUrl.chartMode = u.chartMode;
+    if (u.chartMode !== undefined) {
+      // URL may still carry a legacy "pro" token; promote to "candle"
+      // on the way into settings, same rule as the localStorage migration
+      // a few lines above.
+      fromUrl.chartMode = u.chartMode === "pro" ? "candle" : u.chartMode;
+    }
     if (u.showAnalogs !== undefined) fromUrl.showAnalogs = u.showAnalogs;
     return { ...DEFAULTS, ...saved, ...fromUrl };
   });
@@ -313,9 +352,26 @@ export default function Page() {
 
   return (
     <div className="app">
-      {/* ── Marquee strip ──────────────────────────────────────── */}
+      {/* ── Marquee strip ──────────────────────────────────────────
+          The only top-of-page chrome now. Holds the brand wordmark,
+          the rolling tagline, and the moved-over search/tweaks/account
+          cluster. The old `header.nav` was deleted — single-surface
+          product, no verbs to gate, no second row of chrome needed. */}
       <div className="marquee">
-        <span className="marquee__brand">THE SIMILARITY</span>
+        {/* Brand: the circle-in-circle icon + italic wordmark. Lives in
+            the marquee now since the header row was removed. The
+            `.brand` wrapper opts out of the marquee's uppercase-mono
+            treatment so the wordmark renders in its own serif. */}
+        <div className="brand">
+          <div className="brand__logo" aria-hidden="true">
+            <svg width="22" height="22" viewBox="0 0 26 26">
+              <circle cx="13" cy="13" r="11" fill="none" stroke="var(--ink)" strokeWidth="1.2" />
+              <circle cx="13" cy="13" r="6" fill="none" stroke="var(--ink)" strokeWidth="1.2" />
+              <circle cx="13" cy="13" r="1.8" fill="var(--ink)" />
+            </svg>
+          </div>
+          <div className="brand__word">The <em>Similarity</em></div>
+        </div>
         <div style={{ overflow: "hidden", flex: 1 }}>
           <div className="marquee__track">
             {/*
@@ -335,34 +391,9 @@ export default function Page() {
             ))}
           </div>
         </div>
-        <div className="marquee__right">
-          <span className="dot" />
-          <span>engine live</span>
-        </div>
-      </div>
-
-      {/* ── Top navigation ─────────────────────────────────────── */}
-      <header className="nav">
-        <div className="nav__brand">
-          <div className="nav__logo">
-            <svg width="26" height="26" viewBox="0 0 26 26">
-              <circle cx="13" cy="13" r="11" fill="none" stroke="var(--ink)" strokeWidth="1.2" />
-              <circle cx="13" cy="13" r="6" fill="none" stroke="var(--ink)" strokeWidth="1.2" />
-              <circle cx="13" cy="13" r="1.8" fill="var(--ink)" />
-            </svg>
-          </div>
-          <div className="nav__word">The <em>Similarity</em></div>
-        </div>
-        <div className="nav__verbs">
-          {VERBS.map(v => (
-            <button key={v.k} className="nav__verb"
-              data-active={surface === v.k ? "true" : undefined}
-              onClick={() => setSurface(v.k)}>
-              <span className="nav__verb__num">{v.n}</span>
-              <span className="nav__verb__name">{v.name}</span>
-            </button>
-          ))}
-        </div>
+        {/* Reused verbatim from the old `.nav__right` — same classes,
+            same handlers, same markup. The nav row no longer renders
+            this block. */}
         <div className="nav__right">
           <button className="nav__search" onClick={() => setCmdOpen(true)}>
             <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.3">
@@ -385,7 +416,11 @@ export default function Page() {
             <span className="mono" style={{ fontSize: 10, fontWeight: 600 }}>LN</span>
           </button>
         </div>
-      </header>
+        <div className="marquee__right">
+          <span className="dot" />
+          <span>engine live</span>
+        </div>
+      </div>
 
       {/* ── Page content ───────────────────────────────────────── */}
       {/*

@@ -133,7 +133,11 @@ input, select, textarea { font: inherit; color: inherit; }
    ==================================================================== */
 .app {
   display: grid;
-  grid-template-rows: 44px 56px 1fr 26px;
+  /* 3 rows now: marquee (44px) + main content (1fr) + status bar (26px).
+     The old 56px nav row was dropped when header.nav was deleted; leaving
+     it here pushed `main.page` into the 56px slot and dumped the status
+     bar into the `1fr` row, making the footer fill the screen. */
+  grid-template-rows: 44px 1fr 26px;
   height: 100vh;
 }
 
@@ -162,6 +166,28 @@ input, select, textarea { font: inherit; color: inherit; }
   white-space: nowrap;
 }
 .marquee__brand { font-weight: 600; letter-spacing: 0.24em; color: var(--ink); }
+/*
+ * Brand cluster living inside the marquee: icon + italic serif wordmark.
+ * Opts out of the marquee's uppercase-mono styling (text-transform,
+ * letter-spacing, font-family) so the wordmark reads as a product title,
+ * not a marquee ticker.
+ */
+.brand {
+  display: flex; align-items: center; gap: var(--s-3);
+  text-transform: none;
+  letter-spacing: normal;
+  flex-shrink: 0;
+}
+.brand__logo { width: 22px; height: 22px; display: grid; place-items: center; }
+.brand__word {
+  font-family: var(--serif);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  color: var(--ink);
+}
+.brand__word em { font-style: italic; font-weight: 400; color: var(--ink-3); }
 .marquee__track {
   display: inline-flex; gap: 40px;
   animation: marquee 90s linear infinite;
@@ -173,59 +199,28 @@ input, select, textarea { font: inherit; color: inherit; }
   from { transform: translateX(0); }
   to   { transform: translateX(-50%); }
 }
-.marquee__right { margin-left: auto; display: flex; gap: var(--s-4); align-items: center; }
+.marquee__right { display: flex; gap: var(--s-4); align-items: center; }
 .marquee__right .dot { width: 6px; height: 6px; border-radius: 50%; background: #6fb88e; box-shadow: 0 0 0 2px rgba(111,184,142,.2); }
+/*
+ * `.nav__right` moved out of the nav into the marquee bar. Inside the
+ * marquee it needs a few adjustments to sit at the right height and
+ * not get swallowed by the marquee's uppercase text styles.
+ */
+.marquee > .nav__right {
+  text-transform: none;
+  letter-spacing: normal;
+  font-family: var(--sans, inherit);
+  flex-shrink: 0;
+}
 
-/* ── Top navigation: the six verbs ───────────────────────────── */
-.nav {
-  display: flex; align-items: stretch;
-  border-bottom: 1px solid var(--rule);
-  background: var(--bg-elevated);
-  padding-left: var(--s-6); padding-right: var(--s-4);
-  gap: var(--s-6);
-}
-.nav__brand {
-  display: flex; align-items: center; gap: var(--s-3);
-  border-right: 1px solid var(--rule);
-  padding-right: var(--s-6);
-  min-width: 220px;
-}
-.nav__logo {
-  width: 26px; height: 26px;
-  display: grid; place-items: center;
-}
-.nav__word {
-  font-family: var(--serif);
-  font-size: 18px; font-weight: 600; letter-spacing: -0.02em;
-  line-height: 1;
-}
-.nav__word em {
-  font-style: italic; font-weight: 400; color: var(--ink-3);
-}
-.nav__verbs { display: flex; align-items: stretch; gap: 0; flex: 1; }
-.nav__verb {
-  display: flex; flex-direction: column; justify-content: center;
-  padding: 0 var(--s-5);
-  border-right: 1px solid transparent;
-  border-left: 1px solid transparent;
-  min-width: 132px;
-  position: relative;
-  color: var(--ink-2);
-  transition: color .15s;
-}
-.nav__verb:hover { color: var(--ink); background: var(--bg-hover); }
-.nav__verb[data-active="true"] {
-  color: var(--ink);
-  background: var(--bg);
-  border-left: 1px solid var(--rule);
-  border-right: 1px solid var(--rule);
-}
-.nav__verb[data-active="true"]::after {
-  content: ""; position: absolute; left: -1px; right: -1px; bottom: -1px; height: 1px;
-  background: var(--bg);
-}
-.nav__verb__num { font-family: var(--mono); font-size: 9.5px; letter-spacing: .14em; color: var(--ink-4); }
-.nav__verb__name { font-family: var(--serif); font-size: 17px; font-weight: 500; letter-spacing: -0.01em; }
+/* ── Top navigation ─────────────────────────────────────────────
+   The old header.nav element is gone — the product ships a single
+   surface, the marquee carries the brand + utility cluster, and a
+   second chrome row wasn't earning its keep. The .nav* classes below
+   that REMAIN are the ones the marquee still renders (.nav__right,
+   .nav__search, .nav__iconbtn). Everything else (.nav, .nav__brand,
+   .nav__logo, .nav__word, .nav__verbs, .nav__verb) was removed with
+   the header. */
 .nav__right { display: flex; align-items: center; gap: var(--s-4); }
 .nav__search {
   display: flex; align-items: center; gap: var(--s-2);
@@ -1123,6 +1118,31 @@ input, select, textarea { font: inherit; color: inherit; }
 .svg-chart .cone-fill { fill: var(--c-cone-fill); }
 .svg-chart .cone-line { fill: none; stroke: var(--c-cone-line); stroke-width: 1; stroke-dasharray: 3 3; }
 .svg-chart .median { fill: none; stroke: var(--c-cone-line); stroke-width: 1.5; }
+.svg-chart .data-end { stroke: var(--ink-4); stroke-width: 1; stroke-dasharray: 2 3; opacity: .5; }
+.svg-chart .data-end-label { font-family: var(--mono); font-size: 9px; fill: var(--ink-3); letter-spacing: .05em; text-transform: uppercase; }
+/*
+ * Drag-to-pan: the `.pan-catcher` rect behind the grid catches mouse
+ * events on empty plot space so the whole view can be dragged around.
+ * Every non-interactive chart shape (grid, axis text, price line,
+ * median, cone paths, data-end marker, analog overlays) is marked
+ * pointer-events: none so the catcher actually receives the event.
+ * The query window rect and its handles explicitly opt back in —
+ * they still need mousedown to resize/move the query selection.
+ */
+.svg-chart .pan-catcher { cursor: grab; }
+.svg-chart .pan-catcher:active { cursor: grabbing; }
+.svg-chart .price,
+.svg-chart .median,
+.svg-chart .analog,
+.svg-chart .cone-fill,
+.svg-chart .cone-line,
+.svg-chart .data-end,
+.svg-chart .data-end-label,
+.svg-chart .crosshair,
+.svg-chart .annot,
+.svg-chart .axis { pointer-events: none; }
+.svg-chart .window-rect,
+.svg-chart .window-handle { pointer-events: auto; }
 .svg-chart .window-rect { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 1; cursor: grab; }
 .svg-chart .window-rect:active { cursor: grabbing; }
 .svg-chart .window-handle { fill: var(--accent); cursor: ew-resize; }
@@ -1194,6 +1214,13 @@ input, select, textarea { font: inherit; color: inherit; }
   transition: border-color .15s, background .15s;
 }
 .analog-card:hover { background: var(--bg-hover); border-color: var(--rule-strong); }
+/* Inactive = analog exists in top-K but user hasn't activated it onto
+   the chart yet. We dim the card so it reads as "click to reveal" but
+   stay opaque enough that rank, date, and sparkline are still legible.
+   Hover override (below) brings it back to full strength while the
+   user is scanning the strip, matching the transient chart preview. */
+.analog-card:not([data-active="true"]) { opacity: .55; }
+.analog-card:not([data-active="true"]):hover { opacity: 1; }
 .analog-card[data-pinned="true"] {
   border-color: var(--accent);
   background: var(--bg-card);

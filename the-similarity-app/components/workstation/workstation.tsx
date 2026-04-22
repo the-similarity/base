@@ -27,10 +27,10 @@ import {
   type CalibrationResult,
 } from "../../lib/data";
 import {
-  isApiAvailable, fetchCatalog, fetchSeries, searchApi,
+  isApiAvailable, fetchCatalog, fetchSeries, fetchOhlc, searchApi,
   mapMatchesToAnalogs, mapForecastToCone, mapScoreBreakdownToLenses,
 } from "../../lib/api";
-import type { CatalogItem } from "../../lib/types";
+import type { CatalogItem, OhlcData } from "../../lib/types";
 import {
   parseUrlState,
   serializeUrlState,
@@ -52,13 +52,15 @@ export interface WorkstationSettings {
   showCone: boolean;
   /**
    * Which chart engine renders the main price/cone/analog view.
-   * - "fast" → SVG LineChart, supports draggable query window (default).
-   * - "pro"  → lightweight-charts LineChartLW, read-only window,
-   *   crosshair + pan/zoom via the native canvas engine.
+   * - "fast"   → SVG LineChart, supports draggable query window (default).
+   * - "candle" → lightweight-charts LineChartLW in candle mode — uses
+   *              the OHLC payload from `/ohlc` to render candlesticks
+   *              instead of a line. Falls back to line rendering when
+   *              the backend didn't return OHLC for this dataset.
    * Optional so older persisted settings decode cleanly; read sites must
    * default via `(settings.chartMode ?? "fast")`.
    */
-  chartMode?: "fast" | "pro";
+  chartMode?: "fast" | "candle";
 }
 
 interface WorkstationProps {
@@ -308,6 +310,14 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
   const [loadedSeries, setLoadedSeries] = useState<DataPoint[]>(SERIES);
   const [loadedDates, setLoadedDates] = useState<string[]>([]);
   const [loadedValues, setLoadedValues] = useState<number[]>([]);
+  /*
+   * OHLC companion to `loadedSeries`. Only consumed by the Pro
+   * (lightweight-charts) view when candle mode is active; null when
+   * the dataset is quote-only or the OHLC endpoint is unreachable.
+   * Kept as a separate state so a missing OHLC fetch never blocks the
+   * main line-chart render.
+   */
+  const [loadedOhlc, setLoadedOhlc] = useState<OhlcData | null>(null);
   const [datasetOpen, setDatasetOpen] = useState(false);
   // Free-form filter query for the dataset dropdown search input.
   // Scoped to the dropdown panel — closing the dropdown resets it so
@@ -436,6 +446,25 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
   const [hoverAnalog, setHoverAnalog] = useState<string | null>(null);
   const [crosshairIdx, setCrosshairIdx] = useState<number | null>(null);
   const [trustOpen, setTrustOpen] = useState(false);
+  /*
+   * Active (chart-visible) analog set.
+   *
+   * Distinct from `pinned` (which drives the forecast cone). The chart
+   * draws ONLY the analogs in this set — plus the currently-hovered one
+   * as a transient preview — so the user opts in to what they want to
+   * see instead of being buried under every top-K line at once.
+   *
+   * Lifecycle:
+   *   - Empty until the first search result arrives; the effect below
+   *     seeds it with the top-1 id so something is always visible.
+   *   - On subsequent queries, stale ids (matches that no longer
+   *     appear) are pruned; if that drops the set to empty, we re-seed
+   *     with the new top-1. This keeps the "at least one line on chart"
+   *     invariant across query changes.
+   *   - User toggles membership by clicking an analog card (not the
+   *     pin icon — pinning is a separate concept that feeds the cone).
+   */
+  const [activeAnalogIds, setActiveAnalogIds] = useState<Set<string>>(new Set());
 
   // ── Banner dismissal state ─────────────────────────────────────────
   // Dismissed banners persist to sessionStorage keyed by banner id so they
@@ -701,13 +730,23 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
       const [assetClass, symbol, timeframe] = parts;
 
       try {
-        const res = await fetchSeries(assetClass, symbol, timeframe);
+        // Fetch series + OHLC in parallel. OHLC is best-effort: if the
+        // backend doesn't expose candles for this timeframe, we just
+        // render as a line. `Promise.allSettled` keeps the failure
+        // isolated so the line view still loads.
+        const [seriesRes, ohlcRes] = await Promise.allSettled([
+          fetchSeries(assetClass, symbol, timeframe),
+          fetchOhlc(assetClass, symbol, timeframe),
+        ]);
         if (cancelled) return;
+        if (seriesRes.status !== "fulfilled") throw seriesRes.reason;
+        const res = seriesRes.value;
 
         const dp = seriesToDataPoints(res.values, res.dates);
         setLoadedSeries(dp);
         setLoadedDates(res.dates);
         setLoadedValues(res.values);
+        setLoadedOhlc(ohlcRes.status === "fulfilled" ? ohlcRes.value : null);
 
         const newN = dp.length;
         const u = urlStateRef.current;
@@ -1241,8 +1280,12 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
    * Guardrail: when horizon or windowState changes, if the cone would
    * be clipped, extend viewRange.end just enough to fit it (+5 bar
    * pad). We NEVER contract the view — that would yank context out
-   * from under the user. We also clamp to the series length so we
-   * don't scroll past the end of data.
+   * from under the user. viewRange.end is INTENTIONALLY allowed to
+   * exceed the series length; indices past `N - 1` render as empty
+   * "future" space on the right of the chart, giving the forecast
+   * cone somewhere to go when the query anchor is at the end of
+   * history. The renderers (SVG + lightweight-charts) synthesize
+   * future bar timestamps for those positions.
    *
    * This runs in an effect rather than inline in setViewRange because
    * horizon changes come from onSettings (owned by app/page.tsx) and
@@ -1250,7 +1293,7 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
    */
   useEffect(() => {
     const queryEnd = windowState.start + windowState.len - 1;
-    const minRequiredEnd = Math.min(N - 1, queryEnd + currentHorizon + 5);
+    const minRequiredEnd = queryEnd + currentHorizon + 5;
     if (viewRange.end < minRequiredEnd) {
       setViewRange(v => ({ ...v, end: minRequiredEnd }));
     }
@@ -1296,16 +1339,54 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
     };
   }, [cone, windowState, loadedSeries]);
 
-  // Filter analog overlays based on settings
+  /*
+   * Seed + prune the active analog set whenever the top-K result changes.
+   *
+   * Rule: we want the chart to always show at least one line when there
+   * ARE analogs to show, but we don't want to silently toss the user's
+   * curated set on every query. So:
+   *   - drop ids that no longer appear in the current result set (stale
+   *     from a previous query or a re-search with different params),
+   *   - if that empties the set, seed with the new top-1.
+   * On first ever load, `activeAnalogIds` is empty; the seed branch
+   * populates it. On subsequent queries with overlap, the user's picks
+   * survive as long as at least one remains valid.
+   */
+  useEffect(() => {
+    if (analogs.length === 0) return;
+    setActiveAnalogIds(prev => {
+      const validIds = new Set(analogs.map(a => a.id));
+      const filtered = new Set([...prev].filter(id => validIds.has(id)));
+      if (filtered.size > 0) return filtered;
+      return new Set([analogs[0].id]);
+    });
+  }, [analogs]);
+
+  /*
+   * Chart overlay set: the user's activated analogs PLUS the one currently
+   * being hovered in the card strip (rendered as a transient preview so
+   * the user can scan options without clicking each one). The hover id is
+   * merged at render time — we don't mutate `activeAnalogIds`, so leaving
+   * the card removes the preview cleanly.
+   */
   const analogOverlays = useMemo((): AnalogOverlay[] => {
-    const show = settings.showAnalogs === "all" ? analogs
-      : settings.showAnalogs === "pinned" ? analogs.filter(a => pinned.has(a.id))
-      : analogs.slice(0, 3);
-    return show.map(a => ({ ...a, pinned: pinned.has(a.id) }));
-  }, [analogs, pinned, settings.showAnalogs]);
+    const visibleIds = new Set(activeAnalogIds);
+    if (hoverAnalog) visibleIds.add(hoverAnalog);
+    return analogs
+      .filter(a => visibleIds.has(a.id))
+      .map(a => ({ ...a, pinned: pinned.has(a.id) }));
+  }, [analogs, activeAnalogIds, hoverAnalog, pinned]);
 
   const togglePin = (id: string) => {
     setPinned(prev => {
+      const n = new Set(prev);
+      n.has(id) ? n.delete(id) : n.add(id);
+      return n;
+    });
+  };
+
+  const toggleActive = (id: string) => {
+    setActiveAnalogIds(prev => {
       const n = new Set(prev);
       n.has(id) ? n.delete(id) : n.add(id);
       return n;
@@ -1694,48 +1775,10 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
 
       {/* ── MAIN ─────────────────────────────────────────────── */}
       <section className="main">
-        {/* ── Pin-filtered banner ─────────────────────────────
-            Renders only when the user has curated the analog set via
-            pinning. The banner makes the curated state unmistakable
-            (it's the difference between "top-K says +3%" and "my 2
-            analogs say +3%") and gives a one-click escape hatch back
-            to the top-K baseline. See CSS `.ws-pin-banner` for layout.
-
-            Guard: we only show once there's actually something to
-            filter. `effectiveAnalogs.length` is the authoritative count
-            shown to the user — not `pinned.size`, because a pin
-            referring to an analog the engine didn't return (stale
-            localStorage) doesn't affect the forecast and shouldn't be
-            counted in the banner number. */}
-        {pinned.size > 0 && effectiveAnalogs.length > 0 && (
-          <div
-            className="ws-pin-banner"
-            role="status"
-            aria-live="polite"
-          >
-            <span className="ws-pin-banner__icon" aria-hidden="true">&#x1F3AF;</span>
-            <span className="ws-pin-banner__text">
-              Forecast from <strong>{effectiveAnalogs.length}</strong>{" "}
-              pinned analog{effectiveAnalogs.length === 1 ? "" : "s"} (not top-K).
-              {/* Fallback note: pins exist but none matched the current
-                  analog set. effectiveAnalogs silently degrades to the
-                  full set in that case; we surface the reason here. */}
-              {pinned.size > 0 && analogs.filter(a => pinned.has(a.id)).length === 0 && (
-                <> {" "}<em style={{ color: "var(--ink-3)" }}>
-                  (saved pins didn&apos;t match current results — showing full set)
-                </em></>
-              )}
-            </span>
-            <button
-              type="button"
-              className="ws-pin-banner__clear"
-              onClick={() => setPinned(new Set())}
-              aria-label="Clear all pinned analogs"
-            >
-              Clear pins
-            </button>
-          </div>
-        )}
+        {/* Pin state is visible through the analog card's pin icon and the
+            "Pinned analogs N/M" label in the sidebar — we don't need a
+            dedicated banner shouting it again. The banner felt like a
+            nag every time the user clicked a pin. */}
         <header className="main__head">
           <div className="main__title-wrap">
             <div className="label" style={{ marginBottom: 6 }}>Retrieve &middot; analog workstation</div>
@@ -2035,7 +2078,7 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
             <div className="ws-chartmode" role="tablist" aria-label="Chart view">
               {([
                 { id: "fast", label: "Fast", hint: "SVG chart, draggable query window" },
-                { id: "pro",  label: "Pro",  hint: "TradingView-grade canvas, read-only window" },
+                { id: "candle", label: "Candle", hint: "TradingView-grade canvas, OHLC candles" },
               ] as const).map(opt => {
                 const active = (settings.chartMode ?? "fast") === opt.id;
                 return (
@@ -2181,16 +2224,32 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
                     forecastHorizon: settings.horizon || 60,
                     onHover: setCrosshairIdx,
                     crosshairIdx,
-                    height: 380,
+                    height: 300,
                     showCone: settings.showCone !== false,
+                    // Wheel-driven time-axis zoom: rebound through the
+                    // existing viewRange state. The guardrail effect
+                    // above enforces `viewEnd ≥ queryEnd + horizon + 5`,
+                    // so a user zoom that shrinks the view past the
+                    // cone gets auto-expanded back on the next render.
+                    onRangeChange: setViewRange,
                     // Drives the per-analog hover preview in both chart
                     // renderers. Set from the .analog-card mouse
                     // enter/leave handlers in the strip below.
                     hoveredAnalogId: hoverAnalog,
                   };
-                  return (settings.chartMode ?? "fast") === "pro"
-                    ? <LineChartLW {...sharedChartProps} />
-                    : <LineChart {...sharedChartProps} />;
+                  const mode = settings.chartMode ?? "fast";
+                  if (mode === "fast") return <LineChart {...sharedChartProps} />;
+                  // Pro + Candle share the lightweight-charts renderer; the
+                  // candle flag + ohlc payload decide whether to render
+                  // a line or OHLC candles. Missing OHLC silently falls
+                  // back to the line renderer inside LineChartLW.
+                  return (
+                    <LineChartLW
+                      {...sharedChartProps}
+                      ohlc={loadedOhlc}
+                      candleMode={mode === "candle"}
+                    />
+                  );
                 })()
               )}
             </div>
@@ -2620,25 +2679,30 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
             // clicks the icon. Without stopPropagation the user's "pin
             // only" intent would still open the drawer as a side effect.
             const isPinned = pinned.has(a.id);
+            const isActive = activeAnalogIds.has(a.id);
             return (
               <div key={a.id} className="analog-card"
                 data-rank={i}
                 data-pinned={isPinned ? "true" : undefined}
+                data-active={isActive ? "true" : undefined}
                 role="button"
                 tabIndex={0}
-                aria-label={`Open detail for analog ${a.rank}: ${a.label}`}
-                onClick={() => setDetailAnalogId(a.id)}
+                aria-pressed={isActive}
+                aria-label={`${isActive ? "Hide" : "Show"} analog ${a.rank} on chart: ${a.label}. Double-click for details.`}
+                onClick={() => toggleActive(a.id)}
+                onDoubleClick={() => setDetailAnalogId(a.id)}
                 onKeyDown={(e) => {
-                  // Keyboard activation for the card body. Only Enter
-                  // and Space should trigger — arrow keys remain the
-                  // user's normal focus-navigation chord. We avoid
-                  // hijacking Space from input-like descendants by
-                  // checking the event target — no inputs live in
-                  // this card today, but future-proof the handler.
+                  // Enter / Space toggle chart visibility. 'd' opens the
+                  // detail drawer (double-click equivalent for keyboard).
+                  // We avoid hijacking keys from input-like descendants
+                  // via the target-tag guard.
                   const target = e.target as HTMLElement;
                   const tag = target?.tagName;
                   if (tag === "INPUT" || tag === "TEXTAREA" || tag === "BUTTON") return;
                   if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    toggleActive(a.id);
+                  } else if (e.key === "d" || e.key === "D") {
                     e.preventDefault();
                     setDetailAnalogId(a.id);
                   }

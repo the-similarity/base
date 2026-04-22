@@ -106,7 +106,7 @@ describe("LineChart multi-analog palette", () => {
         analogsOverlay={analogs}
       />,
     );
-    const analogPaths = container.querySelectorAll("path.analog");
+    const analogPaths = container.querySelectorAll('path.analog[data-segment="forward"]');
     expect(analogPaths.length).toBe(4);
     // data-rank is 0..3, unique.
     const ranks = Array.from(analogPaths).map(p => p.getAttribute("data-rank"));
@@ -181,7 +181,7 @@ describe("LineChart multi-analog palette", () => {
         analogsOverlay={analogs}
       />,
     );
-    const paths = container.querySelectorAll("path.analog");
+    const paths = container.querySelectorAll('path.analog[data-segment="forward"]');
     // The pinned path gets .strong, the unpinned path gets .context.
     // Neither should carry an inline --c-analog-N stroke because pin
     // mode defers to the CSS classes.
@@ -211,7 +211,7 @@ describe("LineChart multi-analog palette", () => {
         hoveredAnalogId="hovered"
       />,
     );
-    const paths = container.querySelectorAll("path.analog");
+    const paths = container.querySelectorAll('path.analog[data-segment="forward"]');
     // Extract the stroke-width inline style value for each path.
     const widths = Array.from(paths).map(p => {
       const style = p.getAttribute("style") || "";

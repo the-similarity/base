@@ -92,11 +92,31 @@ export function mapMatchesToAnalogs(
     const lenses = mapScoreBreakdownToLenses(m.scoreBreakdown);
     const composite = Object.values(lenses).reduce((a, b) => a + b, 0) / 9;
 
-    // Extract price window from matched series or from the loaded series
+    // Extract price window from matched series or from the loaded series.
     const priceWindow = m.matchedSeries ?? seriesValues.slice(m.startIdx, m.endIdx);
-    const after = m.forwardWindow ?? [];
     const lastMatchPrice = priceWindow.length > 0 ? priceWindow[priceWindow.length - 1] : 1;
-    const afterReturn = after.length > 0 ? (after[after.length - 1] / lastMatchPrice - 1) : 0;
+
+    /*
+     * Unit contract (must stay aligned with `the_similarity/core/projector.py`):
+     *   backend `forward_window` is a list of CENTERED CUMULATIVE RETURNS,
+     *   i.e. `(future_price - anchor) / anchor` where `anchor` is the last
+     *   price of the matched window. A value of `0.05` means "5% above the
+     *   match's end price" — NOT an absolute price.
+     *
+     * Downstream consumers (workstation LineChart, analog cards, the
+     * trust strip) work in the SAME price-scale as `priceWindow`. We
+     * convert here so `after` is a drop-in continuation of priceWindow
+     * rather than requiring every consumer to know about the mixed
+     * unit situation.
+     *
+     * afterReturn (used by the ranked-analog cards and summary text) is
+     * just the last centered return — NOT the previous buggy
+     * `after[-1] / lastMatchPrice - 1`, which treated `after` as prices
+     * and produced nonsense values like −99.999%.
+     */
+    const rawReturns = m.forwardWindow ?? [];
+    const after = rawReturns.map(r => (1 + r) * lastMatchPrice);
+    const afterReturn = rawReturns.length > 0 ? rawReturns[rawReturns.length - 1] : 0;
 
     // Build date label from API dates or series dates
     const startDateStr = m.startDate ?? seriesDates[m.startIdx] ?? "";
