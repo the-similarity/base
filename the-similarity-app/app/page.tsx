@@ -96,7 +96,11 @@ const DEFAULTS: WorkstationSettings = {
   // a different possible future" — gating the chart to only 3 hid most
   // of the signal we just computed.
   showAnalogs: "all",
-  showCone: true,
+  // P10-P90 cone hidden by default — the individual analog lines already
+  // show the range of possible futures and the cone adds visual clutter
+  // on top of them. Users can toggle it on from the tweaks panel when
+  // they want the band back.
+  showCone: false,
 };
 
 export default function Page() {

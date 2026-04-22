@@ -436,6 +436,25 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
   const [hoverAnalog, setHoverAnalog] = useState<string | null>(null);
   const [crosshairIdx, setCrosshairIdx] = useState<number | null>(null);
   const [trustOpen, setTrustOpen] = useState(false);
+  /*
+   * Active (chart-visible) analog set.
+   *
+   * Distinct from `pinned` (which drives the forecast cone). The chart
+   * draws ONLY the analogs in this set — plus the currently-hovered one
+   * as a transient preview — so the user opts in to what they want to
+   * see instead of being buried under every top-K line at once.
+   *
+   * Lifecycle:
+   *   - Empty until the first search result arrives; the effect below
+   *     seeds it with the top-1 id so something is always visible.
+   *   - On subsequent queries, stale ids (matches that no longer
+   *     appear) are pruned; if that drops the set to empty, we re-seed
+   *     with the new top-1. This keeps the "at least one line on chart"
+   *     invariant across query changes.
+   *   - User toggles membership by clicking an analog card (not the
+   *     pin icon — pinning is a separate concept that feeds the cone).
+   */
+  const [activeAnalogIds, setActiveAnalogIds] = useState<Set<string>>(new Set());
 
   // ── Banner dismissal state ─────────────────────────────────────────
   // Dismissed banners persist to sessionStorage keyed by banner id so they
@@ -1300,16 +1319,54 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
     };
   }, [cone, windowState, loadedSeries]);
 
-  // Filter analog overlays based on settings
+  /*
+   * Seed + prune the active analog set whenever the top-K result changes.
+   *
+   * Rule: we want the chart to always show at least one line when there
+   * ARE analogs to show, but we don't want to silently toss the user's
+   * curated set on every query. So:
+   *   - drop ids that no longer appear in the current result set (stale
+   *     from a previous query or a re-search with different params),
+   *   - if that empties the set, seed with the new top-1.
+   * On first ever load, `activeAnalogIds` is empty; the seed branch
+   * populates it. On subsequent queries with overlap, the user's picks
+   * survive as long as at least one remains valid.
+   */
+  useEffect(() => {
+    if (analogs.length === 0) return;
+    setActiveAnalogIds(prev => {
+      const validIds = new Set(analogs.map(a => a.id));
+      const filtered = new Set([...prev].filter(id => validIds.has(id)));
+      if (filtered.size > 0) return filtered;
+      return new Set([analogs[0].id]);
+    });
+  }, [analogs]);
+
+  /*
+   * Chart overlay set: the user's activated analogs PLUS the one currently
+   * being hovered in the card strip (rendered as a transient preview so
+   * the user can scan options without clicking each one). The hover id is
+   * merged at render time — we don't mutate `activeAnalogIds`, so leaving
+   * the card removes the preview cleanly.
+   */
   const analogOverlays = useMemo((): AnalogOverlay[] => {
-    const show = settings.showAnalogs === "all" ? analogs
-      : settings.showAnalogs === "pinned" ? analogs.filter(a => pinned.has(a.id))
-      : analogs.slice(0, 3);
-    return show.map(a => ({ ...a, pinned: pinned.has(a.id) }));
-  }, [analogs, pinned, settings.showAnalogs]);
+    const visibleIds = new Set(activeAnalogIds);
+    if (hoverAnalog) visibleIds.add(hoverAnalog);
+    return analogs
+      .filter(a => visibleIds.has(a.id))
+      .map(a => ({ ...a, pinned: pinned.has(a.id) }));
+  }, [analogs, activeAnalogIds, hoverAnalog, pinned]);
 
   const togglePin = (id: string) => {
     setPinned(prev => {
+      const n = new Set(prev);
+      n.has(id) ? n.delete(id) : n.add(id);
+      return n;
+    });
+  };
+
+  const toggleActive = (id: string) => {
+    setActiveAnalogIds(prev => {
       const n = new Set(prev);
       n.has(id) ? n.delete(id) : n.add(id);
       return n;
@@ -2592,25 +2649,30 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
             // clicks the icon. Without stopPropagation the user's "pin
             // only" intent would still open the drawer as a side effect.
             const isPinned = pinned.has(a.id);
+            const isActive = activeAnalogIds.has(a.id);
             return (
               <div key={a.id} className="analog-card"
                 data-rank={i}
                 data-pinned={isPinned ? "true" : undefined}
+                data-active={isActive ? "true" : undefined}
                 role="button"
                 tabIndex={0}
-                aria-label={`Open detail for analog ${a.rank}: ${a.label}`}
-                onClick={() => setDetailAnalogId(a.id)}
+                aria-pressed={isActive}
+                aria-label={`${isActive ? "Hide" : "Show"} analog ${a.rank} on chart: ${a.label}. Double-click for details.`}
+                onClick={() => toggleActive(a.id)}
+                onDoubleClick={() => setDetailAnalogId(a.id)}
                 onKeyDown={(e) => {
-                  // Keyboard activation for the card body. Only Enter
-                  // and Space should trigger — arrow keys remain the
-                  // user's normal focus-navigation chord. We avoid
-                  // hijacking Space from input-like descendants by
-                  // checking the event target — no inputs live in
-                  // this card today, but future-proof the handler.
+                  // Enter / Space toggle chart visibility. 'd' opens the
+                  // detail drawer (double-click equivalent for keyboard).
+                  // We avoid hijacking keys from input-like descendants
+                  // via the target-tag guard.
                   const target = e.target as HTMLElement;
                   const tag = target?.tagName;
                   if (tag === "INPUT" || tag === "TEXTAREA" || tag === "BUTTON") return;
                   if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    toggleActive(a.id);
+                  } else if (e.key === "d" || e.key === "D") {
                     e.preventDefault();
                     setDetailAnalogId(a.id);
                   }

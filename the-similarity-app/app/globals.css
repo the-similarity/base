@@ -1196,6 +1196,13 @@ input, select, textarea { font: inherit; color: inherit; }
   transition: border-color .15s, background .15s;
 }
 .analog-card:hover { background: var(--bg-hover); border-color: var(--rule-strong); }
+/* Inactive = analog exists in top-K but user hasn't activated it onto
+   the chart yet. We dim the card so it reads as "click to reveal" but
+   stay opaque enough that rank, date, and sparkline are still legible.
+   Hover override (below) brings it back to full strength while the
+   user is scanning the strip, matching the transient chart preview. */
+.analog-card:not([data-active="true"]) { opacity: .55; }
+.analog-card:not([data-active="true"]):hover { opacity: 1; }
 .analog-card[data-pinned="true"] {
   border-color: var(--accent);
   background: var(--bg-card);
