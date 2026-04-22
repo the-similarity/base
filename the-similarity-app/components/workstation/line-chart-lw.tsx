@@ -918,11 +918,23 @@ export function LineChartLW({
         lineWidth = rank === 0 ? 2 : 1;
       }
 
-      // Match segment intentionally NOT rendered — user asked for the
-      // query window to stay clean so only the query's own price /
-      // candles read inside the rect. `match` data is still built
-      // (see buildAnalogData) so we can flip it back on later.
-      void matchColor;
+      // Match segment — SOLID line (dashed rejected by the user) with
+      // a faded color + thinner stroke so it reads as the quieter
+      // historical-context overlay without competing with the query's
+      // own price / candles inside the window.
+      if (match.length >= 2) {
+        const matchWidth: 1 | 2 = 1;
+        const s = chart.addSeries(LineSeries, {
+          color: matchColor,
+          lineWidth: matchWidth,
+          lineStyle: LineStyle.Solid,
+          priceLineVisible: false,
+          lastValueVisible: false,
+          crosshairMarkerVisible: false,
+        });
+        s.setData(match);
+        analogSeriesRefs.current.push(s);
+      }
 
       // Forward segment — solid, the actual "what happens next" path.
       if (forward.length >= 2) {

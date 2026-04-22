@@ -893,18 +893,32 @@ export function LineChart({
           // stroke-dasharray override on the match segment is inline
           // so it cleanly composes with the palette styles above
           // without needing a new CSS class.
-          // (Match-segment styling locals used to live here. Kept the
-          // comment so the removal is obvious in blame: match segment
-          // is not rendered anymore, so the matchWidth / matchOpacity
-          // derivations went with it.)
+          // Match segment is a SOLID line — user explicitly rejected
+          // the dashed treatment. It keeps a thinner stroke (0.55x)
+          // and a faded opacity (0.4x) so it reads as the quieter
+          // historical-context line without fighting the query's
+          // own price line inside the window.
+          const forwardWidth = (inline.strokeWidth as number | undefined) ?? undefined;
+          const matchWidth = forwardWidth != null
+            ? Math.max(0.5, forwardWidth * 0.55)
+            : undefined;
+          const forwardOpacity = (inline.opacity as number | undefined) ?? 1;
+          const matchOpacity = Math.max(0.15, forwardOpacity * 0.4);
           return (
             <g key={a.rank} data-rank={a.rank}>
-              {/* Match segment intentionally NOT rendered — the user
-                  asked for the query window to stay clean, showing
-                  ONLY the query's own price line inside the rect. The
-                  match data is still built (see `dMatch` / `matchPts`
-                  above) so we can flip this back on later without
-                  rewiring, but no path is emitted today. */}
+              {a.dMatch && (
+                <path
+                  className={"analog" + variantClass}
+                  data-segment="match"
+                  data-rank={a.rank}
+                  d={a.dMatch}
+                  style={{
+                    ...inline,
+                    opacity: matchOpacity,
+                    ...(matchWidth != null ? { strokeWidth: matchWidth } : {}),
+                  }}
+                />
+              )}
               {a.dForward && (
                 <path
                   className={"analog" + variantClass}
