@@ -229,60 +229,118 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
     return () => { cancelled = true; };
   }, [isOnline, activeDataset]);
 
-  // ── Debounced API search on window change ──────────────────────────
-  const runApiSearch = useCallback(async () => {
-    if (!isOnline || loadedValues.length < 10) return;
+  /*
+   * Unified manual-search entry point.
+   *
+   * Invariants:
+   *   - Takes a SNAPSHOT of the current inputs (start/len/k/horizon) before
+   *     any async work starts. This is what guarantees that dragging the
+   *     window mid-flight can't corrupt the resolved result: the snapshot
+   *     locks in the "what we searched for" tuple.
+   *   - Writes ALL result state (searchedAnalogs, searchedCone, lastSearch,
+   *     lastRunAt) atomically on success. On failure it doesn't mutate
+   *     result state — the previous search stays displayed.
+   *   - Honors the abort controller so a second runSearch() call cancels
+   *     the first in-flight request instead of racing.
+   *
+   * Control flow:
+   *   1. If online + series has enough data → try API.
+   *   2. If API fails for any reason (including transient errors) OR we're
+   *      offline → fall back to the synthetic engine.
+   *   3. Either way, write results + snapshot + lastRunAt.
+   *
+   * This function is stable across renders via useCallback so the
+   * keyboard-shortcut effect and the Search button share identical call
+   * semantics.
+   */
+  const runSearch = useCallback(async () => {
+    if (loadedValues.length < 10 && loadedSeries.length < 10) return;
 
-    // Abort any in-flight search
+    // Snapshot inputs before the async boundary. These values are frozen
+    // for the remainder of this search — even if the user drags the
+    // window immediately afterwards, this search will write results that
+    // describe this exact snapshot.
+    const snapshot = {
+      start: windowState.start,
+      len: windowState.len,
+      k: settings.kAnalogs || 6,
+      horizon: settings.horizon || 60,
+    };
+
+    // Cancel any in-flight search; the new one supersedes it.
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
 
     setSearching(true);
-    try {
-      const queryValues = loadedValues.slice(windowState.start, windowState.start + windowState.len);
-      if (queryValues.length < 2) return;
 
-      const result = await searchApi({
-        queryValues,
-        historyValues: loadedValues,
-        topK: settings.kAnalogs || 6,
-        forwardBars: settings.horizon || 60,
-      }, controller.signal);
+    // Try API path first when online and we have enough real data.
+    if (isOnline && loadedValues.length >= 10) {
+      try {
+        const queryValues = loadedValues.slice(snapshot.start, snapshot.start + snapshot.len);
+        if (queryValues.length >= 2) {
+          const result = await searchApi({
+            queryValues,
+            historyValues: loadedValues,
+            topK: snapshot.k,
+            forwardBars: snapshot.horizon,
+          }, controller.signal);
 
-      if (controller.signal.aborted) return;
+          if (controller.signal.aborted) {
+            setSearching(false);
+            return;
+          }
 
-      // Map API response to workstation formats
-      const analogs = mapMatchesToAnalogs(result, loadedDates, loadedValues, windowState.len);
-      setApiAnalogs(analogs);
+          const analogs = mapMatchesToAnalogs(result, loadedDates, loadedValues, snapshot.len);
+          let cone: ConePoint[] = [];
+          if (result.forecast) {
+            const lastP = loadedValues[snapshot.start + snapshot.len - 1] ?? 1;
+            cone = mapForecastToCone(result.forecast, lastP);
+          }
 
-      if (result.forecast) {
-        const lastP = loadedValues[windowState.start + windowState.len - 1] ?? 1;
-        const cone = mapForecastToCone(result.forecast, lastP);
-        setApiCone(cone);
+          // Commit all result state atomically.
+          setApiAnalogs(analogs);
+          setApiCone(cone);
+          setSearchedAnalogs(analogs);
+          setSearchedCone(cone);
+          setLastSearch(snapshot);
+          setLastRunAt(new Date());
+          setSearching(false);
+          return;
+        }
+      } catch (err) {
+        if (err instanceof Error && err.name === "AbortError") {
+          // Superseded by a newer search — the newer one will flip
+          // setSearching back to false when it finishes.
+          return;
+        }
+        console.warn("API search failed, using synthetic fallback:", err);
+        // Fall through to synthetic path below.
       }
-    } catch (err) {
-      if (err instanceof Error && err.name === "AbortError") return;
-      console.warn("API search failed, using synthetic fallback:", err);
-      // Don't flip isOnline off for transient errors — just use synthetic for this search
+    }
+
+    // Synthetic fallback path. Used when offline, when API fails, or when
+    // we simply don't have enough loaded values to query the API with.
+    try {
+      const anal = findAnalogs(snapshot.start, snapshot.len, {
+        k: snapshot.k,
+        horizon: snapshot.horizon,
+      });
+      const lastP = loadedSeries[snapshot.start + snapshot.len - 1]?.p ?? 1;
+      const c = buildCone(anal, snapshot.horizon, lastP);
+      // Synthetic results live in searchedAnalogs/Cone; apiAnalogs/apiCone
+      // are cleared so the resolve-order below (api over synthetic) doesn't
+      // show a stale API result alongside a fresh synthetic one.
       setApiAnalogs(null);
       setApiCone(null);
+      setSearchedAnalogs(anal);
+      setSearchedCone(c);
+      setLastSearch(snapshot);
+      setLastRunAt(new Date());
     } finally {
       setSearching(false);
     }
-  }, [isOnline, loadedValues, loadedDates, windowState.start, windowState.len, settings.kAnalogs, settings.horizon]);
-
-  // Debounce search: 500ms after window change
-  useEffect(() => {
-    if (!isOnline) return;
-    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
-    searchTimerRef.current = setTimeout(() => {
-      runApiSearch();
-    }, 500);
-    return () => {
-      if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
-    };
-  }, [runApiSearch, isOnline]);
+  }, [isOnline, loadedValues, loadedDates, loadedSeries, windowState.start, windowState.len, settings.kAnalogs, settings.horizon]);
 
   // ── Synthetic fallback analogs + cone ──────────────────────────────
   const syntheticResult = useMemo(() => {
