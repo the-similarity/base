@@ -2185,6 +2185,370 @@ input, select, textarea { font: inherit; color: inherit; }
   text-align: right;
 }
 
+/* ── Analog detail drawer ───────────────────────────────────────────
+ * Right-side slide-in inspector. Mounts once (even when closed) so the
+ * translateX transition plays both directions. On desktop the drawer is
+ * 420px wide and docked flush-right; on narrow screens (<768px) it
+ * takes the full viewport width so the content stays readable.
+ *
+ * Z-index sits above the chart and workstation backdrop but below any
+ * future modal (e.g. the help overlay, which sits at 200).
+ * ────────────────────────────────────────────────────────────────── */
+.adrawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  height: 100vh;
+  width: 420px;
+  max-width: 100vw;
+  background: var(--bg-card);
+  border-left: 1px solid var(--rule-strong);
+  /* Soft shadow so the drawer reads as elevated above the chart. */
+  box-shadow: -18px 0 40px -20px rgba(0, 0, 0, 0.28);
+  display: flex;
+  flex-direction: column;
+  z-index: 120;
+  /* Translated fully off-screen when closed. 101% instead of 100% so
+     the border-left doesn't peek on fractional-pixel devices. */
+  transform: translateX(101%);
+  transition: transform 220ms ease;
+  overflow: hidden;
+}
+.adrawer[data-open="true"] { transform: translateX(0); }
+@media (max-width: 767px) {
+  .adrawer { width: 100vw; }
+}
+
+/* Header */
+.adrawer__head {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto auto;
+  gap: 10px;
+  align-items: center;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--rule);
+  background: var(--bg-elevated);
+}
+.adrawer__rank-badge {
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 500;
+  padding: 4px 8px;
+  border-radius: 3px;
+  color: white;
+  background: var(--c-analog-strong);
+  letter-spacing: 0.04em;
+  min-width: 32px;
+  text-align: center;
+}
+.adrawer__rank-badge[data-rank="0"] { background: var(--c-analog-1); }
+.adrawer__rank-badge[data-rank="1"] { background: var(--c-analog-2); }
+.adrawer__rank-badge[data-rank="2"] { background: var(--c-analog-3); }
+.adrawer__rank-badge[data-rank="3"] { background: var(--c-analog-4); }
+.adrawer__rank-badge[data-rank="4"] { background: var(--c-analog-5); }
+.adrawer__rank-badge[data-rank="5"] { background: var(--c-analog-6); }
+.adrawer__head-meta { min-width: 0; }
+.adrawer__date-range {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-2);
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.adrawer__label {
+  font-family: var(--serif);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink);
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.adrawer__composite {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1;
+}
+.adrawer__composite-v {
+  font-family: var(--serif);
+  font-size: 22px;
+  font-weight: 500;
+  color: var(--ink);
+}
+.adrawer__composite-k {
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  margin-top: 3px;
+}
+.adrawer__pin-toggle {
+  appearance: none;
+  background: transparent;
+  border: 1px solid var(--rule-strong);
+  border-radius: 3px;
+  color: var(--ink-2);
+  padding: 5px 10px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.adrawer__pin-toggle:hover:not(:disabled) {
+  background: var(--bg-hover);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.adrawer__pin-toggle[aria-pressed="true"] {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.adrawer__pin-toggle:disabled { opacity: 0.4; cursor: not-allowed; }
+.adrawer__close {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  color: var(--ink-3);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+.adrawer__close:hover { background: var(--bg-hover); color: var(--ink); }
+
+/* Context strip */
+.adrawer__context {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: var(--bg-hover);
+  border-bottom: 1px solid var(--rule);
+  font-size: 12px;
+  color: var(--ink-2);
+}
+.adrawer__context-icon { font-size: 13px; }
+.adrawer__context-text { font-family: var(--serif); font-style: italic; }
+
+/* Section wrapper */
+.adrawer__section {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--rule);
+  overflow-y: auto;
+}
+.adrawer__section:last-of-type { border-bottom: 0; }
+.adrawer__h {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin: 0 0 10px;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.adrawer__h-sub {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: none;
+  color: var(--ink-4);
+}
+
+/* Lens breakdown list */
+.adrawer__lens-list { display: flex; flex-direction: column; gap: 6px; }
+.adrawer__lens-row {
+  display: grid;
+  grid-template-columns: 96px 1fr 38px;
+  gap: 10px;
+  align-items: center;
+}
+.adrawer__lens-name {
+  font-size: 11.5px;
+  color: var(--ink-2);
+}
+.adrawer__lens-bar {
+  position: relative;
+  height: 8px;
+  background: var(--bg-hover);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.adrawer__lens-bar-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  background: var(--ink-4);
+  transition: width 0.25s ease;
+}
+.adrawer__lens-row[data-top="true"] .adrawer__lens-bar-fill {
+  background: var(--c-analog-strong);
+}
+.adrawer__lens-row[data-top="true"][data-rank="0"] .adrawer__lens-bar-fill { background: var(--c-analog-1); }
+.adrawer__lens-row[data-top="true"][data-rank="1"] .adrawer__lens-bar-fill { background: var(--c-analog-2); }
+.adrawer__lens-row[data-top="true"][data-rank="2"] .adrawer__lens-bar-fill { background: var(--c-analog-3); }
+.adrawer__lens-row[data-top="true"][data-rank="3"] .adrawer__lens-bar-fill { background: var(--c-analog-4); }
+.adrawer__lens-row[data-top="true"][data-rank="4"] .adrawer__lens-bar-fill { background: var(--c-analog-5); }
+.adrawer__lens-row[data-top="true"][data-rank="5"] .adrawer__lens-bar-fill { background: var(--c-analog-6); }
+.adrawer__lens-score {
+  font-size: 10.5px;
+  color: var(--ink-2);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Sparkline (expanded) */
+.adrawer__spark-wrap {
+  border: 1px solid var(--rule);
+  background: var(--bg);
+  border-radius: 3px;
+  padding: 6px 4px;
+}
+.adrawer__spark-wrap svg { width: 100%; height: auto; }
+.adrawer__spark-meta {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 6px;
+  font-size: 10.5px;
+  color: var(--ink-3);
+}
+.adrawer__spark-ret.pos { color: var(--positive); }
+.adrawer__spark-ret.neg { color: var(--negative); }
+
+/* Action row */
+.adrawer__actions {
+  display: flex;
+  gap: 8px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--rule);
+  background: var(--bg-elevated);
+  margin-top: auto;
+  flex-wrap: wrap;
+}
+.adrawer__action {
+  appearance: none;
+  border: 1px solid var(--rule-strong);
+  background: transparent;
+  color: var(--ink-2);
+  font-size: 11.5px;
+  padding: 7px 12px;
+  border-radius: 3px;
+  cursor: pointer;
+  flex: 1 1 auto;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  white-space: nowrap;
+}
+.adrawer__action:hover:not(:disabled) {
+  background: var(--bg-hover);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.adrawer__action:disabled { opacity: 0.4; cursor: not-allowed; }
+.adrawer__action--primary {
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 500;
+}
+.adrawer__action--primary:hover:not(:disabled) {
+  background: var(--accent);
+  color: var(--bg-card);
+}
+.adrawer__action--ghost { flex: 0 0 auto; }
+
+/* ── Pin icon inside the analog card head ──────────────────────────
+ * Replaces the whole-card click-toggles-pin behavior: the card body
+ * opens the drawer, this tiny icon is the only surface that pins.
+ * Muted by default, accent-colored when pinned. e.stopPropagation in
+ * the JSX handler is what keeps the two affordances independent.
+ * ────────────────────────────────────────────────────────────────── */
+.analog-card__head-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.analog-card__pin-btn {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  padding: 2px;
+  border-radius: 2px;
+  cursor: pointer;
+  color: var(--ink-4);
+  display: inline-flex;
+  align-items: center;
+  transition: color 0.15s, background 0.15s, transform 0.15s;
+}
+.analog-card__pin-btn:hover { color: var(--ink); background: var(--bg-hover); }
+.analog-card__pin-btn[data-pinned="true"] { color: var(--accent); }
+.analog-card__pin-btn[data-pinned="true"]:hover { color: var(--accent); }
+.analog-card__pin-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* Give the card itself a visible focus ring when tabbed to —
+   important because we now expose it as role=button. */
+.analog-card:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ── "Use as query" transient banner ───────────────────────────────
+ * Toast shown after the user clicks "Find similar analogs" in the
+ * drawer. Floats above the chart at top-center of the main column so
+ * it doesn't reflow the layout. Auto-dismisses after 8s; manual
+ * dismiss via the × button. Slide+fade-in for a gentle reveal.
+ * ────────────────────────────────────────────────────────────────── */
+.ws-use-as-query-banner {
+  position: fixed;
+  top: 64px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  box-shadow: 0 6px 22px -10px rgba(0, 0, 0, 0.35);
+  z-index: 110;
+  font-size: 12.5px;
+  color: var(--ink);
+  max-width: 90vw;
+  animation: wsUseAsQueryIn 220ms ease;
+}
+@keyframes wsUseAsQueryIn {
+  from { opacity: 0; transform: translate(-50%, -6px); }
+  to   { opacity: 1; transform: translate(-50%, 0); }
+}
+.ws-use-as-query-banner__icon { font-size: 14px; }
+.ws-use-as-query-banner__text strong {
+  font-family: var(--mono);
+  font-weight: 500;
+  font-size: 11.5px;
+  color: var(--accent);
+}
+.ws-use-as-query-banner__dismiss {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  color: var(--ink-3);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 4px;
+  border-radius: 2px;
+}
+.ws-use-as-query-banner__dismiss:hover { color: var(--ink); background: var(--bg-hover); }
+
 /* ──────────────────────────────────────────────────────────────────
    Dataset dropdown (workstation left sidebar)
 
