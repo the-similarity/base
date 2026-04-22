@@ -1560,15 +1560,8 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
                         accumulated at least 30 runs against this dataset.
                       </p>
                       <a
-                        href="#"
+                        href="/finance/reviews"
                         className="trust-panel__cta"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          // Placeholder affordance — wire to the backtest-
-                          // sweep route once it ships (Batch 2 finance).
-                          // eslint-disable-next-line no-console
-                          console.log("trigger backtest sweep (not yet wired)");
-                        }}
                       >
                         Trigger backtest sweep &rarr;
                       </a>
