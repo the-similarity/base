@@ -48,7 +48,10 @@ class OrchestratorConfig:
     max_retries: int = 1
     timeout_minutes: int = 30
     model: str = "sonnet"
-    permission_mode: str = "bypassPermissions"
+    # bypassPermissions is blocked when running as root (Claude CLI security policy).
+    # acceptEdits auto-approves file reads/writes but still prompts for shell commands,
+    # which is sufficient for worktree agents doing code-only tasks.
+    permission_mode: str = "acceptEdits"
 
     # Extra CLI flags passed to every claude invocation
     extra_flags: list[str] = field(default_factory=list)
