@@ -1505,7 +1505,44 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
                   </button>
                 </div>
 
-                {trustOpen && (
+                {trustOpen && isUnknown && (
+                  // Empty-state card: we avoid rendering the reliability
+                  // diagram or per-bucket bar chart at all when the engine
+                  // has insufficient data, because drawing either with zero
+                  // buckets produces visually-empty plots that quants read
+                  // as "calibration is broken" rather than "not enough
+                  // runs yet". Instead we surface a concrete explanation
+                  // and a CTA. The link target is a placeholder — once
+                  // backtest-sweep UI lands it should point at that route
+                  // (see Batch 2 finance operating product roadmap).
+                  <div className="trust-panel trust-panel--empty" role="status">
+                    <div className="trust-panel__empty-card">
+                      <h3>Calibration needs more runs</h3>
+                      <p>
+                        The engine has fewer than 3 analogs with realised
+                        forward windows against this query. Coverage, CRPS,
+                        and the reliability diagram need at least a handful
+                        of observed outcomes before they carry signal. Trust
+                        score will appear automatically once the engine has
+                        accumulated at least 30 runs against this dataset.
+                      </p>
+                      <a
+                        href="#"
+                        className="trust-panel__cta"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          // Placeholder affordance — wire to the backtest-
+                          // sweep route once it ships (Batch 2 finance).
+                          // eslint-disable-next-line no-console
+                          console.log("trigger backtest sweep (not yet wired)");
+                        }}
+                      >
+                        Trigger backtest sweep &rarr;
+                      </a>
+                    </div>
+                  </div>
+                )}
+                {trustOpen && !isUnknown && (
                   <div className="trust-panel">
                     <div>
                       <h3>Reliability diagram</h3>
@@ -1696,13 +1733,38 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
                           : `Bars = observed fraction of analogs at or below each predicted quantile. Dashed ticks mark the predicted value. Coverage P10→P90 is ${(trustMetrics.coverage * 100).toFixed(0)}% vs 80% target; drift is ${trustMetrics.regimeDrift}.`}
                       </div>
                     </div>
-                    <div>
-                      <h3>Honesty note</h3>
-                      <p style={{ fontFamily: "var(--serif)", fontSize: 15, lineHeight: 1.5, color: "var(--ink-2)", fontStyle: "italic" }}>
-                        Similarity is not a guarantee. Markets regime-shift. The cone reports what
-                        <span style={{ fontStyle: "normal", fontWeight: 500 }}> tended to happen</span> after similar
-                        structural patterns &mdash; nothing more, nothing less.
-                      </p>
+                    <div className="trust-panel__narrative">
+                      {/* Grade explanation — thresholds are the source-of-
+                          truth from `the-similarity-app/lib/data.ts
+                          ::gradeFromMetrics`. If those thresholds change
+                          there, they must change here too (or be lifted to
+                          a shared const). Kept inline so the user can see
+                          WHY the grade is what it is without leaving the
+                          panel. */}
+                      <div>
+                        <h3>Grade &middot; {trustMetrics.grade}</h3>
+                        <p className="trust-panel__grade-copy">
+                          Composite letter grade from coverage gap, CRPS,
+                          and hit rate.
+                        </p>
+                        <ul className="trust-panel__grade-list">
+                          <li><b>A</b> · gap &le; 5%, CRPS &le; 0.05, hit &ge; 0.58</li>
+                          <li><b>B</b> · gap &le; 10%, CRPS &le; 0.08, hit &ge; 0.54</li>
+                          <li><b>C</b> · gap &le; 15%, CRPS &le; 0.12, hit &ge; 0.52</li>
+                          <li><b>D / F</b> · anything looser</li>
+                        </ul>
+                        <p className="trust-panel__grade-current">
+                          This query: gap {(Math.abs(trustMetrics.coverage - 0.80) * 100).toFixed(1)}% &middot; CRPS {trustMetrics.crps.toFixed(3)} &middot; hit {trustMetrics.hitRate.toFixed(2)}.
+                        </p>
+                      </div>
+                      <div>
+                        <h3>Honesty note</h3>
+                        <p style={{ fontFamily: "var(--serif)", fontSize: 15, lineHeight: 1.5, color: "var(--ink-2)", fontStyle: "italic" }}>
+                          Similarity is not a guarantee. Markets regime-shift. The cone reports what
+                          <span style={{ fontStyle: "normal", fontWeight: 500 }}> tended to happen</span> after similar
+                          structural patterns &mdash; nothing more, nothing less.
+                        </p>
+                      </div>
                     </div>
                   </div>
                 )}
