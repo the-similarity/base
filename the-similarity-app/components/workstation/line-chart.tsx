@@ -213,7 +213,26 @@ export function LineChart({
   }
 
   // ── Analog overlay paths ──────────────────────────────────────────
-  const analogPaths: { d: string; pinned: boolean }[] = [];
+  //
+  // Tri-state rendering rule — read together with the .analog CSS below
+  // (and the mirror in `line-chart-lw.tsx` for the Pro canvas view):
+  //
+  //   1. No pins set at all (hasAnyPin === false) → every analog renders
+  //      in the default grey-on-grey style (.analog). This is the
+  //      baseline "no curation active" look — unchanged from before.
+  //   2. At least one pin set (hasAnyPin === true):
+  //      a. This analog is pinned       → .analog.strong   (accent red,
+  //         1.8px, .95 opacity) — high-signal, eye-drawn.
+  //      b. This analog is NOT pinned   → .analog.context (ink-4 muted,
+  //         0.8px, .18 opacity) — visible as context but clearly
+  //         de-emphasized so the pinned ones dominate the composition.
+  //
+  // The presence of *any* pin flips the baseline to "context"; this
+  // matches the mental model "these are the ones I trust, everything
+  // else is context". The concrete CSS lives in `app/globals.css` —
+  // this path only wires the classnames.
+  const hasAnyPin = !!(analogsOverlay?.some(a => a.pinned));
+  const analogPaths: { d: string; variant: "default" | "strong" | "context" }[] = [];
   if (analogsOverlay && qAnchorP) {
     analogsOverlay.forEach((a) => {
       const scale = qAnchorP / a.priceWindow[a.priceWindow.length - 1];
@@ -225,9 +244,13 @@ export function LineChart({
         return `${xOf(idx).toFixed(1)} ${yOf(p * scale).toFixed(1)}`;
       }).filter(Boolean);
       if (pts.length > 1) {
+        const variant: "default" | "strong" | "context" =
+          !hasAnyPin ? "default"
+          : a.pinned ? "strong"
+          : "context";
         analogPaths.push({
           d: "M " + pts.join(" L "),
-          pinned: !!a.pinned,
+          variant,
         });
       }
     });
@@ -251,9 +274,17 @@ export function LineChart({
         {coneUpper && <path className="cone-line" d={coneUpper} />}
         {medianPath && <path className="median" d={medianPath} />}
 
-        {/* Analog overlays */}
+        {/* Analog overlays — classname picks one of three variants.
+            See the hasAnyPin computation above for the selection rule. */}
         {analogPaths.map((a, i) =>
-          <path key={i} className={"analog" + (a.pinned ? " strong" : "")} d={a.d} />
+          <path
+            key={i}
+            className={
+              "analog" + (a.variant === "strong" ? " strong"
+                : a.variant === "context" ? " context" : "")
+            }
+            d={a.d}
+          />
         )}
 
         {/* Main price line */}

@@ -332,6 +332,65 @@ input, select, textarea { font: inherit; color: inherit; }
 }
 
 /* ------------------------------------------------------------------
+   Pin-filtered banner.
+   Shown when the user has pinned at least one analog — the cone,
+   metrics, and lens radar are then computed from ONLY the pinned
+   subset. The banner provides:
+     - a visible confirmation of the curated state,
+     - the count of pinned analogs driving the forecast,
+     - a one-click "Clear pins" to return to the top-K baseline.
+   Sits above the metrics row, not in the page-wide banner slot, so
+   users see it near the thing it affects (the chart) instead of at
+   the top of the viewport.
+   ------------------------------------------------------------------ */
+.ws-pin-banner {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  padding: 6px var(--s-4);
+  margin: var(--s-3) 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--ink);
+  background: rgba(90, 43, 43, 0.06);
+  border-left: 3px solid var(--accent);
+  border-radius: 2px;
+}
+.ws-pin-banner__icon {
+  font-size: 13px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.ws-pin-banner__text { flex: 1; }
+.ws-pin-banner__text strong {
+  font-weight: 500;
+  color: var(--ink);
+}
+.ws-pin-banner__clear {
+  flex-shrink: 0;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+  background: transparent;
+  border: 1px solid var(--rule-strong);
+  border-radius: 2px;
+  padding: 3px 8px;
+  cursor: pointer;
+  transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
+}
+.ws-pin-banner__clear:hover {
+  color: var(--ink);
+  border-color: var(--ink-3);
+  background: var(--bg-hover);
+}
+.ws-pin-banner__clear:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* ------------------------------------------------------------------
    Micro empty-states (no bars, no analogs) + mobile notice.
    These are small, non-blocking messages that replace a silent empty
    render. The "--strip" variant is sized for the horizontal analog
@@ -979,8 +1038,29 @@ input, select, textarea { font: inherit; color: inherit; }
 .svg-chart .grid line { stroke: var(--c-grid); stroke-width: 1; }
 .svg-chart .axis text { font-family: var(--mono); font-size: 9px; fill: var(--ink-3); letter-spacing: .04em; }
 .svg-chart .price { fill: none; stroke: var(--c-query); stroke-width: 1.3; }
-.svg-chart .analog { fill: none; stroke: var(--c-analog); stroke-width: 1; opacity: .75; }
-.svg-chart .analog.strong { stroke: var(--c-analog-strong); stroke-width: 1.3; opacity: .9; }
+/*
+ * Analog overlay strokes — tri-state rendering.
+ *
+ * Default (no pins anywhere): baseline grey-on-grey — equal weight across
+ * the full top-K analog set. Visually asserts "here are the N matches".
+ *
+ * Strong (this analog is pinned AND pins are active): accent-colored, bold,
+ * and fully opaque. Asserts "the user trusts these — read the cone off
+ * THESE lines, not the ones behind them".
+ *
+ * Context (this analog is NOT pinned AND pins are active): muted ink-4,
+ * narrow stroke, very low opacity. Still visible so the user has
+ * orientation for what the full analog set looks like, but deliberately
+ * de-emphasized so the pinned lines dominate.
+ *
+ * The selection between default / strong / context happens in
+ * `components/workstation/line-chart.tsx` (and mirrored in `line-chart-lw.tsx`
+ * for the Pro canvas view). Keep these rules in sync if either renderer
+ * introduces more variants.
+ */
+.svg-chart .analog         { fill: none; stroke: var(--c-analog);         stroke-width: 1;   opacity: .75; }
+.svg-chart .analog.strong  { fill: none; stroke: var(--accent);           stroke-width: 1.8; opacity: .95; }
+.svg-chart .analog.context { fill: none; stroke: var(--ink-4);            stroke-width: .8;  opacity: .18; }
 .svg-chart .cone-fill { fill: var(--c-cone-fill); }
 .svg-chart .cone-line { fill: none; stroke: var(--c-cone-line); stroke-width: 1; stroke-dasharray: 3 3; }
 .svg-chart .median { fill: none; stroke: var(--c-cone-line); stroke-width: 1.5; }

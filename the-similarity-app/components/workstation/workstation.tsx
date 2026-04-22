@@ -181,6 +181,23 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
   const [windowState, setWindowState] = useState({ start: Math.max(0, N - 240), len: 120 });
   const [viewRange, setViewRange] = useState({ start: Math.max(0, N - 900), end: Math.max(0, N - 30) });
   const [pinned, setPinned] = useState<Set<string>>(new Set());
+  /*
+   * Hydration flag for the pin-persistence effects.
+   *
+   * The pair of effects below (load-from-storage, save-to-storage) runs
+   * once per query identity. Without a flag, the SAVE effect would fire
+   * on the initial mount with `pinned = empty Set`, clobbering any
+   * pin set that was about to be LOADED for the same key. The flag
+   * gates the save until at least one load has completed for the
+   * current key, so the first write to a fresh key is always a
+   * user-initiated togglePin, never an accidental mount-time empty.
+   *
+   * Reset semantics: whenever the query identity (dataset/start/len)
+   * changes, pinHydrated flips back to false, the load effect runs,
+   * then subsequent toggles persist to the new key. This keeps the
+   * per-query isolation guarantee from the task spec.
+   */
+  const [pinHydrated, setPinHydrated] = useState(false);
   const [hoverAnalog, setHoverAnalog] = useState<string | null>(null);
   const [crosshairIdx, setCrosshairIdx] = useState<number | null>(null);
   const [trustOpen, setTrustOpen] = useState(false);
@@ -482,6 +499,87 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
   }, [isOnline, loadedValues.length, lastSearch]);
 
   /*
+   * Per-query localStorage key for the pinned analog set.
+   *
+   * Different queries should have different pin sets — pinning "Q4 '18"
+   * under a query centered on 2020 shouldn't bleed into a query centered
+   * on 2015. The key identity is (dataset, windowStart, windowLen) of
+   * the LAST successful search; we deliberately key off `lastSearch`
+   * rather than `windowState` so dragging the window doesn't cause a
+   * live pin-set swap mid-edit. The pin set belongs to the search that
+   * produced the analogs, not to the window the user is about to search.
+   *
+   * When there's no lastSearch yet, we return null — the persistence
+   * effects below bail in that case, so the initial one-shot search
+   * always starts with an empty pin set.
+   */
+  const pinKey = useMemo(() => {
+    if (!lastSearch) return null;
+    return `ts-pinned:${activeDataset}:${lastSearch.start}:${lastSearch.len}`;
+  }, [activeDataset, lastSearch]);
+
+  /*
+   * Load persisted pin set on key change.
+   *
+   * Runs on first mount after a search completes, and again whenever
+   * the query identity (pinKey) changes — e.g. the user re-searches a
+   * different window. We reset pinHydrated to false BEFORE loading so
+   * the save effect can't race ahead and clobber what we're about to
+   * write. After a successful load (or an explicit "no data" resolution)
+   * pinHydrated flips to true and the save effect begins tracking
+   * user-initiated toggles.
+   *
+   * sessionStorage-style fault tolerance: localStorage access can throw
+   * in some sandboxed iframes or private modes. We swallow errors and
+   * let the in-memory Set take over — persistence is best-effort, not
+   * load-bearing for correctness.
+   */
+  useEffect(() => {
+    if (!pinKey) return;
+    // Block any save until we've finished loading this key.
+    setPinHydrated(false);
+    try {
+      const raw = localStorage.getItem(pinKey);
+      if (raw) {
+        const parsed = JSON.parse(raw) as string[];
+        if (Array.isArray(parsed)) {
+          setPinned(new Set(parsed));
+        } else {
+          setPinned(new Set());
+        }
+      } else {
+        // No entry for this query — start with an empty set. Do NOT
+        // preserve the previous query's pins; that would violate the
+        // "per-query isolation" contract.
+        setPinned(new Set());
+      }
+    } catch {
+      // localStorage unavailable — carry forward with an empty set.
+      setPinned(new Set());
+    } finally {
+      setPinHydrated(true);
+    }
+  }, [pinKey]);
+
+  /*
+   * Persist pin set on every change, once hydrated.
+   *
+   * We only write AFTER pinHydrated has flipped to true for the current
+   * key, so the load-race case described above can't happen. Empty sets
+   * still persist (as an empty array) so clearing pins is remembered
+   * too — otherwise a Clear pins + refresh would rehydrate the old
+   * pins from storage.
+   */
+  useEffect(() => {
+    if (!pinKey || !pinHydrated) return;
+    try {
+      localStorage.setItem(pinKey, JSON.stringify([...pinned]));
+    } catch {
+      // best-effort persistence — swallow quota/private-mode failures
+    }
+  }, [pinKey, pinHydrated, pinned]);
+
+  /*
    * Resolved analogs + cone.
    *
    * Resolution order:
@@ -506,10 +604,77 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
     () => ((isOnline && apiAnalogs) ? apiAnalogs : (searchedAnalogs ?? [])),
     [isOnline, apiAnalogs, searchedAnalogs],
   );
-  const cone: ConePoint[] = useMemo(
-    () => ((isOnline && apiCone) ? apiCone : (searchedCone ?? [])),
-    [isOnline, apiCone, searchedCone],
-  );
+
+  /*
+   * Pin-gated analog set — the heart of "curation drives the forecast".
+   *
+   * Semantics:
+   *   - pinned.size === 0 → baseline: the full top-K analog set is
+   *     the basis for the cone, metrics, and lens radar.
+   *   - pinned.size >= 1  → curated: every downstream consumer
+   *     (compLenses, coneStats, trust strip, lens radar, composite metric)
+   *     reads ONLY the pinned subset. The user is asserting "these are
+   *     the analogs I trust" and the UI honors that assertion by
+   *     recomputing everything as if the top-K set were exactly those pins.
+   *
+   * Defensive floor: if every pinned id somehow fails to resolve
+   * (e.g. stale pins loaded from localStorage pointing at analogs a
+   * re-search no longer returned), the filter collapses to zero. We
+   * fall back to the full analog set in that case — a silent degrade
+   * beats a blank forecast — and surface a note in the banner so the
+   * user understands why their pins aren't filtering.
+   *
+   * Identity stability: when pinned is empty we return the exact
+   * `analogs` array by reference (not a new filtered copy) so downstream
+   * memos that depend on `effectiveAnalogs` don't thrash on every render.
+   */
+  const effectiveAnalogs: AnalogMatch[] = useMemo(() => {
+    if (pinned.size === 0) return analogs;
+    const filtered = analogs.filter(a => pinned.has(a.id));
+    // Degrade: a non-empty pin set that resolved to zero results falls
+    // back to the full set so the UI doesn't blank out. The banner will
+    // tell the user the pins didn't match any current analogs.
+    return filtered.length > 0 ? filtered : analogs;
+  }, [analogs, pinned]);
+
+  /*
+   * Pin-gated forecast cone.
+   *
+   * When pinned.size > 0 we IGNORE the backend-computed apiCone (which
+   * was computed server-side over the full top-K) and recompute locally
+   * via buildCone() — same algorithm as the synthetic fallback path.
+   * This keeps the cone semantically tied to `effectiveAnalogs`: the
+   * quantiles reflect the curated subset, not the original top-K.
+   *
+   * When pinned.size === 0 the baseline resolution order applies:
+   *   1. apiCone (if online and present)
+   *   2. searchedCone (last successful runSearch result)
+   *   3. empty array
+   *
+   * Note: the price anchor for local buildCone is `queryLastPrice` from
+   * the CURRENT windowState, not lastSearch.start — this matches what
+   * the chart displays as the query terminal bar.
+   */
+  const cone: ConePoint[] = useMemo(() => {
+    if (pinned.size > 0 && effectiveAnalogs.length > 0) {
+      const queryLastIdx = windowState.start + windowState.len - 1;
+      const queryLastPrice = loadedSeries[queryLastIdx]?.p ?? 1;
+      const horizon = lastSearch?.horizon ?? settings.horizon ?? 60;
+      return buildCone(effectiveAnalogs, horizon, queryLastPrice);
+    }
+    return (isOnline && apiCone) ? apiCone : (searchedCone ?? []);
+  }, [
+    pinned,
+    effectiveAnalogs,
+    isOnline,
+    apiCone,
+    searchedCone,
+    windowState.start,
+    windowState.len,
+    loadedSeries,
+    lastSearch?.horizon,
+    settings.horizon,
+  ]);
 
   /*
    * Dirty detection — true when the current windowState+settings no
@@ -556,17 +721,24 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
     || lastSearch.k !== currentK
     || lastSearch.horizon !== currentHorizon;
 
-  // Composite lenses = mean across top analogs
+  // Composite lenses = mean across the EFFECTIVE analog set.
+  // When the user has pinned analogs, these are just the pinned ones —
+  // so the radar/bars show the mean agreement of their curated set,
+  // not the original top-K. This is the whole reason effectiveAnalogs
+  // exists: pinning drives what the workstation displays.
   const compLenses = useMemo(() => {
     const keys = LENS_DEFS.map(d => d.key);
     const out: Record<string, number> = {};
     keys.forEach(k => {
-      out[k] = analogs.reduce((s, a) => s + (a.lenses[k as keyof LensScores] || 0), 0) / (analogs.length || 1);
+      out[k] = effectiveAnalogs.reduce((s, a) => s + (a.lenses[k as keyof LensScores] || 0), 0) / (effectiveAnalogs.length || 1);
     });
     return out as unknown as LensScores;
-  }, [analogs]);
+  }, [effectiveAnalogs]);
 
-  // Cone endpoint statistics for the header metrics
+  // Cone endpoint statistics for the header metrics. Cone itself is
+  // already pin-gated upstream (see the `cone` useMemo), so these
+  // summary stats inherit pin-gating automatically — no further changes
+  // needed here. Kept the dependency list the same.
   const coneStats = useMemo(() => {
     if (!cone || !cone.length) return null;
     const lastP = loadedSeries[windowState.start + windowState.len - 1]?.p ?? 1;
@@ -815,6 +987,48 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
 
       {/* ── MAIN ─────────────────────────────────────────────── */}
       <section className="main">
+        {/* ── Pin-filtered banner ─────────────────────────────
+            Renders only when the user has curated the analog set via
+            pinning. The banner makes the curated state unmistakable
+            (it's the difference between "top-K says +3%" and "my 2
+            analogs say +3%") and gives a one-click escape hatch back
+            to the top-K baseline. See CSS `.ws-pin-banner` for layout.
+
+            Guard: we only show once there's actually something to
+            filter. `effectiveAnalogs.length` is the authoritative count
+            shown to the user — not `pinned.size`, because a pin
+            referring to an analog the engine didn't return (stale
+            localStorage) doesn't affect the forecast and shouldn't be
+            counted in the banner number. */}
+        {pinned.size > 0 && effectiveAnalogs.length > 0 && (
+          <div
+            className="ws-pin-banner"
+            role="status"
+            aria-live="polite"
+          >
+            <span className="ws-pin-banner__icon" aria-hidden="true">&#x1F3AF;</span>
+            <span className="ws-pin-banner__text">
+              Forecast from <strong>{effectiveAnalogs.length}</strong>{" "}
+              pinned analog{effectiveAnalogs.length === 1 ? "" : "s"} (not top-K).
+              {/* Fallback note: pins exist but none matched the current
+                  analog set. effectiveAnalogs silently degrades to the
+                  full set in that case; we surface the reason here. */}
+              {pinned.size > 0 && analogs.filter(a => pinned.has(a.id)).length === 0 && (
+                <> {" "}<em style={{ color: "var(--ink-3)" }}>
+                  (saved pins didn&apos;t match current results — showing full set)
+                </em></>
+              )}
+            </span>
+            <button
+              type="button"
+              className="ws-pin-banner__clear"
+              onClick={() => setPinned(new Set())}
+              aria-label="Clear all pinned analogs"
+            >
+              Clear pins
+            </button>
+          </div>
+        )}
         <header className="main__head">
           <div className="main__title-wrap">
             <div className="label" style={{ marginBottom: 6 }}>Retrieve &middot; analog workstation</div>
@@ -851,7 +1065,10 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
           <div className="main__metrics">
             <div className="metric">
               <span className="label">Composite</span>
-              <span className="v">{(analogs[0]?.composite ?? 0).toFixed(2)}</span>
+              {/* Top-of-set composite score. Reads from effectiveAnalogs so
+                  when the user pins a curated subset, this reports the
+                  best score AMONG the pins, not the original top-K. */}
+              <span className="v">{(effectiveAnalogs[0]?.composite ?? 0).toFixed(2)}</span>
               <span className="d">top match</span>
             </div>
             <div className="metric">
@@ -1214,11 +1431,19 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
         <div style={{ display: "flex", flexDirection: "column" }}>
           {(() => {
             // Compute metrics inline so hooks outside this block are
-            // untouched (Agent C owns those lines). The computation is
-            // O(analogs * percentiles) and runs once per render — cheap.
+            // untouched. The computation is O(analogs * percentiles)
+            // and runs once per render — cheap.
+            //
+            // Pin-gating: we pass effectiveAnalogs (not analogs) so a PM
+            // who has pinned 2 analogs sees Coverage/CRPS/HitRate/Grade
+            // computed ONLY on those 2. This is the critical quant-
+            // credibility path — the trust strip must answer "how well
+            // does the cone I'm looking at match its empirical history",
+            // and when curation changes the cone, it must change the
+            // metrics too. `cone` above is already pin-gated.
             const queryLastPrice = loadedSeries[windowState.start + windowState.len - 1]?.p ?? 1;
             const trustMetrics: CalibrationResult = computeCalibrationMetrics(
-              analogs,
+              effectiveAnalogs,
               cone,
               queryLastPrice,
             );
