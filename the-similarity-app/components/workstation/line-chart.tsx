@@ -893,38 +893,18 @@ export function LineChart({
           // stroke-dasharray override on the match segment is inline
           // so it cleanly composes with the palette styles above
           // without needing a new CSS class.
-          // Match segment renders thinner AND fainter than the forward
-          // segment so the "matched historical context" sinks into the
-          // background and the query window's own price line stays the
-          // primary thing readable inside the window rect. Without the
-          // opacity drop, a half-dozen stacked dashed matches can
-          // visually out-shout the query line they're supposed to be
-          // compared against.
-          //
-          //   - strokeWidth : 0.55x forward (floor 0.5px)
-          //   - opacity     : 0.4x forward  (floor 0.15)
-          const forwardWidth = (inline.strokeWidth as number | undefined) ?? undefined;
-          const matchWidth = forwardWidth != null
-            ? Math.max(0.5, forwardWidth * 0.55)
-            : undefined;
-          const forwardOpacity = (inline.opacity as number | undefined) ?? 1;
-          const matchOpacity = Math.max(0.15, forwardOpacity * 0.4);
+          // (Match-segment styling locals used to live here. Kept the
+          // comment so the removal is obvious in blame: match segment
+          // is not rendered anymore, so the matchWidth / matchOpacity
+          // derivations went with it.)
           return (
             <g key={a.rank} data-rank={a.rank}>
-              {a.dMatch && (
-                <path
-                  className={"analog" + variantClass}
-                  data-segment="match"
-                  data-rank={a.rank}
-                  d={a.dMatch}
-                  style={{
-                    ...inline,
-                    strokeDasharray: "3 3",
-                    opacity: matchOpacity,
-                    ...(matchWidth != null ? { strokeWidth: matchWidth } : {}),
-                  }}
-                />
-              )}
+              {/* Match segment intentionally NOT rendered — the user
+                  asked for the query window to stay clean, showing
+                  ONLY the query's own price line inside the rect. The
+                  match data is still built (see `dMatch` / `matchPts`
+                  above) so we can flip this back on later without
+                  rewiring, but no path is emitted today. */}
               {a.dForward && (
                 <path
                   className={"analog" + variantClass}

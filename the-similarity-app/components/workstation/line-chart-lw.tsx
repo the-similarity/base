@@ -918,31 +918,11 @@ export function LineChartLW({
         lineWidth = rank === 0 ? 2 : 1;
       }
 
-      // Match segment — dashed, rendered only when we have enough
-      // points to draw a line. Shares COLOR with the forward segment
-      // so the eye reads the whole overlay as one analog, but uses a
-      // THINNER stroke so the "matched historical context" reads as
-      // quieter than the actual forward projection. lightweight-charts
-      // accepts only integer lineWidths (1|2|3|4), so for a 2-wide
-      // forward we drop the match to 1; for a hovered 3-wide forward
-      // we drop to 2 (still visibly lighter without disappearing).
-      if (match.length >= 2) {
-        // Match stroke is always one step thinner than the forward, so
-        // a 1-wide forward stays at 1 (lowest lightweight-charts lets
-        // us go) and a 2-wide forward drops to 1. Hover-bump path is
-        // gone, so we never see a 3 here anymore.
-        const matchWidth: 1 | 2 = lineWidth === 2 ? 1 : 1;
-        const s = chart.addSeries(LineSeries, {
-          color: matchColor,
-          lineWidth: matchWidth,
-          lineStyle: LineStyle.Dashed,
-          priceLineVisible: false,
-          lastValueVisible: false,
-          crosshairMarkerVisible: false,
-        });
-        s.setData(match);
-        analogSeriesRefs.current.push(s);
-      }
+      // Match segment intentionally NOT rendered — user asked for the
+      // query window to stay clean so only the query's own price /
+      // candles read inside the rect. `match` data is still built
+      // (see buildAnalogData) so we can flip it back on later.
+      void matchColor;
 
       // Forward segment — solid, the actual "what happens next" path.
       if (forward.length >= 2) {
