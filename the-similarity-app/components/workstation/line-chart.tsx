@@ -15,8 +15,16 @@
 import { useState, useEffect, useRef } from "react";
 import { DataPoint, ConePoint, fmtDate, fmtDateShort } from "../../lib/data";
 
-/** Analog overlay data shape — price window + after path + pinned state */
+/** Analog overlay data shape — price window + after path + pinned state.
+ *
+ * `id` is included so the chart can correlate an overlay with the
+ * workstation's `hoveredAnalogId` state (set from the analog-card strip)
+ * and render a hover emphasis. The field is optional for backward
+ * compatibility with any callers that only built the geometric fields,
+ * but the workstation always populates it (see `analogOverlays` useMemo
+ * in `workstation.tsx`). */
 export interface AnalogOverlay {
+  id?: string;
   priceWindow: number[];
   after: number[];
   pinned?: boolean;
@@ -50,6 +58,13 @@ interface LineChartProps {
   showWindow?: boolean;
   /** Whether to show the forecast cone */
   showCone?: boolean;
+  /**
+   * The `id` of the analog currently hovered in the card strip — drives
+   * a "preview" emphasis on the matching overlay path (brighter, bolder
+   * stroke). Null when nothing is hovered. Ignored if the overlay lacks
+   * `id` fields.
+   */
+  hoveredAnalogId?: string | null;
 }
 
 export function LineChart({
@@ -66,6 +81,7 @@ export function LineChart({
   onHover,
   showWindow = true,
   showCone = true,
+  hoveredAnalogId = null,
 }: LineChartProps) {
   const ref = useRef<HTMLDivElement>(null);
   const [w, setW] = useState(800);
@@ -214,27 +230,64 @@ export function LineChart({
 
   // ── Analog overlay paths ──────────────────────────────────────────
   //
-  // Tri-state rendering rule — read together with the .analog CSS below
+  // Four-state rendering rule — read together with the .analog CSS
   // (and the mirror in `line-chart-lw.tsx` for the Pro canvas view):
   //
-  //   1. No pins set at all (hasAnyPin === false) → every analog renders
-  //      in the default grey-on-grey style (.analog). This is the
-  //      baseline "no curation active" look — unchanged from before.
-  //   2. At least one pin set (hasAnyPin === true):
-  //      a. This analog is pinned       → .analog.strong   (accent red,
-  //         1.8px, .95 opacity) — high-signal, eye-drawn.
-  //      b. This analog is NOT pinned   → .analog.context (ink-4 muted,
-  //         0.8px, .18 opacity) — visible as context but clearly
-  //         de-emphasized so the pinned ones dominate the composition.
+  //   1. No pins AND no hover            → palette variant: each analog
+  //      gets its rank-indexed color (--c-analog-{rank+1}) with an
+  //      opacity+width ramp so rank 1 dominates, rank 6 fades into the
+  //      background. This is the default "K analogs, tell them apart"
+  //      look introduced by Agent G.
+  //   2. No pins, hover set              → one analog gets a
+  //      "hover-preview" bump (opacity 1.0, width 2.0, brightness 1.15)
+  //      on top of its palette color; others keep the palette ramp.
+  //   3. Pins active                     → pinned analogs use .strong
+  //      (accent red), unpinned use .context (muted ink). Palette does
+  //      NOT apply in this mode — pin trumps palette so the curated
+  //      subset dominates the composition.
+  //   4. Pins active + hover set         → hovered AND pinned gets
+  //      extra-thick strong (stroke-width 2.2); hovered AND unpinned
+  //      temporarily un-fades from context → opacity 0.7 so the user
+  //      can preview before deciding to pin.
   //
-  // The presence of *any* pin flips the baseline to "context"; this
-  // matches the mental model "these are the ones I trust, everything
-  // else is context". The concrete CSS lives in `app/globals.css` —
-  // this path only wires the classnames.
+  // The concrete CSS lives in `app/globals.css` — this path emits
+  // SVG `style` attributes inline for palette/opacity because CSS
+  // variable selection per rank would need rank-indexed class names
+  // and duplicating six classes is messier than a single style string.
   const hasAnyPin = !!(analogsOverlay?.some(a => a.pinned));
-  const analogPaths: { d: string; variant: "default" | "strong" | "context" }[] = [];
+
+  /** Inline-style payload for a single analog path. */
+  type AnalogPath = {
+    d: string;
+    variant: "default" | "strong" | "context";
+    // Per-rank palette fields — null when pinning is active (the
+    // .strong / .context CSS classes take over).
+    stroke?: string;
+    strokeWidth?: number;
+    opacity?: number;
+    // Filter brightness bump for hover preview (default variant only).
+    filter?: string;
+    /** Rank index for stable keying + badge placement. */
+    rank: number;
+    /** Coordinates of the forward-terminal point for badge rendering. */
+    badge?: { x: number; y: number };
+    /** Label shown in the badge (1-indexed). */
+    badgeLabel?: string;
+    /** Badge fill color (matches stroke). */
+    badgeColor?: string;
+  };
+  const analogPaths: AnalogPath[] = [];
+  // Fixed ramps keyed by rank index (0-indexed internally). Six slots
+  // matches the workstation's Top-K cap; any rank beyond 5 falls back
+  // to the rank-5 end of the ramp so we never crash on a surprise 7th
+  // analog — the defaults still read as "background" context.
+  const RAMP_OPACITY = [0.95, 0.85, 0.75, 0.65, 0.55, 0.45];
+  const RAMP_WIDTH = [1.5, 1.3, 1.1, 1.0, 1.0, 1.0];
+  const PALETTE_VAR = (rank: number) =>
+    `var(--c-analog-${Math.min(rank, 5) + 1})`;
+
   if (analogsOverlay && qAnchorP) {
-    analogsOverlay.forEach((a) => {
+    analogsOverlay.forEach((a, rank) => {
       const scale = qAnchorP / a.priceWindow[a.priceWindow.length - 1];
       const combined = [...a.priceWindow, ...a.after.slice(0, forecastHorizon)];
       const startOffset = qWinEndIdx - (a.priceWindow.length - 1);
@@ -244,16 +297,95 @@ export function LineChart({
         return `${xOf(idx).toFixed(1)} ${yOf(p * scale).toFixed(1)}`;
       }).filter(Boolean);
       if (pts.length > 1) {
+        const isHovered = !!(a.id && hoveredAnalogId && a.id === hoveredAnalogId);
         const variant: "default" | "strong" | "context" =
           !hasAnyPin ? "default"
           : a.pinned ? "strong"
           : "context";
+        // Compute inline style for the palette/hover cases. The CSS
+        // class continues to handle the pinned .strong/.context cases
+        // as well as the baseline defaults (stroke-width, etc.) — we
+        // only override when we have a per-rank or hover decision.
+        let stroke: string | undefined;
+        let strokeWidth: number | undefined;
+        let opacity: number | undefined;
+        let filter: string | undefined;
+        if (!hasAnyPin) {
+          // Mode 1 / 2 — palette + optional hover bump.
+          stroke = PALETTE_VAR(rank);
+          strokeWidth = isHovered ? 2.0 : RAMP_WIDTH[Math.min(rank, 5)];
+          opacity = isHovered ? 1.0 : RAMP_OPACITY[Math.min(rank, 5)];
+          if (isHovered) filter = "brightness(1.15)";
+        } else if (isHovered) {
+          // Mode 4 — emphasize hover within pin mode.
+          if (a.pinned) {
+            strokeWidth = 2.2;
+          } else {
+            // Un-fade the hovered-but-not-pinned overlay so the user
+            // can preview what pinning it would contribute. We bump
+            // opacity on top of the `.context` baseline via inline
+            // style — CSS context opacity is .18, here we raise it
+            // to .7 while keeping the muted ink color.
+            opacity = 0.7;
+          }
+        }
+        // Badge placement — only when palette mode is active (no pins).
+        // We anchor to the forward terminal (last k-index in combined,
+        // inside the forecast horizon). If that index is outside the
+        // visible range we skip the badge; the line itself may still
+        // have visible segments.
+        let badge: { x: number; y: number } | undefined;
+        let badgeLabel: string | undefined;
+        let badgeColor: string | undefined;
+        if (!hasAnyPin) {
+          const terminalK = combined.length - 1;
+          const terminalIdx = startOffset + terminalK;
+          if (terminalIdx >= viewStart && terminalIdx <= viewEnd) {
+            badge = {
+              x: xOf(terminalIdx),
+              y: yOf(combined[terminalK] * scale),
+            };
+            badgeLabel = String(rank + 1);
+            badgeColor = PALETTE_VAR(rank);
+          }
+        }
         analogPaths.push({
           d: "M " + pts.join(" L "),
           variant,
+          stroke,
+          strokeWidth,
+          opacity,
+          filter,
+          rank,
+          badge,
+          badgeLabel,
+          badgeColor,
         });
       }
     });
+  }
+
+  // ── Badge overlap avoidance ───────────────────────────────────────
+  // If two terminal points are close vertically (within 12px), nudge
+  // the later (lower-ranked) badge down by 14px so the numerals don't
+  // stack on top of each other. We do this iteratively — each later
+  // badge is compared against all already-placed ones, and pushed by
+  // multiples of 14px until it clears them. O(K^2) but K <= 6.
+  const placedBadges: { x: number; y: number }[] = [];
+  for (const a of analogPaths) {
+    if (!a.badge) continue;
+    let { x, y } = a.badge;
+    let attempts = 0;
+    while (attempts < 8) {
+      const conflict = placedBadges.find(
+        p => Math.abs(p.x - x) < 20 && Math.abs(p.y - y) < 12,
+      );
+      if (!conflict) break;
+      y = conflict.y + 14;
+      attempts += 1;
+    }
+    a.badge = { x, y };
+    placedBadges.push({ x, y });
   }
 
   return (
@@ -274,18 +406,61 @@ export function LineChart({
         {coneUpper && <path className="cone-line" d={coneUpper} />}
         {medianPath && <path className="median" d={medianPath} />}
 
-        {/* Analog overlays — classname picks one of three variants.
-            See the hasAnyPin computation above for the selection rule. */}
-        {analogPaths.map((a, i) =>
-          <path
-            key={i}
-            className={
-              "analog" + (a.variant === "strong" ? " strong"
-                : a.variant === "context" ? " context" : "")
-            }
-            d={a.d}
-          />
-        )}
+        {/* Analog overlays — classname picks one of three variants and
+            inline style overrides apply the rank-indexed palette, the
+            opacity/width ramp, and hover bumps. See the analogPaths
+            computation above for the full selection matrix.
+
+            Why inline `style`: the palette is keyed by rank (0..5),
+            which would otherwise require six separate CSS classes. A
+            single inline style payload is shorter and keeps the rank
+            decision colocated with the data. React memoizes the
+            attribute string under the hood. */}
+        {analogPaths.map((a) => {
+          const inline: React.CSSProperties = {};
+          if (a.stroke) inline.stroke = a.stroke;
+          if (a.strokeWidth != null) inline.strokeWidth = a.strokeWidth;
+          if (a.opacity != null) inline.opacity = a.opacity;
+          if (a.filter) inline.filter = a.filter;
+          return (
+            <path
+              key={a.rank}
+              className={
+                "analog" + (a.variant === "strong" ? " strong"
+                  : a.variant === "context" ? " context" : "")
+              }
+              d={a.d}
+              style={inline}
+              data-rank={a.rank}
+            />
+          );
+        })}
+
+        {/* Rank badges at forward terminals — palette mode only (no pins).
+            Each badge is a filled circle + white numeral; placement has
+            already been de-collided above. Skipped entirely when pins
+            are active because the pin itself is the visual emphasis. */}
+        {analogPaths.map((a) => {
+          if (!a.badge || !a.badgeLabel || !a.badgeColor) return null;
+          return (
+            <g key={`b-${a.rank}`} className="analog-badge" data-rank={a.rank}>
+              <circle
+                className="analog-badge-circle"
+                cx={a.badge.x}
+                cy={a.badge.y}
+                r={7}
+                fill={a.badgeColor}
+              />
+              <text
+                className="analog-badge-text"
+                x={a.badge.x}
+                y={a.badge.y + 0.5}
+              >
+                {a.badgeLabel}
+              </text>
+            </g>
+          );
+        })}
 
         {/* Main price line */}
         <path className="price" d={pricePath} />

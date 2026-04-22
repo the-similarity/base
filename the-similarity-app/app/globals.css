@@ -1822,6 +1822,140 @@ input, select, textarea { font: inherit; color: inherit; }
 .cal-chart .data-dot { fill: var(--accent); }
 .cal-chart .axis-label { font-family: var(--mono); font-size: 9px; fill: var(--ink-3); letter-spacing: 0.06em; }
 
+/* ======================================================================
+   MULTI-ANALOG PALETTE & BADGES (Agent G)
+   ----------------------------------------------------------------------
+   Problem the palette solves:
+     Prior to this block, every analog overlay rendered in the same
+     `--c-analog` tone with near-identical opacity. With Top-K=3..6 the
+     lines visually collapsed into a single smear — users asked
+     "is it only showing top 1?". This section introduces six
+     rank-indexed color tokens (#1 = oxblood accent, then amber, green,
+     navy, plum, sienna) so each analog becomes individually
+     recognizable AND stays recognizable when the user cross-references
+     the chart with the analog card strip (same color on the card's
+     left border + in the legend dots).
+   ----------------------------------------------------------------------
+   Interaction hierarchy (unchanged from PR #228 for pin states):
+     pin > hover > default
+   i.e. these palette tokens are the DEFAULT look when no pin is set
+   on any analog. When a pin is active the SVG chart uses
+   `.analog.strong` (accent oxblood) and `.analog.context` (muted ink)
+   classes defined above — palette deliberately does NOT apply.
+   ---------------------------------------------------------------------- */
+:root {
+  --c-analog-1: #5a2b2b;   /* oxblood (reuse of --accent for rank 1)   */
+  --c-analog-2: #8a6200;   /* muted amber                              */
+  --c-analog-3: #1c5b3d;   /* muted green (shared with positive)       */
+  --c-analog-4: #3a4a6b;   /* muted navy                               */
+  --c-analog-5: #6b3a5a;   /* muted plum                               */
+  --c-analog-6: #8a5a3a;   /* muted sienna                             */
+}
+[data-theme="dark"] {
+  --c-analog-1: #c88a8a;
+  --c-analog-2: #c9a14f;
+  --c-analog-3: #6fb88e;
+  --c-analog-4: #8a9ac7;
+  --c-analog-5: #b88ab0;
+  --c-analog-6: #c79a7a;
+}
+
+/* ── Analog-card rank left-border (matches chart overlay color) ──────
+   The `.analog-card` base styles earlier in this file set a 1px border
+   all-around; the rank-indexed rules here replace the LEFT edge with a
+   3px solid band in the matching palette color. When pinning engages,
+   the existing `[data-pinned="true"]::before` pseudo-element (line
+   ~1142) paints an accent-colored strip at `left: -1px` which visually
+   covers the rank border — so pinned cards still read as "pinned",
+   unpinned cards still read as "rank N". This is intentional; pin
+   beats rank in the visual hierarchy, same as in the chart. */
+.analog-card[data-rank="0"] { border-left: 3px solid var(--c-analog-1); }
+.analog-card[data-rank="1"] { border-left: 3px solid var(--c-analog-2); }
+.analog-card[data-rank="2"] { border-left: 3px solid var(--c-analog-3); }
+.analog-card[data-rank="3"] { border-left: 3px solid var(--c-analog-4); }
+.analog-card[data-rank="4"] { border-left: 3px solid var(--c-analog-5); }
+.analog-card[data-rank="5"] { border-left: 3px solid var(--c-analog-6); }
+
+/* ── Rank badge at the analog's forward terminal (Fast SVG only) ─────
+   A 14px circle drawn at (xOf(terminalIdx), yOf(terminalPrice)) with
+   the rank's palette fill and a small white numeral. Rendered only
+   when no pins are active — pin mode already visually emphasizes the
+   pinned set via `.analog.strong`, so the badge would be redundant
+   noise. The Pro view currently skips the badge (see PR body "Pro-view
+   gap"). */
+.svg-chart .analog-badge-circle {
+  stroke: var(--bg-card);
+  stroke-width: 1.2;
+  /* Slight shadow for legibility when the badge overlaps grid lines. */
+  filter: drop-shadow(0 0 1.5px rgba(0, 0, 0, 0.25));
+}
+.svg-chart .analog-badge-text {
+  font-family: var(--mono);
+  font-size: 9px;
+  font-weight: 600;
+  fill: #ffffff;
+  text-anchor: middle;
+  dominant-baseline: central;
+  letter-spacing: 0;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* ── Legend dots — per-rank colored dots inline with "Analogs (N)" ─── */
+.legend-dot.analog-rank {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-right: 2px;
+}
+.legend-dot.analog-rank i {
+  /* Override the generic .legend-dot i horizontal bar — here we want a
+     filled circle so users read it as "one analog = one dot". */
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--c-analog-1);
+  display: inline-block;
+  border: 0;
+}
+.legend-dot.analog-rank[data-rank="0"] i { background: var(--c-analog-1); }
+.legend-dot.analog-rank[data-rank="1"] i { background: var(--c-analog-2); }
+.legend-dot.analog-rank[data-rank="2"] i { background: var(--c-analog-3); }
+.legend-dot.analog-rank[data-rank="3"] i { background: var(--c-analog-4); }
+.legend-dot.analog-rank[data-rank="4"] i { background: var(--c-analog-5); }
+.legend-dot.analog-rank[data-rank="5"] i { background: var(--c-analog-6); }
+.legend-dot.analog-rank span {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--ink-3);
+  letter-spacing: 0.04em;
+}
+/* Pinned legend dots gain a subtle ring so the legend mirrors the
+   card-strip pin state. The ring uses the accent color so "pinned"
+   reads the same no matter which rank-color the dot itself carries. */
+.legend-dot.analog-rank[data-pinned="true"] i {
+  box-shadow: 0 0 0 1.5px var(--accent);
+}
+.legend-dot.analog-rank button {
+  /* The legend dot is clickable (toggle pin). Strip default button
+     styling so it looks like the surrounding inline text. */
+  background: transparent;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.legend-dot.analog-rank button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
 /* ====================================================================
    CALIBRATION PANEL — polish (added by calibration-panel audit 2026-04-20)
    ====================================================================
