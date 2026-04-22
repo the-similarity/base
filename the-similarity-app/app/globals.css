@@ -166,6 +166,28 @@ input, select, textarea { font: inherit; color: inherit; }
   white-space: nowrap;
 }
 .marquee__brand { font-weight: 600; letter-spacing: 0.24em; color: var(--ink); }
+/*
+ * Brand cluster living inside the marquee: icon + italic serif wordmark.
+ * Opts out of the marquee's uppercase-mono styling (text-transform,
+ * letter-spacing, font-family) so the wordmark reads as a product title,
+ * not a marquee ticker.
+ */
+.brand {
+  display: flex; align-items: center; gap: var(--s-3);
+  text-transform: none;
+  letter-spacing: normal;
+  flex-shrink: 0;
+}
+.brand__logo { width: 22px; height: 22px; display: grid; place-items: center; }
+.brand__word {
+  font-family: var(--serif);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  color: var(--ink);
+}
+.brand__word em { font-style: italic; font-weight: 400; color: var(--ink-3); }
 .marquee__track {
   display: inline-flex; gap: 40px;
   animation: marquee 90s linear infinite;

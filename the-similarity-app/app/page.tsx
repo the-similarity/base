@@ -343,7 +343,20 @@ export default function Page() {
           cluster. The old `header.nav` was deleted — single-surface
           product, no verbs to gate, no second row of chrome needed. */}
       <div className="marquee">
-        <span className="marquee__brand">THE SIMILARITY</span>
+        {/* Brand: the circle-in-circle icon + italic wordmark. Lives in
+            the marquee now since the header row was removed. The
+            `.brand` wrapper opts out of the marquee's uppercase-mono
+            treatment so the wordmark renders in its own serif. */}
+        <div className="brand">
+          <div className="brand__logo" aria-hidden="true">
+            <svg width="22" height="22" viewBox="0 0 26 26">
+              <circle cx="13" cy="13" r="11" fill="none" stroke="var(--ink)" strokeWidth="1.2" />
+              <circle cx="13" cy="13" r="6" fill="none" stroke="var(--ink)" strokeWidth="1.2" />
+              <circle cx="13" cy="13" r="1.8" fill="var(--ink)" />
+            </svg>
+          </div>
+          <div className="brand__word">The <em>Similarity</em></div>
+        </div>
         <div style={{ overflow: "hidden", flex: 1 }}>
           <div className="marquee__track">
             {/*
