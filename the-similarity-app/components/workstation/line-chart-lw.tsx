@@ -887,24 +887,34 @@ export function LineChartLW({
         : "context";
 
       let color: string;
+      // Match color is a faded version of the forward color so the
+      // dashed "matched historical" overlay sinks into the background
+      // and the query window's own price line dominates visually. Same
+      // intent as the opacity drop in the Fast view's match path.
+      let matchColor: string;
       // lightweight-charts v5 accepts 1 | 2 | 3 | 4 as lineWidth. Hover
       // emphasis was removed (see Fast view for the same change) —
       // the reveal-on-hover from the activeAnalogIds set is enough
       // signal; bolding the line was too loud.
       let lineWidth: 1 | 2 | 3;
 
+      const MATCH_ALPHA_FACTOR = 0.4;
       if (variant === "strong") {
         color = tokens.analogStrong;
+        matchColor = hexToRgba(tokens.analogStrong, MATCH_ALPHA_FACTOR);
         lineWidth = 2;
       } else if (variant === "context") {
         color = hexToRgba(tokens.analogContext, 0.35);
+        matchColor = hexToRgba(tokens.analogContext, 0.35 * MATCH_ALPHA_FACTOR);
         lineWidth = 1;
       } else {
         // Default palette mode — rank color with ramped alpha. Rank 0
         // keeps its slightly heavier width so the top-ranked line
         // still reads as the primary one without needing hover.
         const basePalette = tokens.palette[Math.min(rank, 5)];
-        color = hexToRgba(basePalette, RAMP_ALPHA[Math.min(rank, 5)]);
+        const rampAlpha = RAMP_ALPHA[Math.min(rank, 5)];
+        color = hexToRgba(basePalette, rampAlpha);
+        matchColor = hexToRgba(basePalette, rampAlpha * MATCH_ALPHA_FACTOR);
         lineWidth = rank === 0 ? 2 : 1;
       }
 
@@ -923,7 +933,7 @@ export function LineChartLW({
         // gone, so we never see a 3 here anymore.
         const matchWidth: 1 | 2 = lineWidth === 2 ? 1 : 1;
         const s = chart.addSeries(LineSeries, {
-          color,
+          color: matchColor,
           lineWidth: matchWidth,
           lineStyle: LineStyle.Dashed,
           priceLineVisible: false,
