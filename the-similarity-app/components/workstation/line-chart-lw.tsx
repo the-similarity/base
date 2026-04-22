@@ -839,7 +839,11 @@ export function LineChartLW({
     // toggling Fast ↔ Pro sees the same visual ordering of #1..#6.
     const RAMP_ALPHA = [0.95, 0.85, 0.75, 0.65, 0.55, 0.45];
 
-    analogsOverlay.forEach((a, rank) => {
+    analogsOverlay.forEach((a, idxInArray) => {
+      // Prefer the stable top-K rank from the overlay payload so each
+      // analog keeps its color regardless of how many siblings are
+      // active. Fall back to array index if rank wasn't populated.
+      const rank = a.rank ?? idxInArray;
       const { match, forward } = buildAnalogData(series, win, a, forecastHorizon);
       if (match.length + forward.length < 2) return;
 

@@ -1373,8 +1373,14 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
     const visibleIds = new Set(activeAnalogIds);
     if (hoverAnalog) visibleIds.add(hoverAnalog);
     return analogs
-      .filter(a => visibleIds.has(a.id))
-      .map(a => ({ ...a, pinned: pinned.has(a.id) }));
+      // We iterate with the ORIGINAL index so each overlay carries its
+      // stable top-K rank. If we filtered first, the user-visible
+      // subset would renumber (rank-3-only becomes "rank 0" in the
+      // filtered array and picks up the rank-0 palette color, which
+      // is exactly the bug that made a single-active analog always
+      // render red).
+      .map((a, originalIdx) => ({ ...a, pinned: pinned.has(a.id), rank: originalIdx }))
+      .filter(a => visibleIds.has(a.id));
   }, [analogs, activeAnalogIds, hoverAnalog, pinned]);
 
   const togglePin = (id: string) => {
