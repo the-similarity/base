@@ -34,6 +34,12 @@ interface LineChartProps {
   window: { start: number; len: number };
   /** Callback when query window is dragged */
   onWindowChange: (w: { start: number; len: number }) => void;
+  /**
+   * Callback when the user zooms the time axis via the wheel. Receives the
+   * new [start, end] range. The parent owns viewRange, so this is a lift.
+   * If omitted, the chart is read-only on the time axis.
+   */
+  onRangeChange?: (r: { start: number; end: number }) => void;
   /** Analog overlays to draw on the chart */
   analogsOverlay?: AnalogOverlay[];
   /** Forecast cone quantile data */
@@ -58,6 +64,7 @@ export function LineChart({
   viewEnd,
   window: win,
   onWindowChange,
+  onRangeChange,
   analogsOverlay,
   cone,
   height = 300,
@@ -68,7 +75,35 @@ export function LineChart({
   showCone = true,
 }: LineChartProps) {
   const ref = useRef<HTMLDivElement>(null);
+  const svgRef = useRef<SVGSVGElement>(null);
   const [w, setW] = useState(800);
+  /*
+   * Price-axis override for shift-wheel zoom.
+   *
+   * null → auto-compute from the visible price range (default behavior,
+   *         preserved for the unzoomed case).
+   * [min, max] → user pinned the y-axis; rendering uses these bounds
+   *         instead of recomputing each frame.
+   *
+   * Kept local because it's purely a presentation concern — the parent
+   * doesn't need to know whether the user is visually zoomed. Reset via
+   * double-click on the chart (see onDoubleClick below).
+   */
+  const [priceOverride, setPriceOverride] = useState<[number, number] | null>(null);
+  /*
+   * Live mirror of the auto-computed [minP, maxP] from the current render.
+   *
+   * Why a ref (not state or closed-over locals): the wheel-zoom effect is
+   * registered ONCE and re-bound only when the deps change; we don't want
+   * the auto-range to be in those deps (it changes on every pan/query
+   * update, which would thrash the listener). Writing into a ref during
+   * render then reading it from the effect is the idiomatic way to bridge
+   * the "latest value needed in a stable callback" gap.
+   *
+   * Initialized to [0, 1] as a benign placeholder — the first render
+   * overwrites it before any wheel event can fire.
+   */
+  const autoPriceRangeRef = useRef<[number, number]>([0, 1]);
 
   // Drag state ref — must be declared before any early return
   const dragRef = useRef<{
@@ -78,6 +113,10 @@ export function LineChart({
     origLen: number;
   } | null>(null);
 
+  const padL = 54, padR = 20, padT = 16, padB = 28;
+  const plotW = Math.max(100, w - padL - padR);
+  const plotH = height - padT - padB;
+
   // Track container width for responsive SVG viewBox
   useEffect(() => {
     if (!ref.current) return;
@@ -86,9 +125,85 @@ export function LineChart({
     return () => ro.disconnect();
   }, []);
 
-  const padL = 54, padR = 20, padT = 16, padB = 28;
-  const plotW = Math.max(100, w - padL - padR);
-  const plotH = height - padT - padB;
+  // ── Wheel zoom ─────────────────────────────────────────────────────
+  //
+  // - Plain wheel           → zoom the TIME axis (viewStart..viewEnd) via
+  //                           `onRangeChange`. Anchored on the cursor so
+  //                           the bar under the mouse stays put.
+  // - Shift + wheel         → zoom the PRICE axis (priceOverride state).
+  //                           Anchored on the cursor's y position.
+  // - Double-click          → reset priceOverride to null (re-auto-fits).
+  //
+  // We attach a NATIVE wheel listener (not React's onWheel) with
+  // `{ passive: false }` so preventDefault() is actually honored —
+  // React's synthetic wheel handlers are passive by default in
+  // Chromium, which means calling preventDefault is a silent no-op
+  // and the page scrolls anyway. Attaching directly to the SVG node
+  // bypasses that.
+  //
+  // The "live" price range (auto-computed each render) is read through
+  // `autoPriceRangeRef` rather than closed-over locals so the listener
+  // only re-binds when geometry / structural deps change — not on every
+  // pan that shifts minP/maxP.
+  //
+  // Guards:
+  //   - Refuse to shrink the time range below 50 bars (anything tighter
+  //     and a single bar spans too many px to be useful).
+  //   - Refuse to grow the time range past `series.length * 1.25` (we
+  //     don't want the user to "zoom out" into a mostly-empty chart).
+  //   - Price zoom clamps to >0 width to avoid divide-by-zero in yOf.
+  useEffect(() => {
+    const el = svgRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      // Only zoom when the cursor is over the plot area (not the axis
+      // gutters). Using the SVG's bounding rect keeps the math right
+      // even when the chart is embedded in a flex layout.
+      const rect = el.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      if (x < padL || x > padL + plotW || y < padT || y > padT + plotH) return;
+      e.preventDefault();
+
+      // Normalize wheel delta. Trackpads report small fractional deltas,
+      // mice report ~100 per notch — `deltaY` sign is all we need.
+      // zoomFactor < 1 = zoom IN, > 1 = zoom OUT.
+      const zoomFactor = e.deltaY < 0 ? 0.88 : 1.12;
+
+      if (e.shiftKey) {
+        // ── Price-axis zoom ────────────────────────────────────────
+        const [cMin, cMax] = priceOverride ?? autoPriceRangeRef.current;
+        const range = cMax - cMin;
+        if (range <= 0) return;
+        const yFrac = (y - padT) / plotH;         // 0 at top, 1 at bottom
+        const priceFrac = 1 - yFrac;              // invert: price grows up
+        const anchorPrice = cMin + priceFrac * range;
+        const newRange = Math.max(1e-9, range * zoomFactor);
+        setPriceOverride([
+          anchorPrice - priceFrac * newRange,
+          anchorPrice + (1 - priceFrac) * newRange,
+        ]);
+      } else if (onRangeChange) {
+        // ── Time-axis zoom ─────────────────────────────────────────
+        const rangeWidth = viewEnd - viewStart;
+        if (rangeWidth < 2) return;
+        const xFrac = (x - padL) / plotW;
+        const anchorIdx = viewStart + xFrac * rangeWidth;
+        const newWidth = Math.max(50, Math.min(Math.floor(series.length * 1.25),
+          Math.round(rangeWidth * zoomFactor)));
+        const newStart = Math.max(0, Math.round(anchorIdx - xFrac * newWidth));
+        const newEnd = newStart + newWidth;
+        onRangeChange({ start: newStart, end: newEnd });
+      }
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, [viewStart, viewEnd, plotW, plotH, padL, padT, series.length, priceOverride, onRangeChange]);
+
+  // Reset price-axis override on double-click. Time axis reset is the
+  // parent's concern (preset range chips live on the side panel), so
+  // dblclick here only touches the piece of state we own.
+  const onDoubleClick = () => setPriceOverride(null);
 
   // ── Drag interaction (effect must be above early return) ───────────
   //
@@ -132,32 +247,59 @@ export function LineChart({
   if (!vis.length) return <div ref={ref} />;
 
   // ── Compute price range ───────────────────────────────────────────
-  let minP = Infinity, maxP = -Infinity;
-  vis.forEach(d => { if (d.p < minP) minP = d.p; if (d.p > maxP) maxP = d.p; });
-
-  if (cone && showCone) cone.forEach(q => { if (q.p10 < minP) minP = q.p10; if (q.p90 > maxP) maxP = q.p90; });
+  //
+  // The range is driven by the VISIBLE SERIES first (always well-behaved
+  // since it's the raw price column). The cone and analog overlays are
+  // then allowed to *expand* that range, but only within a sanity clamp
+  // of ±50% of the base span. This prevents a single mis-scaled analog
+  // or an impossibly-wide cone tail from hijacking the y-axis — the
+  // symptom the user saw was a GOLD chart y-axis running from −444 to
+  // 5992 when the actual prices lived in 4000..5500, caused by a
+  // scaled analog point near zero.
+  //
+  // Points that fall outside the clamp are still RENDERED (the SVG just
+  // draws them past the axis edge); they just don't get to push the
+  // axis itself around. When the user needs to see those tails, they
+  // can shift-wheel to zoom out manually.
+  let baseMin = Infinity, baseMax = -Infinity;
+  vis.forEach(d => { if (d.p < baseMin) baseMin = d.p; if (d.p > baseMax) baseMax = d.p; });
+  if (!isFinite(baseMin) || !isFinite(baseMax)) { baseMin = 0; baseMax = 1; }
+  const baseSpan = Math.max(1e-9, baseMax - baseMin);
+  const clampLo = baseMin - baseSpan * 0.5;
+  const clampHi = baseMax + baseSpan * 0.5;
+  const expand = (v: number) => {
+    if (v < clampLo || v > clampHi) return;
+    if (v < baseMin) baseMin = v;
+    if (v > baseMax) baseMax = v;
+  };
+  if (cone && showCone) cone.forEach(q => { expand(q.p10); expand(q.p90); });
 
   const qWinEndIdx = win.start + win.len - 1;
   const qAnchorP = series[qWinEndIdx]?.p;
 
   if (analogsOverlay && qAnchorP) {
     analogsOverlay.forEach(a => {
-      const scale = qAnchorP / a.priceWindow[a.priceWindow.length - 1];
-      a.priceWindow.forEach(p => {
-        const v = p * scale;
-        if (v < minP) minP = v; if (v > maxP) maxP = v;
-      });
-      a.after.forEach((p, i) => {
-        if (i >= forecastHorizon) return;
-        const v = p * scale;
-        if (v < minP) minP = v; if (v > maxP) maxP = v;
-      });
+      const analogEnd = a.priceWindow[a.priceWindow.length - 1];
+      if (!analogEnd) return;
+      const scale = qAnchorP / analogEnd;
+      a.priceWindow.forEach(p => expand(p * scale));
+      a.after.forEach((p, i) => { if (i < forecastHorizon) expand(p * scale); });
     });
   }
 
-  // Pad vertical range 8%
-  const pad = (maxP - minP) * 0.08;
-  minP -= pad; maxP += pad;
+  let minP = baseMin, maxP = baseMax;
+  // Pad vertical range 8% — only applied to the auto-computed range. A
+  // user-pinned `priceOverride` wins verbatim so double-click → zoom →
+  // double-click returns to the same frame the user started from.
+  if (priceOverride) {
+    [minP, maxP] = priceOverride;
+  } else {
+    const pad = (maxP - minP) * 0.08;
+    minP -= pad; maxP += pad;
+  }
+  // Push the auto-computed range into the wheel-handler ref so shift-wheel
+  // anchoring uses the current frame's bounds, not stale ones.
+  autoPriceRangeRef.current = [minP, maxP];
 
   // Coordinate mapping functions
   const xOf = (i: number) => padL + ((i - viewStart) / (viewEnd - viewStart - 1)) * plotW;
@@ -284,8 +426,16 @@ export function LineChart({
 
   return (
     <div ref={ref} style={{ width: "100%" }}>
-      <svg className="svg-chart" viewBox={`0 0 ${w} ${height}`} width="100%" height={height}
-        onMouseMove={onMove} onMouseLeave={onLeave}>
+      <svg
+        ref={svgRef}
+        className="svg-chart"
+        viewBox={`0 0 ${w} ${height}`}
+        width="100%"
+        height={height}
+        onMouseMove={onMove}
+        onMouseLeave={onLeave}
+        onDoubleClick={onDoubleClick}
+      >
         {/* Grid lines */}
         <g className="grid">
           {yTicks.map((t, i) => <line key={i} x1={padL} x2={w - padR} y1={t.y} y2={t.y} />)}

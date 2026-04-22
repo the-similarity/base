@@ -1406,6 +1406,12 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
                     crosshairIdx,
                     height: 300,
                     showCone: settings.showCone !== false,
+                    // Wheel-driven time-axis zoom: rebound through the
+                    // existing viewRange state. The guardrail effect
+                    // above enforces `viewEnd ≥ queryEnd + horizon + 5`,
+                    // so a user zoom that shrinks the view past the
+                    // cone gets auto-expanded back on the next render.
+                    onRangeChange: setViewRange,
                   };
                   return (settings.chartMode ?? "fast") === "pro"
                     ? <LineChartLW {...sharedChartProps} />
