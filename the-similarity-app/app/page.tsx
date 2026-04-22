@@ -32,6 +32,7 @@ import { RepresentSurface, SimulateSurface, EvaluateSurface, RenderSurface, Deci
 import { CommandPalette } from "../components/command-palette";
 import { TweaksPanel } from "../components/tweaks-panel";
 import { ShortcutsHelp } from "../components/shortcuts-help";
+import { parseUrlState } from "../lib/url-state";
 
 /*
  * Feed mode — honest label for the status-bar "feed X" badge.
@@ -95,17 +96,48 @@ const DEFAULTS: WorkstationSettings = {
 };
 
 export default function Page() {
-  // ── State ───────────────────────────────────────────────────────────
+  /*
+   * Settings hydration priority: defaults < localStorage < URL.
+   *
+   * On first mount we compose the settings object in three layers:
+   *   1. DEFAULTS  — hardcoded baseline.
+   *   2. `ts-settings` in localStorage — the user's saved preferences.
+   *   3. URL params — the share-link override; wins when present.
+   *
+   * Only the URL fields that map onto WorkstationSettings (theme, k,
+   * horizon, chartMode, showAnalogs) participate here; the workstation
+   * handles the rest (dataset, window, viewRange, pinned) internally.
+   *
+   * This order is WHY URL state works for "send a link to a colleague":
+   * their localStorage is irrelevant for the fields the link pins.
+   * Fields not in the link still fall back to their saved preferences,
+   * so a link that only pins `?h=180` doesn't wipe their theme.
+   */
   const [settings, setSettings] = useState<WorkstationSettings>(() => {
     if (typeof window === "undefined") return DEFAULTS;
+    let saved: Partial<WorkstationSettings> = {};
     try {
-      const saved = JSON.parse(localStorage.getItem("ts-settings") || "null");
-      return { ...DEFAULTS, ...(saved || {}) };
-    } catch { return DEFAULTS; }
+      saved = JSON.parse(localStorage.getItem("ts-settings") || "null") || {};
+    } catch {
+      // localStorage parse failed — carry on with empty saved.
+    }
+    // URL takes priority per-key over both defaults and saved.
+    const u = parseUrlState(window.location.search);
+    const fromUrl: Partial<WorkstationSettings> = {};
+    if (u.theme !== undefined) fromUrl.theme = u.theme;
+    if (u.k !== undefined) fromUrl.kAnalogs = u.k;
+    if (u.horizon !== undefined) fromUrl.horizon = u.horizon;
+    if (u.chartMode !== undefined) fromUrl.chartMode = u.chartMode;
+    if (u.showAnalogs !== undefined) fromUrl.showAnalogs = u.showAnalogs;
+    return { ...DEFAULTS, ...saved, ...fromUrl };
   });
 
   const [surface, setSurface] = useState(() => {
     if (typeof window === "undefined") return "retrieve";
+    // URL `sr` param wins over localStorage so a share-link to a specific
+    // surface (when preview surfaces are enabled) restores correctly.
+    const u = parseUrlState(window.location.search);
+    if (u.surface) return u.surface;
     return localStorage.getItem("ts-surface") || "retrieve";
   });
 

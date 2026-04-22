@@ -922,6 +922,65 @@ input, select, textarea { font: inherit; color: inherit; }
   50%      { box-shadow: 0 0 0 3px var(--accent-soft); }
 }
 
+/* Share button — secondary action next to primary Search.
+   Same geometry as .ws-search-btn so they align in the row but visually
+   de-emphasized: light background, border-only instead of solid fill,
+   and ink-2 color. Hover nudges toward ink. The glyph + label keeps the
+   share affordance discoverable. */
+.ws-share-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+  background: var(--bg);
+  border: 1px solid var(--rule-strong);
+  border-radius: 3px;
+  cursor: pointer;
+}
+.ws-share-btn:hover { background: var(--bg-hover); color: var(--ink); }
+.ws-share-btn:focus-visible {
+  outline: 2px solid var(--rule-focus);
+  outline-offset: 1px;
+}
+
+/* Share-toast — transient "Link copied" confirmation.
+   Floating bottom-center position so it doesn't reflow layout; narrow
+   and compact since it's pure confirmation. Auto-dismisses after 2s via
+   the React component's setTimeout. z-index 60 sits it above the chart
+   and drawer controls (z=50) but below full modals (z=100+). */
+.ws-share-toast {
+  position: fixed;
+  bottom: 48px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  background: var(--ink);
+  color: var(--bg);
+  border: 1px solid var(--ink);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.14);
+  font-family: var(--mono);
+  font-size: 11.5px;
+  letter-spacing: .04em;
+  z-index: 60;
+  /* Brief fade + rise animation so the appearance feels intentional. */
+  animation: ws-share-toast-in 180ms ease-out;
+}
+.ws-share-toast__icon { font-size: 13px; line-height: 1; }
+.ws-share-toast__text { line-height: 1.2; }
+@keyframes ws-share-toast-in {
+  from { opacity: 0; transform: translate(-50%, 4px); }
+  to   { opacity: 1; transform: translate(-50%, 0); }
+}
+
 /* Mobile: stack the row so the button stays tappable. */
 @media (max-width: 767px) {
   .ws-search-row {
