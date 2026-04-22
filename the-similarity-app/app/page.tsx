@@ -337,9 +337,12 @@ export default function Page() {
 
   return (
     <div className="app">
-      {/* ── Marquee strip ──────────────────────────────────────── */}
+      {/* ── Marquee strip ──────────────────────────────────────────
+          Houses the rolling tagline + (moved here from the nav) the
+          search button / tweaks toggle / account chip. The word-mark
+          brand that used to live here has been swapped down into the
+          header below to give the app a firmer title landing. */}
       <div className="marquee">
-        <span className="marquee__brand">THE SIMILARITY</span>
         <div style={{ overflow: "hidden", flex: 1 }}>
           <div className="marquee__track">
             {/*
@@ -359,34 +362,9 @@ export default function Page() {
             ))}
           </div>
         </div>
-        <div className="marquee__right">
-          <span className="dot" />
-          <span>engine live</span>
-        </div>
-      </div>
-
-      {/* ── Top navigation ─────────────────────────────────────── */}
-      <header className="nav">
-        <div className="nav__brand">
-          <div className="nav__logo">
-            <svg width="26" height="26" viewBox="0 0 26 26">
-              <circle cx="13" cy="13" r="11" fill="none" stroke="var(--ink)" strokeWidth="1.2" />
-              <circle cx="13" cy="13" r="6" fill="none" stroke="var(--ink)" strokeWidth="1.2" />
-              <circle cx="13" cy="13" r="1.8" fill="var(--ink)" />
-            </svg>
-          </div>
-          <div className="nav__word">The <em>Similarity</em></div>
-        </div>
-        <div className="nav__verbs">
-          {VERBS.map(v => (
-            <button key={v.k} className="nav__verb"
-              data-active={surface === v.k ? "true" : undefined}
-              onClick={() => setSurface(v.k)}>
-              <span className="nav__verb__num">{v.n}</span>
-              <span className="nav__verb__name">{v.name}</span>
-            </button>
-          ))}
-        </div>
+        {/* Reused verbatim from the old `.nav__right` — same classes,
+            same handlers, same markup. The nav row no longer renders
+            this block. */}
         <div className="nav__right">
           <button className="nav__search" onClick={() => setCmdOpen(true)}>
             <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.3">
@@ -408,6 +386,20 @@ export default function Page() {
           <button className="nav__iconbtn" title="Account">
             <span className="mono" style={{ fontSize: 10, fontWeight: 600 }}>LN</span>
           </button>
+        </div>
+        <div className="marquee__right">
+          <span className="dot" />
+          <span>engine live</span>
+        </div>
+      </div>
+
+      {/* ── Top navigation ─────────────────────────────────────────
+          Now just the app brand. The per-verb buttons (`.nav__verbs`)
+          are gone — a single-surface product didn't need them, and the
+          header search/tweaks chips moved up into the marquee. */}
+      <header className="nav">
+        <div className="nav__brand">
+          <span className="marquee__brand">THE SIMILARITY</span>
         </div>
       </header>
 

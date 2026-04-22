@@ -173,22 +173,46 @@ input, select, textarea { font: inherit; color: inherit; }
   from { transform: translateX(0); }
   to   { transform: translateX(-50%); }
 }
-.marquee__right { margin-left: auto; display: flex; gap: var(--s-4); align-items: center; }
+.marquee__right { display: flex; gap: var(--s-4); align-items: center; }
 .marquee__right .dot { width: 6px; height: 6px; border-radius: 50%; background: #6fb88e; box-shadow: 0 0 0 2px rgba(111,184,142,.2); }
+/*
+ * `.nav__right` moved out of the nav into the marquee bar. Inside the
+ * marquee it needs a few adjustments to sit at the right height and
+ * not get swallowed by the marquee's uppercase text styles.
+ */
+.marquee > .nav__right {
+  text-transform: none;
+  letter-spacing: normal;
+  font-family: var(--sans, inherit);
+  flex-shrink: 0;
+}
 
-/* ── Top navigation: the six verbs ───────────────────────────── */
+/* ── Top navigation: product brand row ─────────────────────────
+   Previously held the per-verb tabs, a word-mark, and a search/tools
+   cluster on the right. Now just the brand — the verbs are gone and
+   the right cluster migrated into the marquee bar. Rules below keep
+   the old classnames working for legacy markup but relax the sizing
+   to match the new minimal content. */
 .nav {
   display: flex; align-items: stretch;
   border-bottom: 1px solid var(--rule);
   background: var(--bg-elevated);
   padding-left: var(--s-6); padding-right: var(--s-4);
   gap: var(--s-6);
+  min-height: 48px;
 }
 .nav__brand {
   display: flex; align-items: center; gap: var(--s-3);
-  border-right: 1px solid var(--rule);
+  /* Drop the right-side rule + min-width — the verb tabs that used to
+     sit next to the brand are gone, so a divider would hang in space. */
   padding-right: var(--s-6);
-  min-width: 220px;
+}
+/* When the marquee-style wordmark is embedded as the nav brand it
+   inherits the marquee's tracking and weight; lift the font-size so
+   it reads as a product title rather than a marquee tag. */
+.nav__brand .marquee__brand {
+  font-size: 15px;
+  letter-spacing: 0.26em;
 }
 .nav__logo {
   width: 26px; height: 26px;
