@@ -1572,34 +1572,128 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
                       </div>
                     </div>
                     <div>
-                      <h3>Coverage vs target</h3>
+                      <h3>Per-bucket observed frequency</h3>
                       <svg viewBox="0 0 260 160" width="100%" height="160">
                         <rect x="1" y="1" width="258" height="158" fill="none" stroke="var(--rule)" />
-                        {/* 80% target line at y = 160 - 0.80 * 150 = 40. */}
-                        <line x1="10" y1="40" x2="250" y2="40" stroke="var(--rule-strong)" strokeDasharray="3 3" />
-                        <text x="12" y="36" className="axis-label" fontSize="9" fill="var(--ink-3)">80% target</text>
-                        {/* Per-analog terminal containment visualization.
-                            Each bar height = this query's coverage rate.
-                            This is a single-query summary, not a time
-                            series — when a dedicated rolling coverage
-                            series is added it should replace this. */}
-                        {isUnknown ? (
+                        {/* Previous implementation drew 12 IDENTICAL bars,
+                            all at height = trustMetrics.coverage. That
+                            looked like a rolling time-series but was a
+                            synthetic placeholder (same number painted 12
+                            times). It's been replaced with the real per-
+                            percentile observed frequency derived from
+                            trustMetrics.reliability[] — the thing that
+                            actually changes per query and per pin set.
+                            A perfectly calibrated engine has every bar
+                            at height = its predicted quantile. */}
+                        {trustMetrics.reliability.length === 0 ? (
                           <text x="130" y="90" textAnchor="middle" fontSize="11" fill="var(--ink-3)">
                             not enough data
                           </text>
-                        ) : (
-                          Array.from({ length: 12 }).map((_, i) => {
-                            const v = trustMetrics.coverage;
-                            const x = 20 + i * 18;
-                            const y = 160 - v * 150;
-                            return <line key={i} x1={x} x2={x} y1={160} y2={y} stroke="var(--ink-2)" strokeWidth="1.4" />;
-                          })
-                        )}
+                        ) : (() => {
+                            // Plot region: x in [30, 250], y in [140, 20].
+                            // Bar slot width derived from the number of
+                            // reliability buckets so the layout scales
+                            // correctly if the backend adds more.
+                            const n = trustMetrics.reliability.length;
+                            const plotLeft = 30;
+                            const plotRight = 250;
+                            const plotTop = 20;
+                            const plotBottom = 140;
+                            const slotW = (plotRight - plotLeft) / n;
+                            const barW = Math.max(8, slotW * 0.55);
+                            const plotH = plotBottom - plotTop;
+                            // Guide lines at y = 0, 0.5, 1.0 so the eye can
+                            // read deviation without counting pixels.
+                            const guideYs = [0, 0.5, 1];
+                            return (
+                              <g>
+                                {guideYs.map(g => (
+                                  <line
+                                    key={`g-${g}`}
+                                    x1={plotLeft}
+                                    x2={plotRight}
+                                    y1={plotBottom - g * plotH}
+                                    y2={plotBottom - g * plotH}
+                                    stroke="var(--rule)"
+                                    strokeDasharray="2 3"
+                                  />
+                                ))}
+                                {trustMetrics.reliability.map((pt, i) => {
+                                  const oClamped = Math.max(0, Math.min(1, pt.observed));
+                                  const pClamped = Math.max(0, Math.min(1, pt.predicted));
+                                  const deviation = Math.abs(oClamped - pClamped);
+                                  const barColor = deviation < 0.10
+                                    ? "var(--positive)"
+                                    : deviation < 0.20
+                                    ? "var(--warn)"
+                                    : "var(--negative)";
+                                  const cx = plotLeft + slotW * (i + 0.5);
+                                  const x = cx - barW / 2;
+                                  const y = plotBottom - oClamped * plotH;
+                                  const predY = plotBottom - pClamped * plotH;
+                                  return (
+                                    <g key={`bar-${i}`}>
+                                      {/* Observed bar (colored by deviation). */}
+                                      <rect
+                                        x={x}
+                                        y={y}
+                                        width={barW}
+                                        height={plotBottom - y}
+                                        fill={barColor}
+                                        opacity={0.85}
+                                      >
+                                        <title>
+                                          {`P${Math.round(pClamped * 100)} · observed ${oClamped.toFixed(2)} · predicted ${pClamped.toFixed(2)} · deviation ${deviation.toFixed(2)}`}
+                                        </title>
+                                      </rect>
+                                      {/* Predicted-quantile tick: where the
+                                          bar WOULD end for a perfectly
+                                          calibrated engine. */}
+                                      <line
+                                        x1={x - 2}
+                                        x2={x + barW + 2}
+                                        y1={predY}
+                                        y2={predY}
+                                        stroke="var(--ink)"
+                                        strokeWidth="1"
+                                        strokeDasharray="2 2"
+                                      />
+                                      {/* Per-bucket x-label: the predicted
+                                          quantile, so a quant can read e.g.
+                                          "P25 observed 0.32" at a glance. */}
+                                      <text
+                                        x={cx}
+                                        y={plotBottom + 12}
+                                        textAnchor="middle"
+                                        fontSize="9"
+                                        fill="var(--ink-3)"
+                                      >
+                                        {`P${Math.round(pClamped * 100)}`}
+                                      </text>
+                                    </g>
+                                  );
+                                })}
+                                {/* y-axis reference labels (0 / 0.5 / 1). */}
+                                {guideYs.map(g => (
+                                  <text
+                                    key={`yl-${g}`}
+                                    x={plotLeft - 4}
+                                    y={plotBottom - g * plotH + 3}
+                                    textAnchor="end"
+                                    fontSize="9"
+                                    fill="var(--ink-3)"
+                                  >
+                                    {g.toFixed(1)}
+                                  </text>
+                                ))}
+                              </g>
+                            );
+                          })()}
                       </svg>
                       <div style={{ fontSize: 12, color: "var(--ink-2)", marginTop: 8 }}>
-                        {isUnknown
-                          ? "Coverage will appear here once the engine has at least 3 analogs with forward windows."
-                          : `This query's cone contains ${(trustMetrics.coverage * 100).toFixed(0)}% of analog terminals vs the 80% target. Drift is ${trustMetrics.regimeDrift}.`}
+                        {trustMetrics.reliability.length === 0
+                          ? "Observed frequencies will appear once the engine has at least 3 analogs with forward windows."
+                          : `Bars = observed fraction of analogs at or below each predicted quantile. Dashed ticks mark the predicted value. Coverage P10→P90 is ${(trustMetrics.coverage * 100).toFixed(0)}% vs 80% target; drift is ${trustMetrics.regimeDrift}.`}
                       </div>
                     </div>
                     <div>
