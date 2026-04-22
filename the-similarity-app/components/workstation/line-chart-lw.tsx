@@ -109,11 +109,13 @@ function readThemeTokens(): {
   bg: string;
   ink: string;
   ink3: string;
+  ink4: string;
   rule: string;
   grid: string;
   query: string;
   analog: string;
   analogStrong: string;
+  analogContext: string;
   coneFill: string;
   coneLine: string;
   accent: string;
@@ -125,34 +127,45 @@ function readThemeTokens(): {
       bg: "#f7f4ea",
       ink: "#14130f",
       ink3: "#6b6858",
+      ink4: "#8c8a7c",
       rule: "#e6e2d6",
       grid: "#e6e2d6",
       query: "#14130f",
       analog: "#9a9a9a",
-      analogStrong: "#4a4a4a",
+      analogStrong: "#5a2b2b",
+      analogContext: "#8c8a7c",
       coneFill: "rgba(20,19,15,0.08)",
       coneLine: "#6b6858",
-      accent: "#6b4eff",
+      accent: "#5a2b2b",
     };
   }
   const cs = getComputedStyle(document.documentElement);
   // Small helper: trim then fall back to a safe default if the var is empty.
   const v = (name: string, fallback: string) =>
     (cs.getPropertyValue(name).trim() || fallback);
+  const ink4 = v("--ink-4", "#8c8a7c");
+  const accent = v("--accent", "#5a2b2b");
   return {
     bg: v("--bg", "#f7f4ea"),
     ink: v("--ink", "#14130f"),
     ink3: v("--ink-3", "#6b6858"),
+    ink4,
     rule: v("--rule", "#e6e2d6"),
     grid: v("--c-grid", v("--rule", "#e6e2d6")),
     query: v("--c-query", v("--ink", "#14130f")),
     analog: v("--c-analog", "#9a9a9a"),
-    analogStrong: v("--c-analog-strong", "#4a4a4a"),
+    // "Strong" (pinned) analog in the Pro view uses the product accent
+    // red — mirrors the SVG chart's .analog.strong which reads
+    // var(--accent). Keeps the two renderers visually coherent when the
+    // user toggles between Fast and Pro with pins active.
+    analogStrong: accent,
+    // "Context" (unpinned-while-any-pinned) uses the --ink-4 muted ink.
+    analogContext: ink4,
     // The SVG chart uses a translucent cone fill. lightweight-charts AreaSeries
     // needs top/bottom colors — we derive a 20%-alpha and 6%-alpha of --ink.
     coneFill: v("--c-cone-fill", "rgba(20,19,15,0.08)"),
     coneLine: v("--c-cone-line", "#6b6858"),
-    accent: v("--accent", "#6b4eff"),
+    accent,
   };
 }
 
@@ -162,6 +175,50 @@ function toLineData(d: DataPoint): LineData<UTCTimestamp> {
     time: Math.floor(d.d.getTime() / 1000) as UTCTimestamp,
     value: d.p,
   };
+}
+
+/**
+ * Convert a hex / named / rgb(a) color to an rgba() string with a
+ * substituted alpha channel. Used to simulate "opacity" on
+ * lightweight-charts LineSeries (the library has no line opacity knob —
+ * colors must be baked with alpha).
+ *
+ * Supported inputs:
+ *   - `#rgb`, `#rrggbb`, `#rrggbbaa` — standard hex forms.
+ *   - `rgb(r,g,b)` / `rgba(r,g,b,a)` — the alpha is overwritten with
+ *     the `alpha` parameter regardless of what was there.
+ *   - any other value — returned verbatim; caller is responsible for
+ *     providing a safe fallback when the CSS var was empty.
+ *
+ * The conversion is conservative: we parse only the forms the project
+ * actually emits from CSS tokens (hex and rgb/rgba). Anything unknown
+ * passes through — misconfigured colors fail visibly rather than
+ * silently producing transparent lines.
+ */
+function hexToRgba(color: string, alpha: number): string {
+  const hex = color.trim();
+  // #rrggbb or #rrggbbaa
+  if (/^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$/.test(hex)) {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  }
+  // #rgb shorthand
+  if (/^#[0-9a-fA-F]{3}$/.test(hex)) {
+    const r = parseInt(hex[1] + hex[1], 16);
+    const g = parseInt(hex[2] + hex[2], 16);
+    const b = parseInt(hex[3] + hex[3], 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  }
+  // rgb(a) — swap the alpha channel.
+  const rgbMatch = hex.match(/^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*[\d.]+\s*)?\)$/);
+  if (rgbMatch) {
+    return `rgba(${rgbMatch[1]}, ${rgbMatch[2]}, ${rgbMatch[3]}, ${alpha})`;
+  }
+  // Fallback: return verbatim. The caller controls token defaults so
+  // this only triggers when a CSS var resolves to something unusual.
+  return hex;
 }
 
 /**
@@ -559,6 +616,17 @@ export function LineChartLW({
   }, [cone, showCone, series, win, forecastHorizon]);
 
   // ── Push analog overlays ────────────────────────────────────────────
+  //
+  // Pro-view mirror of the SVG chart's tri-state rendering (see
+  // `line-chart.tsx:analogPaths`). Three cases:
+  //   - No pins at all              → analog color, 1px        (default)
+  //   - Pins present, this pinned   → accent color, 2px        (strong)
+  //   - Pins present, not pinned    → ink-4 muted, 1px, faint  (context)
+  //
+  // lightweight-charts v5 LineSeries has no native `opacity` option, so
+  // we fake the faint context look with an rgba() color (baseline hex
+  // converted + .35 alpha). The result matches the SVG view's visual
+  // intent: unpinned analogs read as context while pinned ones dominate.
   useEffect(() => {
     const chart = chartRef.current;
     if (!chart) return;
@@ -575,13 +643,28 @@ export function LineChartLW({
     if (!analogsOverlay || analogsOverlay.length === 0) return;
 
     const tokens = readThemeTokens();
+    const hasAnyPin = analogsOverlay.some(a => a.pinned);
 
     for (const a of analogsOverlay) {
       const data = buildAnalogData(series, win, a, forecastHorizon);
       if (data.length < 2) continue;
+
+      // Variant selection mirrors line-chart.tsx:hasAnyPin rule.
+      const variant: "default" | "strong" | "context" =
+        !hasAnyPin ? "default"
+        : a.pinned ? "strong"
+        : "context";
+
+      const color =
+        variant === "strong"  ? tokens.analogStrong
+        : variant === "context" ? hexToRgba(tokens.analogContext, 0.35)
+        : tokens.analog;
+      const lineWidth: 1 | 2 =
+        variant === "strong" ? 2 : 1;
+
       const s = chart.addSeries(LineSeries, {
-        color: a.pinned ? tokens.analogStrong : tokens.analog,
-        lineWidth: a.pinned ? 2 : 1,
+        color,
+        lineWidth,
         lineStyle: LineStyle.Solid,
         priceLineVisible: false,
         lastValueVisible: false,
