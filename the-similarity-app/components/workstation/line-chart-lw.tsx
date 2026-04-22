@@ -291,6 +291,16 @@ function buildConeData(
   const anchor = series[anchorIdx];
   if (!anchor) return { p10p90: [], p25p75: [], median: [] };
   const anchorTime = Math.floor(anchor.d.getTime() / 1000);
+  const N = series.length;
+  // Cadence for fabricated bars past the series end. Read from the gap
+  // between the final two real bars so intraday datasets (4h, 1h) don't
+  // get day-spaced fabrications that collide with the real timeline —
+  // the bug that tripped the lightweight-charts
+  // "data must be asc ordered by time" assertion on GOLD 4h candles.
+  const cadenceSec = N >= 2
+    ? Math.max(1, Math.floor((series[N - 1].d.getTime() - series[N - 2].d.getTime()) / 1000))
+    : 86400;
+  const lastRealTime = N > 0 ? Math.floor(series[N - 1].d.getTime() / 1000) : anchorTime;
 
   const pts = cone.slice(0, forecastHorizon);
   const p10p90: AreaData<UTCTimestamp>[] = [];
@@ -299,30 +309,41 @@ function buildConeData(
 
   pts.forEach((q, i) => {
     // Prefer the real future bar's timestamp when series has it — this keeps
-    // weekends/holidays aligned between the price line and the cone. Fall back
-    // to synthetic +N*86400 seconds for any bars past the end of the series.
+    // weekends/holidays aligned between the price line and the cone. Past
+    // the end of the series, synthesize a future timestamp by stepping
+    // forward from the LAST REAL BAR (not the anchor), so mid-series
+    // queries don't produce fabricated times that collide with later
+    // real-bar times.
     const futureBar = series[anchorIdx + i];
+    const fabIdx = anchorIdx + i - (N - 1); // >0 once we're past series end
     const t = (futureBar
       ? Math.floor(futureBar.d.getTime() / 1000)
-      : anchorTime + i * 86400) as UTCTimestamp;
-    // AreaData encodes a single `value`; to draw a band we create TWO area
-    // series (top=p90, bottom=p10) and set the bottom's background to the
-    // page bg so only the gap between them is visible. lightweight-charts v5
-    // does not natively expose a band primitive.
+      : lastRealTime + fabIdx * cadenceSec) as UTCTimestamp;
     p10p90.push({ time: t, value: q.p90 });
-    // We stash p10 as a separate record the consumer passes to a second
-    // AreaSeries whose top color is transparent and bottom covers the
-    // [minPrice, p10] region — see component below.
-    // For the p25..p75 band we use the same pattern (p75 top, p25 bottom).
     p25p75.push({ time: t, value: q.p75 });
     median.push({ time: t, value: q.p50 });
   });
 
-  // Note: we only need the TOP (p90, p75) series for rendering because we
-  // express "band" as two stacked AreaSeries. The LOWER edge is drawn by
-  // independent AreaSeries the caller will build below. Keeping this
-  // helper pure — caller handles the lower edges.
-  return { p10p90, p25p75, median };
+  // Final safety net: drop any non-monotonic entry. The cadence fix above
+  // covers the common case, but malformed series (duplicate dates, bad
+  // resample, etc.) can still sneak through — lightweight-charts rejects
+  // the whole setData call on a single out-of-order point, so we'd
+  // rather silently drop a bad sample than blank the chart.
+  const monotonic = <T extends { time: UTCTimestamp }>(arr: T[]): T[] => {
+    const out: T[] = [];
+    let last = -Infinity;
+    for (const row of arr) {
+      const tNum = row.time as number;
+      if (tNum > last) { out.push(row); last = tNum; }
+    }
+    return out;
+  };
+
+  return {
+    p10p90: monotonic(p10p90),
+    p25p75: monotonic(p25p75),
+    median: monotonic(median),
+  };
 }
 
 /**
@@ -343,13 +364,30 @@ function buildConeLowerEdge(
   const anchor = series[anchorIdx];
   if (!anchor) return [];
   const anchorTime = Math.floor(anchor.d.getTime() / 1000);
-  return cone.slice(0, forecastHorizon).map((q, i) => {
+  const N = series.length;
+  const cadenceSec = N >= 2
+    ? Math.max(1, Math.floor((series[N - 1].d.getTime() - series[N - 2].d.getTime()) / 1000))
+    : 86400;
+  const lastRealTime = N > 0 ? Math.floor(series[N - 1].d.getTime() / 1000) : anchorTime;
+
+  // Same cadence + monotonic-filter guarantee as buildConeData above —
+  // the upper/lower edges must share a strictly-increasing time index
+  // since they render as stacked AreaSeries.
+  const raw = cone.slice(0, forecastHorizon).map((q, i) => {
     const futureBar = series[anchorIdx + i];
+    const fabIdx = anchorIdx + i - (N - 1);
     const t = (futureBar
       ? Math.floor(futureBar.d.getTime() / 1000)
-      : anchorTime + i * 86400) as UTCTimestamp;
+      : lastRealTime + fabIdx * cadenceSec) as UTCTimestamp;
     return { time: t, value: q[key] };
   });
+  const out: AreaData<UTCTimestamp>[] = [];
+  let last = -Infinity;
+  for (const row of raw) {
+    const tNum = row.time as number;
+    if (tNum > last) { out.push(row); last = tNum; }
+  }
+  return out;
 }
 
 /**
