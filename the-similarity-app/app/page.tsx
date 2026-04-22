@@ -9,6 +9,8 @@
  *
  * Keyboard shortcuts:
  *   /  or Cmd+K  -> command palette
+ *   ?            -> keyboard-shortcuts help modal (toggle)
+ *   Esc          -> close any open overlay (palette / help)
  *   g r/e/s/v/n/d -> jump to surface (two-key chord: press g, then letter)
  *                   When NEXT_PUBLIC_SHOW_PREVIEW_SURFACES is not "true" only
  *                   `g r` (retrieve) works — the other 5 surfaces are hidden.
@@ -29,6 +31,7 @@ import { Workstation, WorkstationSettings } from "../components/workstation/work
 import { RepresentSurface, SimulateSurface, EvaluateSurface, RenderSurface, DecideSurface } from "../components/surfaces";
 import { CommandPalette } from "../components/command-palette";
 import { TweaksPanel } from "../components/tweaks-panel";
+import { ShortcutsHelp } from "../components/shortcuts-help";
 
 /*
  * Feed mode — honest label for the status-bar "feed X" badge.
@@ -108,6 +111,16 @@ export default function Page() {
 
   const [tweaksOpen, setTweaksOpen] = useState(false);
   const [cmdOpen, setCmdOpen] = useState(false);
+  /*
+   * helpOpen — controls the ShortcutsHelp overlay (`?` key).
+   *
+   * Kept as a separate flag from cmdOpen so both overlays can coexist
+   * in the DOM but only one renders at a time (we close the other when
+   * one opens — see the key handler below). Initial state is false on
+   * both server and client, so this is hydration-safe with no need for
+   * lazy initialization.
+   */
+  const [helpOpen, setHelpOpen] = useState(false);
 
   /*
    * nyClock — the status-bar timestamp rendered in America/New_York time,
@@ -191,12 +204,39 @@ export default function Page() {
 
       // Cmd+K or /  -> command palette
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
-        e.preventDefault(); setCmdOpen(true); return;
+        e.preventDefault(); setHelpOpen(false); setCmdOpen(true); return;
       }
       if (e.key === "/" && !e.metaKey && !e.ctrlKey) {
-        e.preventDefault(); setCmdOpen(true); return;
+        e.preventDefault(); setHelpOpen(false); setCmdOpen(true); return;
       }
-      if (e.key === "Escape") { setCmdOpen(false); return; }
+      /*
+       * `?` -> shortcuts-help modal.
+       *
+       * On US keyboards `?` is Shift+/ — matching `e.key === "?"`
+       * catches the rendered character regardless of layout, so this
+       * also works for AZERTY and other layouts where `?` does NOT
+       * require Shift. We check !metaKey/!ctrlKey to avoid stealing
+       * OS-level shortcuts that also produce `?`.
+       *
+       * Closes the command palette if open so the two overlays never
+       * stack — single-overlay invariant keeps Esc handling simple.
+       */
+      if (e.key === "?" && !e.metaKey && !e.ctrlKey) {
+        e.preventDefault();
+        setCmdOpen(false);
+        setHelpOpen(o => !o);
+        return;
+      }
+      /*
+       * Escape closes any open overlay. We close all three flags
+       * unconditionally — closing an already-closed overlay is a
+       * no-op, so there's no reason to branch.
+       */
+      if (e.key === "Escape") {
+        setCmdOpen(false);
+        setHelpOpen(false);
+        return;
+      }
 
       // g + letter chord -> jump to surface
       if (e.key.toLowerCase() === "g") { lastG = Date.now(); return; }
@@ -364,7 +404,17 @@ export default function Page() {
 
       {/* ── Overlays ───────────────────────────────────────────── */}
       <TweaksPanel settings={settings} onSettings={updateSettings} visible={tweaksOpen} />
-      <CommandPalette open={cmdOpen} onClose={() => setCmdOpen(false)} onNav={onCmdNav} />
+      <CommandPalette
+        open={cmdOpen}
+        onClose={() => setCmdOpen(false)}
+        onNav={onCmdNav}
+        onOpenHelp={() => { setCmdOpen(false); setHelpOpen(true); }}
+      />
+      <ShortcutsHelp
+        open={helpOpen}
+        onClose={() => setHelpOpen(false)}
+        showPreviewChords={SHOW_PREVIEW}
+      />
     </div>
   );
 }

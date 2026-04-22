@@ -15,6 +15,13 @@ interface CommandPaletteProps {
   open: boolean;
   onClose: () => void;
   onNav: (v: string) => void;
+  /**
+   * Optional callback for the "Open shortcuts help" palette action
+   * (added in a following commit). Keeping it optional preserves
+   * backward compatibility with any caller that mounts the palette
+   * without wiring help — the item is simply hidden in that case.
+   */
+  onOpenHelp?: () => void;
 }
 
 const items = [
