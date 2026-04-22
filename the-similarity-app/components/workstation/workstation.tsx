@@ -450,6 +450,18 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
   useEffect(() => { runSearchRef.current = runSearch; }, [runSearch]);
 
   /*
+   * Live ref to the current analog list, consumed by the 1..6 keyboard
+   * shortcut inside the keydown effect. The effect is installed once
+   * (empty deps) to avoid re-binding on every analog-set change; the ref
+   * lets the handler read the latest list without a stale closure.
+   *
+   * Declared here (before the keyboard effect) so the ref identity is
+   * stable across renders. The useEffect below rewrites the ref target
+   * whenever analogs shifts — cheap, and it never triggers a re-render.
+   */
+  const analogsRef = useRef<AnalogMatch[]>([]);
+
+  /*
    * Keyboard shortcut: `Enter` or `r` re-runs the search.
    *
    * Matches the style of the top-level shortcuts in `app/page.tsx`
@@ -492,6 +504,22 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
         // on any focused element.
         if (e.key === "Enter") e.preventDefault();
         runSearchRef.current();
+      }
+
+      // 1..6 → open the drawer for analog #1..#6. We use rowKeys rather
+      // than e.key to keep the mapping 1:1 with ranks; shifted variants
+      // (!/@/#/$/%/^) are ignored so the user's shift-typed intent
+      // doesn't surprise-open a drawer. Reads analogs via ref for the
+      // same reason runSearchRef exists — analogs identity changes per
+      // search but we don't want to reinstall the listener each time.
+      if (/^[1-6]$/.test(e.key) && !e.shiftKey) {
+        const rank = parseInt(e.key, 10);
+        const list = analogsRef.current;
+        const target = list[rank - 1];
+        if (target) {
+          e.preventDefault();
+          setDetailAnalogId(target.id);
+        }
       }
     };
     window.addEventListener("keydown", onKey);
@@ -653,6 +681,16 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
     () => (detailAnalogId ? analogs.find(a => a.id === detailAnalogId) ?? null : null),
     [analogs, detailAnalogId],
   );
+
+  /*
+   * Keep `analogsRef` in sync with the latest analog list.
+   *
+   * The 1..6 keyboard handler reads the ref rather than closing over
+   * `analogs` directly so the listener (installed once on mount) always
+   * sees the current set. Without this sync the shortcut would fire for
+   * the ORIGINAL search's analogs forever, even after a re-search.
+   */
+  useEffect(() => { analogsRef.current = analogs; }, [analogs]);
 
   /*
    * Pin-gated analog set — the heart of "curation drives the forecast".
