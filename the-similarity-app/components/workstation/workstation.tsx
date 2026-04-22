@@ -1291,11 +1291,19 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
         <div style={{ display: "flex", flexDirection: "column" }}>
           {(() => {
             // Compute metrics inline so hooks outside this block are
-            // untouched (Agent C owns those lines). The computation is
-            // O(analogs * percentiles) and runs once per render — cheap.
+            // untouched. The computation is O(analogs * percentiles)
+            // and runs once per render — cheap.
+            //
+            // Pin-gating: we pass effectiveAnalogs (not analogs) so a PM
+            // who has pinned 2 analogs sees Coverage/CRPS/HitRate/Grade
+            // computed ONLY on those 2. This is the critical quant-
+            // credibility path — the trust strip must answer "how well
+            // does the cone I'm looking at match its empirical history",
+            // and when curation changes the cone, it must change the
+            // metrics too. `cone` above is already pin-gated.
             const queryLastPrice = loadedSeries[windowState.start + windowState.len - 1]?.p ?? 1;
             const trustMetrics: CalibrationResult = computeCalibrationMetrics(
-              analogs,
+              effectiveAnalogs,
               cone,
               queryLastPrice,
             );
