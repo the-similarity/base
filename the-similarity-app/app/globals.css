@@ -1131,6 +1131,14 @@ input, select, textarea { font: inherit; color: inherit; }
  */
 .svg-chart .pan-catcher { cursor: grab; }
 .svg-chart .pan-catcher:active { cursor: grabbing; }
+/*
+ * Axis-gutter grabbers — mirror lightweight-charts' "drag axis to
+ * scale" affordance. ns-resize on the right (price) gutter,
+ * ew-resize on the bottom (time) gutter, so the cursor hints the
+ * interaction the moment the user floats over the edges.
+ */
+.svg-chart .price-axis-grabber { cursor: ns-resize; }
+.svg-chart .time-axis-grabber { cursor: ew-resize; }
 .svg-chart .price,
 .svg-chart .median,
 .svg-chart .analog,

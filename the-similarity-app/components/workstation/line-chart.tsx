@@ -29,6 +29,14 @@ export interface AnalogOverlay {
   after: number[];
   pinned?: boolean;
   composite: number;
+  /**
+   * Stable rank within the top-K result set (0-indexed — rank 0 is the
+   * #1 analog). Drives the palette color so the visual identity of an
+   * analog is its position in the ranked search, NOT its position in
+   * whatever subset the user has currently activated. If omitted the
+   * renderer falls back to the filtered-array index (legacy behavior).
+   */
+  rank?: number;
 }
 
 interface LineChartProps {
@@ -124,12 +132,19 @@ export function LineChart({
   /*
    * Drag state ref — must be declared before any early return.
    *
-   * Four modes:
+   * Modes:
    *   - "move" / "left" / "right" : query-window manipulation; payload is
    *     the window origin (origStart, origLen).
-   *   - "pan" : view-range pan; payload is the viewRange origin
-   *     (origViewStart, origViewEnd). We use discriminated types so the
-   *     handler can't accidentally mix window/view state across modes.
+   *   - "pan"         : view-range pan on the plot body; payload is the
+   *     viewRange origin (origViewStart, origViewEnd).
+   *   - "price-zoom"  : drag on the right (price) axis gutter, mirrors
+   *     lightweight-charts. Vertical movement expands/compresses the
+   *     price axis. Payload: origin Y + starting [minP, maxP].
+   *   - "time-zoom"   : drag on the bottom (time) axis gutter. Horizontal
+   *     movement expands/compresses the view range around its center.
+   *     Payload: origin X + starting [viewStart, viewEnd].
+   * Discriminated-union style so the handler can't accidentally mix
+   * per-mode payloads.
    */
   const dragRef = useRef<
     | {
@@ -140,6 +155,18 @@ export function LineChart({
       }
     | {
         mode: "pan";
+        startX: number;
+        origViewStart: number;
+        origViewEnd: number;
+      }
+    | {
+        mode: "price-zoom";
+        startY: number;
+        origMin: number;
+        origMax: number;
+      }
+    | {
+        mode: "time-zoom";
         startX: number;
         origViewStart: number;
         origViewEnd: number;
@@ -251,7 +278,11 @@ export function LineChart({
     const mm = (e: MouseEvent) => {
       const drag = dragRef.current;
       if (!drag) return;
-      const dx = e.clientX - drag.startX;
+      // Only the non-price-zoom modes care about a horizontal bar
+      // index delta. Compute it for the modes that need it to keep
+      // the per-mode branches terse below.
+      const dx =
+        drag.mode === "price-zoom" ? 0 : e.clientX - drag.startX;
       const dIdx = Math.round((dx / plotW) * (viewEnd - viewStart));
       if (drag.mode === "move") {
         const ns = Math.max(viewStart + 1, Math.min(maxAnchor - win.len + 1,
@@ -279,6 +310,31 @@ export function LineChart({
         // this will never hide the cone.
         const newStart = Math.max(0, Math.min(rawStart, maxAnchor));
         onRangeChange({ start: newStart, end: newStart + width });
+      } else if (drag.mode === "price-zoom") {
+        // Mirrors lightweight-charts' "drag on price axis to zoom
+        // vertically" interaction. Dragging DOWN expands the price
+        // range (zoom out); UP compresses (zoom in). The zoom centers
+        // on the midpoint of the original range so the chart doesn't
+        // pan while the user intends to zoom.
+        const dy = e.clientY - drag.startY;
+        const factor = Math.max(0.1, Math.min(10, 1 + dy / Math.max(60, plotH)));
+        const mid = (drag.origMin + drag.origMax) / 2;
+        const halfRange = (drag.origMax - drag.origMin) / 2;
+        const newHalf = Math.max(1e-9, halfRange * factor);
+        setPriceOverride([mid - newHalf, mid + newHalf]);
+      } else if (drag.mode === "time-zoom" && onRangeChange) {
+        // Mirrors lightweight-charts' "drag on time axis to scale
+        // horizontally" interaction. Dragging LEFT compresses the
+        // view (zoom in, fewer bars); RIGHT expands (zoom out).
+        // Zoom centers on the midpoint of the original range.
+        const dx = e.clientX - drag.startX;
+        const width0 = drag.origViewEnd - drag.origViewStart;
+        const factor = Math.max(0.1, Math.min(10, 1 - dx / Math.max(80, plotW)));
+        const newWidth = Math.max(50, Math.min(Math.floor(series.length * 1.25),
+          Math.round(width0 * factor)));
+        const mid = Math.round((drag.origViewStart + drag.origViewEnd) / 2);
+        const newStart = Math.max(0, mid - Math.floor(newWidth / 2));
+        onRangeChange({ start: newStart, end: newStart + newWidth });
       }
     };
     const mu = () => { dragRef.current = null; };
@@ -420,6 +476,36 @@ export function LineChart({
     e.preventDefault();
   };
 
+  // Drag-on-price-axis starter. Captures the current [minP, maxP] as
+  // the "origin" so the zoom math in the effect above works against a
+  // stable reference — otherwise a long drag would compound against
+  // the already-zoomed state.
+  const onPriceAxisDrag = (e: React.MouseEvent) => {
+    if (e.button !== 0) return;
+    const [curMin, curMax] = priceOverride ?? autoPriceRangeRef.current;
+    dragRef.current = {
+      mode: "price-zoom",
+      startY: e.clientY,
+      origMin: curMin,
+      origMax: curMax,
+    };
+    e.preventDefault();
+  };
+
+  // Drag-on-time-axis starter. Captures the current view range so zoom
+  // math is against a stable reference.
+  const onTimeAxisDrag = (e: React.MouseEvent) => {
+    if (!onRangeChange) return;
+    if (e.button !== 0) return;
+    dragRef.current = {
+      mode: "time-zoom",
+      startX: e.clientX,
+      origViewStart: viewStart,
+      origViewEnd: viewEnd,
+    };
+    e.preventDefault();
+  };
+
   // Crosshair hover
   const onMove = (e: React.MouseEvent) => {
     if (!onHover || !ref.current) return;
@@ -508,7 +594,13 @@ export function LineChart({
     `var(--c-analog-${Math.min(rank, 5) + 1})`;
 
   if (analogsOverlay && qAnchorP) {
-    analogsOverlay.forEach((a, rank) => {
+    analogsOverlay.forEach((a, idxInArray) => {
+      // Prefer the stable top-K rank when the overlay carries it (set by
+      // workstation.tsx at analogOverlays construction time). Falling back
+      // to the array index keeps old callers working, but that path will
+      // renumber whenever the user's activated subset changes — which is
+      // the exact behavior we're trying to avoid.
+      const rank = a.rank ?? idxInArray;
       const scale = qAnchorP / a.priceWindow[a.priceWindow.length - 1];
       // Split the line at the query-window / forward boundary:
       //   - priceWindow → inside the query window → rendered DASHED
@@ -665,6 +757,33 @@ export function LineChart({
           height={Math.max(1, plotH)}
           fill="transparent"
           onMouseDown={onPanStart}
+        />
+        {/* Price-axis drag gutter — the strip to the RIGHT of the plot
+            where the y-axis labels live. Mirrors lightweight-charts'
+            "drag price axis to zoom vertically" affordance. Cursor
+            flips to ns-resize via CSS so the interaction is
+            discoverable. */}
+        <rect
+          className="price-axis-grabber"
+          x={padL + plotW}
+          y={padT}
+          width={Math.max(1, padR)}
+          height={Math.max(1, plotH)}
+          fill="transparent"
+          onMouseDown={onPriceAxisDrag}
+          onDoubleClick={onDoubleClick}
+        />
+        {/* Time-axis drag gutter — the strip BELOW the plot where the
+            x-axis labels live. Mirrors lightweight-charts' "drag time
+            axis to scale horizontally" affordance. */}
+        <rect
+          className="time-axis-grabber"
+          x={padL}
+          y={padT + plotH}
+          width={Math.max(1, plotW)}
+          height={Math.max(1, padB)}
+          fill="transparent"
+          onMouseDown={onTimeAxisDrag}
         />
         {/* Grid lines */}
         <g className="grid" style={{ pointerEvents: "none" }}>
