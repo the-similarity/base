@@ -31,11 +31,17 @@ import {
   mapMatchesToAnalogs, mapForecastToCone, mapScoreBreakdownToLenses,
 } from "../../lib/api";
 import type { CatalogItem } from "../../lib/types";
+import {
+  parseUrlState,
+  serializeUrlState,
+  type WorkstationUrlState,
+} from "../../lib/url-state";
 import { LineChart, AnalogOverlay } from "./line-chart";
 import { LineChartLW } from "./line-chart-lw";
 import { LensRadar } from "./lens-radar";
 import { LensBars } from "./lens-bars";
 import { Sparkline } from "./sparkline";
+import { AnalogDetailDrawer } from "./analog-detail-drawer";
 
 /** Settings shape passed from the app shell */
 export interface WorkstationSettings {
@@ -72,6 +78,139 @@ function groupByAssetClass(items: CatalogItem[]): Record<string, CatalogItem[]> 
     groups[key].push(item);
   }
   return groups;
+}
+
+/**
+ * Filter catalog items by a free-form search query.
+ *
+ * The query matches against the symbol (primary) and the asset class
+ * (secondary) so users can narrow either axis: typing "btc" hits BTCUSD
+ * regardless of asset class, typing "crypto" collapses the list to the
+ * crypto group. Empty / whitespace queries pass everything through
+ * unchanged.
+ *
+ * Intentionally case-insensitive: the UI shows symbols uppercase but
+ * the user's expectation is that typing matches regardless of case.
+ */
+export function filterCatalog(items: CatalogItem[], query: string): CatalogItem[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return items;
+  return items.filter(item =>
+    item.symbol.toLowerCase().includes(q) ||
+    item.assetClass.toLowerCase().includes(q)
+  );
+}
+
+/**
+ * Format a bar count with a thousands separator.
+ *
+ * Kept as a separate helper so the dropdown item card renders the same
+ * "7,500 bars" string everywhere (selected summary, per-item card,
+ * offline note) without each call site re-implementing locale rules.
+ */
+export function formatBarCount(n: number): string {
+  if (!n || n <= 0) return "";
+  return `${n.toLocaleString("en-US")} bars`;
+}
+
+/**
+ * Parse an ISO timestamp into a Date, returning null on failure.
+ *
+ * Central place to handle the "manifest may be missing or malformed"
+ * case. Callers in the dropdown render "—" when the result is null
+ * rather than letting `new Date(null)` silently yield a valid epoch or
+ * `new Date("garbage")` produce an Invalid Date that formats as "NaN".
+ */
+export function parseIsoOrNull(iso: string | null | undefined): Date | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+/**
+ * Detect stale data. "Stale" means the last-updated timestamp is older
+ * than `thresholdHours` and the dataset frequency is daily or faster
+ * (i.e. a 1m/5m/1h/1d dataset). Weekly / monthly datasets are never
+ * flagged because they're *expected* to lag multiple days.
+ *
+ * Returns false when we can't tell (missing timestamp, unrecognised
+ * frequency) — the UI prefers silence over noisy false positives.
+ */
+export function isStale(
+  item: CatalogItem,
+  now: Date,
+  thresholdHours: number = 48,
+): boolean {
+  const updated = parseIsoOrNull(item.lastUpdatedAt);
+  if (!updated) return false;
+  // Anything coarser than 1 day is expected to have multi-day gaps.
+  // The bare timeframe code is a fine proxy: "1w" / "1M" etc. all skip
+  // the staleness check.
+  const tf = item.timeframe.toLowerCase();
+  const isIntradayOrDaily =
+    tf.endsWith("m") || tf.endsWith("h") || tf === "1d";
+  if (!isIntradayOrDaily) return false;
+  const deltaHours = (now.getTime() - updated.getTime()) / 3_600_000;
+  return deltaHours > thresholdHours;
+}
+
+/**
+ * Format a short ISO date as "YYYY-MM-DD" (or "—" if null).
+ *
+ * The dropdown item cards render a compact `startDate → endDate` range
+ * line; using ISO-style dates keeps alignment consistent regardless of
+ * the user's locale and avoids the "Apr 22, 2026" vs "22 Apr 2026"
+ * confusion that locale-dependent formatting would introduce.
+ */
+export function formatShortDate(iso: string | null | undefined): string {
+  const d = parseIsoOrNull(iso);
+  if (!d) return "\u2014";
+  return d.toISOString().slice(0, 10);
+}
+
+/**
+ * Format an ISO timestamp as "MMM DD, YYYY · HH:MM" in UTC.
+ *
+ * Used for the "Updated: …" sub-line on each dropdown item card. We
+ * display in UTC to match the backend's source-of-truth timezone; the
+ * alternative (convert to the user's locale) would make the displayed
+ * value differ from what shows up in server logs, complicating support.
+ */
+export function formatUpdatedAt(iso: string | null | undefined): string {
+  const d = parseIsoOrNull(iso);
+  if (!d) return "\u2014";
+  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
+                  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const m = months[d.getUTCMonth()];
+  const day = d.getUTCDate();
+  const year = d.getUTCFullYear();
+  const hh = String(d.getUTCHours()).padStart(2, "0");
+  const mm = String(d.getUTCMinutes()).padStart(2, "0");
+  return `${m} ${day}, ${year} \u00B7 ${hh}:${mm}`;
+}
+
+/**
+ * The static synthetic-fallback entry used when the API is unreachable.
+ *
+ * Exported so tests can pin the exact wire shape the dropdown renders
+ * in offline / demo mode. Kept as a frozen-value factory (not a module
+ * constant) so each call returns a fresh object the caller can mutate
+ * without polluting the canonical reference.
+ */
+export function offlineSyntheticCatalog(): CatalogItem[] {
+  return [
+    {
+      assetClass: "stocks",
+      symbol: "spy",
+      timeframe: "1d",
+      source: "Synthetic \u00B7 seeded PRNG",
+      rowCount: 0,
+      startTimestamp: null,
+      endTimestamp: null,
+      lastUpdatedAt: null,
+      frequency: "1 day",
+    },
+  ];
 }
 
 /**
@@ -113,15 +252,67 @@ function seriesToDataPoints(values: number[], dates: string[]): DataPoint[] {
   });
 }
 
+/**
+ * Read URL state at mount time.
+ *
+ * Safe to call inside useState lazy initializers — guards against SSR by
+ * returning an empty object when `window` is unavailable. The returned
+ * object is a snapshot: subsequent URL changes (share-link navigations,
+ * forward/back) are NOT tracked here — we write via replaceState and
+ * don't treat the URL as a reactive source.
+ */
+function readInitialUrlState(): WorkstationUrlState {
+  if (typeof window === "undefined") return {};
+  try {
+    return parseUrlState(window.location.search);
+  } catch {
+    // parseUrlState is defensive and shouldn't throw, but defense-in-depth
+    // — a malformed URL should never crash the workstation.
+    return {};
+  }
+}
+
 export function Workstation({ settings, onSettings }: WorkstationProps) {
+  /*
+   * URL-state snapshot captured at mount.
+   *
+   * We read the URL exactly ONCE. The lazy-initializer pattern makes this
+   * safe during React 19 strict-mode double-renders: `readInitialUrlState`
+   * runs only on the first mount. The snapshot is stored in a ref so
+   * downstream effects can consult the ORIGINAL share-link intent without
+   * being confused by our own `history.replaceState` writes.
+   *
+   * Priority contract: URL state > localStorage > defaults. Every call
+   * site that merges state must check `urlStateRef.current` FIRST and
+   * fall through to localStorage/defaults only when the URL field is
+   * undefined.
+   */
+  const urlStateRef = useRef<WorkstationUrlState>(readInitialUrlState());
+
   // ── Data source state ──────────────────────────────────────────────
   const [isOnline, setIsOnline] = useState<boolean | null>(null); // null = checking
   const [catalog, setCatalog] = useState<CatalogItem[]>([]);
-  const [activeDataset, setActiveDataset] = useState("stocks/spy/1d");
+  /*
+   * Active dataset — URL override takes precedence over the default.
+   *
+   * If the share-link carries `?ds=...`, we initialize with it so the
+   * catalog-load effect fires against the right dataset immediately,
+   * sparing the user a flash-of-default-spy before the override applies.
+   * When the URL dataset doesn't exist in the catalog (checked after
+   * /catalog resolves), we fall back silently — see the catalog-ready
+   * effect below.
+   */
+  const [activeDataset, setActiveDataset] = useState(
+    () => urlStateRef.current.dataset ?? "stocks/spy/1d",
+  );
   const [loadedSeries, setLoadedSeries] = useState<DataPoint[]>(SERIES);
   const [loadedDates, setLoadedDates] = useState<string[]>([]);
   const [loadedValues, setLoadedValues] = useState<number[]>([]);
   const [datasetOpen, setDatasetOpen] = useState(false);
+  // Free-form filter query for the dataset dropdown search input.
+  // Scoped to the dropdown panel — closing the dropdown resets it so
+  // re-opening always starts fresh.
+  const [datasetSearch, setDatasetSearch] = useState("");
 
   // ── Search state ───────────────────────────────────────────────────
   const [searching, setSearching] = useState(false);
@@ -166,21 +357,65 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
    * just wastes re-renders, but ticking less often means "just now" can
    * linger for several minutes after a search which feels stale.
    *
-   * The interval is installed lazily only when we have a lastRunAt to
-   * render, and torn down when the component unmounts.
+   * The interval is installed whenever there's a relative timestamp
+   * being rendered somewhere — currently that's either the Search
+   * button's "last run" label OR the dataset freshness line under the
+   * sidebar header. We always keep it running because the freshness
+   * line appears as soon as /catalog resolves with metadata, which is
+   * typically within a second of mount. A 30s interval is cheap
+   * compared to the full Workstation re-render cost.
    */
   const [nowTick, setNowTick] = useState<Date>(() => new Date());
   useEffect(() => {
-    if (!lastRunAt) return;
     const id = window.setInterval(() => setNowTick(new Date()), 30_000);
     return () => window.clearInterval(id);
-  }, [lastRunAt]);
+  }, []);
 
   // ── Window state ───────────────────────────────────────────────────
   const N = loadedSeries.length;
-  const [windowState, setWindowState] = useState({ start: Math.max(0, N - 240), len: 120 });
-  const [viewRange, setViewRange] = useState({ start: Math.max(0, N - 900), end: Math.max(0, N - 30) });
-  const [pinned, setPinned] = useState<Set<string>>(new Set());
+  /*
+   * Window / view state — initialized from URL when present, falling back
+   * to sensible defaults over the synthetic SERIES. When a real series is
+   * loaded asynchronously (see the catalog-ready effect), the window is
+   * reset to fit unless URL overrides are present; the post-series-load
+   * effect below re-applies URL overrides so a share-link dataset + window
+   * restores correctly even with async series loading.
+   *
+   * Note: we ONLY read urlStateRef for initial values here. All subsequent
+   * window changes come from user interaction (drag, chip-click, "use as
+   * query"). The URL is a write-target for those changes (see the
+   * debounced URL-writer effect below), not a reactive input.
+   */
+  const [windowState, setWindowState] = useState(() => {
+    const u = urlStateRef.current;
+    const qs = u.queryStart;
+    const ql = u.queryLen;
+    if (qs !== undefined && ql !== undefined) {
+      return { start: qs, len: ql };
+    }
+    return { start: Math.max(0, N - 240), len: 120 };
+  });
+  const [viewRange, setViewRange] = useState(() => {
+    const u = urlStateRef.current;
+    if (u.viewStart !== undefined && u.viewEnd !== undefined) {
+      return { start: u.viewStart, end: u.viewEnd };
+    }
+    return { start: Math.max(0, N - 900), end: Math.max(0, N - 30) };
+  });
+  /*
+   * Pinned analog ids — initialized from URL when present, otherwise
+   * empty. The URL takes precedence over localStorage here so a link like
+   * `?p=abc,def` always shows those two even if the recipient has a
+   * different saved set. localStorage rehydrates after the first search
+   * completes (see pinKey-based load effect below); to keep URL-as-truth
+   * during that window, we ALSO write `urlStateRef.current.pinned` into
+   * the hydrate path so it wins when both are present.
+   */
+  const [pinned, setPinned] = useState<Set<string>>(() => {
+    const u = urlStateRef.current;
+    if (u.pinned && u.pinned.length > 0) return new Set(u.pinned);
+    return new Set();
+  });
   /*
    * Hydration flag for the pin-persistence effects.
    *
@@ -230,6 +465,82 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
   const [rightDrawerOpen, setRightDrawerOpen] = useState(false);
   const [leftDrawerOpen, setLeftDrawerOpen] = useState(false);
 
+  /*
+   * Analog detail drawer state.
+   *
+   * `detailAnalogId` is the id of the analog the user clicked into for
+   * inspection. When non-null the AnalogDetailDrawer slides in from the
+   * right with that analog's context / lens breakdown / sparklines. When
+   * null, the drawer renders closed (mounted but translated off-screen)
+   * so the slide-out transition plays cleanly.
+   *
+   * The drawer is a SEPARATE affordance from pinning: clicking the card
+   * body opens the drawer, while clicking a dedicated pin icon in the
+   * card corner toggles pin. This lets a user inspect an analog without
+   * committing to pin it.
+   *
+   * Null-safety: `detailAnalog` resolves to null whenever the id is null
+   * OR the id no longer matches any current analog (e.g. search re-ran
+   * with different results). Drawer is defensive about that case.
+   */
+  const [detailAnalogId, setDetailAnalogId] = useState<string | null>(null);
+  const [useAsQueryBanner, setUseAsQueryBanner] = useState<string | null>(null);
+
+  /*
+   * Share-link toast state.
+   *
+   * `shareToast` is non-null while the "Link copied" confirmation is on
+   * screen, and null when it's dismissed. It auto-dismisses after 2s via
+   * a one-shot setTimeout in the ShareToast component. We use a React
+   * state flag (not imperative DOM) so the toast participates cleanly in
+   * concurrent re-renders and unmount cleanup.
+   */
+  const [shareToast, setShareToast] = useState<string | null>(null);
+
+  /*
+   * Share-link handler.
+   *
+   * Copies the current URL (which the URL-writer effect keeps in sync
+   * with workstation state) to the clipboard, shows a transient "Link
+   * copied" toast, and dispatches a `ts:share-link-copied` custom event
+   * so a future analytics layer can observe the action without being
+   * coupled to this component.
+   *
+   * Fallback path: `navigator.clipboard.writeText` requires a secure
+   * context (HTTPS or localhost) and user-gesture on some browsers. If
+   * it's unavailable or rejects, we still show the toast but with a
+   * "fallback" label so the user knows to copy manually. We don't throw;
+   * a broken clipboard shouldn't break the UI.
+   */
+  const onShareClick = useCallback(() => {
+    if (typeof window === "undefined") return;
+    const href = window.location.href;
+    // Best-effort clipboard write. The legacy execCommand("copy") path
+    // would need a selection + textarea dance — we don't bother because
+    // modern Next deployments always run in a secure context.
+    const writeClipboard = async () => {
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(href);
+          setShareToast("Link copied \u00B7 pastes to colleague");
+        } else {
+          // Fallback label: URL isn't copied but the user sees a hint.
+          setShareToast("Copy this URL from your address bar");
+        }
+      } catch {
+        setShareToast("Copy this URL from your address bar");
+      }
+      try {
+        window.dispatchEvent(
+          new CustomEvent("ts:share-link-copied", { detail: { href } }),
+        );
+      } catch {
+        // CustomEvent construction can throw in some sandboxed iframes.
+      }
+    };
+    void writeClipboard();
+  }, []);
+
   const dismissBanner = useCallback((id: string) => {
     setDismissedBanners(prev => {
       const next = new Set(prev);
@@ -243,6 +554,105 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
     });
   }, []);
 
+  /*
+   * ── URL-state writer (debounced 400ms) ──────────────────────────────
+   *
+   * Reflects the current workstation state into the address bar so the
+   * URL is always a copy-paste-able "restore to this exact view" link.
+   *
+   * Write semantics:
+   *   - Only non-default keys are serialized. The default set is pinned
+   *     below; omissions keep URLs short for the common case.
+   *   - `history.replaceState` (not pushState) — we don't want the back
+   *     button to cycle through every window drag, horizon change, or pin.
+   *   - 400ms debounce smooths rapid slider scrubbing / drag loops so we
+   *     don't spam history.replaceState (and don't force listeners on
+   *     `popstate` to re-fire on every intermediate frame).
+   *   - SSR-safe: the effect body checks for `window` before touching
+   *     history / location. The hook still runs on the server path in
+   *     Next 16, but the body no-ops.
+   *
+   * Why not write synchronously on every state change?
+   *   - Share-link links should reflect the user's INTENT, not every
+   *     transient mid-drag frame. A 400ms settle matches human motion
+   *     granularity — still feels instant, never thrashes.
+   *
+   * Why a separate effect vs folding into state setters?
+   *   - Several state shapes feed the URL (windowState, settings, pinned,
+   *     viewRange, etc.), each owned by a different callback. Centralizing
+   *     the write here keeps the callers lean and makes the write contract
+   *     one-line-obvious.
+   */
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    // Compose the URL state from current workstation state. Default
+    // values are intentionally omitted from the outgoing object so
+    // `serializeUrlState` drops them from the query string.
+    const buildState = (): WorkstationUrlState => {
+      const out: WorkstationUrlState = {};
+      // Dataset: always include unless it's the default "stocks/spy/1d".
+      if (activeDataset && activeDataset !== "stocks/spy/1d") {
+        out.dataset = activeDataset;
+      }
+      // Window: we emit ONLY when the user has moved off a fresh-load
+      // default. The default is recomputed on each series load — we
+      // can't compare against a single constant. Instead, we emit if
+      // a search has ever run (which implies the user meaningfully
+      // interacted with this window) OR if the URL already pinned a
+      // window (so a re-load keeps the link stable).
+      out.queryStart = windowState.start;
+      out.queryLen = windowState.len;
+      // View range: same logic — emit so the link restores exactly.
+      out.viewStart = viewRange.start;
+      out.viewEnd = viewRange.end;
+      // Settings: omit defaults so the URL stays short.
+      if (settings.kAnalogs !== 6) out.k = settings.kAnalogs;
+      if (settings.horizon !== 60) out.horizon = settings.horizon;
+      if (settings.chartMode && settings.chartMode !== "fast") out.chartMode = settings.chartMode;
+      if (settings.showAnalogs !== "top3") {
+        out.showAnalogs = settings.showAnalogs as "top3" | "all" | "pinned";
+      }
+      if (settings.theme === "dark") out.theme = "dark";
+      // Pinned: emit only when non-empty.
+      if (pinned.size > 0) out.pinned = [...pinned];
+      return out;
+    };
+
+    // 400ms debounce — trailing edge. Any state change during the
+    // window restarts the timer, so a rapid drag collapses into a
+    // single write when the user pauses.
+    const id = window.setTimeout(() => {
+      const qs = serializeUrlState(buildState());
+      // Compose the new URL relative to the current pathname so we
+      // don't accidentally redirect to "/" from a nested route that
+      // embeds the workstation (even though there isn't one today,
+      // this keeps the write safe for future route nesting).
+      const next = qs ? `${window.location.pathname}?${qs}` : window.location.pathname;
+      // Short-circuit if the URL is already in sync — avoids
+      // unnecessary history entries and redundant popstate fires.
+      const current = window.location.pathname + window.location.search;
+      if (next === current) return;
+      try {
+        window.history.replaceState(null, "", next);
+      } catch {
+        // history API can throw in sandboxed iframes; swallow.
+      }
+    }, 400);
+    return () => window.clearTimeout(id);
+  }, [
+    activeDataset,
+    windowState.start,
+    windowState.len,
+    viewRange.start,
+    viewRange.end,
+    settings.kAnalogs,
+    settings.horizon,
+    settings.chartMode,
+    settings.showAnalogs,
+    settings.theme,
+    pinned,
+  ]);
 
   // ── Check API availability on mount ────────────────────────────────
   useEffect(() => {
@@ -266,7 +676,21 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
     return () => { cancelled = true; };
   }, []);
 
-  // ── Load series when dataset changes and API is online ─────────────
+  /*
+   * Load series when dataset changes and API is online.
+   *
+   * URL-state interaction: on the FIRST successful load, URL-provided
+   * window/view overrides take precedence over the "reset-to-defaults"
+   * behavior. This restores share-links that pin (dataset, queryStart,
+   * queryLen, viewStart, viewEnd) — otherwise the default reset would
+   * clobber the override milliseconds after mount.
+   *
+   * We gate the override to the first load via `urlHydratedRef` so
+   * subsequent dataset switches (user clicking a different dataset in
+   * the dropdown) still reset cleanly — the URL intent is a one-shot
+   * applied at mount, not a permanent lock.
+   */
+  const urlHydratedRef = useRef(false);
   useEffect(() => {
     if (!isOnline) return;
     let cancelled = false;
@@ -285,10 +709,35 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
         setLoadedDates(res.dates);
         setLoadedValues(res.values);
 
-        // Reset window to reasonable defaults for the new series
         const newN = dp.length;
-        setWindowState({ start: Math.max(0, newN - 240), len: Math.min(120, Math.floor(newN / 3)) });
-        setViewRange({ start: Math.max(0, newN - 900), end: Math.max(0, newN - 30) });
+        const u = urlStateRef.current;
+        const firstHydration = !urlHydratedRef.current;
+
+        /*
+         * Window reset: honor URL overrides on the first hydration only.
+         * Clamp the URL values to the actual series length so a link with
+         * `qs=5000&ql=200` against a 300-bar series doesn't index out of
+         * range. Clamping yields a best-effort restore instead of a
+         * crash — the link still "works" on smaller datasets.
+         */
+        if (firstHydration && u.queryStart !== undefined && u.queryLen !== undefined) {
+          const clampedStart = Math.max(0, Math.min(u.queryStart, newN - 2));
+          const maxLen = Math.max(2, newN - clampedStart - 1);
+          const clampedLen = Math.max(2, Math.min(u.queryLen, maxLen));
+          setWindowState({ start: clampedStart, len: clampedLen });
+        } else {
+          setWindowState({ start: Math.max(0, newN - 240), len: Math.min(120, Math.floor(newN / 3)) });
+        }
+
+        if (firstHydration && u.viewStart !== undefined && u.viewEnd !== undefined) {
+          const clampedVs = Math.max(0, Math.min(u.viewStart, newN - 2));
+          const clampedVe = Math.max(clampedVs + 1, Math.min(u.viewEnd, newN - 1));
+          setViewRange({ start: clampedVs, end: clampedVe });
+        } else {
+          setViewRange({ start: Math.max(0, newN - 900), end: Math.max(0, newN - 30) });
+        }
+
+        urlHydratedRef.current = true;
         // Clear previous search results
         setApiAnalogs(null);
         setApiCone(null);
@@ -428,6 +877,18 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
   useEffect(() => { runSearchRef.current = runSearch; }, [runSearch]);
 
   /*
+   * Live ref to the current analog list, consumed by the 1..6 keyboard
+   * shortcut inside the keydown effect. The effect is installed once
+   * (empty deps) to avoid re-binding on every analog-set change; the ref
+   * lets the handler read the latest list without a stale closure.
+   *
+   * Declared here (before the keyboard effect) so the ref identity is
+   * stable across renders. The useEffect below rewrites the ref target
+   * whenever analogs shifts — cheap, and it never triggers a re-render.
+   */
+  const analogsRef = useRef<AnalogMatch[]>([]);
+
+  /*
    * Keyboard shortcut: `Enter` or `r` re-runs the search.
    *
    * Matches the style of the top-level shortcuts in `app/page.tsx`
@@ -448,6 +909,17 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
       // Skip if any modifier is pressed — leave those for the browser / OS.
       if (e.metaKey || e.ctrlKey || e.altKey) return;
 
+      // Escape closes the analog detail drawer when open. We check first
+      // so it wins over the page-level Escape handler (which closes the
+      // help modal). setDetailAnalogId(null) is idempotent when already
+      // null — guard here is a performance nicety, not a correctness one.
+      if (e.key === "Escape") {
+        // Peek via ref so this effect doesn't need to re-install on every
+        // drawer open/close. We don't preventDefault because the page-
+        // level Escape handler is also interested (e.g. to close help /
+        // cmd palette) — both should cooperate, not clobber.
+        setDetailAnalogId(prev => prev !== null ? null : prev);
+      }
       if (e.key === "Enter" || e.key === "r" || e.key === "R") {
         // Don't preventDefault on plain "r" because of the existing `g r`
         // jump chord in the root page — but for the shortcut to actually
@@ -459,6 +931,22 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
         // on any focused element.
         if (e.key === "Enter") e.preventDefault();
         runSearchRef.current();
+      }
+
+      // 1..6 → open the drawer for analog #1..#6. We use rowKeys rather
+      // than e.key to keep the mapping 1:1 with ranks; shifted variants
+      // (!/@/#/$/%/^) are ignored so the user's shift-typed intent
+      // doesn't surprise-open a drawer. Reads analogs via ref for the
+      // same reason runSearchRef exists — analogs identity changes per
+      // search but we don't want to reinstall the listener each time.
+      if (/^[1-6]$/.test(e.key) && !e.shiftKey) {
+        const rank = parseInt(e.key, 10);
+        const list = analogsRef.current;
+        const target = list[rank - 1];
+        if (target) {
+          e.preventDefault();
+          setDetailAnalogId(target.id);
+        }
       }
     };
     window.addEventListener("keydown", onKey);
@@ -534,10 +1022,40 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
    * let the in-memory Set take over — persistence is best-effort, not
    * load-bearing for correctness.
    */
+  /*
+   * Guard flag preventing the first pinKey-load from clobbering the
+   * URL-seeded pin set.
+   *
+   * When a share-link carries `?p=abc,def`, we initialize `pinned` at
+   * mount from those ids. Some time later the first search completes,
+   * which sets `lastSearch` → pinKey → the per-query localStorage load
+   * effect fires. Without this gate, that load would REPLACE the
+   * URL-seeded set with whatever is saved under the first pinKey (often
+   * empty), silently dropping the shared pins.
+   *
+   * We flip the flag to false ONCE after the first pinKey-load runs,
+   * so all subsequent query identity changes (new dataset, new window)
+   * still hydrate from localStorage cleanly.
+   */
+  const urlPinsHonoredRef = useRef<boolean>(
+    (urlStateRef.current.pinned?.length ?? 0) > 0,
+  );
+
   useEffect(() => {
     if (!pinKey) return;
     // Block any save until we've finished loading this key.
     setPinHydrated(false);
+
+    // First-load URL priority: if the share-link carried pins, skip the
+    // localStorage load for this pinKey so the URL pins survive. We
+    // still set pinHydrated = true so the save effect takes over and
+    // persists the URL pins under the pinKey for future sessions.
+    if (urlPinsHonoredRef.current) {
+      urlPinsHonoredRef.current = false;
+      setPinHydrated(true);
+      return;
+    }
+
     try {
       const raw = localStorage.getItem(pinKey);
       if (raw) {
@@ -604,6 +1122,32 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
     () => ((isOnline && apiAnalogs) ? apiAnalogs : (searchedAnalogs ?? [])),
     [isOnline, apiAnalogs, searchedAnalogs],
   );
+
+  /*
+   * Resolve the currently-inspected analog.
+   *
+   * We look up by id on each render rather than caching the analog itself,
+   * because a re-search replaces the analog set wholesale — stale pointers
+   * from the previous search would leave the drawer showing outdated lens
+   * scores. Falling through to null when the id no longer resolves also
+   * auto-closes the drawer on a new search if the selection didn't carry
+   * over (the drawer only renders `open` when both detailAnalogId AND the
+   * resolved analog are present).
+   */
+  const detailAnalog = useMemo(
+    () => (detailAnalogId ? analogs.find(a => a.id === detailAnalogId) ?? null : null),
+    [analogs, detailAnalogId],
+  );
+
+  /*
+   * Keep `analogsRef` in sync with the latest analog list.
+   *
+   * The 1..6 keyboard handler reads the ref rather than closing over
+   * `analogs` directly so the listener (installed once on mount) always
+   * sees the current set. Without this sync the shortcut would fire for
+   * the ORIGINAL search's analogs forever, even after a re-search.
+   */
+  useEffect(() => { analogsRef.current = analogs; }, [analogs]);
 
   /*
    * Pin-gated analog set — the heart of "curation drives the forecast".
@@ -788,8 +1332,41 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
     return "SPX \u00B7 daily";
   }, [activeDataset]);
 
-  // Grouped catalog for dropdown
-  const groupedCatalog = useMemo(() => groupByAssetClass(catalog), [catalog]);
+  // Catalog source for the dropdown.
+  //
+  // Online mode: use the live /catalog response.
+  // Offline / demo mode: use a static synthetic entry so the dropdown
+  // still renders something legible rather than an empty panel. We
+  // intentionally DO NOT fetch /catalog in offline mode (see the mount
+  // effect), so this is the sole source of items in that path.
+  const dropdownCatalog = useMemo<CatalogItem[]>(() => {
+    if (isOnline === false) return offlineSyntheticCatalog();
+    return catalog;
+  }, [catalog, isOnline]);
+
+  // Filtered + grouped catalog for the dropdown panel. Filter runs
+  // first so empty groups disappear when the user narrows by symbol.
+  const filteredCatalog = useMemo(
+    () => filterCatalog(dropdownCatalog, datasetSearch),
+    [dropdownCatalog, datasetSearch],
+  );
+  const groupedCatalog = useMemo(
+    () => groupByAssetClass(filteredCatalog),
+    [filteredCatalog],
+  );
+
+  // The catalog entry for the currently-selected dataset. Used for the
+  // compact selected-summary rendered on the trigger button and for the
+  // freshness line under the Dataset header. Null when the active
+  // dataset id doesn't (yet) appear in the catalog — that's a legit
+  // transient state between mount and the first /catalog response.
+  const selectedItem = useMemo<CatalogItem | null>(() => {
+    return (
+      dropdownCatalog.find(
+        d => `${d.assetClass}/${d.symbol}/${d.timeframe}` === activeDataset,
+      ) ?? null
+    );
+  }, [dropdownCatalog, activeDataset]);
 
   // ── Banner visibility logic ────────────────────────────────────────
   // Offline banner: API is confirmed down (isOnline === false). We avoid
@@ -860,7 +1437,26 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
         >
           &times;
         </button>
-        {/* Dataset selector */}
+        {/* ──────────────────────────────────────────────────────────
+            Dataset selector — custom dropdown with rich metadata cards.
+
+            Contract:
+            - The trigger button shows the currently-selected dataset
+              as a single-line summary (symbol · timeframe · bar count
+              · relative update).
+            - A freshness line ("updated · 16m ago") sits directly
+              under the "Dataset" label so the user can read liveness
+              at a glance without opening the dropdown. It flips to the
+              --warn colour once the data is >7 days old.
+            - Opening the dropdown reveals grouped per-item cards with
+              source, row count, date range, and an absolute "Updated:"
+              timestamp. A staleness dot appears on items that are
+              >48h old (for daily-or-faster timeframes).
+            - A search input at the top filters by symbol / asset class
+              substring and dissolves empty groups.
+            - Offline mode renders a single "Synthetic · seeded PRNG"
+              entry; /catalog is NOT fetched in that path.
+         ─────────────────────────────────────────────────────────── */}
         <div className="side__section">
           <div className="side__header">
             <span className="label">Dataset</span>
@@ -873,42 +1469,153 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
               <span className="mono" style={{ fontSize: 9, color: "var(--ink-3)" }}>checking...</span>
             )}
           </div>
+          {/* Freshness line under the header. Visible whenever we have
+              a last-updated timestamp; styled warn when >7d old. */}
+          {selectedItem?.lastUpdatedAt && (() => {
+            const updatedAt = parseIsoOrNull(selectedItem.lastUpdatedAt);
+            if (!updatedAt) return null;
+            const ageDays = (nowTick.getTime() - updatedAt.getTime()) / 86_400_000;
+            const warn = ageDays > 7;
+            return (
+              <div
+                className="dataset-freshness"
+                data-warn={warn ? "true" : undefined}
+                title={`Last updated ${formatUpdatedAt(selectedItem.lastUpdatedAt)}`}
+              >
+                updated &middot; {formatRelativeTime(updatedAt, nowTick)}
+              </div>
+            );
+          })()}
           <button
-            className="chip"
-            style={{ width: "100%", justifyContent: "space-between", display: "flex", padding: "6px 10px" }}
-            onClick={() => setDatasetOpen(o => !o)}
+            type="button"
+            className="dataset-trigger"
+            aria-haspopup="listbox"
+            aria-expanded={datasetOpen}
+            onClick={() => {
+              setDatasetOpen(o => !o);
+              // Reset the in-panel search whenever we open/close so the
+              // user always starts from the full list.
+              setDatasetSearch("");
+            }}
           >
-            <span className="mono" style={{ fontSize: 11 }}>{datasetLabel}</span>
-            <span style={{ fontSize: 9 }}>{datasetOpen ? "\u25B2" : "\u25BC"}</span>
+            <span className="dataset-trigger__main">
+              <span className="dataset-trigger__symbol">
+                {datasetLabel}
+              </span>
+              <span className="dataset-trigger__meta">
+                {selectedItem
+                  ? [
+                      formatBarCount(selectedItem.rowCount),
+                      selectedItem.lastUpdatedAt
+                        ? `updated ${formatRelativeTime(
+                            parseIsoOrNull(selectedItem.lastUpdatedAt) ?? nowTick,
+                            nowTick,
+                          )}`
+                        : null,
+                    ]
+                      .filter(Boolean)
+                      .join(" \u00B7 ")
+                  : "—"}
+              </span>
+            </span>
+            <span className="dataset-trigger__caret" aria-hidden="true">
+              {datasetOpen ? "\u25B2" : "\u25BC"}
+            </span>
           </button>
-          {datasetOpen && catalog.length > 0 && (
-            <div className="saved-list" style={{ maxHeight: 200, overflow: "auto", marginTop: 4 }}>
-              {Object.entries(groupedCatalog).map(([assetClass, items]) => (
-                <div key={assetClass}>
-                  <div className="label" style={{ fontSize: 9, color: "var(--ink-3)", margin: "6px 0 2px", textTransform: "uppercase", letterSpacing: ".12em" }}>
-                    {assetClass}
+          {datasetOpen && (
+            <div className="dataset-panel" role="listbox" aria-label="Select dataset">
+              <input
+                type="search"
+                className="dataset-panel__search"
+                placeholder="Filter by symbol or asset class"
+                value={datasetSearch}
+                onChange={e => setDatasetSearch(e.target.value)}
+                autoFocus
+                aria-label="Filter datasets"
+              />
+              <div className="dataset-panel__list">
+                {Object.entries(groupedCatalog).length === 0 && (
+                  <div className="dataset-panel__empty">
+                    {isOnline === false
+                      ? "Offline — synthetic entry above."
+                      : catalog.length === 0
+                      ? "No datasets registered."
+                      : "No matches."}
                   </div>
-                  {items.map(item => {
-                    const id = `${item.assetClass}/${item.symbol}/${item.timeframe}`;
-                    return (
-                      <div
-                        key={id}
-                        className="saved"
-                        style={{ cursor: "pointer", fontWeight: id === activeDataset ? 600 : 400 }}
-                        onClick={() => { setActiveDataset(id); setDatasetOpen(false); }}
-                      >
-                        <span className="saved__name">{item.symbol.toUpperCase()}</span>
-                        <span className="saved__score" style={{ fontSize: 10 }}>{item.timeframe}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              ))}
-            </div>
-          )}
-          {datasetOpen && catalog.length === 0 && isOnline && (
-            <div style={{ fontSize: 11, color: "var(--ink-3)", padding: "6px 0" }}>
-              No datasets registered &mdash; see main panel for setup.
+                )}
+                {Object.entries(groupedCatalog).map(([assetClass, items]) => (
+                  <div key={assetClass} className="dataset-panel__group">
+                    <div className="dataset-panel__group-header">
+                      {assetClass}
+                    </div>
+                    {items.map(item => {
+                      const id = `${item.assetClass}/${item.symbol}/${item.timeframe}`;
+                      const selected = id === activeDataset;
+                      const stale = isStale(item, nowTick);
+                      // Only show staleness for online data (synthetic
+                      // has no concept of freshness).
+                      const showStaleDot = stale && isOnline !== false;
+                      return (
+                        <button
+                          key={id}
+                          type="button"
+                          role="option"
+                          aria-selected={selected}
+                          className="dataset-card"
+                          data-selected={selected ? "true" : undefined}
+                          onClick={() => {
+                            setActiveDataset(id);
+                            setDatasetOpen(false);
+                            setDatasetSearch("");
+                          }}
+                        >
+                          <div className="dataset-card__title-row">
+                            <span className="dataset-card__title">
+                              {item.symbol.toUpperCase()} &middot; {item.timeframe}
+                            </span>
+                            {showStaleDot && (
+                              <span
+                                className="dataset-card__stale-dot"
+                                aria-hidden="true"
+                                title={`Data may be stale (last updated ${
+                                  item.lastUpdatedAt
+                                    ? formatRelativeTime(
+                                        parseIsoOrNull(item.lastUpdatedAt) ?? nowTick,
+                                        nowTick,
+                                      )
+                                    : "unknown"
+                                })`}
+                              />
+                            )}
+                          </div>
+                          <div className="dataset-card__sub">
+                            {item.source}
+                            {item.rowCount > 0 && (
+                              <> &middot; {formatBarCount(item.rowCount)}</>
+                            )}
+                          </div>
+                          {(item.startTimestamp || item.endTimestamp) && (
+                            <div className="dataset-card__sub">
+                              {formatShortDate(item.startTimestamp)} &rarr;{" "}
+                              {formatShortDate(item.endTimestamp)}
+                            </div>
+                          )}
+                          {item.lastUpdatedAt && (
+                            <div className="dataset-card__sub dataset-card__sub--muted">
+                              Updated: {formatUpdatedAt(item.lastUpdatedAt)}
+                            </div>
+                          )}
+                          {isOnline === false && (
+                            <div className="dataset-card__sub dataset-card__sub--muted">
+                              Demo mode &mdash; data is synthetic, not real.
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>
@@ -1238,6 +1945,45 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
                 </>
               )}
             </button>
+            {/*
+             * Share button — copies the current URL to clipboard.
+             *
+             * The URL is kept in sync with workstation state by the
+             * debounced writer effect above, so clicking Share at any
+             * moment yields a link that restores EXACTLY what the user
+             * is looking at. A 400ms debounce means the user's most
+             * recent interaction is flushed before they click Share —
+             * in practice imperceptible.
+             *
+             * Visual: mirrors .ws-search-btn layout but styled as a
+             * secondary / bordered button so it doesn't compete with
+             * the primary Search CTA. Icon + "Share" label keeps the
+             * affordance discoverable without cluttering the row.
+             */}
+            <button
+              type="button"
+              className="ws-share-btn"
+              onClick={onShareClick}
+              aria-label="Copy share link to clipboard"
+              title="Copy share link — restores this exact view for a colleague"
+            >
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 12 12"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.3"
+                aria-hidden="true"
+              >
+                {/* Paperclip / link glyph — two overlapping rounded rects
+                    approximating a share/link affordance without pulling
+                    in an icon library. */}
+                <path d="M5 3.5 a2 2 0 0 1 2 -2 h1.5 a2 2 0 0 1 2 2 v1.5 a2 2 0 0 1 -2 2 h-0.5" />
+                <path d="M7 8.5 a2 2 0 0 1 -2 2 h-1.5 a2 2 0 0 1 -2 -2 v-1.5 a2 2 0 0 1 2 -2 h0.5" />
+              </svg>
+              <span>Share</span>
+            </button>
           </div>
         </div>
 
@@ -1320,7 +2066,42 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
               </div>
               <div className="chart-card__legend">
                 <span className="legend-dot"><i />Query</span>
-                <span className="legend-dot analog"><i />Analogs ({analogOverlays.length})</span>
+                {/* Per-rank legend dots — one colored pip per analog, colored
+                    to match the chart overlay AND the card's left border. A
+                    click on a dot toggles the pin on that analog (same as
+                    clicking the card). The dot's alpha ring marks pinned
+                    state so the legend mirrors the card strip's pin state.
+                    We render up to analogOverlays.length dots; the
+                    "Analogs (N)" label stays as a text prefix so the
+                    existing "is it only showing top 1?" question lands a
+                    visible count even when dots wrap. */}
+                <span className="legend-dot analog">
+                  <i />Analogs ({analogOverlays.length})
+                </span>
+                {analogOverlays.map((a, i) => {
+                  const id = a.id;
+                  const isPinned = !!a.pinned;
+                  return (
+                    <span
+                      key={`legend-rank-${id ?? i}`}
+                      className="legend-dot analog-rank"
+                      data-rank={i}
+                      data-pinned={isPinned ? "true" : undefined}
+                    >
+                      <button
+                        type="button"
+                        aria-label={`Toggle pin on analog ${i + 1}`}
+                        title={isPinned ? "Unpin this analog" : "Pin this analog"}
+                        onClick={() => { if (id) togglePin(id); }}
+                        onMouseEnter={() => { if (id) setHoverAnalog(id); }}
+                        onMouseLeave={() => setHoverAnalog(null)}
+                      >
+                        <i />
+                        <span>#{i + 1}</span>
+                      </button>
+                    </span>
+                  );
+                })}
                 <span className="legend-dot cone"><i />P10&ndash;P90 cone</span>
                 {searching && (
                   <span className="mono" style={{ fontSize: 10, color: "var(--ink-3)", marginLeft: 8 }}>
@@ -1374,6 +2155,10 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
                     // so a user zoom that shrinks the view past the
                     // cone gets auto-expanded back on the next render.
                     onRangeChange: setViewRange,
+                    // Drives the per-analog hover preview in both chart
+                    // renderers. Set from the .analog-card mouse
+                    // enter/leave handlers in the strip below.
+                    hoveredAnalogId: hoverAnalog,
                   };
                   return (settings.chartMode ?? "fast") === "pro"
                     ? <LineChartLW {...sharedChartProps} />
@@ -1441,35 +2226,68 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
             // Em-dash placeholders whenever the engine returned unknown,
             // so a quant can distinguish "no data yet" from "zero".
             const dash = "\u2014";
+            // ℹ glyph — rendered next to each metric label so quants get
+            // a one-sentence definition on hover without leaving the page.
+            // Intentionally uses the native `title` attribute: acceptable
+            // shortcut per the calibration-panel audit spec, avoids adding
+            // a custom tooltip layer (and its accessibility footguns) to
+            // the workstation bundle. Screen readers announce `title` as
+            // an accessible name, so the explanations are surfaced there
+            // as well. 12px sizing matches the muted .label typography.
+            const infoGlyph = (tip: string) => (
+              <span
+                className="trust__info"
+                role="img"
+                aria-label={tip}
+                title={tip}
+              >
+                &#9432;
+              </span>
+            );
             return (
               <>
                 <div className="trust">
                   <div className="trust__item">
-                    <span className="label">Coverage 80%</span>
+                    <span className="label">
+                      Coverage 80%
+                      {infoGlyph("Coverage: fraction of realized moves that landed inside the P10-P90 cone. Target 80%.")}
+                    </span>
                     <span className={"v " + coverageClass}>
                       {isUnknown ? dash : fmtPct(trustMetrics.coverage, 1)}
                     </span>
                   </div>
                   <div className="trust__item">
-                    <span className="label">CRPS</span>
+                    <span className="label">
+                      CRPS
+                      {infoGlyph("CRPS (Continuous Ranked Probability Score): lower is better. Measures how well the probability distribution matched the realized outcome.")}
+                    </span>
                     <span className="v">
                       {isUnknown ? dash : trustMetrics.crps.toFixed(3)}
                     </span>
                   </div>
                   <div className="trust__item">
-                    <span className="label">Hit rate &middot; sign</span>
+                    <span className="label">
+                      Hit rate &middot; sign
+                      {infoGlyph("Hit rate: fraction of analogs whose forward direction matched the realized direction at horizon. Chance baseline is 0.50.")}
+                    </span>
                     <span className={"v " + hitClass}>
                       {isUnknown ? dash : trustMetrics.hitRate.toFixed(2)}
                     </span>
                   </div>
                   <div className="trust__item">
-                    <span className="label">Regime drift</span>
+                    <span className="label">
+                      Regime drift
+                      {infoGlyph("Regime drift: how much the market regime has changed between the analogs and now. Low is good; high means the analog set may be stale.")}
+                    </span>
                     <span className={"v " + driftClass}>
                       {isUnknown ? dash : trustMetrics.regimeDrift}
                     </span>
                   </div>
                   <div className="trust__item">
-                    <span className="label">N analogs used</span>
+                    <span className="label">
+                      N analogs used
+                      {infoGlyph("Number of analogs with realized forward windows used to compute these metrics. Pinning filters this set.")}
+                    </span>
                     <span className="v">{trustMetrics.nAnalogs}</span>
                   </div>
                   <button className="trust__expand" onClick={() => setTrustOpen(o => !o)}>
@@ -1477,7 +2295,37 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
                   </button>
                 </div>
 
-                {trustOpen && (
+                {trustOpen && isUnknown && (
+                  // Empty-state card: we avoid rendering the reliability
+                  // diagram or per-bucket bar chart at all when the engine
+                  // has insufficient data, because drawing either with zero
+                  // buckets produces visually-empty plots that quants read
+                  // as "calibration is broken" rather than "not enough
+                  // runs yet". Instead we surface a concrete explanation
+                  // and a CTA. The link target is a placeholder — once
+                  // backtest-sweep UI lands it should point at that route
+                  // (see Batch 2 finance operating product roadmap).
+                  <div className="trust-panel trust-panel--empty" role="status">
+                    <div className="trust-panel__empty-card">
+                      <h3>Calibration needs more runs</h3>
+                      <p>
+                        The engine has fewer than 3 analogs with realised
+                        forward windows against this query. Coverage, CRPS,
+                        and the reliability diagram need at least a handful
+                        of observed outcomes before they carry signal. Trust
+                        score will appear automatically once the engine has
+                        accumulated at least 30 runs against this dataset.
+                      </p>
+                      <a
+                        href="/finance/reviews"
+                        className="trust-panel__cta"
+                      >
+                        Trigger backtest sweep &rarr;
+                      </a>
+                    </div>
+                  </div>
+                )}
+                {trustOpen && !isUnknown && (
                   <div className="trust-panel">
                     <div>
                       <h3>Reliability diagram</h3>
@@ -1486,10 +2334,17 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
                         {/* Identity line y=x → perfect calibration reference.
                             Plot region: x in [20, 240], y in [140, 20]. */}
                         <line x1="20" y1="140" x2="240" y2="20" stroke="var(--ink-4)" strokeDasharray="3 3" />
-                        {/* Empirical (predicted, observed) scatter. When the
-                            buckets are missing (e.g. unknown grade) render
-                            a "not enough data" placeholder instead of a
-                            misleading synthetic scatter. */}
+                        {/* Empirical (predicted, observed) scatter, coloured
+                            by deviation from the identity line.
+                            •  |obs − pred| < 0.10  → green  (well-calibrated)
+                            •  0.10 ≤ |…| < 0.20    → amber  (watch)
+                            •  |obs − pred| ≥ 0.20  → red    (mis-calibrated)
+                            Prior behaviour painted every dot green, which
+                            hid bad buckets — fixed as of the calibration-
+                            panel audit (obsidian/topics/calibration panel
+                            audit 2026-04-20). Each dot carries a native
+                            <title> so hovering surfaces the raw numbers
+                            without requiring a custom tooltip layer. */}
                         {trustMetrics.reliability.length === 0 ? (
                           <text x="130" y="80" textAnchor="middle" fontSize="11" fill="var(--ink-3)">
                             not enough data
@@ -1498,14 +2353,24 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
                           trustMetrics.reliability.map((pt, i) => {
                             const pClamped = Math.max(0, Math.min(1, pt.predicted));
                             const oClamped = Math.max(0, Math.min(1, pt.observed));
+                            const deviation = Math.abs(oClamped - pClamped);
+                            const color = deviation < 0.10
+                              ? "var(--positive)"
+                              : deviation < 0.20
+                              ? "var(--warn)"
+                              : "var(--negative)";
                             return (
                               <circle
                                 key={i}
                                 cx={20 + pClamped * 220}
                                 cy={140 - oClamped * 120}
                                 r="3.5"
-                                fill="var(--positive)"
-                              />
+                                fill={color}
+                              >
+                                <title>
+                                  {`predicted ${pClamped.toFixed(2)} · observed ${oClamped.toFixed(2)} · deviation ${deviation.toFixed(2)}`}
+                                </title>
+                              </circle>
                             );
                           })
                         )}
@@ -1527,43 +2392,162 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
                       </div>
                     </div>
                     <div>
-                      <h3>Coverage vs target</h3>
+                      <h3>Per-bucket observed frequency</h3>
                       <svg viewBox="0 0 260 160" width="100%" height="160">
                         <rect x="1" y="1" width="258" height="158" fill="none" stroke="var(--rule)" />
-                        {/* 80% target line at y = 160 - 0.80 * 150 = 40. */}
-                        <line x1="10" y1="40" x2="250" y2="40" stroke="var(--rule-strong)" strokeDasharray="3 3" />
-                        <text x="12" y="36" className="axis-label" fontSize="9" fill="var(--ink-3)">80% target</text>
-                        {/* Per-analog terminal containment visualization.
-                            Each bar height = this query's coverage rate.
-                            This is a single-query summary, not a time
-                            series — when a dedicated rolling coverage
-                            series is added it should replace this. */}
-                        {isUnknown ? (
+                        {/* Previous implementation drew 12 IDENTICAL bars,
+                            all at height = trustMetrics.coverage. That
+                            looked like a rolling time-series but was a
+                            synthetic placeholder (same number painted 12
+                            times). It's been replaced with the real per-
+                            percentile observed frequency derived from
+                            trustMetrics.reliability[] — the thing that
+                            actually changes per query and per pin set.
+                            A perfectly calibrated engine has every bar
+                            at height = its predicted quantile. */}
+                        {trustMetrics.reliability.length === 0 ? (
                           <text x="130" y="90" textAnchor="middle" fontSize="11" fill="var(--ink-3)">
                             not enough data
                           </text>
-                        ) : (
-                          Array.from({ length: 12 }).map((_, i) => {
-                            const v = trustMetrics.coverage;
-                            const x = 20 + i * 18;
-                            const y = 160 - v * 150;
-                            return <line key={i} x1={x} x2={x} y1={160} y2={y} stroke="var(--ink-2)" strokeWidth="1.4" />;
-                          })
-                        )}
+                        ) : (() => {
+                            // Plot region: x in [30, 250], y in [140, 20].
+                            // Bar slot width derived from the number of
+                            // reliability buckets so the layout scales
+                            // correctly if the backend adds more.
+                            const n = trustMetrics.reliability.length;
+                            const plotLeft = 30;
+                            const plotRight = 250;
+                            const plotTop = 20;
+                            const plotBottom = 140;
+                            const slotW = (plotRight - plotLeft) / n;
+                            const barW = Math.max(8, slotW * 0.55);
+                            const plotH = plotBottom - plotTop;
+                            // Guide lines at y = 0, 0.5, 1.0 so the eye can
+                            // read deviation without counting pixels.
+                            const guideYs = [0, 0.5, 1];
+                            return (
+                              <g>
+                                {guideYs.map(g => (
+                                  <line
+                                    key={`g-${g}`}
+                                    x1={plotLeft}
+                                    x2={plotRight}
+                                    y1={plotBottom - g * plotH}
+                                    y2={plotBottom - g * plotH}
+                                    stroke="var(--rule)"
+                                    strokeDasharray="2 3"
+                                  />
+                                ))}
+                                {trustMetrics.reliability.map((pt, i) => {
+                                  const oClamped = Math.max(0, Math.min(1, pt.observed));
+                                  const pClamped = Math.max(0, Math.min(1, pt.predicted));
+                                  const deviation = Math.abs(oClamped - pClamped);
+                                  const barColor = deviation < 0.10
+                                    ? "var(--positive)"
+                                    : deviation < 0.20
+                                    ? "var(--warn)"
+                                    : "var(--negative)";
+                                  const cx = plotLeft + slotW * (i + 0.5);
+                                  const x = cx - barW / 2;
+                                  const y = plotBottom - oClamped * plotH;
+                                  const predY = plotBottom - pClamped * plotH;
+                                  return (
+                                    <g key={`bar-${i}`}>
+                                      {/* Observed bar (colored by deviation). */}
+                                      <rect
+                                        x={x}
+                                        y={y}
+                                        width={barW}
+                                        height={plotBottom - y}
+                                        fill={barColor}
+                                        opacity={0.85}
+                                      >
+                                        <title>
+                                          {`P${Math.round(pClamped * 100)} · observed ${oClamped.toFixed(2)} · predicted ${pClamped.toFixed(2)} · deviation ${deviation.toFixed(2)}`}
+                                        </title>
+                                      </rect>
+                                      {/* Predicted-quantile tick: where the
+                                          bar WOULD end for a perfectly
+                                          calibrated engine. */}
+                                      <line
+                                        x1={x - 2}
+                                        x2={x + barW + 2}
+                                        y1={predY}
+                                        y2={predY}
+                                        stroke="var(--ink)"
+                                        strokeWidth="1"
+                                        strokeDasharray="2 2"
+                                      />
+                                      {/* Per-bucket x-label: the predicted
+                                          quantile, so a quant can read e.g.
+                                          "P25 observed 0.32" at a glance. */}
+                                      <text
+                                        x={cx}
+                                        y={plotBottom + 12}
+                                        textAnchor="middle"
+                                        fontSize="9"
+                                        fill="var(--ink-3)"
+                                      >
+                                        {`P${Math.round(pClamped * 100)}`}
+                                      </text>
+                                    </g>
+                                  );
+                                })}
+                                {/* y-axis reference labels (0 / 0.5 / 1). */}
+                                {guideYs.map(g => (
+                                  <text
+                                    key={`yl-${g}`}
+                                    x={plotLeft - 4}
+                                    y={plotBottom - g * plotH + 3}
+                                    textAnchor="end"
+                                    fontSize="9"
+                                    fill="var(--ink-3)"
+                                  >
+                                    {g.toFixed(1)}
+                                  </text>
+                                ))}
+                              </g>
+                            );
+                          })()}
                       </svg>
                       <div style={{ fontSize: 12, color: "var(--ink-2)", marginTop: 8 }}>
-                        {isUnknown
-                          ? "Coverage will appear here once the engine has at least 3 analogs with forward windows."
-                          : `This query's cone contains ${(trustMetrics.coverage * 100).toFixed(0)}% of analog terminals vs the 80% target. Drift is ${trustMetrics.regimeDrift}.`}
+                        {trustMetrics.reliability.length === 0
+                          ? "Observed frequencies will appear once the engine has at least 3 analogs with forward windows."
+                          : `Bars = observed fraction of analogs at or below each predicted quantile. Dashed ticks mark the predicted value. Coverage P10→P90 is ${(trustMetrics.coverage * 100).toFixed(0)}% vs 80% target; drift is ${trustMetrics.regimeDrift}.`}
                       </div>
                     </div>
-                    <div>
-                      <h3>Honesty note</h3>
-                      <p style={{ fontFamily: "var(--serif)", fontSize: 15, lineHeight: 1.5, color: "var(--ink-2)", fontStyle: "italic" }}>
-                        Similarity is not a guarantee. Markets regime-shift. The cone reports what
-                        <span style={{ fontStyle: "normal", fontWeight: 500 }}> tended to happen</span> after similar
-                        structural patterns &mdash; nothing more, nothing less.
-                      </p>
+                    <div className="trust-panel__narrative">
+                      {/* Grade explanation — thresholds are the source-of-
+                          truth from `the-similarity-app/lib/data.ts
+                          ::gradeFromMetrics`. If those thresholds change
+                          there, they must change here too (or be lifted to
+                          a shared const). Kept inline so the user can see
+                          WHY the grade is what it is without leaving the
+                          panel. */}
+                      <div>
+                        <h3>Grade &middot; {trustMetrics.grade}</h3>
+                        <p className="trust-panel__grade-copy">
+                          Composite letter grade from coverage gap, CRPS,
+                          and hit rate.
+                        </p>
+                        <ul className="trust-panel__grade-list">
+                          <li><b>A</b> · gap &le; 5%, CRPS &le; 0.05, hit &ge; 0.58</li>
+                          <li><b>B</b> · gap &le; 10%, CRPS &le; 0.08, hit &ge; 0.54</li>
+                          <li><b>C</b> · gap &le; 15%, CRPS &le; 0.12, hit &ge; 0.52</li>
+                          <li><b>D / F</b> · anything looser</li>
+                        </ul>
+                        <p className="trust-panel__grade-current">
+                          This query: gap {(Math.abs(trustMetrics.coverage - 0.80) * 100).toFixed(1)}% &middot; CRPS {trustMetrics.crps.toFixed(3)} &middot; hit {trustMetrics.hitRate.toFixed(2)}.
+                        </p>
+                      </div>
+                      <div>
+                        <h3>Honesty note</h3>
+                        <p style={{ fontFamily: "var(--serif)", fontSize: 15, lineHeight: 1.5, color: "var(--ink-2)", fontStyle: "italic" }}>
+                          Similarity is not a guarantee. Markets regime-shift. The cone reports what
+                          <span style={{ fontStyle: "normal", fontWeight: 500 }}> tended to happen</span> after similar
+                          structural patterns &mdash; nothing more, nothing less.
+                        </p>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -1590,26 +2574,95 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
               </div>
             </div>
           )}
-          {analogs.map(a => (
-            <div key={a.id} className="analog-card"
-              data-pinned={pinned.has(a.id) ? "true" : undefined}
-              onClick={() => togglePin(a.id)}
-              onMouseEnter={() => setHoverAnalog(a.id)}
-              onMouseLeave={() => setHoverAnalog(null)}>
-              <div className="analog-card__head">
-                <span className="analog-card__date">#{a.rank} &middot; {fmtDateShort(a.date)}</span>
-                <span className="analog-card__score">{a.composite.toFixed(2)}</span>
+          {analogs.map((a, i) => {
+            // `data-rank` drives the rank-indexed left-border color
+            // defined in globals.css (.analog-card[data-rank="N"]).
+            // `i` is 0-indexed over the display order, which matches
+            // the chart overlay's rank index so card and chart line
+            // share the same palette color.
+            //
+            // Click affordance split (PR #K):
+            //   - Card body click    → open the analog detail drawer
+            //   - Pin icon click     → toggle pin (existing behavior,
+            //                           now scoped to just the icon)
+            //   - Hover              → chart path preview (PR #231)
+            //
+            // The pin icon's onClick calls stopPropagation so the card's
+            // click handler doesn't ALSO open the drawer when the user
+            // clicks the icon. Without stopPropagation the user's "pin
+            // only" intent would still open the drawer as a side effect.
+            const isPinned = pinned.has(a.id);
+            return (
+              <div key={a.id} className="analog-card"
+                data-rank={i}
+                data-pinned={isPinned ? "true" : undefined}
+                role="button"
+                tabIndex={0}
+                aria-label={`Open detail for analog ${a.rank}: ${a.label}`}
+                onClick={() => setDetailAnalogId(a.id)}
+                onKeyDown={(e) => {
+                  // Keyboard activation for the card body. Only Enter
+                  // and Space should trigger — arrow keys remain the
+                  // user's normal focus-navigation chord. We avoid
+                  // hijacking Space from input-like descendants by
+                  // checking the event target — no inputs live in
+                  // this card today, but future-proof the handler.
+                  const target = e.target as HTMLElement;
+                  const tag = target?.tagName;
+                  if (tag === "INPUT" || tag === "TEXTAREA" || tag === "BUTTON") return;
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    setDetailAnalogId(a.id);
+                  }
+                }}
+                onMouseEnter={() => setHoverAnalog(a.id)}
+                onMouseLeave={() => setHoverAnalog(null)}>
+                <div className="analog-card__head">
+                  <span className="analog-card__date">#{a.rank} &middot; {fmtDateShort(a.date)}</span>
+                  <div className="analog-card__head-right">
+                    <span className="analog-card__score">{a.composite.toFixed(2)}</span>
+                    <button
+                      type="button"
+                      className="analog-card__pin-btn"
+                      data-pinned={isPinned ? "true" : undefined}
+                      aria-pressed={isPinned}
+                      aria-label={isPinned ? `Unpin analog ${a.rank}` : `Pin analog ${a.rank}`}
+                      title={isPinned ? "Unpin this analog" : "Pin this analog"}
+                      onClick={(e) => {
+                        // Stop bubbling so the card's click (drawer open)
+                        // doesn't fire. The pin icon is the ONLY affordance
+                        // that toggles pin from the card strip now.
+                        e.stopPropagation();
+                        togglePin(a.id);
+                      }}
+                    >
+                      <svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                        {/* Simple pushpin glyph — head + body + tip. When
+                            pinned we fill the whole glyph; when unpinned
+                            we render the outline only. Path sized for a
+                            12px box so it reads clearly in the card head. */}
+                        <path
+                          d="M9.5 1.5 L14.5 6.5 L11.5 7.5 L10.5 11.5 L8 9 L3.5 13.5 L2.5 12.5 L7 8 L4.5 5.5 L8.5 4.5 Z"
+                          fill={isPinned ? "currentColor" : "none"}
+                          stroke="currentColor"
+                          strokeWidth="1.2"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+                <div className="analog-card__title">{a.label}</div>
+                <div className="analog-card__note">{a.note}</div>
+                <div className="analog-card__spark">
+                  <Sparkline values={[...a.priceWindow, ...a.after.slice(0, 60)]} width={110} highlight={0.35} />
+                  <span className={"analog-card__after " + (a.afterReturn >= 0 ? "pos" : "neg")}>
+                    {fmtPct(a.afterReturn)}
+                  </span>
+                </div>
               </div>
-              <div className="analog-card__title">{a.label}</div>
-              <div className="analog-card__note">{a.note}</div>
-              <div className="analog-card__spark">
-                <Sparkline values={[...a.priceWindow, ...a.after.slice(0, 60)]} width={110} highlight={0.35} />
-                <span className={"analog-card__after " + (a.afterReturn >= 0 ? "pos" : "neg")}>
-                  {fmtPct(a.afterReturn)}
-                </span>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </section>
 
@@ -1662,6 +2715,136 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
           </div>
         </div>
       </aside>
+
+      {/* ── Analog detail drawer ─────────────────────────────────
+          Slides in from the right when the user clicks a card body.
+          Open state is driven by `detailAnalogId` — null = closed.
+          The drawer itself is stateless beyond the controlled props. */}
+      <AnalogDetailDrawer
+        analog={detailAnalog}
+        open={detailAnalog !== null}
+        pinned={detailAnalog ? pinned.has(detailAnalog.id) : false}
+        onClose={() => setDetailAnalogId(null)}
+        onTogglePin={togglePin}
+        onUseAsQuery={(analog) => {
+          // Move the query window to the analog's [startIdx, priceWindow.length]
+          // range. We DO NOT auto-fire search — the user must click Search so
+          // the new window is visible first. `isDirty` already flips on the
+          // windowState change (see derivation below) so the Search button
+          // starts pulsing immediately.
+          const newStart = Math.max(0, Math.min(N - 2, analog.startIdx));
+          const newLen = Math.max(2, Math.min(N - newStart - 1, analog.priceWindow.length || 120));
+          setWindowState({ start: newStart, len: newLen });
+          // Also close the drawer so the chart is fully visible, and surface
+          // a toast-style banner telling the user what just happened + how
+          // to proceed. Banner clears itself after 8s so it doesn't linger
+          // if the user ignores it; manual dismiss is also wired up.
+          setDetailAnalogId(null);
+          const label = `${fmtDate(analog.date)} → ${fmtDate(analog.endDate)}`;
+          setUseAsQueryBanner(label);
+          // Fire a custom event on window so other parts of the app (e.g.
+          // a future analytics listener) can observe the "use as query"
+          // intent without being coupled to this component.
+          try {
+            window.dispatchEvent(
+              new CustomEvent("ts:use-analog-as-query", {
+                detail: { analogId: analog.id, label },
+              }),
+            );
+          } catch {
+            // CustomEvent can throw in some sandboxed iframes — safe to ignore.
+          }
+        }}
+      />
+
+      {/* Transient "use as query" banner — appears when the user clicks
+          "Find similar analogs" in the drawer. Self-clears after 8s or on
+          manual dismiss. Positioned as a floating toast so it doesn't
+          reflow the layout when it appears/disappears. */}
+      {useAsQueryBanner !== null && (
+        <UseAsQueryBanner
+          label={useAsQueryBanner}
+          onDismiss={() => setUseAsQueryBanner(null)}
+        />
+      )}
+
+      {/* Share-link confirmation toast — appears when the user clicks
+          Share. Self-dismisses after 2s (compact confirmation, not a
+          persistent notification). Positioned at the bottom-center of the
+          workstation as a floating toast with its own z-index so it sits
+          above the chart but below modals. */}
+      {shareToast !== null && (
+        <ShareToast
+          label={shareToast}
+          onDismiss={() => setShareToast(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+/**
+ * Transient toast shown after "Find similar analogs" moves the query
+ * window. Self-dismisses after 8 seconds — long enough for the PM to
+ * read the sentence, short enough that it doesn't linger if ignored.
+ *
+ * Extracted as its own component purely so the setTimeout can live in
+ * its own effect without polluting the Workstation component's already-
+ * crowded hook list. The effect cleans up on unmount / prop change.
+ */
+function UseAsQueryBanner({
+  label,
+  onDismiss,
+}: {
+  label: string;
+  onDismiss: () => void;
+}) {
+  useEffect(() => {
+    const id = window.setTimeout(onDismiss, 8000);
+    return () => window.clearTimeout(id);
+  }, [onDismiss]);
+  return (
+    <div className="ws-use-as-query-banner" role="status" aria-live="polite">
+      <span className="ws-use-as-query-banner__icon" aria-hidden="true">&#x1F4CD;</span>
+      <span className="ws-use-as-query-banner__text">
+        Query window moved to <strong>{label}</strong> &mdash; click Search to find new analogs.
+      </span>
+      <button
+        type="button"
+        className="ws-use-as-query-banner__dismiss"
+        onClick={onDismiss}
+        aria-label="Dismiss notice"
+      >
+        &times;
+      </button>
+    </div>
+  );
+}
+
+/**
+ * Transient toast shown after the user clicks the Share button and the
+ * clipboard write resolves. Self-dismisses after 2s — much shorter than
+ * UseAsQueryBanner because it's pure confirmation, no call-to-action
+ * the user needs to read.
+ *
+ * Positioned at the bottom of the workstation via CSS so it doesn't
+ * reflow layout; z-index sits it above the chart card but below modals.
+ */
+function ShareToast({
+  label,
+  onDismiss,
+}: {
+  label: string;
+  onDismiss: () => void;
+}) {
+  useEffect(() => {
+    const id = window.setTimeout(onDismiss, 2000);
+    return () => window.clearTimeout(id);
+  }, [onDismiss]);
+  return (
+    <div className="ws-share-toast" role="status" aria-live="polite">
+      <span className="ws-share-toast__icon" aria-hidden="true">&#128279;</span>
+      <span className="ws-share-toast__text">{label}</span>
     </div>
   );
 }

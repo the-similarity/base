@@ -9,6 +9,8 @@
  *
  * Keyboard shortcuts:
  *   /  or Cmd+K  -> command palette
+ *   ?            -> keyboard-shortcuts help modal (toggle)
+ *   Esc          -> close any open overlay (palette / help)
  *   g r/e/s/v/n/d -> jump to surface (two-key chord: press g, then letter)
  *                   When NEXT_PUBLIC_SHOW_PREVIEW_SURFACES is not "true" only
  *                   `g r` (retrieve) works — the other 5 surfaces are hidden.
@@ -29,6 +31,8 @@ import { Workstation, WorkstationSettings } from "../components/workstation/work
 import { RepresentSurface, SimulateSurface, EvaluateSurface, RenderSurface, DecideSurface } from "../components/surfaces";
 import { CommandPalette } from "../components/command-palette";
 import { TweaksPanel } from "../components/tweaks-panel";
+import { ShortcutsHelp } from "../components/shortcuts-help";
+import { parseUrlState } from "../lib/url-state";
 
 /*
  * Feed mode — honest label for the status-bar "feed X" badge.
@@ -96,27 +100,67 @@ const DEFAULTS: WorkstationSettings = {
 };
 
 export default function Page() {
-  // ── State ───────────────────────────────────────────────────────────
+  /*
+   * Settings hydration priority: defaults < localStorage < URL.
+   *
+   * On first mount we compose the settings object in three layers:
+   *   1. DEFAULTS  — hardcoded baseline.
+   *   2. `ts-settings` in localStorage — the user's saved preferences.
+   *   3. URL params — the share-link override; wins when present.
+   *
+   * Only the URL fields that map onto WorkstationSettings (theme, k,
+   * horizon, chartMode, showAnalogs) participate here; the workstation
+   * handles the rest (dataset, window, viewRange, pinned) internally.
+   *
+   * This order is WHY URL state works for "send a link to a colleague":
+   * their localStorage is irrelevant for the fields the link pins.
+   * Fields not in the link still fall back to their saved preferences,
+   * so a link that only pins `?h=180` doesn't wipe their theme.
+   */
   const [settings, setSettings] = useState<WorkstationSettings>(() => {
     if (typeof window === "undefined") return DEFAULTS;
+    let saved: Partial<WorkstationSettings> = {};
     try {
-      const saved = JSON.parse(localStorage.getItem("ts-settings") || "null");
-      const merged = { ...DEFAULTS, ...(saved || {}) };
-      // One-time migration: the old `"top3"` default silently dropped 3+
-      // of the top-K analogs from the chart. Promote it to `"all"` once
-      // so returning users see every match as its own forward line.
-      if (merged.showAnalogs === "top3") merged.showAnalogs = "all";
-      return merged;
-    } catch { return DEFAULTS; }
+      saved = JSON.parse(localStorage.getItem("ts-settings") || "null") || {};
+    } catch {
+      // localStorage parse failed — carry on with empty saved.
+    }
+    // One-time migration: the old `"top3"` default silently dropped 3+
+    // of the top-K analogs from the chart. Promote it to `"all"` once
+    // so returning users see every match as its own forward line.
+    if (saved.showAnalogs === "top3") saved.showAnalogs = "all";
+    // URL takes priority per-key over both defaults and saved.
+    const u = parseUrlState(window.location.search);
+    const fromUrl: Partial<WorkstationSettings> = {};
+    if (u.theme !== undefined) fromUrl.theme = u.theme;
+    if (u.k !== undefined) fromUrl.kAnalogs = u.k;
+    if (u.horizon !== undefined) fromUrl.horizon = u.horizon;
+    if (u.chartMode !== undefined) fromUrl.chartMode = u.chartMode;
+    if (u.showAnalogs !== undefined) fromUrl.showAnalogs = u.showAnalogs;
+    return { ...DEFAULTS, ...saved, ...fromUrl };
   });
 
   const [surface, setSurface] = useState(() => {
     if (typeof window === "undefined") return "retrieve";
+    // URL `sr` param wins over localStorage so a share-link to a specific
+    // surface (when preview surfaces are enabled) restores correctly.
+    const u = parseUrlState(window.location.search);
+    if (u.surface) return u.surface;
     return localStorage.getItem("ts-surface") || "retrieve";
   });
 
   const [tweaksOpen, setTweaksOpen] = useState(false);
   const [cmdOpen, setCmdOpen] = useState(false);
+  /*
+   * helpOpen — controls the ShortcutsHelp overlay (`?` key).
+   *
+   * Kept as a separate flag from cmdOpen so both overlays can coexist
+   * in the DOM but only one renders at a time (we close the other when
+   * one opens — see the key handler below). Initial state is false on
+   * both server and client, so this is hydration-safe with no need for
+   * lazy initialization.
+   */
+  const [helpOpen, setHelpOpen] = useState(false);
 
   /*
    * nyClock — the status-bar timestamp rendered in America/New_York time,
@@ -200,12 +244,39 @@ export default function Page() {
 
       // Cmd+K or /  -> command palette
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
-        e.preventDefault(); setCmdOpen(true); return;
+        e.preventDefault(); setHelpOpen(false); setCmdOpen(true); return;
       }
       if (e.key === "/" && !e.metaKey && !e.ctrlKey) {
-        e.preventDefault(); setCmdOpen(true); return;
+        e.preventDefault(); setHelpOpen(false); setCmdOpen(true); return;
       }
-      if (e.key === "Escape") { setCmdOpen(false); return; }
+      /*
+       * `?` -> shortcuts-help modal.
+       *
+       * On US keyboards `?` is Shift+/ — matching `e.key === "?"`
+       * catches the rendered character regardless of layout, so this
+       * also works for AZERTY and other layouts where `?` does NOT
+       * require Shift. We check !metaKey/!ctrlKey to avoid stealing
+       * OS-level shortcuts that also produce `?`.
+       *
+       * Closes the command palette if open so the two overlays never
+       * stack — single-overlay invariant keeps Esc handling simple.
+       */
+      if (e.key === "?" && !e.metaKey && !e.ctrlKey) {
+        e.preventDefault();
+        setCmdOpen(false);
+        setHelpOpen(o => !o);
+        return;
+      }
+      /*
+       * Escape closes any open overlay. We close all three flags
+       * unconditionally — closing an already-closed overlay is a
+       * no-op, so there's no reason to branch.
+       */
+      if (e.key === "Escape") {
+        setCmdOpen(false);
+        setHelpOpen(false);
+        return;
+      }
 
       // g + letter chord -> jump to surface
       if (e.key.toLowerCase() === "g") { lastG = Date.now(); return; }
@@ -367,13 +438,31 @@ export default function Page() {
           ) : (
             <span className="statusbar__item">press <span className="kbd">g</span> <span className="kbd">r</span> to jump</span>
           )}
+          {/*
+           * `?` hint — discoverability anchor for the shortcuts-help modal.
+           * Deliberately placed just before the NY timestamp so it's the
+           * last thing the user's eye lands on in the status bar. ink-3
+           * (muted) + mono-font kbd keeps it quiet: power-user affordance
+           * for those who scan the status bar, not a visual shout.
+           */}
+          <span className="statusbar__item">press <span className="kbd">?</span> for shortcuts</span>
           <span className="statusbar__item"><b>{nyClock}</b></span>
         </div>
       </footer>
 
       {/* ── Overlays ───────────────────────────────────────────── */}
       <TweaksPanel settings={settings} onSettings={updateSettings} visible={tweaksOpen} />
-      <CommandPalette open={cmdOpen} onClose={() => setCmdOpen(false)} onNav={onCmdNav} />
+      <CommandPalette
+        open={cmdOpen}
+        onClose={() => setCmdOpen(false)}
+        onNav={onCmdNav}
+        onOpenHelp={() => { setCmdOpen(false); setHelpOpen(true); }}
+      />
+      <ShortcutsHelp
+        open={helpOpen}
+        onClose={() => setHelpOpen(false)}
+        showPreviewChords={SHOW_PREVIEW}
+      />
     </div>
   );
 }

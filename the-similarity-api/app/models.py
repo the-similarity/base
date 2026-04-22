@@ -25,6 +25,20 @@ class CatalogItem(BaseModel):
 
     Mirrors the structure stored in manifests/catalog.json.
     Each item identifies one symbol+timeframe combination from one source.
+
+    Metadata fields (`source`, `start_timestamp`, `end_timestamp`,
+    `row_count`, `last_updated_at`, `frequency`) are surfaced to the UI
+    so the dataset picker can render rich per-item cards (source badge,
+    date range, staleness indicator). They are all OPTIONAL from a
+    consumer's perspective: older clients that don't read them still
+    receive a valid payload, and newer clients must tolerate their
+    absence (e.g. for a freshly-ingested dataset whose manifest entry
+    hasn't been rewritten yet).
+
+    `frequency` is a human-readable rendering of `timeframe` (e.g.
+    ``"1 hour"`` for ``"1h"``). It is derived on the server so every
+    consumer sees the same string; the frontend should NEVER re-parse
+    the short timeframe code into English on its own.
     """
     asset_class: str       # e.g., "equity", "crypto", "forex"
     symbol: str            # e.g., "AAPL", "BTCUSD"
@@ -35,6 +49,11 @@ class CatalogItem(BaseModel):
     end_timestamp: str | None = None      # ISO timestamp of last bar
     row_count: int = 0                    # Total number of bars
     last_updated_at: str | None = None    # When the data was last refreshed
+    # Human-readable frequency derived from ``timeframe`` (e.g. "1 hour").
+    # Kept optional for backwards compatibility: pre-metadata clients
+    # simply ignore it, and the server falls back to ``timeframe`` itself
+    # when the code is unrecognised.
+    frequency: str | None = None
 
 
 class CatalogResponse(BaseModel):

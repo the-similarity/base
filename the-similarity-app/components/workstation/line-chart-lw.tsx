@@ -94,6 +94,11 @@ export interface LineChartLWProps {
   showWindow?: boolean;
   /** Whether to show the forecast cone */
   showCone?: boolean;
+  /**
+   * The `id` of the analog currently hovered in the card strip — drives
+   * a "preview" emphasis on the matching overlay line. Mirrors
+   * `hoveredAnalogId` on the Fast view. Null when nothing is hovered. */
+  hoveredAnalogId?: string | null;
 }
 
 /**
@@ -119,6 +124,10 @@ function readThemeTokens(): {
   coneFill: string;
   coneLine: string;
   accent: string;
+  /** Six-slot rank palette — `palette[0]` is rank 1, etc. Mirrors the
+   *  --c-analog-1..6 tokens introduced by Agent G; resolved at theme
+   *  switch time so both light and dark forks pick up the right shade. */
+  palette: [string, string, string, string, string, string];
 } {
   // SSR guard — during static render there is no DOM. Fall back to light
   // tokens; the post-mount effect will re-read immediately on the client.
@@ -137,6 +146,14 @@ function readThemeTokens(): {
       coneFill: "rgba(20,19,15,0.08)",
       coneLine: "#6b6858",
       accent: "#5a2b2b",
+      palette: [
+        "#5a2b2b", // oxblood (rank 1)
+        "#8a6200", // amber
+        "#1c5b3d", // green
+        "#3a4a6b", // navy
+        "#6b3a5a", // plum
+        "#8a5a3a", // sienna
+      ],
     };
   }
   const cs = getComputedStyle(document.documentElement);
@@ -166,6 +183,14 @@ function readThemeTokens(): {
     coneFill: v("--c-cone-fill", "rgba(20,19,15,0.08)"),
     coneLine: v("--c-cone-line", "#6b6858"),
     accent,
+    palette: [
+      v("--c-analog-1", "#5a2b2b"),
+      v("--c-analog-2", "#8a6200"),
+      v("--c-analog-3", "#1c5b3d"),
+      v("--c-analog-4", "#3a4a6b"),
+      v("--c-analog-5", "#6b3a5a"),
+      v("--c-analog-6", "#8a5a3a"),
+    ],
   };
 }
 
@@ -372,6 +397,7 @@ export function LineChartLW({
   forecastHorizon = 60,
   showWindow = true,
   showCone = true,
+  hoveredAnalogId = null,
 }: LineChartLWProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
@@ -628,16 +654,26 @@ export function LineChartLW({
 
   // ── Push analog overlays ────────────────────────────────────────────
   //
-  // Pro-view mirror of the SVG chart's tri-state rendering (see
-  // `line-chart.tsx:analogPaths`). Three cases:
-  //   - No pins at all              → analog color, 1px        (default)
-  //   - Pins present, this pinned   → accent color, 2px        (strong)
-  //   - Pins present, not pinned    → ink-4 muted, 1px, faint  (context)
+  // Pro-view mirror of the SVG chart's four-state rendering (see
+  // `line-chart.tsx:analogPaths`). Cases:
+  //   - No pins + no hover            → palette color per rank, opacity
+  //                                      emulated via rgba alpha ramp
+  //                                      (.95, .85, .75, .65, .55, .45)
+  //                                      and line-width ramp 2 → 1.
+  //   - No pins + hover match         → rank color at alpha 1.0, width 3
+  //                                      (brightness bump not available
+  //                                      in lightweight-charts; we reach
+  //                                      "pop" via alpha + width only).
+  //   - Pins present, this pinned     → accent color, width 2 (or 3 if
+  //                                      hovered).
+  //   - Pins present, not pinned      → ink-4 muted, width 1, alpha .35
+  //                                      (or .7 if hovered — "preview
+  //                                      before pin" behavior).
   //
   // lightweight-charts v5 LineSeries has no native `opacity` option, so
-  // we fake the faint context look with an rgba() color (baseline hex
-  // converted + .35 alpha). The result matches the SVG view's visual
-  // intent: unpinned analogs read as context while pinned ones dominate.
+  // we fake opacity with a pre-multiplied rgba color. lightweight-charts
+  // also only accepts `lineWidth: 1 | 2 | 3 | 4` integers, which is why
+  // the width ramp collapses at the top end.
   useEffect(() => {
     const chart = chartRef.current;
     if (!chart) return;
@@ -656,22 +692,41 @@ export function LineChartLW({
     const tokens = readThemeTokens();
     const hasAnyPin = analogsOverlay.some(a => a.pinned);
 
-    for (const a of analogsOverlay) {
-      const data = buildAnalogData(series, win, a, forecastHorizon);
-      if (data.length < 2) continue;
+    // Rank-aligned opacity ramp. Matches the SVG view's ramp so a user
+    // toggling Fast ↔ Pro sees the same visual ordering of #1..#6.
+    const RAMP_ALPHA = [0.95, 0.85, 0.75, 0.65, 0.55, 0.45];
 
-      // Variant selection mirrors line-chart.tsx:hasAnyPin rule.
+    analogsOverlay.forEach((a, rank) => {
+      const data = buildAnalogData(series, win, a, forecastHorizon);
+      if (data.length < 2) return;
+
+      const isHovered = !!(a.id && hoveredAnalogId && a.id === hoveredAnalogId);
       const variant: "default" | "strong" | "context" =
         !hasAnyPin ? "default"
         : a.pinned ? "strong"
         : "context";
 
-      const color =
-        variant === "strong"  ? tokens.analogStrong
-        : variant === "context" ? hexToRgba(tokens.analogContext, 0.35)
-        : tokens.analog;
-      const lineWidth: 1 | 2 =
-        variant === "strong" ? 2 : 1;
+      let color: string;
+      // lightweight-charts v5 accepts 1 | 2 | 3 | 4 as lineWidth. We
+      // type this as `1 | 2 | 3` so we never exceed the hover bump.
+      let lineWidth: 1 | 2 | 3;
+
+      if (variant === "strong") {
+        color = tokens.analogStrong;
+        lineWidth = isHovered ? 3 : 2;
+      } else if (variant === "context") {
+        // Hovered-but-unpinned: un-fade from .35 to .7 so the user can
+        // preview the overlay before deciding to pin it.
+        color = hexToRgba(tokens.analogContext, isHovered ? 0.7 : 0.35);
+        lineWidth = 1;
+      } else {
+        // Default palette mode — rank color with ramped alpha. The
+        // hovered overlay pops to full alpha + width 3.
+        const basePalette = tokens.palette[Math.min(rank, 5)];
+        const alpha = isHovered ? 1.0 : RAMP_ALPHA[Math.min(rank, 5)];
+        color = hexToRgba(basePalette, alpha);
+        lineWidth = isHovered ? 3 : (rank === 0 ? 2 : 1);
+      }
 
       const s = chart.addSeries(LineSeries, {
         color,
@@ -683,8 +738,8 @@ export function LineChartLW({
       });
       s.setData(data);
       analogSeriesRefs.current.push(s);
-    }
-  }, [analogsOverlay, series, win, forecastHorizon]);
+    });
+  }, [analogsOverlay, series, win, forecastHorizon, hoveredAnalogId]);
 
   // ── Window band overlay (DOM, positioned from timeScale coordinates) ─
   // We implement the read-only query window as an absolutely-positioned

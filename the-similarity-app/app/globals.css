@@ -922,6 +922,65 @@ input, select, textarea { font: inherit; color: inherit; }
   50%      { box-shadow: 0 0 0 3px var(--accent-soft); }
 }
 
+/* Share button — secondary action next to primary Search.
+   Same geometry as .ws-search-btn so they align in the row but visually
+   de-emphasized: light background, border-only instead of solid fill,
+   and ink-2 color. Hover nudges toward ink. The glyph + label keeps the
+   share affordance discoverable. */
+.ws-share-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+  background: var(--bg);
+  border: 1px solid var(--rule-strong);
+  border-radius: 3px;
+  cursor: pointer;
+}
+.ws-share-btn:hover { background: var(--bg-hover); color: var(--ink); }
+.ws-share-btn:focus-visible {
+  outline: 2px solid var(--rule-focus);
+  outline-offset: 1px;
+}
+
+/* Share-toast — transient "Link copied" confirmation.
+   Floating bottom-center position so it doesn't reflow layout; narrow
+   and compact since it's pure confirmation. Auto-dismisses after 2s via
+   the React component's setTimeout. z-index 60 sits it above the chart
+   and drawer controls (z=50) but below full modals (z=100+). */
+.ws-share-toast {
+  position: fixed;
+  bottom: 48px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  background: var(--ink);
+  color: var(--bg);
+  border: 1px solid var(--ink);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.14);
+  font-family: var(--mono);
+  font-size: 11.5px;
+  letter-spacing: .04em;
+  z-index: 60;
+  /* Brief fade + rise animation so the appearance feels intentional. */
+  animation: ws-share-toast-in 180ms ease-out;
+}
+.ws-share-toast__icon { font-size: 13px; line-height: 1; }
+.ws-share-toast__text { line-height: 1.2; }
+@keyframes ws-share-toast-in {
+  from { opacity: 0; transform: translate(-50%, 4px); }
+  to   { opacity: 1; transform: translate(-50%, 0); }
+}
+
 /* Mobile: stack the row so the button stays tappable. */
 @media (max-width: 767px) {
   .ws-search-row {
@@ -1823,3 +1882,940 @@ input, select, textarea { font: inherit; color: inherit; }
 .cal-chart .data-line { fill: none; stroke: var(--accent); stroke-width: 1.5; }
 .cal-chart .data-dot { fill: var(--accent); }
 .cal-chart .axis-label { font-family: var(--mono); font-size: 9px; fill: var(--ink-3); letter-spacing: 0.06em; }
+
+/* ======================================================================
+   MULTI-ANALOG PALETTE & BADGES (Agent G)
+   ----------------------------------------------------------------------
+   Problem the palette solves:
+     Prior to this block, every analog overlay rendered in the same
+     `--c-analog` tone with near-identical opacity. With Top-K=3..6 the
+     lines visually collapsed into a single smear — users asked
+     "is it only showing top 1?". This section introduces six
+     rank-indexed color tokens (#1 = oxblood accent, then amber, green,
+     navy, plum, sienna) so each analog becomes individually
+     recognizable AND stays recognizable when the user cross-references
+     the chart with the analog card strip (same color on the card's
+     left border + in the legend dots).
+   ----------------------------------------------------------------------
+   Interaction hierarchy (unchanged from PR #228 for pin states):
+     pin > hover > default
+   i.e. these palette tokens are the DEFAULT look when no pin is set
+   on any analog. When a pin is active the SVG chart uses
+   `.analog.strong` (accent oxblood) and `.analog.context` (muted ink)
+   classes defined above — palette deliberately does NOT apply.
+   ---------------------------------------------------------------------- */
+:root {
+  --c-analog-1: #5a2b2b;   /* oxblood (reuse of --accent for rank 1)   */
+  --c-analog-2: #8a6200;   /* muted amber                              */
+  --c-analog-3: #1c5b3d;   /* muted green (shared with positive)       */
+  --c-analog-4: #3a4a6b;   /* muted navy                               */
+  --c-analog-5: #6b3a5a;   /* muted plum                               */
+  --c-analog-6: #8a5a3a;   /* muted sienna                             */
+}
+[data-theme="dark"] {
+  --c-analog-1: #c88a8a;
+  --c-analog-2: #c9a14f;
+  --c-analog-3: #6fb88e;
+  --c-analog-4: #8a9ac7;
+  --c-analog-5: #b88ab0;
+  --c-analog-6: #c79a7a;
+}
+
+/* ── Analog-card rank left-border (matches chart overlay color) ──────
+   The `.analog-card` base styles earlier in this file set a 1px border
+   all-around; the rank-indexed rules here replace the LEFT edge with a
+   3px solid band in the matching palette color. When pinning engages,
+   the existing `[data-pinned="true"]::before` pseudo-element (line
+   ~1142) paints an accent-colored strip at `left: -1px` which visually
+   covers the rank border — so pinned cards still read as "pinned",
+   unpinned cards still read as "rank N". This is intentional; pin
+   beats rank in the visual hierarchy, same as in the chart. */
+.analog-card[data-rank="0"] { border-left: 3px solid var(--c-analog-1); }
+.analog-card[data-rank="1"] { border-left: 3px solid var(--c-analog-2); }
+.analog-card[data-rank="2"] { border-left: 3px solid var(--c-analog-3); }
+.analog-card[data-rank="3"] { border-left: 3px solid var(--c-analog-4); }
+.analog-card[data-rank="4"] { border-left: 3px solid var(--c-analog-5); }
+.analog-card[data-rank="5"] { border-left: 3px solid var(--c-analog-6); }
+
+/* ── Rank badge at the analog's forward terminal (Fast SVG only) ─────
+   A 14px circle drawn at (xOf(terminalIdx), yOf(terminalPrice)) with
+   the rank's palette fill and a small white numeral. Rendered only
+   when no pins are active — pin mode already visually emphasizes the
+   pinned set via `.analog.strong`, so the badge would be redundant
+   noise. The Pro view currently skips the badge (see PR body "Pro-view
+   gap"). */
+.svg-chart .analog-badge-circle {
+  stroke: var(--bg-card);
+  stroke-width: 1.2;
+  /* Slight shadow for legibility when the badge overlaps grid lines. */
+  filter: drop-shadow(0 0 1.5px rgba(0, 0, 0, 0.25));
+}
+.svg-chart .analog-badge-text {
+  font-family: var(--mono);
+  font-size: 9px;
+  font-weight: 600;
+  fill: #ffffff;
+  text-anchor: middle;
+  dominant-baseline: central;
+  letter-spacing: 0;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* ── Legend dots — per-rank colored dots inline with "Analogs (N)" ─── */
+.legend-dot.analog-rank {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-right: 2px;
+}
+.legend-dot.analog-rank i {
+  /* Override the generic .legend-dot i horizontal bar — here we want a
+     filled circle so users read it as "one analog = one dot". */
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--c-analog-1);
+  display: inline-block;
+  border: 0;
+}
+.legend-dot.analog-rank[data-rank="0"] i { background: var(--c-analog-1); }
+.legend-dot.analog-rank[data-rank="1"] i { background: var(--c-analog-2); }
+.legend-dot.analog-rank[data-rank="2"] i { background: var(--c-analog-3); }
+.legend-dot.analog-rank[data-rank="3"] i { background: var(--c-analog-4); }
+.legend-dot.analog-rank[data-rank="4"] i { background: var(--c-analog-5); }
+.legend-dot.analog-rank[data-rank="5"] i { background: var(--c-analog-6); }
+.legend-dot.analog-rank span {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--ink-3);
+  letter-spacing: 0.04em;
+}
+/* Pinned legend dots gain a subtle ring so the legend mirrors the
+   card-strip pin state. The ring uses the accent color so "pinned"
+   reads the same no matter which rank-color the dot itself carries. */
+.legend-dot.analog-rank[data-pinned="true"] i {
+  box-shadow: 0 0 0 1.5px var(--accent);
+}
+.legend-dot.analog-rank button {
+  /* The legend dot is clickable (toggle pin). Strip default button
+     styling so it looks like the surrounding inline text. */
+  background: transparent;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.legend-dot.analog-rank button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* ====================================================================
+   CALIBRATION PANEL — polish (added by calibration-panel audit 2026-04-20)
+   ====================================================================
+   Classes introduced by the audit fixes. Placed here rather than higher
+   up so the shared `.trust` / `.trust-panel` rules still win specificity
+   battles via cascade order, and so the panel-specific styling is kept
+   together for future editors. */
+
+/* Small info glyph next to metric labels. Inherits the label's muted
+   color by default, shifts to ink on hover so the hover affordance is
+   discoverable. cursor:help nudges browsers into showing the native
+   tooltip promptly instead of the longer link-style delay. */
+.trust__info {
+  display: inline-block;
+  margin-left: 4px;
+  font-size: 10px;
+  color: var(--ink-3);
+  cursor: help;
+  vertical-align: baseline;
+  user-select: none;
+}
+.trust__info:hover { color: var(--ink-2); }
+
+/* Empty-state variant of the trust panel. Uses a single centered card
+   instead of the 3-column grid so the "needs more runs" message is the
+   entire focus. */
+.trust-panel--empty {
+  display: block;
+  text-align: center;
+}
+.trust-panel__empty-card {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: var(--s-4);
+  border: 1px dashed var(--rule-strong);
+  border-radius: 4px;
+  background: var(--bg-alt, var(--bg));
+}
+.trust-panel__empty-card h3 {
+  margin: 0 0 var(--s-3);
+}
+.trust-panel__empty-card p {
+  margin: 0 0 var(--s-4);
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--ink-2);
+}
+.trust-panel__cta {
+  display: inline-block;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--accent);
+  text-decoration: none;
+  border-bottom: 1px solid currentColor;
+  padding-bottom: 1px;
+}
+.trust-panel__cta:hover { color: var(--ink); }
+
+/* Stacks Grade-explanation + Honesty-note inside the third grid column
+   so the panel stays 3-wide on desktop. */
+.trust-panel__narrative {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-5);
+}
+.trust-panel__grade-copy {
+  margin: 0 0 var(--s-3);
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--ink-2);
+}
+.trust-panel__grade-list {
+  margin: 0 0 var(--s-3);
+  padding: 0;
+  list-style: none;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--ink-2);
+  line-height: 1.7;
+}
+.trust-panel__grade-list b {
+  color: var(--ink);
+  font-weight: 500;
+  display: inline-block;
+  min-width: 38px;
+}
+.trust-panel__grade-current {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--ink-3);
+}
+
+/* ====================================================================
+   COMMAND PALETTE — section headers + empty state
+   (extends the .cmdk block above; kept in a separate block at the end
+    so parallel agents editing the original cmdk section have a clean
+    3-way merge point)
+   ==================================================================== */
+.cmdk__section {
+  padding: 10px 18px 4px;
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  color: var(--ink-3);
+  /* Subtle top separator when this isn't the first section. First-of-type
+     has no top border (nothing to separate from) — :not(:first-child)
+     targets the 2nd+ section headers regardless of parent wrapper div. */
+  border-top: 1px solid var(--rule);
+}
+.cmdk__list > div:first-child > .cmdk__section {
+  /* The very first header has no list content above it, so suppress the
+     divider to keep the top edge of the panel clean. */
+  border-top: 0;
+}
+.cmdk__empty {
+  padding: 16px 18px;
+  text-align: center;
+  color: var(--ink-3);
+}
+
+/* ====================================================================
+   SHORTCUTS HELP MODAL — ? key
+   ==================================================================== */
+.shortcuts-help__overlay {
+  /* Backdrop: same translucent ink as the command palette so they feel
+     like siblings, not unrelated overlays. */
+  position: fixed; inset: 0; background: rgba(20,19,15,.35);
+  display: grid; place-items: flex-start center;
+  padding-top: 96px;
+  z-index: 100;
+}
+.shortcuts-help__card {
+  width: 480px; max-width: 92vw;
+  background: var(--bg-elevated);
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius-md);
+  box-shadow: 0 20px 60px rgba(0,0,0,.25);
+  overflow: hidden;
+  /* max-height keeps the card compact on short viewports; body scrolls
+     internally so the close button stays reachable. */
+  max-height: calc(100vh - 140px);
+  display: flex; flex-direction: column;
+}
+.shortcuts-help__header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--rule);
+}
+.shortcuts-help__title {
+  font-size: 16px;
+  color: var(--ink);
+  margin: 0;
+}
+.shortcuts-help__close {
+  /* Minimal icon button — follows the idiom of .nav__iconbtn but without
+     importing those styles directly to keep this block self-contained. */
+  width: 24px; height: 24px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: transparent;
+  color: var(--ink-3);
+  border: 1px solid transparent;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: color 0.12s, border-color 0.12s, background 0.12s;
+}
+.shortcuts-help__close:hover {
+  color: var(--ink);
+  background: var(--bg-hover);
+  border-color: var(--rule);
+}
+.shortcuts-help__body {
+  padding: 8px 18px 12px;
+  overflow: auto;
+}
+.shortcuts-help__section { margin: 14px 0 10px; }
+.shortcuts-help__section:first-child { margin-top: 8px; }
+.shortcuts-help__section-title {
+  /* Section header — small-caps serif via the shared .label class
+     (mono, uppercase, tracked); we bump the size just slightly so it
+     reads as a header and not as an inline label. */
+  font-size: 10px;
+  margin-bottom: 6px;
+  color: var(--ink-3);
+}
+.shortcuts-help__rows {
+  margin: 0; padding: 0;
+  /* Two-column grid: keys on the left (auto-width, max ~160px),
+     description fills the rest. Gap between rows is consistent. */
+  display: grid;
+  grid-template-columns: minmax(110px, max-content) 1fr;
+  row-gap: 6px;
+  column-gap: 14px;
+  align-items: baseline;
+}
+.shortcuts-help__row {
+  /* Each dt/dd pair is wrapped in a contents display so the grid layout
+     applies to dt and dd directly (dl semantics preserved). */
+  display: contents;
+}
+.shortcuts-help__keys {
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+  /* dt defaults to font-weight: bold in some UA sheets; reset so the
+     kbd chips drive the visual weight. */
+  font-weight: 400;
+}
+.shortcuts-help__plus {
+  /* Whitespace-only separator between chord chips. Kept as a CSS rule
+     (not a hardcoded nbsp) so future styling (e.g. a faint "+" glyph)
+     can be added without touching JSX. */
+  width: 2px;
+}
+.shortcuts-help__desc {
+  margin: 0;
+  font-size: 13px;
+  color: var(--ink-2);
+  font-family: var(--serif);
+}
+.shortcuts-help__footer {
+  padding: 10px 18px;
+  border-top: 1px solid var(--rule);
+  color: var(--ink-3);
+  font-size: 10px;
+  text-align: right;
+}
+
+/* ── Analog detail drawer ───────────────────────────────────────────
+ * Right-side slide-in inspector. Mounts once (even when closed) so the
+ * translateX transition plays both directions. On desktop the drawer is
+ * 420px wide and docked flush-right; on narrow screens (<768px) it
+ * takes the full viewport width so the content stays readable.
+ *
+ * Z-index sits above the chart and workstation backdrop but below any
+ * future modal (e.g. the help overlay, which sits at 200).
+ * ────────────────────────────────────────────────────────────────── */
+.adrawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  height: 100vh;
+  width: 420px;
+  max-width: 100vw;
+  background: var(--bg-card);
+  border-left: 1px solid var(--rule-strong);
+  /* Soft shadow so the drawer reads as elevated above the chart. */
+  box-shadow: -18px 0 40px -20px rgba(0, 0, 0, 0.28);
+  display: flex;
+  flex-direction: column;
+  z-index: 120;
+  /* Translated fully off-screen when closed. 101% instead of 100% so
+     the border-left doesn't peek on fractional-pixel devices. */
+  transform: translateX(101%);
+  transition: transform 220ms ease;
+  overflow: hidden;
+}
+.adrawer[data-open="true"] { transform: translateX(0); }
+@media (max-width: 767px) {
+  .adrawer { width: 100vw; }
+}
+
+/* Header */
+.adrawer__head {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto auto;
+  gap: 10px;
+  align-items: center;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--rule);
+  background: var(--bg-elevated);
+}
+.adrawer__rank-badge {
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 500;
+  padding: 4px 8px;
+  border-radius: 3px;
+  color: white;
+  background: var(--c-analog-strong);
+  letter-spacing: 0.04em;
+  min-width: 32px;
+  text-align: center;
+}
+.adrawer__rank-badge[data-rank="0"] { background: var(--c-analog-1); }
+.adrawer__rank-badge[data-rank="1"] { background: var(--c-analog-2); }
+.adrawer__rank-badge[data-rank="2"] { background: var(--c-analog-3); }
+.adrawer__rank-badge[data-rank="3"] { background: var(--c-analog-4); }
+.adrawer__rank-badge[data-rank="4"] { background: var(--c-analog-5); }
+.adrawer__rank-badge[data-rank="5"] { background: var(--c-analog-6); }
+.adrawer__head-meta { min-width: 0; }
+.adrawer__date-range {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-2);
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.adrawer__label {
+  font-family: var(--serif);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink);
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.adrawer__composite {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1;
+}
+.adrawer__composite-v {
+  font-family: var(--serif);
+  font-size: 22px;
+  font-weight: 500;
+  color: var(--ink);
+}
+.adrawer__composite-k {
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  margin-top: 3px;
+}
+.adrawer__pin-toggle {
+  appearance: none;
+  background: transparent;
+  border: 1px solid var(--rule-strong);
+  border-radius: 3px;
+  color: var(--ink-2);
+  padding: 5px 10px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.adrawer__pin-toggle:hover:not(:disabled) {
+  background: var(--bg-hover);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.adrawer__pin-toggle[aria-pressed="true"] {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.adrawer__pin-toggle:disabled { opacity: 0.4; cursor: not-allowed; }
+.adrawer__close {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  color: var(--ink-3);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+.adrawer__close:hover { background: var(--bg-hover); color: var(--ink); }
+
+/* Context strip */
+.adrawer__context {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: var(--bg-hover);
+  border-bottom: 1px solid var(--rule);
+  font-size: 12px;
+  color: var(--ink-2);
+}
+.adrawer__context-icon { font-size: 13px; }
+.adrawer__context-text { font-family: var(--serif); font-style: italic; }
+
+/* Section wrapper */
+.adrawer__section {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--rule);
+  overflow-y: auto;
+}
+.adrawer__section:last-of-type { border-bottom: 0; }
+.adrawer__h {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin: 0 0 10px;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.adrawer__h-sub {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: none;
+  color: var(--ink-4);
+}
+
+/* Lens breakdown list */
+.adrawer__lens-list { display: flex; flex-direction: column; gap: 6px; }
+.adrawer__lens-row {
+  display: grid;
+  grid-template-columns: 96px 1fr 38px;
+  gap: 10px;
+  align-items: center;
+}
+.adrawer__lens-name {
+  font-size: 11.5px;
+  color: var(--ink-2);
+}
+.adrawer__lens-bar {
+  position: relative;
+  height: 8px;
+  background: var(--bg-hover);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.adrawer__lens-bar-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  background: var(--ink-4);
+  transition: width 0.25s ease;
+}
+.adrawer__lens-row[data-top="true"] .adrawer__lens-bar-fill {
+  background: var(--c-analog-strong);
+}
+.adrawer__lens-row[data-top="true"][data-rank="0"] .adrawer__lens-bar-fill { background: var(--c-analog-1); }
+.adrawer__lens-row[data-top="true"][data-rank="1"] .adrawer__lens-bar-fill { background: var(--c-analog-2); }
+.adrawer__lens-row[data-top="true"][data-rank="2"] .adrawer__lens-bar-fill { background: var(--c-analog-3); }
+.adrawer__lens-row[data-top="true"][data-rank="3"] .adrawer__lens-bar-fill { background: var(--c-analog-4); }
+.adrawer__lens-row[data-top="true"][data-rank="4"] .adrawer__lens-bar-fill { background: var(--c-analog-5); }
+.adrawer__lens-row[data-top="true"][data-rank="5"] .adrawer__lens-bar-fill { background: var(--c-analog-6); }
+.adrawer__lens-score {
+  font-size: 10.5px;
+  color: var(--ink-2);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Sparkline (expanded) */
+.adrawer__spark-wrap {
+  border: 1px solid var(--rule);
+  background: var(--bg);
+  border-radius: 3px;
+  padding: 6px 4px;
+}
+.adrawer__spark-wrap svg { width: 100%; height: auto; }
+.adrawer__spark-meta {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 6px;
+  font-size: 10.5px;
+  color: var(--ink-3);
+}
+.adrawer__spark-ret.pos { color: var(--positive); }
+.adrawer__spark-ret.neg { color: var(--negative); }
+
+/* Action row */
+.adrawer__actions {
+  display: flex;
+  gap: 8px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--rule);
+  background: var(--bg-elevated);
+  margin-top: auto;
+  flex-wrap: wrap;
+}
+.adrawer__action {
+  appearance: none;
+  border: 1px solid var(--rule-strong);
+  background: transparent;
+  color: var(--ink-2);
+  font-size: 11.5px;
+  padding: 7px 12px;
+  border-radius: 3px;
+  cursor: pointer;
+  flex: 1 1 auto;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  white-space: nowrap;
+}
+.adrawer__action:hover:not(:disabled) {
+  background: var(--bg-hover);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.adrawer__action:disabled { opacity: 0.4; cursor: not-allowed; }
+.adrawer__action--primary {
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 500;
+}
+.adrawer__action--primary:hover:not(:disabled) {
+  background: var(--accent);
+  color: var(--bg-card);
+}
+.adrawer__action--ghost { flex: 0 0 auto; }
+
+/* ── Pin icon inside the analog card head ──────────────────────────
+ * Replaces the whole-card click-toggles-pin behavior: the card body
+ * opens the drawer, this tiny icon is the only surface that pins.
+ * Muted by default, accent-colored when pinned. e.stopPropagation in
+ * the JSX handler is what keeps the two affordances independent.
+ * ────────────────────────────────────────────────────────────────── */
+.analog-card__head-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.analog-card__pin-btn {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  padding: 2px;
+  border-radius: 2px;
+  cursor: pointer;
+  color: var(--ink-4);
+  display: inline-flex;
+  align-items: center;
+  transition: color 0.15s, background 0.15s, transform 0.15s;
+}
+.analog-card__pin-btn:hover { color: var(--ink); background: var(--bg-hover); }
+.analog-card__pin-btn[data-pinned="true"] { color: var(--accent); }
+.analog-card__pin-btn[data-pinned="true"]:hover { color: var(--accent); }
+.analog-card__pin-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* Give the card itself a visible focus ring when tabbed to —
+   important because we now expose it as role=button. */
+.analog-card:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ── "Use as query" transient banner ───────────────────────────────
+ * Toast shown after the user clicks "Find similar analogs" in the
+ * drawer. Floats above the chart at top-center of the main column so
+ * it doesn't reflow the layout. Auto-dismisses after 8s; manual
+ * dismiss via the × button. Slide+fade-in for a gentle reveal.
+ * ────────────────────────────────────────────────────────────────── */
+.ws-use-as-query-banner {
+  position: fixed;
+  top: 64px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  box-shadow: 0 6px 22px -10px rgba(0, 0, 0, 0.35);
+  z-index: 110;
+  font-size: 12.5px;
+  color: var(--ink);
+  max-width: 90vw;
+  animation: wsUseAsQueryIn 220ms ease;
+}
+@keyframes wsUseAsQueryIn {
+  from { opacity: 0; transform: translate(-50%, -6px); }
+  to   { opacity: 1; transform: translate(-50%, 0); }
+}
+.ws-use-as-query-banner__icon { font-size: 14px; }
+.ws-use-as-query-banner__text strong {
+  font-family: var(--mono);
+  font-weight: 500;
+  font-size: 11.5px;
+  color: var(--accent);
+}
+.ws-use-as-query-banner__dismiss {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  color: var(--ink-3);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 4px;
+  border-radius: 2px;
+}
+.ws-use-as-query-banner__dismiss:hover { color: var(--ink); background: var(--bg-hover); }
+
+/* ──────────────────────────────────────────────────────────────────
+   Dataset dropdown (workstation left sidebar)
+
+   Lives in the `Dataset` side__section. The native <select> / simple
+   chip-row used previously is replaced by a trigger button + a
+   popover-style panel with searchable, grouped, metadata-rich cards.
+
+   Visual hierarchy (per-item):
+     ┌ SYMBOL · TIMEFRAME         ← bold title (14px, --ink-1)
+     │ Source · 7,500 bars        ← sub-line 1 (11px, --ink-2)
+     │ 2020-01-01 → 2026-04-20    ← sub-line 2 (11px, --ink-2)
+     │ Updated: Apr 22, 2026      ← sub-line 3 (10.5px, --ink-3)
+     └─────────────────────────────
+
+   Keep this block self-contained — every selector is prefixed with
+   `dataset-` so it can't collide with other components.
+   ────────────────────────────────────────────────────────────────── */
+
+/* Freshness line under the "DATASET" label. Lives on its own row; the
+   colour flips to --warn when the data is more than 7 days old so the
+   user can notice the problem without opening the dropdown. */
+.dataset-freshness {
+  font-family: var(--mono, ui-monospace, SFMono-Regular, monospace);
+  font-size: 10.5px;
+  color: var(--ink-3);
+  margin: 2px 0 6px;
+  letter-spacing: 0.02em;
+}
+.dataset-freshness[data-warn="true"] {
+  color: var(--warn, #c08400);
+}
+
+/* The always-visible trigger button that opens the dropdown. Uses the
+   same chip aesthetic as the rest of the left sidebar but is taller
+   (two text rows) so we can pack the selected summary. */
+.dataset-trigger {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  background: var(--surface-1, #fff);
+  border: 1px solid var(--rule, #d9d6ce);
+  border-radius: 4px;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  transition: border-color 120ms ease, background-color 120ms ease;
+}
+.dataset-trigger:hover,
+.dataset-trigger:focus-visible {
+  border-color: var(--ink-3);
+  background: var(--surface-2, #faf8f4);
+  outline: none;
+}
+.dataset-trigger__main {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+  gap: 1px;
+}
+.dataset-trigger__symbol {
+  font-family: var(--mono, ui-monospace, SFMono-Regular, monospace);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-1, #1b1b1b);
+  letter-spacing: 0.02em;
+}
+.dataset-trigger__meta {
+  font-family: var(--mono, ui-monospace, SFMono-Regular, monospace);
+  font-size: 10px;
+  color: var(--ink-3, #8a867d);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+.dataset-trigger__caret {
+  font-size: 9px;
+  color: var(--ink-3, #8a867d);
+  flex: 0 0 auto;
+}
+
+/* Popover panel that opens when the trigger is clicked. We use a
+   simple in-flow block (not position:absolute) so it doesn't overflow
+   the scroll container of the sidebar — users at 768-1023px see it
+   inside the drawer naturally. */
+.dataset-panel {
+  margin-top: 4px;
+  border: 1px solid var(--rule, #d9d6ce);
+  border-radius: 4px;
+  background: var(--surface-1, #fff);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  /* Bound total height so long catalogs scroll inside the panel
+     rather than pushing the rest of the sidebar off-screen. */
+  max-height: 360px;
+}
+.dataset-panel__search {
+  flex: 0 0 auto;
+  border: 0;
+  border-bottom: 1px solid var(--rule, #d9d6ce);
+  padding: 8px 10px;
+  font: inherit;
+  font-family: var(--mono, ui-monospace, SFMono-Regular, monospace);
+  font-size: 12px;
+  background: var(--surface-2, #faf8f4);
+  color: var(--ink-1, #1b1b1b);
+  outline: none;
+}
+.dataset-panel__search::placeholder {
+  color: var(--ink-3, #8a867d);
+}
+.dataset-panel__search:focus-visible {
+  background: var(--surface-1, #fff);
+}
+.dataset-panel__list {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 4px 0;
+}
+.dataset-panel__empty {
+  padding: 14px 12px;
+  font-size: 11px;
+  color: var(--ink-3, #8a867d);
+  text-align: center;
+}
+.dataset-panel__group {
+  padding: 4px 0;
+}
+.dataset-panel__group-header {
+  padding: 4px 10px 2px;
+  font-family: var(--mono, ui-monospace, SFMono-Regular, monospace);
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--ink-3, #8a867d);
+}
+
+/* Individual item card. Rendered as a <button> so keyboard navigation
+   gets it for free. The hover / selected states use background tints
+   rather than border-colour so the visual rhythm of the stacked cards
+   stays intact. */
+.dataset-card {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  padding: 6px 10px;
+  background: transparent;
+  border: 0;
+  border-left: 2px solid transparent;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  transition: background-color 100ms ease, border-color 100ms ease;
+}
+.dataset-card:hover,
+.dataset-card:focus-visible {
+  background: var(--surface-2, #faf8f4);
+  outline: none;
+}
+.dataset-card[data-selected="true"] {
+  background: var(--surface-2, #faf8f4);
+  border-left-color: var(--ink-1, #1b1b1b);
+}
+.dataset-card__title-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.dataset-card__title {
+  font-family: var(--mono, ui-monospace, SFMono-Regular, monospace);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-1, #1b1b1b);
+  letter-spacing: 0.02em;
+  flex: 1 1 auto;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dataset-card__stale-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--warn, #c08400);
+  flex: 0 0 auto;
+  opacity: 0.75;
+}
+.dataset-card__sub {
+  font-family: var(--mono, ui-monospace, SFMono-Regular, monospace);
+  font-size: 10.5px;
+  color: var(--ink-2, #5a5850);
+  line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dataset-card__sub--muted {
+  color: var(--ink-3, #8a867d);
+  font-size: 10px;
+}
