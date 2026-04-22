@@ -697,8 +697,12 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
    * Guardrail: when horizon or windowState changes, if the cone would
    * be clipped, extend viewRange.end just enough to fit it (+5 bar
    * pad). We NEVER contract the view — that would yank context out
-   * from under the user. We also clamp to the series length so we
-   * don't scroll past the end of data.
+   * from under the user. viewRange.end is INTENTIONALLY allowed to
+   * exceed the series length; indices past `N - 1` render as empty
+   * "future" space on the right of the chart, giving the forecast
+   * cone somewhere to go when the query anchor is at the end of
+   * history. The renderers (SVG + lightweight-charts) synthesize
+   * future bar timestamps for those positions.
    *
    * This runs in an effect rather than inline in setViewRange because
    * horizon changes come from onSettings (owned by app/page.tsx) and
@@ -706,7 +710,7 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
    */
   useEffect(() => {
     const queryEnd = windowState.start + windowState.len - 1;
-    const minRequiredEnd = Math.min(N - 1, queryEnd + currentHorizon + 5);
+    const minRequiredEnd = queryEnd + currentHorizon + 5;
     if (viewRange.end < minRequiredEnd) {
       setViewRange(v => ({ ...v, end: minRequiredEnd }));
     }
@@ -1400,7 +1404,7 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
                     forecastHorizon: settings.horizon || 60,
                     onHover: setCrosshairIdx,
                     crosshairIdx,
-                    height: 380,
+                    height: 300,
                     showCone: settings.showCone !== false,
                   };
                   return (settings.chartMode ?? "fast") === "pro"

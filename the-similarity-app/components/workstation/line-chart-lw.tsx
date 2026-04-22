@@ -368,7 +368,7 @@ export function LineChartLW({
   window: win,
   analogsOverlay,
   cone,
-  height = 380,
+  height = 300,
   forecastHorizon = 60,
   showWindow = true,
   showCone = true,
@@ -573,6 +573,12 @@ export function LineChartLW({
   }, []);
 
   // ── Push price data ──────────────────────────────────────────────────
+  //
+  // The visible range's right edge is allowed to extend PAST the last real
+  // bar by synthesizing a future timestamp (cadence from the final two
+  // bars, fallback 1 day). This matches the Fast view's rule that
+  // `viewEnd` can exceed `series.length`, giving the forecast cone
+  // somewhere to render when the query anchor is at the end of history.
   useEffect(() => {
     const s = priceSeriesRef.current;
     const chart = chartRef.current;
@@ -580,17 +586,22 @@ export function LineChartLW({
     const data = series.map(toLineData);
     s.setData(data);
 
-    // Clamp the visible time range to [viewStart, viewEnd] to match the SVG
-    // Fast view's range selection. fitContent is avoided because it would
-    // override the user's selected range chips.
+    const N = series.length;
     const vs = series[Math.max(0, viewStart)];
-    const ve = series[Math.min(series.length - 1, viewEnd - 1)];
-    if (vs && ve) {
-      chart.timeScale().setVisibleRange({
-        from: Math.floor(vs.d.getTime() / 1000) as Time,
-        to: Math.floor(ve.d.getTime() / 1000) as Time,
-      });
-    }
+    if (!vs) return;
+    const cadenceSec = N >= 2
+      ? Math.max(1, Math.floor((series[N - 1].d.getTime() - series[N - 2].d.getTime()) / 1000))
+      : 86400;
+    // Right edge: if viewEnd is still inside the series, use the real bar;
+    // otherwise fabricate a timestamp past the last bar by the cadence.
+    const rightIdx = Math.max(0, viewEnd - 1);
+    const rightTimeSec = rightIdx < N
+      ? Math.floor(series[rightIdx].d.getTime() / 1000)
+      : Math.floor(series[N - 1].d.getTime() / 1000) + (rightIdx - (N - 1)) * cadenceSec;
+    chart.timeScale().setVisibleRange({
+      from: Math.floor(vs.d.getTime() / 1000) as Time,
+      to: rightTimeSec as Time,
+    });
   }, [series, viewStart, viewEnd]);
 
   // ── Push cone data ───────────────────────────────────────────────────

@@ -60,7 +60,7 @@ export function LineChart({
   onWindowChange,
   analogsOverlay,
   cone,
-  height = 380,
+  height = 300,
   forecastHorizon = 60,
   crosshairIdx,
   onHover,
@@ -91,13 +91,20 @@ export function LineChart({
   const plotH = height - padT - padB;
 
   // ── Drag interaction (effect must be above early return) ───────────
+  //
+  // Window clamps use the series length (`series.length - 1`) as the right
+  // boundary, NOT `viewEnd`. viewEnd is allowed to run past real data so the
+  // forecast cone can extend into "future" space on the right of the chart;
+  // the query window itself must stay anchored in real history.
   useEffect(() => {
+    const N = series.length;
+    const maxAnchor = Math.max(0, N - 1);
     const mm = (e: MouseEvent) => {
       if (!dragRef.current) return;
       const dx = e.clientX - dragRef.current.startX;
       const dIdx = Math.round((dx / plotW) * (viewEnd - viewStart));
       if (dragRef.current.mode === "move") {
-        const ns = Math.max(viewStart + 1, Math.min(viewEnd - win.len - forecastHorizon - 5,
+        const ns = Math.max(viewStart + 1, Math.min(maxAnchor - win.len + 1,
           dragRef.current.origStart + dIdx));
         onWindowChange({ start: ns, len: win.len });
       } else if (dragRef.current.mode === "left") {
@@ -106,7 +113,7 @@ export function LineChart({
         onWindowChange({ start: ns, len: ne - ns });
       } else if (dragRef.current.mode === "right") {
         const ns = dragRef.current.origStart;
-        const newLen = Math.max(20, Math.min(viewEnd - ns - forecastHorizon - 5,
+        const newLen = Math.max(20, Math.min(maxAnchor - ns + 1,
           dragRef.current.origLen + dIdx));
         onWindowChange({ start: ns, len: newLen });
       }
@@ -118,7 +125,7 @@ export function LineChart({
       globalThis.removeEventListener("mousemove", mm);
       globalThis.removeEventListener("mouseup", mu);
     };
-  }, [win, viewStart, viewEnd, plotW, forecastHorizon, onWindowChange]);
+  }, [win, viewStart, viewEnd, plotW, forecastHorizon, onWindowChange, series.length]);
 
   // ── Early return for empty visible slice ───────────────────────────
   const vis = series.slice(viewStart, viewEnd);
@@ -161,13 +168,32 @@ export function LineChart({
     `${i === 0 ? "M" : "L"} ${xOf(viewStart + i).toFixed(1)} ${yOf(d.p).toFixed(1)}`
   ).join(" ");
 
-  // X-axis ticks (6 evenly spaced)
+  // X-axis ticks (6 evenly spaced). When `viewEnd` extends past the last
+  // real bar (to make room for the forecast cone), indices ≥ N have no
+  // corresponding entry in `series` — we synthesize a date by extrapolating
+  // the cadence of the final two real bars. This lets the axis label the
+  // future region (e.g. "Jun 2027") instead of crashing on `series[idx].d`.
+  const N = series.length;
+  const cadenceMs = N >= 2
+    ? series[N - 1].d.getTime() - series[N - 2].d.getTime()
+    : 86400_000;
+  const dateAtIdx = (idx: number): Date => {
+    if (idx >= 0 && idx < N) return series[idx].d;
+    if (idx >= N && N > 0) return new Date(series[N - 1].d.getTime() + (idx - (N - 1)) * cadenceMs);
+    // Negative indices shouldn't reach this code path (viewStart ≥ 0 in
+    // practice); fall back to epoch to fail visibly rather than crash.
+    return new Date(0);
+  };
   const ticks = 6;
   const xTicks: { x: number; label: string }[] = [];
   for (let i = 0; i < ticks; i++) {
     const idx = Math.floor(viewStart + (i / (ticks - 1)) * (viewEnd - viewStart - 1));
-    xTicks.push({ x: xOf(idx), label: fmtDateShort(series[idx].d) });
+    xTicks.push({ x: xOf(idx), label: fmtDateShort(dateAtIdx(idx)) });
   }
+  // "Today" marker — a faint vertical rule at the boundary between real
+  // history and synthesized future space. Only rendered when the chart
+  // actually extends past the data end.
+  const dataEndX = N > 0 && viewEnd > N ? xOf(N - 1) : null;
 
   // Y-axis ticks (5 evenly spaced)
   const yTicks: { y: number; label: string }[] = [];
@@ -289,6 +315,19 @@ export function LineChart({
 
         {/* Main price line */}
         <path className="price" d={pricePath} />
+
+        {/* "Today" divider — shown when viewEnd extends past the last real bar
+            so the forecast cone can run into synthesized future space. Sits
+            between the price line and the window overlay so it reads as a
+            soft axis marker, not a chart feature. */}
+        {dataEndX != null && (
+          <g>
+            <line className="data-end" x1={dataEndX} x2={dataEndX} y1={padT} y2={padT + plotH} />
+            <text className="data-end-label" x={dataEndX + 4} y={padT + plotH - 4}>
+              today
+            </text>
+          </g>
+        )}
 
         {/* Draggable query window */}
         {showWindow && (

@@ -1064,6 +1064,8 @@ input, select, textarea { font: inherit; color: inherit; }
 .svg-chart .cone-fill { fill: var(--c-cone-fill); }
 .svg-chart .cone-line { fill: none; stroke: var(--c-cone-line); stroke-width: 1; stroke-dasharray: 3 3; }
 .svg-chart .median { fill: none; stroke: var(--c-cone-line); stroke-width: 1.5; }
+.svg-chart .data-end { stroke: var(--ink-4); stroke-width: 1; stroke-dasharray: 2 3; opacity: .5; }
+.svg-chart .data-end-label { font-family: var(--mono); font-size: 9px; fill: var(--ink-3); letter-spacing: .05em; text-transform: uppercase; }
 .svg-chart .window-rect { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 1; cursor: grab; }
 .svg-chart .window-rect:active { cursor: grabbing; }
 .svg-chart .window-handle { fill: var(--accent); cursor: ew-resize; }
