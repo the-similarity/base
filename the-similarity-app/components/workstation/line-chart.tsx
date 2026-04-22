@@ -823,6 +823,15 @@ export function LineChart({
           // stroke-dasharray override on the match segment is inline
           // so it cleanly composes with the palette styles above
           // without needing a new CSS class.
+          // Match segment renders thinner than the forward segment so
+          // the "matched historical context" reads as quieter than the
+          // forward projection. 0.6x of whatever stroke-width the
+          // palette/hover logic picked, floored at 0.5px so even a
+          // pinned-context analog (stroke-width 0.8) doesn't vanish.
+          const forwardWidth = (inline.strokeWidth as number | undefined) ?? undefined;
+          const matchWidth = forwardWidth != null
+            ? Math.max(0.5, forwardWidth * 0.6)
+            : undefined;
           return (
             <g key={a.rank} data-rank={a.rank}>
               {a.dMatch && (
@@ -831,7 +840,11 @@ export function LineChart({
                   data-segment="match"
                   data-rank={a.rank}
                   d={a.dMatch}
-                  style={{ ...inline, strokeDasharray: "3 3" }}
+                  style={{
+                    ...inline,
+                    strokeDasharray: "3 3",
+                    ...(matchWidth != null ? { strokeWidth: matchWidth } : {}),
+                  }}
                 />
               )}
               {a.dForward && (

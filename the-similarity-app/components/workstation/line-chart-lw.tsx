@@ -876,13 +876,18 @@ export function LineChartLW({
       }
 
       // Match segment — dashed, rendered only when we have enough
-      // points to draw a line. Shares color/width with the forward
-      // segment below so the eye reads them as one overlay that
-      // changes style at the query-window / future boundary.
+      // points to draw a line. Shares COLOR with the forward segment
+      // so the eye reads the whole overlay as one analog, but uses a
+      // THINNER stroke so the "matched historical context" reads as
+      // quieter than the actual forward projection. lightweight-charts
+      // accepts only integer lineWidths (1|2|3|4), so for a 2-wide
+      // forward we drop the match to 1; for a hovered 3-wide forward
+      // we drop to 2 (still visibly lighter without disappearing).
       if (match.length >= 2) {
+        const matchWidth: 1 | 2 = lineWidth === 1 ? 1 : (lineWidth === 3 ? 2 : 1);
         const s = chart.addSeries(LineSeries, {
           color,
-          lineWidth,
+          lineWidth: matchWidth,
           lineStyle: LineStyle.Dashed,
           priceLineVisible: false,
           lastValueVisible: false,
