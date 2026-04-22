@@ -342,6 +342,39 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
     }
   }, [isOnline, loadedValues, loadedDates, loadedSeries, windowState.start, windowState.len, settings.kAnalogs, settings.horizon]);
 
+  /*
+   * One-shot initial search on mount.
+   *
+   * Previously the component auto-fired an API search 500ms after every
+   * window drag, which meant each drag = one network request and a
+   * thrashing cone. The new model is: run exactly ONCE when the component
+   * has enough data to search, then wait for user action (button click
+   * or keyboard shortcut) for all subsequent searches.
+   *
+   * Gate conditions:
+   *   - `isOnline !== null` → health check has resolved (so we know whether
+   *     to hit the API or use synthetic).
+   *   - `lastSearch === null` → we haven't run yet. This is the one-shot
+   *     guard; once the first search completes, this effect stops firing.
+   *   - When online: require loadedValues to be populated (series fetched).
+   *     Offline: synthetic SERIES is always available so no data-gate.
+   *
+   * We deliberately DO NOT depend on windowState here — otherwise any
+   * drag before the first successful search would re-trigger this loop.
+   */
+  useEffect(() => {
+    if (isOnline === null) return; // Still probing.
+    if (lastSearch !== null) return; // Already ran.
+    if (isOnline && loadedValues.length < 10) return; // Wait for series.
+    runSearch();
+    // We intentionally exclude `runSearch` from deps: runSearch identity
+    // changes every time windowState or settings change, which would
+    // cause this one-shot effect to repeatedly fire until lastSearch is
+    // set. The `lastSearch === null` guard above is the authoritative
+    // one-shot check.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOnline, loadedValues.length, lastSearch]);
+
   // ── Synthetic fallback analogs + cone ──────────────────────────────
   const syntheticResult = useMemo(() => {
     if (isOnline && apiAnalogs !== null) return null; // Using API data
