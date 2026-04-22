@@ -889,6 +889,48 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
 
       {/* ── MAIN ─────────────────────────────────────────────── */}
       <section className="main">
+        {/* ── Pin-filtered banner ─────────────────────────────
+            Renders only when the user has curated the analog set via
+            pinning. The banner makes the curated state unmistakable
+            (it's the difference between "top-K says +3%" and "my 2
+            analogs say +3%") and gives a one-click escape hatch back
+            to the top-K baseline. See CSS `.ws-pin-banner` for layout.
+
+            Guard: we only show once there's actually something to
+            filter. `effectiveAnalogs.length` is the authoritative count
+            shown to the user — not `pinned.size`, because a pin
+            referring to an analog the engine didn't return (stale
+            localStorage) doesn't affect the forecast and shouldn't be
+            counted in the banner number. */}
+        {pinned.size > 0 && effectiveAnalogs.length > 0 && (
+          <div
+            className="ws-pin-banner"
+            role="status"
+            aria-live="polite"
+          >
+            <span className="ws-pin-banner__icon" aria-hidden="true">&#x1F3AF;</span>
+            <span className="ws-pin-banner__text">
+              Forecast from <strong>{effectiveAnalogs.length}</strong>{" "}
+              pinned analog{effectiveAnalogs.length === 1 ? "" : "s"} (not top-K).
+              {/* Fallback note: pins exist but none matched the current
+                  analog set. effectiveAnalogs silently degrades to the
+                  full set in that case; we surface the reason here. */}
+              {pinned.size > 0 && analogs.filter(a => pinned.has(a.id)).length === 0 && (
+                <> {" "}<em style={{ color: "var(--ink-3)" }}>
+                  (saved pins didn&apos;t match current results — showing full set)
+                </em></>
+              )}
+            </span>
+            <button
+              type="button"
+              className="ws-pin-banner__clear"
+              onClick={() => setPinned(new Set())}
+              aria-label="Clear all pinned analogs"
+            >
+              Clear pins
+            </button>
+          </div>
+        )}
         <header className="main__head">
           <div className="main__title-wrap">
             <div className="label" style={{ marginBottom: 6 }}>Retrieve &middot; analog workstation</div>
