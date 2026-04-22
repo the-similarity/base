@@ -211,6 +211,21 @@ export async function getDashboardData(): Promise<DashboardData> {
   }
 }
 
+/**
+ * Fetch the dataset catalog from the backend.
+ *
+ * The response includes the rich metadata used by the workstation's
+ * dataset dropdown: source, date range, row count, last-updated
+ * timestamp, and human-readable frequency label. Every field except the
+ * identifier triple (assetClass / symbol / timeframe) is treated as
+ * optional on the wire — older backends that don't yet ship the
+ * metadata simply leave the corresponding TS fields `null` / `0` and
+ * the UI renders a minimal card.
+ *
+ * Returns an empty array when the API is not configured (the offline /
+ * demo-mode path uses a static synthetic entry instead of hitting this
+ * function).
+ */
 export async function fetchCatalog(): Promise<CatalogItem[]> {
   if (!apiBaseUrl) return [];
   const response = await fetch(`${normalizeBaseUrl(apiBaseUrl)}/catalog`, {
@@ -220,13 +235,21 @@ export async function fetchCatalog(): Promise<CatalogItem[]> {
   if (!response.ok) throw new Error(`Catalog request failed (${response.status})`);
   const json = await response.json();
   return (json.datasets ?? []).map((d: Record<string, unknown>) => ({
-    assetClass: d.asset_class,
-    symbol: d.symbol,
-    timeframe: d.timeframe,
-    source: d.source,
-    rowCount: d.row_count,
-    startTimestamp: d.start_timestamp ?? null,
-    endTimestamp: d.end_timestamp ?? null,
+    assetClass: d.asset_class as string,
+    symbol: d.symbol as string,
+    timeframe: d.timeframe as string,
+    // Source may legitimately be absent on legacy manifests; preserve
+    // "unknown" as a stable display string rather than letting `null`
+    // trickle into the UI and force every consumer to null-check it.
+    source: (d.source as string | undefined) ?? "unknown",
+    rowCount: (d.row_count as number | undefined) ?? 0,
+    startTimestamp: (d.start_timestamp as string | null | undefined) ?? null,
+    endTimestamp: (d.end_timestamp as string | null | undefined) ?? null,
+    lastUpdatedAt: (d.last_updated_at as string | null | undefined) ?? null,
+    // Frequency is derived server-side; fall back to the raw timeframe
+    // code if an older backend omits it so the dropdown still shows
+    // *something* readable.
+    frequency: (d.frequency as string | null | undefined) ?? (d.timeframe as string),
   }));
 }
 

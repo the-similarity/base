@@ -152,6 +152,23 @@ export type SearchResponse = {
   metrics: CalibrationMetrics | null;
 };
 
+/**
+ * A single dataset entry as returned by the backend `/catalog` endpoint.
+ *
+ * Metadata fields (`source`, `rowCount`, `startTimestamp`, `endTimestamp`,
+ * `lastUpdatedAt`, `frequency`) are surfaced to the workstation dataset
+ * dropdown so each item can render a rich card (source badge, date
+ * range, bar count, staleness indicator). They are all TREATED AS
+ * OPTIONAL by the UI: a freshly-ingested dataset whose manifest entry
+ * hasn't been rewritten yet may arrive without them, and the dropdown
+ * must degrade gracefully (render the core "SYMBOL · TIMEFRAME"
+ * identifier and omit the sub-lines) rather than erroring.
+ *
+ * `frequency` is a server-derived human-readable label (e.g. "1 hour"
+ * for timeframe "1h"). The frontend must NEVER re-parse `timeframe`
+ * locally — if the backend doesn't supply `frequency`, the raw short
+ * code is acceptable fallback.
+ */
 export type CatalogItem = {
   assetClass: string;
   symbol: string;
@@ -160,6 +177,8 @@ export type CatalogItem = {
   rowCount: number;
   startTimestamp: string | null;
   endTimestamp: string | null;
+  lastUpdatedAt: string | null;
+  frequency: string | null;
 };
 
 export type DatasetSeries = {
