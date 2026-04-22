@@ -44,11 +44,18 @@ beforeAll(() => {
 function makeSeries(n = 200): DataPoint[] {
   const out: DataPoint[] = [];
   const t0 = new Date(2026, 0, 1).getTime();
+  let prev = 100;
   for (let i = 0; i < n; i++) {
+    const p = 100 + Math.sin(i / 10) * 5 + i * 0.02;
+    const t = t0 + i * 86400000;
+    const r = i === 0 ? 0 : Math.log(p / prev);
     out.push({
-      d: new Date(t0 + i * 86400000),
-      p: 100 + Math.sin(i / 10) * 5 + i * 0.02,
+      t,
+      d: new Date(t),
+      p,
+      r,
     });
+    prev = p;
   }
   return out;
 }
