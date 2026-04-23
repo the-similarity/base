@@ -5,10 +5,9 @@ Purpose
 Expose the platform's run registry (the backbone of the Ops Layer — see
 ``the_similarity/platform/registry.py``) through the public
 customer-facing API at :mod:`app.main`. This router is a *thin wrapper*
-around :class:`~the_similarity.platform.registry.RunRegistry` plus a small
-set of companion tables (artifacts / scorecards / scenarios / datasets)
-that will migrate to the shared registry once the platform team's
-Agent-2 extension lands.
+around :class:`~the_similarity.platform.registry.RunRegistry` — every
+endpoint delegates to registry methods for CRUD, filtering, and
+pagination. No raw SQL is executed in this module.
 
 Endpoints (all prefixed ``/platform`` by mount in ``app/main.py``)
 ------------------------------------------------------------------
@@ -46,25 +45,24 @@ Design invariants
    and thread-safe across parallel workers. Tests override the dependency
    to point at a tmp-path DB.
 
-Compatibility with upcoming registry extensions
------------------------------------------------
-Agent 1 is shipping ``the_similarity/platform/contracts.py`` with
-dataclasses ``RunRecord``, ``ArtifactRecord``, ``ScorecardSummary``,
-``ScenarioSpec``, ``DatasetSpec``. Agent 2 is extending ``registry.py``
-with matching ``register_*``/``list_*``/``get_*`` methods. Until those
-land the router maintains companion SQLite tables — ``artifacts``,
-``scorecards``, ``scenarios``, ``datasets`` — inside the same DB file
-so the switchover is a one-line delegation change, not a data migration.
+Registry delegation
+-------------------
+All storage operations delegate to :class:`RunRegistry` methods
+(``register_run``, ``list_runs``, ``get_run``, ``register_artifact``,
+``list_artifacts``, ``get_artifact``, ``register_scorecard``,
+``get_scorecards``, ``register_scenario``, ``list_scenarios``,
+``get_scenario``, ``register_dataset``, ``list_datasets``,
+``get_dataset``). The registry owns the SQLite schema, WAL mode,
+indexes, and cascade deletes — this module never touches ``_conn``
+directly.
 
-The Pydantic models here are the public wire contract. They intentionally
-match the field list from Agent 1's shared spec (see comments on each
-model) so the swap to imported dataclasses is mechanical.
+The Pydantic models here are the public wire contract. Adapter functions
+(``_artifact_record_to_wire``, ``_wire_to_artifact_record``, etc.)
+translate between wire shapes and the registry's contract dataclasses
+at the boundary.
 """
 from __future__ import annotations
 
-import json
-import sqlite3
-from pathlib import Path
 from typing import Any, Dict, Iterator, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -72,6 +70,15 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.settings import resolve_registry_db
 from the_similarity.platform.artifacts import RunArtifact, RunKind
+from the_similarity.platform.contracts import (
+    ArtifactRecord,
+    DatasetSpec,
+    RunRecord,
+    RunStatus,
+    ScenarioSpec,
+    ScorecardKind,
+    ScorecardSummary,
+)
 from the_similarity.platform.registry import RunRegistry
 
 
@@ -172,6 +179,55 @@ class RunRecordModel(BaseModel):
             # the underlying artifact.json stays backward-compatible.
             pillar=prov.get("pillar"),
             status=prov.get("status", "complete"),
+        )
+
+    @classmethod
+    def from_run_record(cls, record: "RunRecord") -> "RunRecordModel":
+        """Build from a :class:`RunRecord` (the registry's canonical row).
+
+        Maps the registry's ``RunStatus`` enum values back to the API's
+        wire values. The registry stores ``"succeeded"`` where the API
+        wire contract uses ``"complete"`` — translate at the boundary.
+        """
+        # Registry status -> wire status mapping.
+        _db_to_wire_status = {"succeeded": "complete"}
+        wire_status = _db_to_wire_status.get(record.status.value, record.status.value)
+
+        return cls(
+            run_id=record.run_id,
+            kind=record.kind,
+            config=record.config,
+            seed=record.seed,
+            artifact_paths=record.artifact_paths,
+            summary=record.summary,
+            provenance=record.provenance,
+            created_at=record.created_at,
+            pillar=record.pillar,
+            status=wire_status,
+        )
+
+    def to_run_record(self) -> "RunRecord":
+        """Project this wire model to a :class:`RunRecord` for registry storage.
+
+        Maps the wire ``status`` values back to the registry's
+        ``RunStatus`` enum. The wire uses ``"complete"`` where the
+        registry stores ``"succeeded"``.
+        """
+        # Wire status -> registry status mapping.
+        _wire_to_db_status = {"complete": "succeeded"}
+        db_status_str = _wire_to_db_status.get(self.status, self.status)
+
+        return RunRecord(
+            run_id=self.run_id,
+            kind=RunKind(self.kind) if not isinstance(self.kind, RunKind) else self.kind,
+            config=self.config,
+            seed=self.seed,
+            status=RunStatus(db_status_str),
+            summary=self.summary,
+            created_at=self.created_at,
+            pillar=self.pillar or "unknown",
+            artifact_paths=self.artifact_paths,
+            provenance=self.provenance,
         )
 
     def to_artifact(self) -> RunArtifact:
@@ -351,81 +407,6 @@ class HealthzResponse(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Companion tables
-#
-# Until Agent 2 extends :class:`RunRegistry` with ``register_artifact`` etc.,
-# we maintain the artifact/scorecard/scenario/dataset rows in ancillary
-# tables in the SAME SQLite DB file. Co-locating keeps the registry a
-# single file per deploy (mirror of the current design invariant) so the
-# handover is purely a code change.
-#
-# Schema is deliberately simple — one row per (parent, name) where
-# applicable. JSON columns carry the free-form ``metrics`` / ``parameters``
-# / ``schema`` payloads. We re-use the registry's ``_conn`` to avoid
-# opening a second connection per request.
-# ---------------------------------------------------------------------------
-
-_EXT_SCHEMA_SQL = [
-    """
-    CREATE TABLE IF NOT EXISTS artifacts (
-        run_id       TEXT NOT NULL,
-        name         TEXT NOT NULL,
-        path         TEXT NOT NULL,
-        content_type TEXT,
-        size_bytes   INTEGER,
-        sha256       TEXT,
-        created_at   TEXT NOT NULL,
-        PRIMARY KEY (run_id, name)
-    );
-    """,
-    """
-    CREATE TABLE IF NOT EXISTS scorecards (
-        run_id        TEXT NOT NULL,
-        name          TEXT NOT NULL,
-        passed        INTEGER,
-        overall_score REAL,
-        metrics_json  TEXT NOT NULL,
-        created_at    TEXT NOT NULL,
-        PRIMARY KEY (run_id, name)
-    );
-    """,
-    """
-    CREATE TABLE IF NOT EXISTS scenarios (
-        scenario_id     TEXT PRIMARY KEY,
-        name            TEXT NOT NULL,
-        description     TEXT,
-        pillar          TEXT,
-        parameters_json TEXT NOT NULL,
-        created_at      TEXT NOT NULL
-    );
-    """,
-    """
-    CREATE TABLE IF NOT EXISTS datasets (
-        dataset_id  TEXT PRIMARY KEY,
-        name        TEXT NOT NULL,
-        description TEXT,
-        path        TEXT,
-        schema_json TEXT NOT NULL,
-        version     TEXT,
-        created_at  TEXT NOT NULL
-    );
-    """,
-]
-
-
-def _ensure_ext_schema(conn: sqlite3.Connection) -> None:
-    """Create the companion tables if missing. Idempotent.
-
-    Invoked on every dependency call because the registry opens a fresh
-    connection per request. The ``CREATE TABLE IF NOT EXISTS`` pattern
-    means this is a no-op after the first call per-DB-file.
-    """
-    with conn:
-        for ddl in _EXT_SCHEMA_SQL:
-            conn.execute(ddl)
-
-
-# ---------------------------------------------------------------------------
 # Registry dependency
 # ---------------------------------------------------------------------------
 
@@ -438,12 +419,14 @@ def get_registry() -> Iterator[RunRegistry]:
     threads, so sharing a module-level connection would be a latent bug.
     WAL mode keeps the cost negligible.
 
+    The registry's ``__init__`` creates all tables (runs, artifacts,
+    scorecards, scenarios, datasets) via idempotent DDL, so no
+    companion-table setup is needed here.
+
     Tests override with ``app.dependency_overrides[get_registry]`` to pin
     a tmp-path DB so the production default is never touched.
     """
     registry = RunRegistry(resolve_registry_db())
-    # Companion tables live alongside the runs table in the same file.
-    _ensure_ext_schema(registry._conn)  # noqa: SLF001 — intentional reach-in
     try:
         yield registry
     finally:
@@ -455,20 +438,20 @@ def get_registry() -> Iterator[RunRegistry]:
 # ---------------------------------------------------------------------------
 
 
-def _require_run(registry: RunRegistry, run_id: str) -> RunArtifact:
+def _require_run(registry: RunRegistry, run_id: str) -> RunRecord:
     """Fetch a run or raise 404 with a JSON detail body.
 
     Centralized so every handler that parents on ``run_id`` emits an
     identical error shape. The detail string always includes the offending
     id — valuable debugging signal that does not leak internal state.
     """
-    artifact = registry.get(run_id)
-    if artifact is None:
+    record = registry.get_run(run_id)
+    if record is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"run_id not found: {run_id}",
         )
-    return artifact
+    return record
 
 
 # ---------------------------------------------------------------------------
@@ -521,29 +504,29 @@ def list_runs(
 ) -> List[RunRecordModel]:
     """Newest-first listing of runs with optional filters.
 
-    The underlying :meth:`RunRegistry.list` supports only ``kind`` and
-    ``limit`` natively. ``pillar`` and ``status`` live inside ``provenance``
-    today (not promoted to columns until Agent 2 lands), so we filter them
-    in Python after fetching an over-sized page. This is safe for the
-    foreseeable registry scale (thousands of rows).
-
-    ``offset`` is applied in Python for the same reason — the registry
-    does not expose a SQL ``OFFSET`` parameter today.
+    The underlying :meth:`RunRegistry.list_runs` supports ``kind``,
+    ``pillar``, ``status``, ``limit``, and ``offset`` natively at the
+    SQL layer, so filtering and pagination are pushed down to the DB.
     """
-    # Over-fetch: we need ``limit + offset`` rows if either extension filter
-    # is applied, since filtering happens after the SQL layer. Cap to 1000
-    # to prevent a pathological request from pulling the whole DB.
-    fetch_cap = min(1000, limit + offset + 200)
-    artifacts = registry.list(kind=kind, limit=fetch_cap)
-
-    records = [RunRecordModel.from_artifact(a) for a in artifacts]
-    if pillar is not None:
-        records = [r for r in records if r.pillar == pillar]
+    # Map the wire ``status`` string to the ``RunStatus`` enum so the
+    # registry can filter at the SQL level. The wire uses "complete" while
+    # the registry uses "succeeded" — translate at the boundary.
+    db_status: Optional[str] = None
     if status_filter is not None:
-        records = [r for r in records if r.status == status_filter]
+        # Wire -> registry status mapping. The API wire contract uses
+        # "complete" while the registry stores "succeeded". Map at the
+        # boundary so callers keep using the documented wire values.
+        _wire_to_db_status = {"complete": "succeeded"}
+        db_status = _wire_to_db_status.get(status_filter, status_filter)
 
-    # Python-side pagination. Slicing is O(n) but n is small.
-    return records[offset : offset + limit]
+    records = registry.list_runs(
+        kind=kind,
+        pillar=pillar,
+        status=db_status,
+        limit=limit,
+        offset=offset,
+    )
+    return [RunRecordModel.from_run_record(r) for r in records]
 
 
 @router.post(
@@ -560,21 +543,21 @@ def create_run(
 ) -> RunCreateResponse:
     """Register a new run record.
 
-    Distinct from :meth:`RunRegistry.register`'s upsert semantics — this
+    Distinct from :meth:`RunRegistry.register_run`'s upsert semantics — this
     endpoint treats an existing ``run_id`` as a 409 conflict because POST
     is the *creation* verb. Updates to an existing run are out of MVP
     scope; Agent 2's extension will expose a PUT/PATCH when needed.
     """
-    if registry.get(body.run_id) is not None:
+    if registry.get_run(body.run_id) is not None:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"run_id already exists: {body.run_id}",
         )
 
-    # Build a model then project to the underlying RunArtifact shape so the
-    # pillar/status extension fields survive in provenance.
-    record = RunRecordModel(**body.model_dump(by_alias=True))
-    registry.register(record.to_artifact())
+    # Build a wire model then project to the RunRecord contract for the
+    # registry. The RunRecord carries pillar/status as first-class columns.
+    wire_model = RunRecordModel(**body.model_dump(by_alias=True))
+    registry.register_run(wire_model.to_run_record())
     return RunCreateResponse(run_id=body.run_id)
 
 
@@ -588,7 +571,171 @@ def get_run(
     registry: RunRegistry = Depends(get_registry),
 ) -> RunRecordModel:
     """Full run record by id. 404 if unknown."""
-    return RunRecordModel.from_artifact(_require_run(registry, run_id))
+    return RunRecordModel.from_run_record(_require_run(registry, run_id))
+
+
+# ---------------------------------------------------------------------------
+# Wire <-> contract adapters for artifacts and scorecards
+#
+# The registry's contract types have slightly different field names from the
+# API wire models. These adapters translate at the boundary so:
+# - The wire shape (API contract) stays frozen for external consumers.
+# - The registry contract types (internal) are the single source of truth.
+# ---------------------------------------------------------------------------
+
+
+def _artifact_record_to_wire(rec: ArtifactRecord) -> ArtifactRecordModel:
+    """Convert a registry :class:`ArtifactRecord` to the API wire model.
+
+    Field mapping: ``checksum`` (registry) -> ``sha256`` (wire).
+    ``content_type`` may be ``None`` in the wire model but is required
+    by the contract — we pass it through unchanged.
+    """
+    return ArtifactRecordModel(
+        run_id=rec.run_id,
+        name=rec.name,
+        path=rec.path,
+        content_type=rec.content_type,
+        size_bytes=rec.size_bytes,
+        sha256=rec.checksum,
+        created_at=rec.created_at or "",
+    )
+
+
+def _wire_to_artifact_record(model: ArtifactRecordModel) -> ArtifactRecord:
+    """Convert an API wire model to a registry :class:`ArtifactRecord`.
+
+    Field mapping: ``sha256`` (wire) -> ``checksum`` (registry).
+    """
+    return ArtifactRecord(
+        run_id=model.run_id,
+        name=model.name,
+        path=model.path,
+        content_type=model.content_type or "",
+        created_at=model.created_at,
+        size_bytes=model.size_bytes,
+        checksum=model.sha256,
+    )
+
+
+def _scorecard_to_wire(sc: ScorecardSummary) -> ScorecardSummaryModel:
+    """Convert a registry :class:`ScorecardSummary` to the API wire model.
+
+    Field mapping: ``kind`` (ScorecardKind enum) -> ``name`` (string),
+    ``details`` -> ``metrics``. The ``thresholds`` field from the contract
+    is not exposed on the wire model; ``created_at`` is not stored in the
+    registry's scorecard table so we emit an empty string.
+    """
+    return ScorecardSummaryModel(
+        run_id=sc.run_id,
+        name=sc.kind.value,
+        passed=sc.passed,
+        overall_score=sc.overall_score,
+        metrics=sc.details,
+        created_at="",  # Registry scorecard table does not store created_at.
+    )
+
+
+def _wire_to_scorecard(model: ScorecardSummaryModel) -> ScorecardSummary:
+    """Convert an API wire model to a registry :class:`ScorecardSummary`.
+
+    Field mapping: ``name`` (string) -> ``kind`` (ScorecardKind enum),
+    ``metrics`` -> ``details``.
+    """
+    return ScorecardSummary(
+        run_id=model.run_id,
+        kind=ScorecardKind(model.name),
+        overall_score=model.overall_score,
+        passed=model.passed,
+        details=model.metrics,
+    )
+
+
+def _scenario_to_wire(spec: ScenarioSpec) -> ScenarioSpecModel:
+    """Convert a registry :class:`ScenarioSpec` to the API wire model.
+
+    The registry's scenario contract has ``version``, ``engine``,
+    ``params``, ``metadata`` while the wire model has ``description``,
+    ``pillar``, ``parameters``, ``created_at``. We map via metadata:
+
+    - ``description`` <- ``metadata.get("description")``
+    - ``pillar`` <- ``metadata.get("pillar")``
+    - ``parameters`` <- ``params``
+    - ``created_at`` <- ``metadata.get("created_at", "")``
+    """
+    return ScenarioSpecModel(
+        scenario_id=spec.scenario_id,
+        name=spec.name,
+        description=spec.metadata.get("description"),
+        pillar=spec.metadata.get("pillar"),
+        parameters=spec.params,
+        created_at=spec.metadata.get("created_at", ""),
+    )
+
+
+def _wire_to_scenario(model: ScenarioSpecModel) -> ScenarioSpec:
+    """Convert an API wire model to a registry :class:`ScenarioSpec`.
+
+    Stores wire-only fields (``description``, ``pillar``, ``created_at``)
+    inside the contract's ``metadata`` dict so they survive the round-trip.
+    """
+    metadata: Dict[str, Any] = {}
+    if model.description is not None:
+        metadata["description"] = model.description
+    if model.pillar is not None:
+        metadata["pillar"] = model.pillar
+    if model.created_at:
+        metadata["created_at"] = model.created_at
+    return ScenarioSpec(
+        scenario_id=model.scenario_id,
+        name=model.name,
+        version="",  # Wire model does not carry version.
+        engine="",  # Wire model does not carry engine.
+        params=model.parameters,
+        metadata=metadata,
+    )
+
+
+def _dataset_spec_to_wire(spec: DatasetSpec) -> DatasetSpecModel:
+    """Convert a registry :class:`DatasetSpec` to the API wire model.
+
+    Field mapping:
+    - ``source`` -> ``path`` (wire model field)
+    - ``metadata.get("description")`` -> ``description``
+    - ``metadata`` carries extra fields for round-trip.
+    - ``columns`` <- ``metadata.get("columns", {})``
+    """
+    return DatasetSpecModel(
+        dataset_id=spec.dataset_id,
+        name=spec.name,
+        description=spec.metadata.get("description"),
+        path=spec.source,
+        columns=spec.metadata.get("columns", {}),
+        version=spec.version,
+        created_at=spec.metadata.get("created_at", ""),
+    )
+
+
+def _wire_to_dataset_spec(model: DatasetSpecModel) -> DatasetSpec:
+    """Convert an API wire model to a registry :class:`DatasetSpec`.
+
+    Stores wire-only fields (``description``, ``columns``, ``created_at``)
+    inside the contract's ``metadata`` dict so they survive the round-trip.
+    """
+    metadata: Dict[str, Any] = {}
+    if model.description is not None:
+        metadata["description"] = model.description
+    if model.columns:
+        metadata["columns"] = model.columns
+    if model.created_at:
+        metadata["created_at"] = model.created_at
+    return DatasetSpec(
+        dataset_id=model.dataset_id,
+        name=model.name,
+        version=model.version or "",
+        source=model.path or "",
+        metadata=metadata,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -612,23 +759,8 @@ def list_artifacts(
     The 404 branch fires only when the parent run itself is missing.
     """
     _require_run(registry, run_id)
-    rows = registry._conn.execute(  # noqa: SLF001 — intentional reach-in
-        "SELECT run_id, name, path, content_type, size_bytes, sha256, created_at "
-        "FROM artifacts WHERE run_id = ? ORDER BY name",
-        (run_id,),
-    ).fetchall()
-    return [
-        ArtifactRecordModel(
-            run_id=r[0],
-            name=r[1],
-            path=r[2],
-            content_type=r[3],
-            size_bytes=r[4],
-            sha256=r[5],
-            created_at=r[6],
-        )
-        for r in rows
-    ]
+    records = registry.list_artifacts(run_id)
+    return [_artifact_record_to_wire(rec) for rec in records]
 
 
 @router.post(
@@ -659,27 +791,15 @@ def create_artifact(
             detail=f"body.run_id={body.run_id!r} does not match URL run_id={run_id!r}",
         )
     _require_run(registry, run_id)
-    try:
-        with registry._conn:  # noqa: SLF001 — intentional reach-in
-            registry._conn.execute(  # noqa: SLF001
-                "INSERT INTO artifacts "
-                "(run_id, name, path, content_type, size_bytes, sha256, created_at) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?)",
-                (
-                    body.run_id,
-                    body.name,
-                    body.path,
-                    body.content_type,
-                    body.size_bytes,
-                    body.sha256,
-                    body.created_at,
-                ),
-            )
-    except sqlite3.IntegrityError as exc:
+
+    # Check for duplicates — the registry uses upsert semantics but the
+    # router's POST represents *creation*, so we guard duplicates here.
+    if registry.get_artifact(run_id, body.name) is not None:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"artifact already exists: run_id={run_id}, name={body.name}",
-        ) from exc
+        )
+    registry.register_artifact(_wire_to_artifact_record(body))
     return body
 
 
@@ -701,25 +821,13 @@ def get_artifact(
     (sidebar listings, hash verification workflows).
     """
     _require_run(registry, run_id)
-    row = registry._conn.execute(  # noqa: SLF001
-        "SELECT run_id, name, path, content_type, size_bytes, sha256, created_at "
-        "FROM artifacts WHERE run_id = ? AND name = ?",
-        (run_id, name),
-    ).fetchone()
-    if row is None:
+    rec = registry.get_artifact(run_id, name)
+    if rec is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"artifact not found: run_id={run_id}, name={name}",
         )
-    return ArtifactRecordModel(
-        run_id=row[0],
-        name=row[1],
-        path=row[2],
-        content_type=row[3],
-        size_bytes=row[4],
-        sha256=row[5],
-        created_at=row[6],
-    )
+    return _artifact_record_to_wire(rec)
 
 
 # ---------------------------------------------------------------------------
@@ -738,23 +846,8 @@ def list_scorecards(
 ) -> List[ScorecardSummaryModel]:
     """Every scorecard summary row registered for ``run_id``."""
     _require_run(registry, run_id)
-    rows = registry._conn.execute(  # noqa: SLF001
-        "SELECT run_id, name, passed, overall_score, metrics_json, created_at "
-        "FROM scorecards WHERE run_id = ? ORDER BY name",
-        (run_id,),
-    ).fetchall()
-    return [
-        ScorecardSummaryModel(
-            run_id=r[0],
-            name=r[1],
-            # SQLite stores booleans as 0/1 integers; normalize to bool or None.
-            passed=(bool(r[2]) if r[2] is not None else None),
-            overall_score=r[3],
-            metrics=json.loads(r[4]) if r[4] else {},
-            created_at=r[5],
-        )
-        for r in rows
-    ]
+    summaries = registry.get_scorecards(run_id)
+    return [_scorecard_to_wire(sc) for sc in summaries]
 
 
 @router.post(
@@ -778,26 +871,16 @@ def create_scorecard(
             detail=f"body.run_id={body.run_id!r} does not match URL run_id={run_id!r}",
         )
     _require_run(registry, run_id)
-    try:
-        with registry._conn:  # noqa: SLF001
-            registry._conn.execute(  # noqa: SLF001
-                "INSERT INTO scorecards "
-                "(run_id, name, passed, overall_score, metrics_json, created_at) "
-                "VALUES (?, ?, ?, ?, ?, ?)",
-                (
-                    body.run_id,
-                    body.name,
-                    None if body.passed is None else int(body.passed),
-                    body.overall_score,
-                    json.dumps(body.metrics, separators=(",", ":")),
-                    body.created_at,
-                ),
-            )
-    except sqlite3.IntegrityError as exc:
+
+    # Check for duplicates — the registry uses upsert semantics but the
+    # router's POST represents *creation*, so we guard duplicates here.
+    existing = registry.get_scorecards(run_id)
+    if any(sc.kind.value == body.name for sc in existing):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"scorecard already exists: run_id={run_id}, name={body.name}",
-        ) from exc
+        )
+    registry.register_scorecard(_wire_to_scorecard(body))
     return body
 
 
@@ -813,30 +896,25 @@ def list_scenarios(
     offset: int = Query(0, ge=0),
     registry: RunRegistry = Depends(get_registry),
 ) -> List[ScenarioSpecModel]:
-    """List scenarios newest-first with optional pillar filter."""
-    if pillar is None:
-        rows = registry._conn.execute(  # noqa: SLF001
-            "SELECT scenario_id, name, description, pillar, parameters_json, created_at "
-            "FROM scenarios ORDER BY created_at DESC LIMIT ? OFFSET ?",
-            (limit, offset),
-        ).fetchall()
-    else:
-        rows = registry._conn.execute(  # noqa: SLF001
-            "SELECT scenario_id, name, description, pillar, parameters_json, created_at "
-            "FROM scenarios WHERE pillar = ? ORDER BY created_at DESC LIMIT ? OFFSET ?",
-            (pillar, limit, offset),
-        ).fetchall()
-    return [
-        ScenarioSpecModel(
-            scenario_id=r[0],
-            name=r[1],
-            description=r[2],
-            pillar=r[3],
-            parameters=json.loads(r[4]) if r[4] else {},
-            created_at=r[5],
-        )
-        for r in rows
-    ]
+    """List scenarios newest-first with optional pillar filter.
+
+    The registry's :meth:`list_scenarios` returns all scenarios ordered
+    by name. We convert to wire models and apply pillar filtering +
+    pagination in Python. This is acceptable at the current scale
+    (hundreds of scenarios, not millions).
+    """
+    all_specs = registry.list_scenarios()
+    wire_models = [_scenario_to_wire(s) for s in all_specs]
+
+    # Apply pillar filter if requested.
+    if pillar is not None:
+        wire_models = [m for m in wire_models if m.pillar == pillar]
+
+    # Sort newest-first by created_at (the registry sorts by name).
+    wire_models.sort(key=lambda m: m.created_at or "", reverse=True)
+
+    # Apply pagination.
+    return wire_models[offset : offset + limit]
 
 
 @router.post(
@@ -850,26 +928,14 @@ def create_scenario(
     registry: RunRegistry = Depends(get_registry),
 ) -> ScenarioSpecModel:
     """Register a new scenario. ``scenario_id`` must be globally unique."""
-    try:
-        with registry._conn:  # noqa: SLF001
-            registry._conn.execute(  # noqa: SLF001
-                "INSERT INTO scenarios "
-                "(scenario_id, name, description, pillar, parameters_json, created_at) "
-                "VALUES (?, ?, ?, ?, ?, ?)",
-                (
-                    body.scenario_id,
-                    body.name,
-                    body.description,
-                    body.pillar,
-                    json.dumps(body.parameters, separators=(",", ":")),
-                    body.created_at,
-                ),
-            )
-    except sqlite3.IntegrityError as exc:
+    # Check for duplicates — the registry uses upsert semantics but the
+    # router's POST represents *creation*.
+    if registry.get_scenario(body.scenario_id) is not None:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"scenario_id already exists: {body.scenario_id}",
-        ) from exc
+        )
+    registry.register_scenario(_wire_to_scenario(body))
     return body
 
 
@@ -883,24 +949,13 @@ def get_scenario(
     registry: RunRegistry = Depends(get_registry),
 ) -> ScenarioSpecModel:
     """Fetch a single scenario by id."""
-    row = registry._conn.execute(  # noqa: SLF001
-        "SELECT scenario_id, name, description, pillar, parameters_json, created_at "
-        "FROM scenarios WHERE scenario_id = ?",
-        (scenario_id,),
-    ).fetchone()
-    if row is None:
+    spec = registry.get_scenario(scenario_id)
+    if spec is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"scenario_id not found: {scenario_id}",
         )
-    return ScenarioSpecModel(
-        scenario_id=row[0],
-        name=row[1],
-        description=row[2],
-        pillar=row[3],
-        parameters=json.loads(row[4]) if row[4] else {},
-        created_at=row[5],
-    )
+    return _scenario_to_wire(spec)
 
 
 # ---------------------------------------------------------------------------
@@ -945,26 +1000,21 @@ def list_datasets(
     offset: int = Query(0, ge=0),
     registry: RunRegistry = Depends(get_registry),
 ) -> List[Dict[str, Any]]:
-    """List datasets newest-first — response uses the 'schema' wire key."""
-    rows = registry._conn.execute(  # noqa: SLF001
-        "SELECT dataset_id, name, description, path, schema_json, version, created_at "
-        "FROM datasets ORDER BY created_at DESC LIMIT ? OFFSET ?",
-        (limit, offset),
-    ).fetchall()
-    return [
-        _dataset_to_wire(
-            DatasetSpecModel(
-                dataset_id=r[0],
-                name=r[1],
-                description=r[2],
-                path=r[3],
-                columns=json.loads(r[4]) if r[4] else {},
-                version=r[5],
-                created_at=r[6],
-            )
-        )
-        for r in rows
-    ]
+    """List datasets newest-first — response uses the 'schema' wire key.
+
+    The registry's :meth:`list_datasets` returns all datasets ordered
+    by name. We convert to wire models and apply pagination in Python,
+    sorting newest-first by created_at.
+    """
+    all_specs = registry.list_datasets()
+    wire_models = [_dataset_spec_to_wire(s) for s in all_specs]
+
+    # Sort newest-first by created_at.
+    wire_models.sort(key=lambda m: m.created_at or "", reverse=True)
+
+    # Apply pagination.
+    paginated = wire_models[offset : offset + limit]
+    return [_dataset_to_wire(m) for m in paginated]
 
 
 @router.post(
@@ -991,27 +1041,15 @@ def create_dataset(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=f"invalid dataset body: {exc}",
         ) from exc
-    try:
-        with registry._conn:  # noqa: SLF001
-            registry._conn.execute(  # noqa: SLF001
-                "INSERT INTO datasets "
-                "(dataset_id, name, description, path, schema_json, version, created_at) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?)",
-                (
-                    model.dataset_id,
-                    model.name,
-                    model.description,
-                    model.path,
-                    json.dumps(model.columns, separators=(",", ":")),
-                    model.version,
-                    model.created_at,
-                ),
-            )
-    except sqlite3.IntegrityError as exc:
+
+    # Check for duplicates — the registry uses upsert semantics but the
+    # router's POST represents *creation*.
+    if registry.get_dataset(model.dataset_id) is not None:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"dataset_id already exists: {model.dataset_id}",
-        ) from exc
+        )
+    registry.register_dataset(_wire_to_dataset_spec(model))
     return _dataset_to_wire(model)
 
 
@@ -1025,27 +1063,13 @@ def get_dataset(
     registry: RunRegistry = Depends(get_registry),
 ) -> Dict[str, Any]:
     """Fetch a single dataset by id — response uses the 'schema' wire key."""
-    row = registry._conn.execute(  # noqa: SLF001
-        "SELECT dataset_id, name, description, path, schema_json, version, created_at "
-        "FROM datasets WHERE dataset_id = ?",
-        (dataset_id,),
-    ).fetchone()
-    if row is None:
+    spec = registry.get_dataset(dataset_id)
+    if spec is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"dataset_id not found: {dataset_id}",
         )
-    return _dataset_to_wire(
-        DatasetSpecModel(
-            dataset_id=row[0],
-            name=row[1],
-            description=row[2],
-            path=row[3],
-            columns=json.loads(row[4]) if row[4] else {},
-            version=row[5],
-            created_at=row[6],
-        )
-    )
+    return _dataset_to_wire(_dataset_spec_to_wire(spec))
 
 
 # ---------------------------------------------------------------------------
@@ -1109,22 +1133,18 @@ def get_dataset_card(
         )
     except ImportError:
         # If the catalog module is not available, fall back to a basic card
-        # built from the raw dataset row.
-        row = registry._conn.execute(  # noqa: SLF001
-            "SELECT dataset_id, name, description, path, schema_json, version, created_at "
-            "FROM datasets WHERE dataset_id = ?",
-            (dataset_id,),
-        ).fetchone()
-        if row is None:
+        # built from the raw dataset row via the registry.
+        spec = registry.get_dataset(dataset_id)
+        if spec is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"dataset_id not found: {dataset_id}",
             )
         return DatasetCardModel(
-            dataset_id=row[0],
-            name=row[1],
-            version=row[5] or "",
-            source="",
+            dataset_id=spec.dataset_id,
+            name=spec.name,
+            version=spec.version or "",
+            source=spec.source or "",
         )
 
 
@@ -1156,22 +1176,18 @@ def list_scenario_runs(
     until the table grows.
     """
     # Verify the scenario exists.
-    row = registry._conn.execute(  # noqa: SLF001
-        "SELECT scenario_id FROM scenarios WHERE scenario_id = ?",
-        (scenario_id,),
-    ).fetchone()
-    if row is None:
+    if registry.get_scenario(scenario_id) is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"scenario_id not found: {scenario_id}",
         )
 
     # Fetch all worlds runs and filter by scenario_name in config.
-    artifacts = registry.list(kind=RunKind.WORLDS, limit=1000)
+    records = registry.list_runs(kind=RunKind.WORLDS, limit=1000)
     matched = [
-        RunRecordModel.from_artifact(a)
-        for a in artifacts
-        if a.config.get("scenario_name") == scenario_id
+        RunRecordModel.from_run_record(r)
+        for r in records
+        if r.config.get("scenario_name") == scenario_id
     ]
     return matched[offset : offset + limit]
 
@@ -1222,18 +1238,26 @@ def trigger_world_run(
     4. Return the ``run_id`` of the registered run.
     """
     # Validate that the scenario exists.
-    row = registry._conn.execute(  # noqa: SLF001
-        "SELECT scenario_id FROM scenarios WHERE scenario_id = ?",
-        (body.scenario_id,),
-    ).fetchone()
-    if row is None:
+    if registry.get_scenario(body.scenario_id) is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"scenario_id not found: {body.scenario_id}",
         )
 
-    # PLACEHOLDER: return a stub response indicating the endpoint is
-    # not yet wired to the headless runner.
+    # TODO(platform): Wire to headless runner execution. Requirements:
+    #   1. Resolve scenario JSON from registry or filesystem
+    #      (see scenarios/small_village.json for schema).
+    #   2. Shell out: ``node src/sim/headless/runner.js --scenario <path>
+    #      --seed <seed> --steps <steps> --register`` (the --register flag
+    #      auto-posts telemetry to the platform API).
+    #   3. Alternatively, call the runner in-process via subprocess and
+    #      parse the JSONL telemetry output, then register via the worlds
+    #      adapter (the_similarity/platform/adapters/worlds.py when it exists).
+    #   4. Return the run_id from the registered run.
+    #   Blocked on: the worlds adapter not yet existing as a Python module;
+    #   the JS runner's --register flag posts directly to the platform API,
+    #   so the simplest path is subprocess + wait + query registry for the
+    #   new run_id.
     return WorldRunResponse(
         run_id=None,
         status="placeholder",

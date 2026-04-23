@@ -24,9 +24,9 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from fastapi import Depends, Header, HTTPException, Request
+from fastapi import Depends, Header, HTTPException
 
-from the_similarity.core.auth import AuthManager, RateLimiter, User
+from the_similarity.core.auth import AuthManager, User
 
 # ---------------------------------------------------------------------------
 # Singleton state

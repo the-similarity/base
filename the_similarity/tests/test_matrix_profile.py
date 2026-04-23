@@ -74,12 +74,37 @@ def test_mp_score_zero_window():
     assert 0.0 <= score <= 1.0
 
 
+def test_query_profile_single_window():
+    """query_profile output has length 1 when history length equals query length."""
+    query = np.array([1.0, 2.0, 3.0, 2.0, 1.0])
+    distances = query_profile(query, query)
+    assert len(distances) == 1
+    assert distances[0] < 0.01
+
+
+def test_mp_score_profile_shape():
+    """mp_score_profile output shape must match input distances shape."""
+    rng = np.random.default_rng(33)
+    distances = rng.uniform(0, 5, size=150)
+    scores = mp_score_profile(distances, window_size=40)
+    assert scores.shape == distances.shape
+
+
 def test_query_profile_list_input():
     """query_profile should accept Python lists as well as ndarrays."""
     history = list(np.sin(np.linspace(0, 4 * np.pi, 100)))
     query = list(np.sin(np.linspace(0, 4 * np.pi, 20)))
     distances = query_profile(history, query)
     assert len(distances) == len(history) - len(query) + 1
+    assert np.all(distances >= 0.0)
+
+
+def test_query_profile_distances_nonnegative():
+    """All distance values in the profile must be >= 0."""
+    rng = np.random.default_rng(88)
+    history = rng.standard_normal(300)
+    query = rng.standard_normal(50)
+    distances = query_profile(history, query)
     assert np.all(distances >= 0.0)
 
 

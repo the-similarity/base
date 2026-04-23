@@ -66,9 +66,7 @@ def client(tmp_path: Path) -> Iterator[TestClient]:
 
     def _override() -> Iterator[RunRegistry]:
         registry = RunRegistry(db_path)
-        from app.platform_routes import _ensure_ext_schema
-
-        _ensure_ext_schema(registry._conn)  # noqa: SLF001
+        # The registry's __init__ creates all tables via idempotent DDL.
         try:
             yield registry
         finally:

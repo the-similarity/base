@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 
 from the_similarity.methods.emd_matcher import (
     decompose_emd,
@@ -54,43 +55,59 @@ def test_emd_score_range():
 
 
 def test_imf_energy_zero():
-    """Zero array should have energy 0."""
+    """Zero array has zero energy."""
     assert imf_energy(np.zeros(50)) == 0.0
 
 
+def test_imf_energy_known():
+    """Energy equals sum of squares."""
+    arr = np.array([1.0, 2.0, 3.0])
+    assert imf_energy(arr) == pytest.approx(14.0)
+
+
 def test_imf_energy_positive():
-    """Non-zero array should have positive energy."""
-    imf = np.array([1.0, -1.0, 1.0, -1.0])
-    assert imf_energy(imf) == 4.0
+    """Energy is always non-negative."""
+    rng = np.random.default_rng(11)
+    imf = rng.standard_normal(200)
+    assert imf_energy(imf) >= 0.0
 
 
 def test_emd_match_returns_tuple():
-    """emd_match should return (score, distance) both as floats."""
-    t = np.linspace(0, 1, 100)
+    """emd_match should return (score, distance) tuple with both floats."""
+    t = np.linspace(0, 1, 200)
     signal = np.sin(2 * np.pi * 5 * t)
     result = emd_match(signal, signal.copy())
-    assert isinstance(result, tuple)
-    assert len(result) == 2
+    assert isinstance(result, tuple) and len(result) == 2
     score, distance = result
     assert isinstance(score, float)
     assert isinstance(distance, float)
-    assert score > 0.8
+    assert 0.0 <= score <= 1.0
+    assert distance >= 0.0
 
 
-def test_emd_match_short_series():
-    """emd_match should return (0.0, inf) for series shorter than 10 samples."""
-    short = np.array([1.0, 2.0, 3.0])
-    score, distance = emd_match(short, short)
-    assert score == 0.0
-    assert distance == float("inf")
+def test_emd_match_identical_score_high():
+    """Identical series should produce a high score via emd_match."""
+    t = np.linspace(0, 1, 200)
+    signal = np.sin(2 * np.pi * 8 * t) + 0.3 * np.cos(2 * np.pi * 3 * t)
+    score, dist = emd_match(signal, signal.copy())
+    assert score > 0.8, f"Identical signals should score > 0.8, got {score}"
+    assert dist < 0.5, f"Identical signals should have small distance, got {dist}"
 
 
 def test_emd_match_constant_series():
-    """Constant series (std=0) should return (0.0, inf)."""
-    c = np.ones(50)
-    score, distance = emd_match(c, c)
+    """Constant series (zero variance) should return (0.0, inf)."""
+    const = np.ones(100)
+    score, dist = emd_match(const, const)
     assert score == 0.0
-    assert distance == float("inf")
+    assert dist == float("inf")
+
+
+def test_emd_match_short_series():
+    """Series shorter than 10 samples should return (0.0, inf)."""
+    short = np.array([1.0, 2.0, 3.0])
+    score, dist = emd_match(short, short)
+    assert score == 0.0
+    assert dist == float("inf")
 
 
 def test_emd_score_integer_input():
