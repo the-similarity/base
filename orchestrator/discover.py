@@ -122,19 +122,20 @@ def discover_from_codebase() -> list[dict]:
                 "source": "codebase-todos",
             })
 
-    # ── Missing tests ──
+    # ── Missing tests — one task per method so they run in parallel ──
     missing = _find_untested_methods()
-    if missing:
-        method_list = "\n".join(f"  - {m}" for m in missing)
+    for method_path in missing:
+        stem = Path(method_path).stem  # e.g. "tda_matcher"
         tasks.append({
-            "id": "add-missing-tests",
-            "title": "test: add tests for untested methods",
+            "id": f"add-tests-{stem.replace('_', '-')}",
+            "title": f"test: add tests for {stem}",
             "prompt": (
-                f"The following method files have no corresponding test file:\n"
-                f"{method_list}\n\n"
-                f"For each, create a test file following the existing test patterns. "
+                f"The file `{method_path}` has no corresponding test file.\n\n"
+                f"Create `the_similarity/tests/test_{stem}.py` following the existing "
+                f"test patterns in the_similarity/tests/. "
                 f"Test basic functionality, edge cases, and type handling. "
-                f"Run all tests before opening a PR."
+                f"Run `python -m pytest the_similarity/tests/test_{stem}.py -v` to verify, "
+                f"then run the full suite `python -m pytest the_similarity/tests/ -v` before opening a PR."
             ),
             "source": "codebase-coverage",
         })
