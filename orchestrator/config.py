@@ -48,7 +48,10 @@ class OrchestratorConfig:
     max_retries: int = 1
     timeout_minutes: int = 30
     model: str = "sonnet"
-    permission_mode: str = "bypassPermissions"
+    # bypassPermissions maps to --dangerously-skip-permissions which is blocked
+    # when running as root. acceptEdits auto-approves file edits; bash and
+    # other tools are covered via --allowed-tools in build_command.
+    permission_mode: str = "acceptEdits"
 
     # Extra CLI flags passed to every claude invocation
     extra_flags: list[str] = field(default_factory=list)

@@ -174,12 +174,19 @@ def build_command(task: Task, cfg: OrchestratorConfig) -> list[str]:
             f"Fix the issues above and try again."
         )
 
+    # --dangerously-skip-permissions is blocked when running as root, so we
+    # use acceptEdits + an explicit tool allowlist instead of bypassPermissions.
+    allowed_tools = (
+        "Bash Edit Write Read MultiEdit Agent TodoWrite TodoRead "
+        "WebFetch WebSearch NotebookEdit NotebookRead"
+    )
     cmd = [
         CLAUDE_BIN,
         "--print",
         "--worktree", task.branch_name,
         "--model", cfg.model,
         "--permission-mode", cfg.permission_mode,
+        "--allowed-tools", allowed_tools,
         "--append-system-prompt", WORKER_SYSTEM_PROMPT,
         *cfg.extra_flags,
         prompt,
