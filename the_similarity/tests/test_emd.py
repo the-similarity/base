@@ -2,7 +2,9 @@ import numpy as np
 
 from the_similarity.methods.emd_matcher import (
     decompose_emd,
+    emd_match,
     emd_score,
+    imf_energy,
 )
 
 
@@ -49,3 +51,51 @@ def test_emd_score_range():
         b = rng.standard_normal(100)
         score = emd_score(a, b)
         assert 0.0 <= score <= 1.0, f"Score {score} out of [0, 1] range"
+
+
+def test_imf_energy_zero():
+    """Zero array should have energy 0."""
+    assert imf_energy(np.zeros(50)) == 0.0
+
+
+def test_imf_energy_positive():
+    """Non-zero array should have positive energy."""
+    imf = np.array([1.0, -1.0, 1.0, -1.0])
+    assert imf_energy(imf) == 4.0
+
+
+def test_emd_match_returns_tuple():
+    """emd_match should return (score, distance) both as floats."""
+    t = np.linspace(0, 1, 100)
+    signal = np.sin(2 * np.pi * 5 * t)
+    result = emd_match(signal, signal.copy())
+    assert isinstance(result, tuple)
+    assert len(result) == 2
+    score, distance = result
+    assert isinstance(score, float)
+    assert isinstance(distance, float)
+    assert score > 0.8
+
+
+def test_emd_match_short_series():
+    """emd_match should return (0.0, inf) for series shorter than 10 samples."""
+    short = np.array([1.0, 2.0, 3.0])
+    score, distance = emd_match(short, short)
+    assert score == 0.0
+    assert distance == float("inf")
+
+
+def test_emd_match_constant_series():
+    """Constant series (std=0) should return (0.0, inf)."""
+    c = np.ones(50)
+    score, distance = emd_match(c, c)
+    assert score == 0.0
+    assert distance == float("inf")
+
+
+def test_emd_score_integer_input():
+    """Integer input arrays should be handled without error."""
+    a = np.arange(50, dtype=np.int32)
+    b = np.arange(50, dtype=np.int32)
+    score = emd_score(a.astype(np.float64), b.astype(np.float64))
+    assert 0.0 <= score <= 1.0

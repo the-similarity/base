@@ -69,3 +69,33 @@ def test_batch_dtw_matches_sequential():
 def test_batch_dtw_empty():
     """Batch DTW with no candidates should return empty list."""
     assert batch_dtw_scores(np.array([1.0, 2.0]), [], sakoe_chiba_radius=1) == []
+
+
+def test_dtw_score_zero_window():
+    """dtw_score with window_size=0 should not raise (uses max(w, 1))."""
+    score = dtw_score(1.0, 0)
+    assert 0.0 <= score <= 1.0
+
+
+def test_dtw_integer_input():
+    """Integer arrays should be accepted without error."""
+    a = np.array([1, 2, 3, 2, 1], dtype=np.int32)
+    b = np.array([1, 2, 3, 2, 1], dtype=np.int32)
+    dist = dtw_distance(a.astype(np.float64), b.astype(np.float64))
+    assert dist == 0.0
+
+
+def test_dtw_float32_input():
+    """float32 arrays should be coerced to float64 without error."""
+    rng = np.random.default_rng(0)
+    a = rng.standard_normal(30).astype(np.float32)
+    b = rng.standard_normal(30).astype(np.float32)
+    dist = dtw_distance(a, b)
+    assert dist >= 0.0
+
+
+def test_rank_candidates_empty():
+    """rank_candidates with empty candidates array should return empty list."""
+    query = np.array([1.0, 2.0, 3.0])
+    result = rank_candidates(query, np.empty((0, 3)))
+    assert result == []

@@ -61,3 +61,31 @@ def test_mp_score_decreases_with_distance():
     score_near = mp_score(0.5, 40)
     score_far = mp_score(5.0, 40)
     assert score_near > score_far
+
+
+def test_mp_score_zero_distance():
+    """Distance of 0 should return score of 1.0."""
+    assert mp_score(0.0, 40) == 1.0
+
+
+def test_mp_score_zero_window():
+    """mp_score with window_size=0 should not raise (uses max(sqrt(w), 1))."""
+    score = mp_score(1.0, 0)
+    assert 0.0 <= score <= 1.0
+
+
+def test_query_profile_list_input():
+    """query_profile should accept Python lists as well as ndarrays."""
+    history = list(np.sin(np.linspace(0, 4 * np.pi, 100)))
+    query = list(np.sin(np.linspace(0, 4 * np.pi, 20)))
+    distances = query_profile(history, query)
+    assert len(distances) == len(history) - len(query) + 1
+    assert np.all(distances >= 0.0)
+
+
+def test_query_profile_constant_query():
+    """Constant query (std≈0) should not raise; distances are finite."""
+    history = np.random.default_rng(1).standard_normal(100)
+    query = np.ones(20)
+    distances = query_profile(history, query)
+    assert np.all(np.isfinite(distances))

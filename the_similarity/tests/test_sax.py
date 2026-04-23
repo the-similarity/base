@@ -84,3 +84,47 @@ def test_sax_score_range():
         mindist = sax_mindist(sax_a, sax_b, original_length=50, alphabet_size=6)
         score = sax_score(mindist, 50)
         assert 0.0 <= score <= 1.0
+
+
+def test_sax_score_zero_window():
+    """sax_score with window_size=0 should not raise (uses max(w, 1))."""
+    score = sax_score(1.0, 0)
+    assert 0.0 <= score <= 1.0
+
+
+def test_sax_transform_float32_input():
+    """float32 input should be handled without error."""
+    rng = np.random.default_rng(5)
+    series = rng.standard_normal(64).astype(np.float32)
+    result = sax_transform(series, n_segments=8, alphabet_size=4)
+    assert result.shape == (8,)
+    assert result.min() >= 0
+    assert result.max() < 4
+
+
+def test_sax_transform_segments_equal_length():
+    """When n_segments equals series length, each segment is one sample."""
+    series = np.random.default_rng(10).standard_normal(16)
+    result = sax_transform(series, n_segments=16, alphabet_size=8)
+    assert result.shape == (16,)
+
+
+def test_sax_transform_segments_exceed_length():
+    """When n_segments >= series length, _paa returns the series unchanged."""
+    series = np.random.default_rng(11).standard_normal(8)
+    result = sax_transform(series, n_segments=16, alphabet_size=8)
+    # Output length is capped at the series length via _paa passthrough
+    assert result.shape == (8,)
+
+
+def test_sax_mindist_different_alphabet_sizes():
+    """MINDIST lower-bound property should hold for a small alphabet (4)."""
+    rng = np.random.default_rng(77)
+    for _ in range(20):
+        a = rng.standard_normal(64)
+        b = rng.standard_normal(64)
+        sax_a = sax_transform(a, n_segments=16, alphabet_size=4)
+        sax_b = sax_transform(b, n_segments=16, alphabet_size=4)
+        mindist = sax_mindist(sax_a, sax_b, original_length=64, alphabet_size=4)
+        euclidean = np.linalg.norm(a - b)
+        assert mindist <= euclidean + 1e-10
