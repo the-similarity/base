@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
-import { generateTerrain, PRNG as FractalPRNG } from './fractal.js';
+import { generateTerrain } from './fractal.js';
 import { buildTerrainMesh, buildFeatures } from './terrain-renderer.js';
 
 // ── Nature engine imports ────────────────────────────────────────────────────
@@ -237,12 +237,6 @@ let terrainMesh = null;
 let wireframeMesh = null;
 let waterMesh = null;
 let featureGroup = null;
-// Classic-mode nature systems — only created when the user pushes the
-// subdivision slider past level 8. Kept as separate module slots from
-// the engine-mode `waterMesh` / `featureGroup` so classic + engine
-// can't step on each other's cleanup.
-let classicWater = null;
-let classicTrees = null;
 let showWireframe = false;
 let flatShading = true;
 let animating = false;
@@ -345,17 +339,6 @@ function clearScene() {
       if (child.material) child.material.dispose();
     });
     featureGroup = null;
-  }
-  // Dispose classic-mode nature systems if present. Each owns its own
-  // GPU resources (render targets for water, instanced meshes for
-  // trees); calling dispose() detaches them from the scene.
-  if (classicWater) {
-    classicWater.dispose();
-    classicWater = null;
-  }
-  if (classicTrees) {
-    classicTrees.dispose();
-    classicTrees = null;
   }
 }
 
@@ -596,145 +579,6 @@ function buildTerrainMeshFromFractal(terrain, colormap, useFlat) {
  *
  * This path is self-contained and does not require the backend API.
  */
-/**
- * Composite water + forest on top of a freshly-built classic terrain.
- *
- * Rationale: up through level 8 the subdivision terrain is "just a
- * surface" — a topographic shape worth orbiting. Past level 8 the
- * mesh has enough resolution to read as a WORLD, so layering the
- * self-similar nature systems on top uses the same fractal engine
- * to generate the environment that sits on the surface:
- *
- *   - Water plane drops at elevation percentile 15 (the lowest
- *     shallow basin). The Water class runs its own fractal
- *     brownian-motion shader for waves, so the surface ripples
- *     share the self-similarity of the terrain underneath.
- *   - Trees are placed at vertices between percentiles 18 and 70
- *     (above water, below the snow line). Species is picked by
- *     elevation — oaks low, pines high — and density is thinned
- *     by the terrain's own PRNG, so a gentler slope carries more
- *     trees than a cliff at the exact same height. That's the
- *     self-similarity the user asked for: same engine, smaller
- *     scale.
- *
- * No-op when the terrain is below the level-9 threshold — low-res
- * surfaces look better without the clutter.
- *
- * @param {object} terrain - Output from generateTerrain().
- * @param {number} iterations - Subdivision depth used to build `terrain`.
- * @param {number} scaleVal - Base triangle scale (world extent).
- * @param {number} seed - PRNG seed for feature placement.
- */
-function buildClassicNature(terrain, iterations, scaleVal, seed) {
-  // Only light up nature past the level-8 threshold. Below that
-  // the terrain reads as a shape; piling water+trees on a coarse
-  // surface adds clutter without payoff.
-  if (iterations <= 8) return;
-
-  const positions = terrain.positions;
-  const heights = terrain.heights;
-  if (!positions || !heights || heights.length < 4) return;
-
-  // Elevation percentiles — cheaper approximation than a full sort:
-  // we sample at most 8k heights, sort that slice, and read the
-  // percentile bounds. For 1M+ vertex meshes at level 10 the
-  // sampling stays O(n_sample log n_sample) instead of O(n log n).
-  const stride = Math.max(1, Math.floor(heights.length / 8192));
-  const sampled = [];
-  for (let i = 0; i < heights.length; i += stride) sampled.push(heights[i]);
-  sampled.sort((a, b) => a - b);
-  const pct = (p) => sampled[Math.min(sampled.length - 1, Math.max(0, Math.floor(p * sampled.length)))];
-  const minH = sampled[0];
-  const maxH = sampled[sampled.length - 1];
-  const waterLevel = pct(0.15);
-  const treeFloor  = pct(0.18);
-  const treeCeil   = pct(0.70);
-
-  // ── Water plane ──────────────────────────────────────────────
-  // Size = roughly 2.6x the terrain base scale so the water
-  // surface extends past the edges of the island-ish silhouette
-  // and looks infinite. Wave + reflection shading is handled by
-  // the Water class internally.
-  classicWater = new Water(scene, {
-    size: scaleVal * 2.6,
-    waterLevel,
-  });
-
-  // ── Forest ──────────────────────────────────────────────────
-  // We derive tree features from the terrain's own vertex set so
-  // density tracks the mesh's self-similarity. The rng seeds from
-  // a different offset than the generator so tree placement is
-  // decorrelated from midpoint noise but still deterministic for
-  // the same world seed.
-  const rng = new FractalPRNG((seed + 0x9e3779b9) >>> 0);
-  const features = [];
-  // Target ~1200 trees at level 10 (with 1M verts); scale down for
-  // level 9 so we don't oversaturate. `maxTrees` is also clamped
-  // below so we're never handing TreeSystem more than it can draw.
-  const maxTrees = iterations >= 10 ? 1200 : 500;
-  const vertexCount = positions.length / 3;
-  const vertStride = Math.max(1, Math.floor(vertexCount / (maxTrees * 6)));
-  // Unit normal from the shape of the terrain footprint — used to
-  // keep trees off the outermost ring so the forest edge doesn't
-  // look clipped. Approximate by rejecting vertices in the outer
-  // ~10% of the radial extent.
-  const edgeCut = scaleVal * 0.9;
-
-  for (let vi = 0; vi < vertexCount; vi += vertStride) {
-    const pi = vi * 3;
-    const x = positions[pi];
-    const y = positions[pi + 1];
-    const z = positions[pi + 2];
-
-    if (y < treeFloor || y > treeCeil) continue;
-    if (Math.abs(x) > edgeCut || Math.abs(z) > edgeCut) continue;
-
-    // Density thinning via PRNG. Each vertex rolls its own dice;
-    // because the vertex set is self-similar, the resulting tree
-    // distribution inherits that self-similarity for free.
-    if (rng.next() > 0.55) continue;
-
-    // Elevation-driven species pick. Low = oaks, mid = birch,
-    // high = pines. Keeps the vertical biome gradient that the
-    // terrain itself implies.
-    const t = (y - treeFloor) / Math.max(1e-6, treeCeil - treeFloor);
-    let type;
-    if (t < 0.35) type = 'tree_oak';
-    else if (t < 0.70) type = 'tree_birch';
-    else type = 'tree_pine';
-
-    features.push({
-      type,
-      x, y, z,
-      scale: 0.6 + rng.next() * 0.8,
-      rotation: rng.next() * Math.PI * 2,
-      variant: Math.floor(rng.next() * 3),
-      biome: 1,
-    });
-
-    if (features.length >= maxTrees) break;
-  }
-
-  if (features.length === 0) return;
-
-  classicTrees = new TreeSystem(scene, { maxTrees });
-  classicTrees.populate(features, terrainMesh, {
-    // worldScale has to roughly match the terrain's base extent
-    // so the raycast reach stays in-bounds. heightScale scales
-    // the normal-per-vertex displacement; 1.0 preserves our
-    // direct-from-positions Y.
-    worldScale: scaleVal,
-    heightScale: 1.0,
-  });
-
-  // Sanity log so the user can see that nature actually lit up.
-  // Minimal text so the stats line stays readable.
-  const note = document.getElementById('stats');
-  if (note) note.textContent += ` · ${features.length} trees · water @ ${waterLevel.toFixed(2)}`;
-  // Silence unused warnings on minH/maxH which are kept for debugging.
-  void minH; void maxH;
-}
-
 function buildClassicTerrain() {
   const iterations = parseInt(document.getElementById('iterations').value);
   const roughness = parseFloat(document.getElementById('roughness').value);
@@ -751,9 +595,6 @@ function buildClassicTerrain() {
 
   clearScene();
   buildTerrainMeshFromFractal(terrain, colormap, flatShading);
-  // Nature systems run AFTER terrainMesh is assigned — TreeSystem.populate
-  // raycasts against the terrain to place trees on the surface.
-  buildClassicNature(terrain, iterations, scaleVal, currentSeed);
 
   // Separate wireframe mesh keeps toggling cheap and avoids mutating the main material.
   const wireGeo = new THREE.BufferGeometry();
@@ -1641,17 +1482,6 @@ function animate() {
   // This is intentionally minimal and not physically modeled.
   if (waterMesh) {
     waterMesh.position.y += Math.sin(time * 0.002) * 0.0002;
-  }
-
-  // Classic-mode nature tick. Water runs its own Gerstner + reflection
-  // shader that needs wall-clock time plus the renderer/camera pair;
-  // TreeSystem advances its wind uniform in seconds. Guarded on the
-  // slots so the lookup is cheap when classic nature isn't lit up.
-  if (classicWater) {
-    classicWater.update(time * 0.001, renderer, camera);
-  }
-  if (classicTrees) {
-    classicTrees.update(time * 0.001);
   }
 
   // ── Simulation tick ─────────────────────────────────────────────────────
