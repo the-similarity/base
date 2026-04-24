@@ -359,7 +359,6 @@ function captureWorldState() {
       roughness: parseFloat(document.getElementById('roughness').value),
       displacement: parseFloat(document.getElementById('displacement').value),
       scale: parseFloat(document.getElementById('scale').value),
-      flatness: parseFloat(document.getElementById('flatness').value),
       colormap: document.getElementById('colormap').value,
     },
     engine: {
@@ -464,15 +463,10 @@ function applyWorldState(snapshot) {
   document.getElementById('displacement').value = String(snapshot.classic.displacement);
   document.getElementById('scale').value = String(snapshot.classic.scale);
   document.getElementById('colormap').value = snapshot.classic.colormap;
-  // Flatness is new and may be absent on older snapshots — fall back
-  // to the 0.35 default so pre-flatness saved worlds still hydrate.
-  const flatnessVal = snapshot.classic.flatness ?? 0.35;
-  document.getElementById('flatness').value = String(flatnessVal);
   document.getElementById('val-iterations').textContent = String(snapshot.classic.iterations);
   document.getElementById('val-roughness').textContent = Number(snapshot.classic.roughness).toFixed(2);
   document.getElementById('val-displacement').textContent = Number(snapshot.classic.displacement).toFixed(2);
   document.getElementById('val-scale').textContent = Number(snapshot.classic.scale).toFixed(2);
-  document.getElementById('val-flatness').textContent = Number(flatnessVal).toFixed(2);
 
   document.getElementById('preset').value = snapshot.engine.preset;
   document.getElementById('engine-size').value = String(snapshot.engine.size);
@@ -590,15 +584,12 @@ function buildClassicTerrain() {
   const roughness = parseFloat(document.getElementById('roughness').value);
   const displacementVal = parseFloat(document.getElementById('displacement').value);
   const scaleVal = parseFloat(document.getElementById('scale').value);
-  const flatnessEl = document.getElementById('flatness');
-  const flatnessVal = flatnessEl ? parseFloat(flatnessEl.value) : 0.35;
   const colormap = document.getElementById('colormap').value;
 
   const t0 = performance.now();
   const terrain = generateTerrain({
     iterations, roughness, displacement: displacementVal,
     scale: scaleVal, seed: currentSeed, baseShape: 'diamond',
-    flatness: flatnessVal,
   });
   const genTime = (performance.now() - t0).toFixed(1);
 
@@ -1114,7 +1105,7 @@ function bindSlider(id) {
   });
 }
 
-['iterations', 'roughness', 'displacement', 'scale', 'flatness'].forEach(bindSlider);
+['iterations', 'roughness', 'displacement', 'scale'].forEach(bindSlider);
 
 // Classic-mode-only aesthetic control.
 document.getElementById('colormap').addEventListener('change', () => {
