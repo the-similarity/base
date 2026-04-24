@@ -117,6 +117,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+import threading
 import uuid
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
@@ -428,11 +429,19 @@ class RunRegistry:
 
     Thread safety
     -------------
-    The underlying ``sqlite3.Connection`` is not safe for concurrent use
-    across threads (Python's sqlite3 module enforces this with
-    ``check_same_thread=True`` by default). Use one registry instance per
-    thread. Cross-*process* concurrency is fine — WAL mode lets readers and
-    writers proceed without blocking.
+    A single ``RunRegistry`` is safe to share across threads. Each
+    thread that touches ``self._conn`` lazily gets its OWN
+    ``sqlite3.Connection`` via ``threading.local``, so SQLite's
+    ``check_same_thread`` guard never trips even when FastAPI's
+    ``run_in_threadpool`` hops requests across worker threads.
+
+    Why per-thread connections instead of a single shared connection
+    with a lock: the registry is consumed by long-lived HTTP handlers
+    (see ``state_routes.py``). A single connection + module lock
+    serializes every request, negating WAL's reader/writer
+    concurrency. Per-thread connections let reads run in parallel and
+    WAL's write-ahead log handles the rest. Cross-process concurrency
+    is still fine — WAL mode handles that too.
     """
 
     def __init__(self, db_path: Union[str, Path]) -> None:
@@ -444,15 +453,42 @@ class RunRegistry:
         # without a separate `mkdir -p` step.
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
 
-        # We pass the path as a string because sqlite3 historically accepted
-        # only str (PEP 519 PathLike support landed in 3.7 but third-party
-        # forks may lag — stringifying is the safest portable form).
-        self._conn: sqlite3.Connection = sqlite3.connect(str(self.db_path))
-        # Configure connection-wide pragmas in one place so every instance
-        # gets identical settings.
-        self._configure_connection(self._conn)
+        # Per-thread connection storage. The ``_conn`` property below
+        # creates a connection on demand for the current thread and
+        # caches it here, so callers can still write ``self._conn``
+        # everywhere without thinking about the thread model.
+        self._thread_local: threading.local = threading.local()
+        # Track every connection we hand out so ``close()`` can clean
+        # them up cross-thread (each thread's own close on exit is
+        # the happy path; this list covers the shutdown edge case).
+        self._conns: List[sqlite3.Connection] = []
+        self._conns_lock: threading.Lock = threading.Lock()
 
+        # Initialize the schema on the current thread — this also
+        # creates the first thread's connection eagerly so any caller
+        # assumption that __init__ made the file valid still holds.
         self._init_schema()
+
+    # -- per-thread connection ---------------------------------------------
+
+    @property
+    def _conn(self) -> sqlite3.Connection:
+        """Return this thread's connection, creating one if needed.
+
+        Each thread that touches the registry lazily gets its own
+        ``sqlite3.Connection`` pointed at the same DB file. WAL mode
+        keeps concurrent readers/writers from blocking each other at
+        the DB level; the per-thread handle keeps Python's sqlite3
+        ``check_same_thread`` guard from tripping on a shared one.
+        """
+        conn = getattr(self._thread_local, "conn", None)
+        if conn is None:
+            conn = sqlite3.connect(str(self.db_path))
+            self._configure_connection(conn)
+            self._thread_local.conn = conn
+            with self._conns_lock:
+                self._conns.append(conn)
+        return conn
 
     # -- connection pragma -------------------------------------------------
 
@@ -546,16 +582,31 @@ class RunRegistry:
         self.close()
 
     def close(self) -> None:
-        """Close the underlying SQLite connection.
+        """Close every per-thread SQLite connection we've opened.
 
-        Safe to call multiple times; subsequent operations on this instance
-        will raise ``sqlite3.ProgrammingError`` from the closed connection.
+        Safe to call multiple times. Each thread that touched this
+        registry may have opened its own connection (see the `_conn`
+        property docstring); we iterate the tracking list and close
+        them all. Subsequent operations on this instance will raise
+        ``sqlite3.ProgrammingError`` on any attempt to reuse the
+        closed handles.
         """
-        try:
-            self._conn.close()
-        except sqlite3.ProgrammingError:
-            # Already closed — make close() idempotent.
-            pass
+        with self._conns_lock:
+            conns = list(self._conns)
+            self._conns.clear()
+        for conn in conns:
+            try:
+                conn.close()
+            except sqlite3.ProgrammingError:
+                # Already closed — make close() idempotent.
+                pass
+        # Drop the thread-local reference on this thread. Other
+        # threads' TLS slots will clear naturally on next access
+        # (the property checks for a closed connection? no — once
+        # closed, calls raise. Consumers should not reuse the
+        # registry after close()).
+        if hasattr(self._thread_local, "conn"):
+            del self._thread_local.conn
 
     # ======================================================================
     # Runs — new RunRecord API
