@@ -99,14 +99,6 @@ function edgeKey(a, b) {
  * @param {number} opts.scale        - base triangle scale
  * @param {number} opts.seed         - PRNG seed
  * @param {string} opts.baseShape    - 'triangle' | 'diamond' | 'plane'
- * @param {number} opts.flatness     - [0..1] share of the map that stays
- *   flat. 0 = no flats (classic jagged-everywhere). 0.35 is a good default:
- *   you get a few smooth plateau / basin regions without losing the
- *   mountain ranges. Internally we multiply each midpoint's displacement
- *   by a low-frequency bilinear-sampled ruggedness field and remap it
- *   through a smoothstep gated by `flatness`, so low-ruggedness zones go
- *   to amplitude zero (truly flat) while high-ruggedness zones stay at
- *   full amplitude (same mountains as before).
  * @returns {{ positions: Float32Array, indices: Uint32Array, normals: Float32Array, heights: Float32Array }}
  */
 export function generateTerrain(opts = {}) {
@@ -117,63 +109,9 @@ export function generateTerrain(opts = {}) {
     scale = 4.0,
     seed = 42,
     baseShape = 'diamond',
-    flatness = 0.35,
   } = opts;
 
   const rng = new PRNG(seed);
-
-  /*
-   * Ruggedness field: a 6×6 grid of [0..1] values seeded from the same
-   * PRNG as the midpoint noise. Each midpoint looks up its (x, z)
-   * position against this grid via bilinear interpolation so the
-   * field is continuous (no tile boundaries), then smoothstep'd by
-   * `flatness` to force the bottom zones fully flat.
-   *
-   * Why this shape: we need a MASK that varies at a WAVELENGTH much
-   * larger than any single triangle, otherwise flat zones would be
-   * single-pixel specks. A 6×6 grid spans the whole ±scale footprint
-   * so plateaus are multi-km across at world scale, which reads as
-   * "there's a plain here, and a mountain range over there" rather
-   * than "per-bar noise is quieter".
-   */
-  const RUG_N = 6;
-  const ruggednessGrid = new Float32Array(RUG_N * RUG_N);
-  for (let i = 0; i < ruggednessGrid.length; i++) ruggednessGrid[i] = rng.next();
-
-  const sampleRuggedness = (x, z) => {
-    // Normalize into [0, 1] across the terrain footprint. Clamp so
-    // off-edge sample lookups don't read out of bounds.
-    const nx = Math.min(1, Math.max(0, (x / scale + 1) / 2));
-    const nz = Math.min(1, Math.max(0, (z / scale + 1) / 2));
-    const fx = nx * (RUG_N - 1);
-    const fz = nz * (RUG_N - 1);
-    const ix = Math.min(RUG_N - 2, Math.floor(fx));
-    const iz = Math.min(RUG_N - 2, Math.floor(fz));
-    const tx = fx - ix;
-    const tz = fz - iz;
-    const g00 = ruggednessGrid[iz * RUG_N + ix];
-    const g10 = ruggednessGrid[iz * RUG_N + ix + 1];
-    const g01 = ruggednessGrid[(iz + 1) * RUG_N + ix];
-    const g11 = ruggednessGrid[(iz + 1) * RUG_N + ix + 1];
-    const a = g00 * (1 - tx) + g10 * tx;
-    const b = g01 * (1 - tx) + g11 * tx;
-    return a * (1 - tz) + b * tz;
-  };
-
-  // Smoothstep remap: below `lo` we clamp to 0 (fully flat), above
-  // `hi` we clamp to 1 (fully mountainous). `flatness` controls the
-  // lower threshold, so `flatness = 0` keeps the whole field > 0
-  // (everything rugged, backward-compatible) and `flatness = 1` kills
-  // displacement everywhere.
-  const ruggednessScale = (r) => {
-    if (flatness <= 0) return 1;
-    const lo = Math.min(0.95, flatness);
-    const hi = Math.min(1, lo + 0.25);
-    if (r <= lo) return 0;
-    if (r >= hi) return 1;
-    const t = (r - lo) / (hi - lo);
-    return t * t * (3 - 2 * t); // smoothstep
-  };
 
   // Build the coarsest possible seed mesh.
   // Everything after this is refinement; the base shape controls only the
@@ -240,22 +178,13 @@ export function generateTerrain(opts = {}) {
 
       const a = vertices[ia];
       const b = vertices[ib];
-      const mx = (a[0] + b[0]) / 2;
-      const mz = (a[2] + b[2]) / 2;
-      // Sample the coarse ruggedness field at this midpoint's XZ
-      // position. Flat zones get `rugMul ≈ 0` and thus contribute zero
-      // vertical noise, so the subdivision still runs (topology is
-      // preserved) but the surface stays at the linear-midpoint Y.
-      // That's the whole reason this is a per-midpoint multiplier
-      // instead of a scalar amp knob.
-      const rugMul = ruggednessScale(sampleRuggedness(mx, mz));
       const mid = [
-        mx,
+        (a[0] + b[0]) / 2,
         // Only the vertical axis is displaced.
         // Horizontal coordinates stay centered on the original edge midpoint so
         // the mesh refines rather than shearing sideways.
-        (a[1] + b[1]) / 2 + rng.nextSigned() * amp * rugMul,
-        mz,
+        (a[1] + b[1]) / 2 + rng.nextSigned() * amp,
+        (a[2] + b[2]) / 2,
       ];
       const idx = vertices.length;
       vertices.push(mid);
