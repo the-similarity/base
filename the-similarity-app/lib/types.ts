@@ -91,12 +91,84 @@ export type ForecastResult = {
   weights: number[];
 };
 
+/**
+ * Calibration grade — discrete quality band for quick at-a-glance judgment.
+ *
+ * Mapping (derived downstream from coverage + crps + hit_rate):
+ *   A → coverage within 5pp of target, crps <= 0.05, hit_rate >= 0.58
+ *   B → coverage within 10pp, crps <= 0.08, hit_rate >= 0.54
+ *   C → coverage within 15pp, crps <= 0.12, hit_rate >= 0.52
+ *   D → coverage within 20pp OR crps <= 0.20
+ *   F → worse than the D thresholds
+ *   "unknown" → not enough eval history to grade
+ */
+export type CalibrationGrade = "A" | "B" | "C" | "D" | "F" | "unknown";
+
+/**
+ * Regime drift signal — how unstable the matched regime looks vs its
+ * historical baseline. "unknown" when the backend has no comparable
+ * baseline for the active symbol.
+ */
+export type RegimeDrift = "low" | "elevated" | "high" | "unknown";
+
+/**
+ * A single reliability-diagram bucket: for a predicted probability bin,
+ * what fraction of observations fell below the corresponding forecast level.
+ * predicted=observed is perfect calibration (the identity line).
+ */
+export type ReliabilityBucket = {
+  /** Predicted probability / nominal CDF level in [0, 1]. */
+  predicted: number;
+  /** Observed frequency in [0, 1]. */
+  observed: number;
+};
+
+/**
+ * Trust + calibration metrics attached to every search response.
+ *
+ * All numeric fields MUST be finite — NaN/Infinity are serialized as 0
+ * on the wire and the UI renders "—" when `grade === "unknown"`.
+ *
+ * Numeric conventions:
+ *   coverage   — fraction of realized moves inside the P10-P90 cone. Target 0.80.
+ *   crps       — average CRPS across analog forward windows (lower is better).
+ *   hit_rate   — direction accuracy at horizon. Chance baseline is 0.50.
+ */
+export type CalibrationMetrics = {
+  coverage: number;
+  crps: number;
+  hitRate: number;
+  grade: CalibrationGrade;
+  regimeDrift: RegimeDrift;
+  reliability: ReliabilityBucket[];
+  /** Number of analog forward windows used to compute these metrics. */
+  nAnalogs: number;
+};
+
 export type SearchResponse = {
   queryValues: number[];
   matches: MatchResult[];
   forecast: ForecastResult | null;
+  metrics: CalibrationMetrics | null;
 };
 
+/**
+ * A single dataset entry as returned by the backend `/catalog` endpoint.
+ *
+ * Metadata fields (`source`, `rowCount`, `startTimestamp`, `endTimestamp`,
+ * `lastUpdatedAt`, `frequency`) are surfaced to the workstation dataset
+ * dropdown so each item can render a rich card (source badge, date
+ * range, bar count, staleness indicator). They are all TREATED AS
+ * OPTIONAL by the UI: a freshly-ingested dataset whose manifest entry
+ * hasn't been rewritten yet may arrive without them, and the dropdown
+ * must degrade gracefully (render the core "SYMBOL · TIMEFRAME"
+ * identifier and omit the sub-lines) rather than erroring.
+ *
+ * `frequency` is a server-derived human-readable label (e.g. "1 hour"
+ * for timeframe "1h"). The frontend must NEVER re-parse `timeframe`
+ * locally — if the backend doesn't supply `frequency`, the raw short
+ * code is acceptable fallback.
+ */
 export type CatalogItem = {
   assetClass: string;
   symbol: string;
@@ -105,6 +177,8 @@ export type CatalogItem = {
   rowCount: number;
   startTimestamp: string | null;
   endTimestamp: string | null;
+  lastUpdatedAt: string | null;
+  frequency: string | null;
 };
 
 export type DatasetSeries = {

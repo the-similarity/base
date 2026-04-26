@@ -92,11 +92,31 @@ export function mapMatchesToAnalogs(
     const lenses = mapScoreBreakdownToLenses(m.scoreBreakdown);
     const composite = Object.values(lenses).reduce((a, b) => a + b, 0) / 9;
 
-    // Extract price window from matched series or from the loaded series
+    // Extract price window from matched series or from the loaded series.
     const priceWindow = m.matchedSeries ?? seriesValues.slice(m.startIdx, m.endIdx);
-    const after = m.forwardWindow ?? [];
     const lastMatchPrice = priceWindow.length > 0 ? priceWindow[priceWindow.length - 1] : 1;
-    const afterReturn = after.length > 0 ? (after[after.length - 1] / lastMatchPrice - 1) : 0;
+
+    /*
+     * Unit contract (must stay aligned with `the_similarity/core/projector.py`):
+     *   backend `forward_window` is a list of CENTERED CUMULATIVE RETURNS,
+     *   i.e. `(future_price - anchor) / anchor` where `anchor` is the last
+     *   price of the matched window. A value of `0.05` means "5% above the
+     *   match's end price" — NOT an absolute price.
+     *
+     * Downstream consumers (workstation LineChart, analog cards, the
+     * trust strip) work in the SAME price-scale as `priceWindow`. We
+     * convert here so `after` is a drop-in continuation of priceWindow
+     * rather than requiring every consumer to know about the mixed
+     * unit situation.
+     *
+     * afterReturn (used by the ranked-analog cards and summary text) is
+     * just the last centered return — NOT the previous buggy
+     * `after[-1] / lastMatchPrice - 1`, which treated `after` as prices
+     * and produced nonsense values like −99.999%.
+     */
+    const rawReturns = m.forwardWindow ?? [];
+    const after = rawReturns.map(r => (1 + r) * lastMatchPrice);
+    const afterReturn = rawReturns.length > 0 ? rawReturns[rawReturns.length - 1] : 0;
 
     // Build date label from API dates or series dates
     const startDateStr = m.startDate ?? seriesDates[m.startIdx] ?? "";
@@ -139,8 +159,22 @@ function generateLensNote(l: LensScores): string {
 
 /**
  * Map the API's ForecastResponse to the workstation's ConePoint[] format.
- * The API returns percentile curves keyed by percentile number (10, 25, 50, 75, 90).
- * We convert these to absolute price levels relative to queryLastPrice.
+ *
+ * Unit contract: the backend `/search` endpoint returns percentile curves
+ * expressed as *centered cumulative returns* — i.e. `(future_price - anchor)
+ * / anchor`. A value of `0.05` means "5% above the anchor price", not
+ * "5 percent of the anchor price". See `the_similarity/core/projector.py`
+ * (function `project`, line `returns = (future - anchor) / anchor`).
+ *
+ * LineChart / ConePoint expects *absolute price levels* on the same scale
+ * as the main series, so we convert with `(1 + return) * anchor`. The
+ * previous implementation used `return * anchor`, which treated the curves
+ * as fractions of anchor rather than deltas — the cone rendered near zero
+ * on the raw-price axis (the 'cone drawn at the bottom' bug) and the
+ * derived `p50Return` metric printed impossible values like −104.8%.
+ *
+ * Default sentinel is 0 (no move from anchor), not 1: if the backend drops
+ * a bar, the cone stays pinned at the anchor instead of jumping to 2×.
  */
 export function mapForecastToCone(
   forecast: ForecastResult,
@@ -153,18 +187,18 @@ export function mapForecastToCone(
   const p75 = forecast.curves["75"] ?? [];
   const p90 = forecast.curves["90"] ?? [];
 
+  // Convert centered returns to absolute prices: price = (1 + r) * anchor.
+  const toPrice = (r: number | undefined) => (1 + (r ?? 0)) * queryLastPrice;
+
   const cone: ConePoint[] = [];
   for (let t = 0; t < bars; t++) {
-    // API curves are cumulative return ratios — multiply by last price
-    // to get absolute price levels. If curves are already absolute, the
-    // queryLastPrice factor acts as a scaling anchor.
     cone.push({
       t,
-      p10: (p10[t] ?? 1) * queryLastPrice,
-      p25: (p25[t] ?? 1) * queryLastPrice,
-      p50: (p50[t] ?? 1) * queryLastPrice,
-      p75: (p75[t] ?? 1) * queryLastPrice,
-      p90: (p90[t] ?? 1) * queryLastPrice,
+      p10: toPrice(p10[t]),
+      p25: toPrice(p25[t]),
+      p50: toPrice(p50[t]),
+      p75: toPrice(p75[t]),
+      p90: toPrice(p90[t]),
     });
   }
   return cone;
@@ -197,6 +231,21 @@ export async function getDashboardData(): Promise<DashboardData> {
   }
 }
 
+/**
+ * Fetch the dataset catalog from the backend.
+ *
+ * The response includes the rich metadata used by the workstation's
+ * dataset dropdown: source, date range, row count, last-updated
+ * timestamp, and human-readable frequency label. Every field except the
+ * identifier triple (assetClass / symbol / timeframe) is treated as
+ * optional on the wire — older backends that don't yet ship the
+ * metadata simply leave the corresponding TS fields `null` / `0` and
+ * the UI renders a minimal card.
+ *
+ * Returns an empty array when the API is not configured (the offline /
+ * demo-mode path uses a static synthetic entry instead of hitting this
+ * function).
+ */
 export async function fetchCatalog(): Promise<CatalogItem[]> {
   if (!apiBaseUrl) return [];
   const response = await fetch(`${normalizeBaseUrl(apiBaseUrl)}/catalog`, {
@@ -206,13 +255,21 @@ export async function fetchCatalog(): Promise<CatalogItem[]> {
   if (!response.ok) throw new Error(`Catalog request failed (${response.status})`);
   const json = await response.json();
   return (json.datasets ?? []).map((d: Record<string, unknown>) => ({
-    assetClass: d.asset_class,
-    symbol: d.symbol,
-    timeframe: d.timeframe,
-    source: d.source,
-    rowCount: d.row_count,
-    startTimestamp: d.start_timestamp ?? null,
-    endTimestamp: d.end_timestamp ?? null,
+    assetClass: d.asset_class as string,
+    symbol: d.symbol as string,
+    timeframe: d.timeframe as string,
+    // Source may legitimately be absent on legacy manifests; preserve
+    // "unknown" as a stable display string rather than letting `null`
+    // trickle into the UI and force every consumer to null-check it.
+    source: (d.source as string | undefined) ?? "unknown",
+    rowCount: (d.row_count as number | undefined) ?? 0,
+    startTimestamp: (d.start_timestamp as string | null | undefined) ?? null,
+    endTimestamp: (d.end_timestamp as string | null | undefined) ?? null,
+    lastUpdatedAt: (d.last_updated_at as string | null | undefined) ?? null,
+    // Frequency is derived server-side; fall back to the raw timeframe
+    // code if an older backend omits it so the dropdown still shows
+    // *something* readable.
+    frequency: (d.frequency as string | null | undefined) ?? (d.timeframe as string),
   }));
 }
 

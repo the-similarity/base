@@ -12,7 +12,6 @@ from __future__ import annotations
 import os
 import tempfile
 
-import numpy as np
 import pytest
 
 # Import the demo module's components directly. The demo is structured
@@ -23,7 +22,10 @@ _REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
-from examples.event_prediction_demo import (
+# These imports must come AFTER the sys.path insertion above — the
+# ``examples`` directory isn't on the default package path. E402 is
+# silenced per-line; don't hoist these above the sys.path line.
+from examples.event_prediction_demo import (  # noqa: E402
     Event,
     EventScorecard,
     ForecastQuestion,
@@ -31,8 +33,8 @@ from examples.event_prediction_demo import (
     predict_base_rate,
     register_eval_run,
 )
-from the_similarity.platform.artifacts import RunKind
-from the_similarity.platform.registry import RunRegistry
+from the_similarity.platform.artifacts import RunKind  # noqa: E402
+from the_similarity.platform.registry import RunRegistry  # noqa: E402
 
 
 # ---------------------------------------------------------------------------

@@ -133,16 +133,31 @@ input, select, textarea { font: inherit; color: inherit; }
    ==================================================================== */
 .app {
   display: grid;
-  grid-template-rows: 44px 56px 1fr 26px;
+  /* 3 rows now: marquee (44px) + main content (1fr) + status bar (26px).
+     The old 56px nav row was dropped when header.nav was deleted; leaving
+     it here pushed `main.page` into the 56px slot and dumped the status
+     bar into the `1fr` row, making the footer fill the screen. */
+  grid-template-rows: 44px 1fr 26px;
   height: 100vh;
 }
 
-/* Marquee strip (the 'one engine' reminder) */
+/*
+ * Marquee strip — the 44px ticker-style header above the nav.
+ *
+ * Theme-aware: uses --bg-inset (one shade off body in both light+dark)
+ * plus a bottom rule so it reads as a distinct header surface without
+ * flipping to the opposite theme. The previous implementation used
+ * `background: var(--ink); color: var(--bg)` which inverted with the
+ * theme — in dark mode that produced a cream strip sitting above a
+ * dark page (the "white bar on top" bug). Item text tokens are --ink-3
+ * for muted and --ink for bold, so both read in either theme.
+ */
 .marquee {
   display: flex; align-items: center; gap: var(--s-6);
   padding: 0 var(--s-6);
-  background: var(--ink);
-  color: var(--bg);
+  background: var(--bg-inset);
+  color: var(--ink-3);
+  border-bottom: 1px solid var(--rule);
   font-family: var(--mono);
   font-size: 10.5px;
   letter-spacing: 0.18em;
@@ -150,71 +165,62 @@ input, select, textarea { font: inherit; color: inherit; }
   overflow: hidden;
   white-space: nowrap;
 }
-.marquee__brand { font-weight: 600; letter-spacing: 0.24em; }
+.marquee__brand { font-weight: 600; letter-spacing: 0.24em; color: var(--ink); }
+/*
+ * Brand cluster living inside the marquee: icon + italic serif wordmark.
+ * Opts out of the marquee's uppercase-mono styling (text-transform,
+ * letter-spacing, font-family) so the wordmark reads as a product title,
+ * not a marquee ticker.
+ */
+.brand {
+  display: flex; align-items: center; gap: var(--s-3);
+  text-transform: none;
+  letter-spacing: normal;
+  flex-shrink: 0;
+}
+.brand__logo { width: 22px; height: 22px; display: grid; place-items: center; }
+.brand__word {
+  font-family: var(--serif);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  color: var(--ink);
+}
+.brand__word em { font-style: italic; font-weight: 400; color: var(--ink-3); }
 .marquee__track {
   display: inline-flex; gap: 40px;
   animation: marquee 90s linear infinite;
   will-change: transform;
 }
-.marquee__item { color: rgba(255,255,255,0.55); }
-.marquee__item b { color: rgba(255,255,255,0.95); font-weight: 500; }
+.marquee__item { color: var(--ink-3); }
+.marquee__item b { color: var(--ink); font-weight: 500; }
 @keyframes marquee {
   from { transform: translateX(0); }
   to   { transform: translateX(-50%); }
 }
-.marquee__right { margin-left: auto; display: flex; gap: var(--s-4); align-items: center; }
+.marquee__right { display: flex; gap: var(--s-4); align-items: center; }
 .marquee__right .dot { width: 6px; height: 6px; border-radius: 50%; background: #6fb88e; box-shadow: 0 0 0 2px rgba(111,184,142,.2); }
+/*
+ * `.nav__right` moved out of the nav into the marquee bar. Inside the
+ * marquee it needs a few adjustments to sit at the right height and
+ * not get swallowed by the marquee's uppercase text styles.
+ */
+.marquee > .nav__right {
+  text-transform: none;
+  letter-spacing: normal;
+  font-family: var(--sans, inherit);
+  flex-shrink: 0;
+}
 
-/* ── Top navigation: the six verbs ───────────────────────────── */
-.nav {
-  display: flex; align-items: stretch;
-  border-bottom: 1px solid var(--rule);
-  background: var(--bg-elevated);
-  padding-left: var(--s-6); padding-right: var(--s-4);
-  gap: var(--s-6);
-}
-.nav__brand {
-  display: flex; align-items: center; gap: var(--s-3);
-  border-right: 1px solid var(--rule);
-  padding-right: var(--s-6);
-  min-width: 220px;
-}
-.nav__logo {
-  width: 26px; height: 26px;
-  display: grid; place-items: center;
-}
-.nav__word {
-  font-family: var(--serif);
-  font-size: 18px; font-weight: 600; letter-spacing: -0.02em;
-  line-height: 1;
-}
-.nav__word em {
-  font-style: italic; font-weight: 400; color: var(--ink-3);
-}
-.nav__verbs { display: flex; align-items: stretch; gap: 0; flex: 1; }
-.nav__verb {
-  display: flex; flex-direction: column; justify-content: center;
-  padding: 0 var(--s-5);
-  border-right: 1px solid transparent;
-  border-left: 1px solid transparent;
-  min-width: 132px;
-  position: relative;
-  color: var(--ink-2);
-  transition: color .15s;
-}
-.nav__verb:hover { color: var(--ink); background: var(--bg-hover); }
-.nav__verb[data-active="true"] {
-  color: var(--ink);
-  background: var(--bg);
-  border-left: 1px solid var(--rule);
-  border-right: 1px solid var(--rule);
-}
-.nav__verb[data-active="true"]::after {
-  content: ""; position: absolute; left: -1px; right: -1px; bottom: -1px; height: 1px;
-  background: var(--bg);
-}
-.nav__verb__num { font-family: var(--mono); font-size: 9.5px; letter-spacing: .14em; color: var(--ink-4); }
-.nav__verb__name { font-family: var(--serif); font-size: 17px; font-weight: 500; letter-spacing: -0.01em; }
+/* ── Top navigation ─────────────────────────────────────────────
+   The old header.nav element is gone — the product ships a single
+   surface, the marquee carries the brand + utility cluster, and a
+   second chrome row wasn't earning its keep. The .nav* classes below
+   that REMAIN are the ones the marquee still renders (.nav__right,
+   .nav__search, .nav__iconbtn). Everything else (.nav, .nav__brand,
+   .nav__logo, .nav__word, .nav__verbs, .nav__verb) was removed with
+   the header. */
 .nav__right { display: flex; align-items: center; gap: var(--s-4); }
 .nav__search {
   display: flex; align-items: center; gap: var(--s-2);
@@ -253,6 +259,117 @@ input, select, textarea { font: inherit; color: inherit; }
    ==================================================================== */
 .page { overflow: auto; }
 
+/* ====================================================================
+   PAGE: HOME
+   Editorial landing page at /home. Shares chrome (marquee bar +
+   statusbar) with the workstation, body is a hero + three explainer
+   tiles laid out in a single centered column.
+   ==================================================================== */
+.home {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 96px var(--s-6) var(--s-8);
+}
+.home__hero { margin-bottom: 96px; }
+.home__eyebrow { margin-bottom: var(--s-4); }
+.home__headline {
+  font-family: var(--serif);
+  font-size: clamp(40px, 6vw, 72px);
+  line-height: 1.04;
+  letter-spacing: -0.02em;
+  font-weight: 500;
+  color: var(--ink);
+  margin: 0 0 var(--s-5);
+}
+.home__headline em {
+  font-style: italic;
+  font-weight: 400;
+  color: var(--ink-3);
+}
+.home__lede {
+  font-family: var(--serif);
+  font-size: 18px;
+  line-height: 1.55;
+  color: var(--ink-2);
+  max-width: 640px;
+  margin: 0 0 var(--s-6);
+}
+.home__cta-row {
+  display: flex;
+  gap: var(--s-3);
+  flex-wrap: wrap;
+}
+.home__cta {
+  display: inline-flex; align-items: center;
+  padding: 10px 18px;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+  background: transparent;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-sm);
+  text-decoration: none;
+  transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+.home__cta:hover {
+  color: var(--ink);
+  border-color: var(--rule-strong);
+  background: var(--bg-hover);
+}
+.home__cta--primary {
+  color: var(--bg);
+  background: var(--ink);
+  border-color: var(--ink);
+}
+.home__cta--primary:hover {
+  color: var(--bg);
+  background: var(--ink-2);
+  border-color: var(--ink-2);
+}
+
+/* Three-column explainer grid. Collapses to a single column below
+   720px. Each tile is a labeled block — number, serif title, body. */
+.home__tiles {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--s-6);
+  border-top: 1px solid var(--rule);
+  padding-top: var(--s-7);
+}
+@media (max-width: 720px) {
+  .home__tiles { grid-template-columns: 1fr; }
+}
+.home__tile-num {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  color: var(--ink-4);
+  margin-bottom: var(--s-3);
+}
+.home__tile-title {
+  font-family: var(--serif);
+  font-size: 22px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  margin: 0 0 var(--s-3);
+}
+.home__tile-body {
+  color: var(--ink-2);
+  font-size: 13.5px;
+  line-height: 1.55;
+  margin: 0;
+}
+
+/* statusbar link reuses the .kbd chip styling as a pressable anchor. */
+.kbd--link {
+  text-decoration: none;
+  color: var(--ink-2);
+}
+.kbd--link:hover { color: var(--ink); }
+
 .workstation {
   display: grid;
   grid-template-columns: 260px 1fr 320px;
@@ -260,9 +377,373 @@ input, select, textarea { font: inherit; color: inherit; }
   height: 100%;
   overflow: hidden;
 }
-@media (max-width: 1280px) {
-  .workstation { grid-template-columns: 240px 1fr; }
+
+/* ------------------------------------------------------------------
+   Workstation banners (offline / empty-catalog).
+   Spans all grid columns via `grid-column: 1 / -1` so the banner
+   occupies a full-width row above the three-column body. Height is
+   driven by content, so the row collapses to zero when no banner
+   is shown (which is also why .workstation uses `auto 1fr` rows).
+   ------------------------------------------------------------------ */
+.ws-banner {
+  grid-column: 1 / -1;
+  display: flex; align-items: center; gap: var(--s-3);
+  padding: 8px var(--s-5);
+  font-size: 12.5px;
+  line-height: 1.4;
+  border-bottom: 1px solid var(--rule);
+}
+.ws-banner__icon {
+  font-size: 14px;
+  flex-shrink: 0;
+  line-height: 1;
+}
+.ws-banner__text {
+  flex: 1;
+  color: var(--ink);
+}
+.ws-banner__text code {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  padding: 1px 5px;
+  background: var(--bg-hover);
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+}
+.ws-banner__dismiss {
+  flex-shrink: 0;
+  width: 22px; height: 22px;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 16px; line-height: 1;
+  color: var(--ink-3);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  cursor: pointer;
+}
+.ws-banner__dismiss:hover {
+  color: var(--ink);
+  border-color: var(--rule);
+  background: var(--bg-hover);
+}
+.ws-banner--warn {
+  background: rgba(201, 161, 79, 0.08);
+  border-left: 3px solid var(--warn);
+  color: var(--ink);
+}
+.ws-banner--info {
+  background: rgba(90, 43, 43, 0.05);
+  border-left: 3px solid var(--accent);
+  color: var(--ink);
+}
+
+/* ------------------------------------------------------------------
+   Pin-filtered banner.
+   Shown when the user has pinned at least one analog — the cone,
+   metrics, and lens radar are then computed from ONLY the pinned
+   subset. The banner provides:
+     - a visible confirmation of the curated state,
+     - the count of pinned analogs driving the forecast,
+     - a one-click "Clear pins" to return to the top-K baseline.
+   Sits above the metrics row, not in the page-wide banner slot, so
+   users see it near the thing it affects (the chart) instead of at
+   the top of the viewport.
+   ------------------------------------------------------------------ */
+.ws-pin-banner {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  padding: 6px var(--s-4);
+  margin: var(--s-3) 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--ink);
+  background: rgba(90, 43, 43, 0.06);
+  border-left: 3px solid var(--accent);
+  border-radius: 2px;
+}
+.ws-pin-banner__icon {
+  font-size: 13px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.ws-pin-banner__text { flex: 1; }
+.ws-pin-banner__text strong {
+  font-weight: 500;
+  color: var(--ink);
+}
+.ws-pin-banner__clear {
+  flex-shrink: 0;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+  background: transparent;
+  border: 1px solid var(--rule-strong);
+  border-radius: 2px;
+  padding: 3px 8px;
+  cursor: pointer;
+  transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
+}
+.ws-pin-banner__clear:hover {
+  color: var(--ink);
+  border-color: var(--ink-3);
+  background: var(--bg-hover);
+}
+.ws-pin-banner__clear:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* ------------------------------------------------------------------
+   Micro empty-states (no bars, no analogs) + mobile notice.
+   These are small, non-blocking messages that replace a silent empty
+   render. The "--strip" variant is sized for the horizontal analog
+   strip so the main chart layout above it doesn't reflow.
+   ------------------------------------------------------------------ */
+.ws-micro-empty {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: var(--s-6) var(--s-5);
+  text-align: center;
+  min-height: 120px;
+}
+.ws-micro-empty__title {
+  font-family: var(--serif);
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--ink);
+  margin-bottom: 6px;
+}
+.ws-micro-empty__body {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--ink-3);
+  max-width: 360px;
+}
+.ws-micro-empty--strip {
+  width: 100%;
+  min-height: 0;
+  padding: var(--s-4) var(--s-5);
+}
+
+.ws-mobile-notice {
+  display: none; /* hidden except at <768px */
+  grid-column: 1 / -1;
+  padding: 8px var(--s-5);
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--ink-2);
+  background: var(--bg-elevated);
+  border-bottom: 1px solid var(--rule);
+}
+@media (max-width: 767px) {
+  /* Stack everything vertically on phone-sized screens. Both side
+     panels are hidden (drawer toggles live at larger breakpoints).
+     The main column gets the full width, chart-stack scrolls normally. */
+  .workstation { grid-template-columns: 1fr; }
+  .workstation > .side,
   .workstation > .right { display: none; }
+  .ws-mobile-notice { display: block; }
+  .main__head {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--s-4);
+  }
+  .main__metrics {
+    flex-wrap: wrap;
+    gap: var(--s-4);
+  }
+}
+
+/* ------------------------------------------------------------------
+   Empty-state card (catalog has zero registered datasets).
+   Renders inside .chart-stack above the chart-card as a centered
+   call-to-action block. Intentionally serif + generous whitespace
+   to signal "this is a setup task" rather than a transient loading
+   state. Still lets the synthetic chart render below so the user
+   can tour the UI.
+   ------------------------------------------------------------------ */
+.ws-empty-state {
+  display: flex;
+  justify-content: center;
+  padding: var(--s-4) 0;
+}
+.ws-empty-state__card {
+  max-width: 520px;
+  width: 100%;
+  padding: var(--s-6) var(--s-6);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+  text-align: center;
+}
+.ws-empty-state__headline {
+  margin: 0 0 var(--s-3);
+  font-family: var(--serif);
+  font-weight: 500;
+  font-size: 22px;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+.ws-empty-state__body {
+  margin: 0 0 var(--s-5);
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--ink-2);
+}
+.ws-empty-state__actions {
+  display: flex;
+  gap: var(--s-3);
+  justify-content: center;
+  flex-wrap: wrap;
+}
+.ws-empty-state__cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 14px;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  letter-spacing: .04em;
+  color: var(--ink);
+  background: var(--bg);
+  border: 1px solid var(--rule-strong);
+  border-radius: 3px;
+  text-decoration: none;
+  cursor: pointer;
+}
+.ws-empty-state__cta:hover {
+  background: var(--bg-hover);
+}
+.ws-empty-state__cta--primary {
+  background: var(--ink);
+  color: var(--bg);
+  border-color: var(--ink);
+}
+.ws-empty-state__cta--primary:hover {
+  background: var(--ink-2);
+  border-color: var(--ink-2);
+}
+.ws-empty-state__cta:disabled {
+  color: var(--ink-4);
+  cursor: not-allowed;
+  background: var(--bg);
+}
+
+/* ------------------------------------------------------------------
+   Drawer toggle + close + backdrop (only visible at <1280px).
+   On large screens the drawer is docked (static grid column) and all
+   three of these are hidden by default.
+   ------------------------------------------------------------------ */
+.ws-drawer-toggles {
+  display: flex;
+  gap: var(--s-2);
+  margin-top: var(--s-3);
+}
+.ws-drawer-toggle {
+  display: none; /* hidden by default, shown in media queries below */
+  align-self: flex-start;
+  padding: 6px 10px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: .04em;
+  color: var(--ink-2);
+  background: var(--bg);
+  border: 1px solid var(--rule-strong);
+  border-radius: 3px;
+  cursor: pointer;
+}
+.ws-drawer-toggle:hover { background: var(--bg-hover); }
+.ws-drawer-close {
+  display: none; /* hidden by default, shown at midsize */
+  position: absolute;
+  top: 8px; right: 8px;
+  width: 28px; height: 28px;
+  align-items: center; justify-content: center;
+  font-size: 20px; line-height: 1;
+  color: var(--ink-3);
+  background: var(--bg);
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  cursor: pointer;
+  z-index: 2;
+}
+.ws-drawer-close:hover { color: var(--ink); background: var(--bg-hover); }
+.ws-drawer-backdrop {
+  display: none; /* hidden unless a drawer is open at midsize */
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  z-index: 40;
+}
+
+/* ------------------------------------------------------------------
+   Midsize layout: 1024-1279px.
+   Right panel becomes an off-canvas slide-in drawer. The grid goes
+   back to 2 columns (sidebar + main). The drawer overlays the main
+   content when open.
+   ------------------------------------------------------------------ */
+@media (max-width: 1279px) and (min-width: 1024px) {
+  .workstation { grid-template-columns: 240px 1fr; }
+  .workstation > .right {
+    /* Pull the right panel out of the grid and treat it as a fixed
+       overlay. Docked to the right edge, slides in via translateX. */
+    position: fixed;
+    top: 0; right: 0; bottom: 0;
+    width: 340px;
+    max-width: 90vw;
+    border-left: 1px solid var(--rule);
+    background: var(--bg-elevated);
+    z-index: 50;
+    transform: translateX(100%);
+    transition: transform .2s ease-out;
+    box-shadow: -4px 0 16px rgba(0, 0, 0, 0.08);
+  }
+  .workstation[data-right-drawer="open"] > .right {
+    transform: translateX(0);
+  }
+  .workstation[data-right-drawer="open"] > .ws-drawer-backdrop {
+    display: block;
+  }
+  .ws-drawer-toggle--right { display: inline-flex; }
+  .ws-drawer-close { display: inline-flex; }
+}
+
+/* ------------------------------------------------------------------
+   Compact layout: 768-1023px.
+   Left sidebar ALSO becomes a slide-in drawer so the chart gets full
+   width. Right panel stays hidden (only accessible above 1024px, or
+   via future re-design). The main column becomes the only docked
+   thing, and both drawers overlay it when opened.
+   ------------------------------------------------------------------ */
+/* At <768px we stack everything vertically — both side panels hidden
+   and a polite "best viewed on desktop" notice shown at the top. See
+   the later mobile block for those rules. */
+@media (max-width: 1023px) and (min-width: 768px) {
+  .workstation { grid-template-columns: 1fr; }
+  .workstation > .right { display: none; }
+
+  .workstation > .side {
+    position: fixed;
+    top: 0; left: 0; bottom: 0;
+    width: 300px;
+    max-width: 85vw;
+    border-right: 1px solid var(--rule);
+    background: var(--bg-elevated);
+    z-index: 50;
+    transform: translateX(-100%);
+    transition: transform .2s ease-out;
+    box-shadow: 4px 0 16px rgba(0, 0, 0, 0.08);
+  }
+  .workstation[data-left-drawer="open"] > .side {
+    transform: translateX(0);
+  }
+  .workstation[data-left-drawer="open"] > .ws-drawer-backdrop {
+    display: block;
+  }
+  .ws-drawer-toggle--left { display: inline-flex; }
+  .ws-drawer-close--left { display: inline-flex; }
 }
 
 /* Sidebar — query definition & saved analogs */
@@ -347,8 +828,412 @@ input, select, textarea { font: inherit; color: inherit; }
 .metric .v.pos { color: var(--positive); }
 .metric .v.neg { color: var(--negative); }
 
+/* ------------------------------------------------------------------
+   Search control row — visible manual-search surface.
+
+   Sits below .main__head and renders a tight control group: top-K
+   segmented selector + Search button + last-run relative timestamp.
+
+   The Search button is the primary CTA; when inputs have drifted since
+   the last search it carries a small accent dot + subtle pulse to
+   signal "pending changes". While a search is in flight it shows a
+   spinner and is disabled.
+   ------------------------------------------------------------------ */
+.ws-search-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--s-4);
+  padding: var(--s-2) var(--s-6);
+  border-bottom: 1px solid var(--rule);
+  background: var(--bg);
+  flex-wrap: wrap;
+}
+.ws-search-row__group {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+}
+.ws-search-row__group--end { justify-content: flex-end; }
+.ws-search-row__label {
+  /* Match the existing ".label" micro-caps styling but without the
+     bottom margin .metric .label imposes. */
+  margin: 0;
+}
+.ws-search-row__lastrun {
+  font-size: 10.5px;
+  color: var(--ink-3);
+  letter-spacing: .04em;
+}
+
+/* Compact segmented control for top-K values 1/3/6/10. Mirrors the
+   .chip visual language so the workstation header stays typographically
+   coherent, but groups the buttons into a single connected bar. */
+.ws-topk {
+  display: inline-flex;
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  overflow: hidden;
+  background: var(--bg);
+}
+.ws-topk__btn {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: .04em;
+  padding: 3px 10px;
+  border: none;
+  border-right: 1px solid var(--rule);
+  background: transparent;
+  color: var(--ink-2);
+  cursor: pointer;
+  min-width: 28px;
+}
+.ws-topk__btn:last-child { border-right: none; }
+.ws-topk__btn:hover:not([data-active="true"]) { background: var(--bg-hover); }
+.ws-topk__btn[data-active="true"] {
+  background: var(--ink);
+  color: var(--bg);
+}
+
+/* Horizon selector — forecast bars forward (30/60/120/180/250/365).
+   Mirrors .ws-topk visually so the "what to search" controls read as
+   a coherent row. The single differentiator is tabular-num numerics:
+   at 6 presets with 3-digit values (120, 180, 250, 365), proportional
+   figures would cause visible width jitter as the active button swaps. */
+.ws-horizon {
+  display: inline-flex;
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  overflow: hidden;
+  background: var(--bg);
+}
+.ws-horizon__btn {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: .04em;
+  padding: 3px 8px;
+  border: none;
+  border-right: 1px solid var(--rule);
+  background: transparent;
+  color: var(--ink-2);
+  cursor: pointer;
+  min-width: 32px;
+  /* Tabular figures keep 30d / 365d aligned in the segmented row so
+     swapping the active button doesn't jiggle neighbors. */
+  font-variant-numeric: tabular-nums;
+}
+.ws-horizon__btn:last-child { border-right: none; }
+.ws-horizon__btn:hover:not([data-active="true"]) { background: var(--bg-hover); }
+.ws-horizon__btn[data-active="true"] {
+  background: var(--ink);
+  color: var(--bg);
+}
+
+/* Secondary micro-cap label inside the same search-row group. The
+   primary .ws-search-row__label is bright ink; this one is muted so
+   "Top K" visually anchors the row and "Horizon" reads as the
+   follow-on control, not a peer heading. */
+.ws-search-row__label--secondary {
+  margin: 0 0 0 var(--s-2);
+  color: var(--ink-3);
+}
+
+/* Passive clip-hint icon surfaced next to the horizon selector when
+   viewRange.end would crop the cone. Purely informational — a tiny
+   amber glyph with a :title tooltip. Sits inline in the flex group,
+   no layout shift. */
+.ws-horizon__clip-hint {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  color: var(--warn);
+  cursor: help;
+  /* Slight left margin separates the icon from the last horizon button
+     without forcing an ugly gap in the segmented control itself. */
+  margin-left: 4px;
+}
+
+/* Fewer-matches warning — the search returned < requested K because
+   horizon exceeds available post-match history. Mirrors the last-run
+   timestamp typography (muted mono) because it's data-context, not
+   an error: a quant can glance at it and either lower the horizon
+   or accept the smaller N. */
+.ws-search-row__fewer-matches {
+  font-size: 10.5px;
+  color: var(--warn);
+  letter-spacing: .02em;
+  /* max-width keeps the message from pushing the Search button off
+     the row on midsize screens; it wraps onto the second flex row
+     under the search controls instead. */
+  max-width: 28ch;
+  line-height: 1.35;
+  text-align: right;
+}
+
+/* Primary Search button. Three visual states:
+     - neutral (default, !isDirty)
+     - dirty (accent border + dot + subtle pulse)
+     - searching (disabled, spinner) */
+.ws-search-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--bg);
+  background: var(--ink);
+  border: 1px solid var(--ink);
+  border-radius: 3px;
+  cursor: pointer;
+  position: relative;
+}
+.ws-search-btn:hover:not([disabled]) { background: var(--ink-2); border-color: var(--ink-2); }
+.ws-search-btn[disabled] {
+  opacity: 0.7;
+  cursor: progress;
+}
+.ws-search-btn[data-dirty="true"] {
+  /* Pending-changes: accent-ring the button to grab attention. */
+  box-shadow: 0 0 0 2px var(--accent-soft);
+  animation: ws-search-pulse 2s ease-in-out infinite;
+}
+.ws-search-btn__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  display: inline-block;
+  /* Sit slightly above baseline so it looks like a tag, not a bullet. */
+  margin-left: 2px;
+}
+.ws-search-btn__spinner {
+  width: 10px;
+  height: 10px;
+  border: 1.5px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: ws-spinner-rotate 0.9s linear infinite;
+  display: inline-block;
+}
+@keyframes ws-spinner-rotate {
+  to { transform: rotate(360deg); }
+}
+@keyframes ws-search-pulse {
+  0%, 100% { box-shadow: 0 0 0 2px var(--accent-soft); }
+  50%      { box-shadow: 0 0 0 3px var(--accent-soft); }
+}
+
+/* Share button — secondary action next to primary Search.
+   Same geometry as .ws-search-btn so they align in the row but visually
+   de-emphasized: light background, border-only instead of solid fill,
+   and ink-2 color. Hover nudges toward ink. The glyph + label keeps the
+   share affordance discoverable. */
+.ws-share-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+  background: var(--bg);
+  border: 1px solid var(--rule-strong);
+  border-radius: 3px;
+  cursor: pointer;
+}
+.ws-share-btn:hover { background: var(--bg-hover); color: var(--ink); }
+.ws-share-btn:focus-visible {
+  outline: 2px solid var(--rule-focus);
+  outline-offset: 1px;
+}
+
+/* Share-toast — transient "Link copied" confirmation.
+   Floating bottom-center position so it doesn't reflow layout; narrow
+   and compact since it's pure confirmation. Auto-dismisses after 2s via
+   the React component's setTimeout. z-index 60 sits it above the chart
+   and drawer controls (z=50) but below full modals (z=100+). */
+.ws-share-toast {
+  position: fixed;
+  bottom: 48px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  background: var(--ink);
+  color: var(--bg);
+  border: 1px solid var(--ink);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.14);
+  font-family: var(--mono);
+  font-size: 11.5px;
+  letter-spacing: .04em;
+  z-index: 60;
+  /* Brief fade + rise animation so the appearance feels intentional. */
+  animation: ws-share-toast-in 180ms ease-out;
+}
+.ws-share-toast__icon { font-size: 13px; line-height: 1; }
+.ws-share-toast__text { line-height: 1.2; }
+@keyframes ws-share-toast-in {
+  from { opacity: 0; transform: translate(-50%, 4px); }
+  to   { opacity: 1; transform: translate(-50%, 0); }
+}
+
+/* Mobile: stack the row so the button stays tappable. */
+@media (max-width: 767px) {
+  .ws-search-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .ws-search-row__group--end { justify-content: space-between; }
+}
+
 /* Chart area */
 .chart-stack { padding: var(--s-4) var(--s-6); overflow: auto; display: flex; flex-direction: column; gap: var(--s-5); min-height: 0; }
+
+/* Chart-mode (Fast vs Pro) segmented toggle. Lives above .chart-card;
+   right-aligned to stay out of the way of the search row which owns the
+   left edge. Pattern mirrors .tweaks__segmented so the two controls read
+   as members of the same family. */
+.ws-chartmode-row {
+  display: flex;
+  /* Gear button on the left, Fast/Candle toggle on the right, with the
+     row stretching between them. `justify-content: space-between` keeps
+     them anchored to opposite ends of the chart-card header strip. */
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: calc(var(--s-3) * -1); /* pull toggle snug against chart-card */
+}
+
+/* Chart-settings gear + popover. Sits on the left end of .ws-chartmode-row,
+   opposite the Fast/Candle segmented control. Popover is intentionally
+   subtle — thin border, no shadow, same monospace + spacing idiom as
+   the rest of the chart chrome. */
+.ws-chart-settings {
+  position: relative;
+}
+.ws-chart-settings__btn {
+  width: 22px; height: 22px;
+  display: grid; place-items: center;
+  color: var(--ink-3);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+.ws-chart-settings__btn:hover,
+.ws-chart-settings__btn[aria-expanded="true"] {
+  color: var(--ink);
+  background: var(--bg-hover);
+  border-color: var(--rule);
+}
+.ws-chart-settings__btn:focus-visible {
+  outline: 2px solid var(--rule-focus);
+  outline-offset: 1px;
+}
+.ws-chart-settings__pop {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 12;
+  min-width: 172px;
+  padding: 6px 2px;
+  background: var(--bg-card);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-sm);
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-2);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, .04);
+}
+.ws-chart-settings__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px;
+  cursor: pointer;
+  user-select: none;
+}
+.ws-chart-settings__row:hover { background: var(--bg-hover); }
+.ws-chart-settings__row input[type="checkbox"] {
+  width: 12px; height: 12px;
+  margin: 0;
+  accent-color: var(--ink);
+  cursor: pointer;
+}
+.ws-chart-settings__row span { color: var(--ink-2); }
+.ws-chartmode {
+  display: inline-flex;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  font-family: var(--mono);
+  font-size: 10.5px;
+}
+.ws-chartmode__btn {
+  padding: 4px 10px;
+  color: var(--ink-3);
+  background: var(--bg);
+  border: 0;
+  border-right: 1px solid var(--rule);
+  cursor: pointer;
+  letter-spacing: .06em;
+  transition: background 120ms ease, color 120ms ease;
+}
+.ws-chartmode__btn:last-child { border-right: 0; }
+.ws-chartmode__btn:hover:not([data-active="true"]) {
+  background: var(--bg-hover);
+  color: var(--ink-2);
+}
+.ws-chartmode__btn[data-active="true"] {
+  background: var(--bg-inset);
+  color: var(--ink);
+}
+.ws-chartmode__btn:focus-visible {
+  outline: 2px solid var(--rule-focus);
+  outline-offset: -2px;
+}
+
+/* Pro (lightweight-charts) view decorations. The chart canvas itself paints
+   via lightweight-charts; these rules only style the DOM overlay we use for
+   the read-only query window band + the corner hint. */
+.lw-chart { position: relative; }
+.lw-chart__window {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  border-left: 1px solid color-mix(in srgb, var(--accent) 60%, transparent);
+  border-right: 1px solid color-mix(in srgb, var(--accent) 60%, transparent);
+}
+.lw-chart__window-label {
+  position: absolute;
+  top: 4px; left: 6px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .08em;
+  color: var(--accent);
+  white-space: nowrap;
+}
+.lw-chart__note {
+  position: absolute;
+  top: 6px; right: 10px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .04em;
+  color: var(--ink-3);
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  padding: 2px 6px;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-sm);
+  pointer-events: none;
+}
 
 .chart-card {
   border: 1px solid var(--rule);
@@ -381,11 +1266,65 @@ input, select, textarea { font: inherit; color: inherit; }
 .svg-chart .grid line { stroke: var(--c-grid); stroke-width: 1; }
 .svg-chart .axis text { font-family: var(--mono); font-size: 9px; fill: var(--ink-3); letter-spacing: .04em; }
 .svg-chart .price { fill: none; stroke: var(--c-query); stroke-width: 1.3; }
-.svg-chart .analog { fill: none; stroke: var(--c-analog); stroke-width: 1; opacity: .75; }
-.svg-chart .analog.strong { stroke: var(--c-analog-strong); stroke-width: 1.3; opacity: .9; }
+/*
+ * Analog overlay strokes — tri-state rendering.
+ *
+ * Default (no pins anywhere): baseline grey-on-grey — equal weight across
+ * the full top-K analog set. Visually asserts "here are the N matches".
+ *
+ * Strong (this analog is pinned AND pins are active): accent-colored, bold,
+ * and fully opaque. Asserts "the user trusts these — read the cone off
+ * THESE lines, not the ones behind them".
+ *
+ * Context (this analog is NOT pinned AND pins are active): muted ink-4,
+ * narrow stroke, very low opacity. Still visible so the user has
+ * orientation for what the full analog set looks like, but deliberately
+ * de-emphasized so the pinned lines dominate.
+ *
+ * The selection between default / strong / context happens in
+ * `components/workstation/line-chart.tsx` (and mirrored in `line-chart-lw.tsx`
+ * for the Pro canvas view). Keep these rules in sync if either renderer
+ * introduces more variants.
+ */
+.svg-chart .analog         { fill: none; stroke: var(--c-analog);         stroke-width: 1;   opacity: .75; }
+.svg-chart .analog.strong  { fill: none; stroke: var(--accent);           stroke-width: 1.8; opacity: .95; }
+.svg-chart .analog.context { fill: none; stroke: var(--ink-4);            stroke-width: .8;  opacity: .18; }
 .svg-chart .cone-fill { fill: var(--c-cone-fill); }
 .svg-chart .cone-line { fill: none; stroke: var(--c-cone-line); stroke-width: 1; stroke-dasharray: 3 3; }
 .svg-chart .median { fill: none; stroke: var(--c-cone-line); stroke-width: 1.5; }
+.svg-chart .data-end { stroke: var(--ink-4); stroke-width: 1; stroke-dasharray: 2 3; opacity: .5; }
+.svg-chart .data-end-label { font-family: var(--mono); font-size: 9px; fill: var(--ink-3); letter-spacing: .05em; text-transform: uppercase; }
+/*
+ * Drag-to-pan: the `.pan-catcher` rect behind the grid catches mouse
+ * events on empty plot space so the whole view can be dragged around.
+ * Every non-interactive chart shape (grid, axis text, price line,
+ * median, cone paths, data-end marker, analog overlays) is marked
+ * pointer-events: none so the catcher actually receives the event.
+ * The query window rect and its handles explicitly opt back in —
+ * they still need mousedown to resize/move the query selection.
+ */
+.svg-chart .pan-catcher { cursor: grab; }
+.svg-chart .pan-catcher:active { cursor: grabbing; }
+/*
+ * Axis-gutter grabbers — mirror lightweight-charts' "drag axis to
+ * scale" affordance. ns-resize on the right (price) gutter,
+ * ew-resize on the bottom (time) gutter, so the cursor hints the
+ * interaction the moment the user floats over the edges.
+ */
+.svg-chart .price-axis-grabber { cursor: ns-resize; }
+.svg-chart .time-axis-grabber { cursor: ew-resize; }
+.svg-chart .price,
+.svg-chart .median,
+.svg-chart .analog,
+.svg-chart .cone-fill,
+.svg-chart .cone-line,
+.svg-chart .data-end,
+.svg-chart .data-end-label,
+.svg-chart .crosshair,
+.svg-chart .annot,
+.svg-chart .axis { pointer-events: none; }
+.svg-chart .window-rect,
+.svg-chart .window-handle { pointer-events: auto; }
 .svg-chart .window-rect { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 1; cursor: grab; }
 .svg-chart .window-rect:active { cursor: grabbing; }
 .svg-chart .window-handle { fill: var(--accent); cursor: ew-resize; }
@@ -457,6 +1396,13 @@ input, select, textarea { font: inherit; color: inherit; }
   transition: border-color .15s, background .15s;
 }
 .analog-card:hover { background: var(--bg-hover); border-color: var(--rule-strong); }
+/* Inactive = analog exists in top-K but user hasn't activated it onto
+   the chart yet. We dim the card so it reads as "click to reveal" but
+   stay opaque enough that rank, date, and sparkline are still legible.
+   Hover override (below) brings it back to full strength while the
+   user is scanning the strip, matching the transient chart preview. */
+.analog-card:not([data-active="true"]) { opacity: .55; }
+.analog-card:not([data-active="true"]):hover { opacity: 1; }
 .analog-card[data-pinned="true"] {
   border-color: var(--accent);
   background: var(--bg-card);
@@ -726,3 +1672,1357 @@ input, select, textarea { font: inherit; color: inherit; }
 }
 .cmdk__item:hover, .cmdk__item[data-active="true"] { background: var(--bg-hover); }
 .cmdk__item .label { margin-left: auto; }
+
+/* ====================================================================
+   DECK PAGES (Finance runs, detail, compare)
+   ==================================================================== */
+.deck-page {
+  overflow: auto;
+  height: 100%;
+  padding: var(--s-7) 0;
+}
+.deck-page__inner {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 0 var(--s-6);
+}
+.deck-page__label {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  margin: 0 0 var(--s-2);
+}
+.deck-page__title {
+  font-family: var(--serif);
+  font-size: 32px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  margin: 0 0 var(--s-3);
+}
+.deck-page__intro {
+  color: var(--ink-2);
+  font-size: 13px;
+  line-height: 1.55;
+  margin: 0 0 var(--s-6);
+}
+.deck-feed-empty {
+  padding: var(--s-8) var(--s-6);
+  text-align: center;
+  color: var(--ink-3);
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+}
+
+/* Section blocks inside deck pages */
+.deck-section {
+  margin-bottom: var(--s-7);
+}
+.deck-section__tag {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  margin: 0 0 var(--s-4);
+  padding-bottom: var(--s-2);
+  border-bottom: 1px solid var(--rule);
+}
+
+/* Detail grid — key/value pairs */
+.detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: var(--s-4) var(--s-5);
+  margin-bottom: var(--s-4);
+}
+.detail-stat-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  margin: 0 0 4px;
+}
+.detail-stat-value {
+  font-family: var(--mono);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ink);
+  margin: 0;
+}
+.detail-summary {
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.65;
+  color: var(--ink-2);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* Strategy metric cards (used by finance detail) */
+.strategy-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: var(--s-3);
+}
+.strategy-metric-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: var(--s-4);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+}
+.strategy-metric-value {
+  font-family: var(--mono);
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.strategy-metric-value.positive { color: var(--positive); }
+.strategy-metric-value.negative { color: var(--negative); }
+.strategy-metric-value.neutral  { color: var(--ink); }
+.strategy-metric-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+/* Portfolio / calibration table */
+.portfolio-table-wrap {
+  overflow-x: auto;
+}
+.portfolio-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+.portfolio-table__th {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  text-align: left;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--rule-strong);
+  background: var(--bg);
+  position: sticky;
+  top: 0;
+}
+.portfolio-table__th--right { text-align: right; }
+.portfolio-table__row { border-bottom: 1px solid var(--rule); }
+.portfolio-table__row:hover { background: var(--bg-hover); }
+.portfolio-table__td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--rule);
+}
+.portfolio-table__td--mono { font-family: var(--mono); }
+.portfolio-table__td--right { text-align: right; }
+
+/* Error state */
+.match-list-error {
+  text-align: center;
+  padding: var(--s-8);
+}
+.match-list-error__icon {
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--negative);
+  border-radius: 50%;
+  color: var(--negative);
+  font-weight: 700;
+  font-size: 16px;
+  margin-bottom: var(--s-3);
+}
+.match-list-error__text {
+  color: var(--ink-2);
+  font-size: 13px;
+  margin: 0 0 var(--s-4);
+}
+.match-list-error__retry {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 8px 16px;
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+  color: var(--ink);
+  cursor: pointer;
+}
+.match-list-error__retry:hover { background: var(--bg-hover); }
+
+/* Status dot for trust indicator in table rows */
+.status-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  vertical-align: middle;
+}
+
+/* ====================================================================
+   FINANCE RUN DETAIL — Enhanced components
+   ==================================================================== */
+
+/* Status lifecycle display — horizontal steps with connecting lines */
+.run-status-lifecycle {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  padding: var(--s-4) var(--s-5);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+  margin-bottom: var(--s-6);
+}
+.run-status-step {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+  white-space: nowrap;
+}
+.run-status-step--active { color: var(--ink); font-weight: 600; }
+.run-status-step--complete { color: var(--positive); }
+.run-status-step--failed { color: var(--negative); }
+.run-status-step__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 2px solid var(--ink-4);
+  background: transparent;
+  flex-shrink: 0;
+}
+.run-status-step--active .run-status-step__dot {
+  border-color: var(--ink);
+  background: var(--ink);
+}
+.run-status-step--complete .run-status-step__dot {
+  border-color: var(--positive);
+  background: var(--positive);
+}
+.run-status-step--failed .run-status-step__dot {
+  border-color: var(--negative);
+  background: var(--negative);
+}
+.run-status-connector {
+  flex: 1;
+  height: 1px;
+  background: var(--rule);
+  min-width: 24px;
+  margin: 0 var(--s-2);
+}
+.run-status-connector--complete { background: var(--positive); }
+.run-status-timestamp {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--ink-4);
+  margin-left: auto;
+  padding-left: var(--s-4);
+}
+
+/* Metric groups — grouped cards with header */
+.metric-group {
+  margin-bottom: var(--s-5);
+}
+.metric-group__label {
+  font-family: var(--mono);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+  margin: 0 0 var(--s-2);
+}
+.metric-group__cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: var(--s-3);
+}
+
+/* Collapsible config section */
+.config-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: var(--s-3) var(--s-4);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+  cursor: pointer;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+.config-toggle:hover { background: var(--bg-hover); }
+.config-toggle__chevron {
+  transition: transform 0.15s ease;
+  font-size: 12px;
+  color: var(--ink-3);
+}
+.config-toggle__chevron--open { transform: rotate(180deg); }
+.config-body {
+  margin-top: var(--s-2);
+  padding: var(--s-4);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-md);
+  background: var(--bg-inset);
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--ink-2);
+  white-space: pre-wrap;
+  word-break: break-all;
+  overflow-x: auto;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+/* Artifacts list */
+.artifact-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+.artifact-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: var(--s-4);
+  align-items: center;
+  padding: var(--s-3) var(--s-4);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+  font-family: var(--mono);
+  font-size: 11px;
+}
+.artifact-row__name {
+  font-weight: 600;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.artifact-row__type {
+  color: var(--ink-3);
+  letter-spacing: 0.06em;
+}
+.artifact-row__size {
+  color: var(--ink-3);
+  text-align: right;
+  min-width: 60px;
+}
+
+/* Breadcrumb navigation */
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  margin: 0 0 var(--s-3);
+}
+.breadcrumb a {
+  color: var(--ink-3);
+  text-decoration: none;
+  transition: color 0.15s;
+}
+.breadcrumb a:hover { color: var(--ink); }
+.breadcrumb__sep { color: var(--ink-4); }
+.breadcrumb__current { color: var(--ink-2); }
+
+/* Navigation buttons row */
+.nav-actions {
+  display: flex;
+  gap: var(--s-3);
+  margin-bottom: var(--s-5);
+}
+.nav-btn {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 6px 14px;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+  color: var(--ink-2);
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.nav-btn:hover { background: var(--bg-hover); border-color: var(--rule-strong); }
+
+/* Calibration chart — inline SVG chart styles */
+.cal-chart { display: block; width: 100%; height: auto; margin-bottom: var(--s-3); }
+.cal-chart .grid-line { stroke: var(--rule); stroke-width: 1; }
+.cal-chart .diag-line { stroke: var(--ink-4); stroke-width: 1; stroke-dasharray: 4 3; }
+.cal-chart .data-line { fill: none; stroke: var(--accent); stroke-width: 1.5; }
+.cal-chart .data-dot { fill: var(--accent); }
+.cal-chart .axis-label { font-family: var(--mono); font-size: 9px; fill: var(--ink-3); letter-spacing: 0.06em; }
+
+/* ======================================================================
+   MULTI-ANALOG PALETTE & BADGES (Agent G)
+   ----------------------------------------------------------------------
+   Problem the palette solves:
+     Prior to this block, every analog overlay rendered in the same
+     `--c-analog` tone with near-identical opacity. With Top-K=3..6 the
+     lines visually collapsed into a single smear — users asked
+     "is it only showing top 1?". This section introduces six
+     rank-indexed color tokens (#1 = oxblood accent, then amber, green,
+     navy, plum, sienna) so each analog becomes individually
+     recognizable AND stays recognizable when the user cross-references
+     the chart with the analog card strip (same color on the card's
+     left border + in the legend dots).
+   ----------------------------------------------------------------------
+   Interaction hierarchy (unchanged from PR #228 for pin states):
+     pin > hover > default
+   i.e. these palette tokens are the DEFAULT look when no pin is set
+   on any analog. When a pin is active the SVG chart uses
+   `.analog.strong` (accent oxblood) and `.analog.context` (muted ink)
+   classes defined above — palette deliberately does NOT apply.
+   ---------------------------------------------------------------------- */
+:root {
+  --c-analog-1: #5a2b2b;   /* oxblood (reuse of --accent for rank 1)   */
+  --c-analog-2: #8a6200;   /* muted amber                              */
+  --c-analog-3: #1c5b3d;   /* muted green (shared with positive)       */
+  --c-analog-4: #3a4a6b;   /* muted navy                               */
+  --c-analog-5: #6b3a5a;   /* muted plum                               */
+  --c-analog-6: #8a5a3a;   /* muted sienna                             */
+}
+[data-theme="dark"] {
+  --c-analog-1: #c88a8a;
+  --c-analog-2: #c9a14f;
+  --c-analog-3: #6fb88e;
+  --c-analog-4: #8a9ac7;
+  --c-analog-5: #b88ab0;
+  --c-analog-6: #c79a7a;
+}
+
+/* ── Analog-card rank left-border (matches chart overlay color) ──────
+   The `.analog-card` base styles earlier in this file set a 1px border
+   all-around; the rank-indexed rules here replace the LEFT edge with a
+   3px solid band in the matching palette color. When pinning engages,
+   the existing `[data-pinned="true"]::before` pseudo-element (line
+   ~1142) paints an accent-colored strip at `left: -1px` which visually
+   covers the rank border — so pinned cards still read as "pinned",
+   unpinned cards still read as "rank N". This is intentional; pin
+   beats rank in the visual hierarchy, same as in the chart. */
+.analog-card[data-rank="0"] { border-left: 3px solid var(--c-analog-1); }
+.analog-card[data-rank="1"] { border-left: 3px solid var(--c-analog-2); }
+.analog-card[data-rank="2"] { border-left: 3px solid var(--c-analog-3); }
+.analog-card[data-rank="3"] { border-left: 3px solid var(--c-analog-4); }
+.analog-card[data-rank="4"] { border-left: 3px solid var(--c-analog-5); }
+.analog-card[data-rank="5"] { border-left: 3px solid var(--c-analog-6); }
+
+/* ── Rank badge at the analog's forward terminal (Fast SVG only) ─────
+   A 14px circle drawn at (xOf(terminalIdx), yOf(terminalPrice)) with
+   the rank's palette fill and a small white numeral. Rendered only
+   when no pins are active — pin mode already visually emphasizes the
+   pinned set via `.analog.strong`, so the badge would be redundant
+   noise. The Pro view currently skips the badge (see PR body "Pro-view
+   gap"). */
+.svg-chart .analog-badge-circle {
+  stroke: var(--bg-card);
+  stroke-width: 1.2;
+  /* Slight shadow for legibility when the badge overlaps grid lines. */
+  filter: drop-shadow(0 0 1.5px rgba(0, 0, 0, 0.25));
+}
+.svg-chart .analog-badge-text {
+  font-family: var(--mono);
+  font-size: 9px;
+  font-weight: 600;
+  fill: #ffffff;
+  text-anchor: middle;
+  dominant-baseline: central;
+  letter-spacing: 0;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* ── Legend dots — per-rank colored dots inline with "Analogs (N)" ─── */
+.legend-dot.analog-rank {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-right: 2px;
+}
+.legend-dot.analog-rank i {
+  /* Override the generic .legend-dot i horizontal bar — here we want a
+     filled circle so users read it as "one analog = one dot". */
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--c-analog-1);
+  display: inline-block;
+  border: 0;
+}
+.legend-dot.analog-rank[data-rank="0"] i { background: var(--c-analog-1); }
+.legend-dot.analog-rank[data-rank="1"] i { background: var(--c-analog-2); }
+.legend-dot.analog-rank[data-rank="2"] i { background: var(--c-analog-3); }
+.legend-dot.analog-rank[data-rank="3"] i { background: var(--c-analog-4); }
+.legend-dot.analog-rank[data-rank="4"] i { background: var(--c-analog-5); }
+.legend-dot.analog-rank[data-rank="5"] i { background: var(--c-analog-6); }
+.legend-dot.analog-rank span {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--ink-3);
+  letter-spacing: 0.04em;
+}
+/* Pinned legend dots gain a subtle ring so the legend mirrors the
+   card-strip pin state. The ring uses the accent color so "pinned"
+   reads the same no matter which rank-color the dot itself carries. */
+.legend-dot.analog-rank[data-pinned="true"] i {
+  box-shadow: 0 0 0 1.5px var(--accent);
+}
+.legend-dot.analog-rank button {
+  /* The legend dot is clickable (toggle pin). Strip default button
+     styling so it looks like the surrounding inline text. */
+  background: transparent;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.legend-dot.analog-rank button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* ====================================================================
+   CALIBRATION PANEL — polish (added by calibration-panel audit 2026-04-20)
+   ====================================================================
+   Classes introduced by the audit fixes. Placed here rather than higher
+   up so the shared `.trust` / `.trust-panel` rules still win specificity
+   battles via cascade order, and so the panel-specific styling is kept
+   together for future editors. */
+
+/* Small info glyph next to metric labels. Inherits the label's muted
+   color by default, shifts to ink on hover so the hover affordance is
+   discoverable. cursor:help nudges browsers into showing the native
+   tooltip promptly instead of the longer link-style delay. */
+.trust__info {
+  display: inline-block;
+  margin-left: 4px;
+  font-size: 10px;
+  color: var(--ink-3);
+  cursor: help;
+  vertical-align: baseline;
+  user-select: none;
+}
+.trust__info:hover { color: var(--ink-2); }
+
+/* Empty-state variant of the trust panel. Uses a single centered card
+   instead of the 3-column grid so the "needs more runs" message is the
+   entire focus. */
+.trust-panel--empty {
+  display: block;
+  text-align: center;
+}
+.trust-panel__empty-card {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: var(--s-4);
+  border: 1px dashed var(--rule-strong);
+  border-radius: 4px;
+  background: var(--bg-alt, var(--bg));
+}
+.trust-panel__empty-card h3 {
+  margin: 0 0 var(--s-3);
+}
+.trust-panel__empty-card p {
+  margin: 0 0 var(--s-4);
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--ink-2);
+}
+.trust-panel__cta {
+  display: inline-block;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--accent);
+  text-decoration: none;
+  border-bottom: 1px solid currentColor;
+  padding-bottom: 1px;
+}
+.trust-panel__cta:hover { color: var(--ink); }
+
+/* Stacks Grade-explanation + Honesty-note inside the third grid column
+   so the panel stays 3-wide on desktop. */
+.trust-panel__narrative {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-5);
+}
+.trust-panel__grade-copy {
+  margin: 0 0 var(--s-3);
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--ink-2);
+}
+.trust-panel__grade-list {
+  margin: 0 0 var(--s-3);
+  padding: 0;
+  list-style: none;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--ink-2);
+  line-height: 1.7;
+}
+.trust-panel__grade-list b {
+  color: var(--ink);
+  font-weight: 500;
+  display: inline-block;
+  min-width: 38px;
+}
+.trust-panel__grade-current {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--ink-3);
+}
+
+/* ====================================================================
+   COMMAND PALETTE — section headers + empty state
+   (extends the .cmdk block above; kept in a separate block at the end
+    so parallel agents editing the original cmdk section have a clean
+    3-way merge point)
+   ==================================================================== */
+.cmdk__section {
+  padding: 10px 18px 4px;
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  color: var(--ink-3);
+  /* Subtle top separator when this isn't the first section. First-of-type
+     has no top border (nothing to separate from) — :not(:first-child)
+     targets the 2nd+ section headers regardless of parent wrapper div. */
+  border-top: 1px solid var(--rule);
+}
+.cmdk__list > div:first-child > .cmdk__section {
+  /* The very first header has no list content above it, so suppress the
+     divider to keep the top edge of the panel clean. */
+  border-top: 0;
+}
+.cmdk__empty {
+  padding: 16px 18px;
+  text-align: center;
+  color: var(--ink-3);
+}
+
+/* ====================================================================
+   SHORTCUTS HELP MODAL — ? key
+   ==================================================================== */
+.shortcuts-help__overlay {
+  /* Backdrop: same translucent ink as the command palette so they feel
+     like siblings, not unrelated overlays. */
+  position: fixed; inset: 0; background: rgba(20,19,15,.35);
+  display: grid; place-items: flex-start center;
+  padding-top: 96px;
+  z-index: 100;
+}
+.shortcuts-help__card {
+  width: 480px; max-width: 92vw;
+  background: var(--bg-elevated);
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius-md);
+  box-shadow: 0 20px 60px rgba(0,0,0,.25);
+  overflow: hidden;
+  /* max-height keeps the card compact on short viewports; body scrolls
+     internally so the close button stays reachable. */
+  max-height: calc(100vh - 140px);
+  display: flex; flex-direction: column;
+}
+.shortcuts-help__header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--rule);
+}
+.shortcuts-help__title {
+  font-size: 16px;
+  color: var(--ink);
+  margin: 0;
+}
+.shortcuts-help__close {
+  /* Minimal icon button — follows the idiom of .nav__iconbtn but without
+     importing those styles directly to keep this block self-contained. */
+  width: 24px; height: 24px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: transparent;
+  color: var(--ink-3);
+  border: 1px solid transparent;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: color 0.12s, border-color 0.12s, background 0.12s;
+}
+.shortcuts-help__close:hover {
+  color: var(--ink);
+  background: var(--bg-hover);
+  border-color: var(--rule);
+}
+.shortcuts-help__body {
+  padding: 8px 18px 12px;
+  overflow: auto;
+}
+.shortcuts-help__section { margin: 14px 0 10px; }
+.shortcuts-help__section:first-child { margin-top: 8px; }
+.shortcuts-help__section-title {
+  /* Section header — small-caps serif via the shared .label class
+     (mono, uppercase, tracked); we bump the size just slightly so it
+     reads as a header and not as an inline label. */
+  font-size: 10px;
+  margin-bottom: 6px;
+  color: var(--ink-3);
+}
+.shortcuts-help__rows {
+  margin: 0; padding: 0;
+  /* Two-column grid: keys on the left (auto-width, max ~160px),
+     description fills the rest. Gap between rows is consistent. */
+  display: grid;
+  grid-template-columns: minmax(110px, max-content) 1fr;
+  row-gap: 6px;
+  column-gap: 14px;
+  align-items: baseline;
+}
+.shortcuts-help__row {
+  /* Each dt/dd pair is wrapped in a contents display so the grid layout
+     applies to dt and dd directly (dl semantics preserved). */
+  display: contents;
+}
+.shortcuts-help__keys {
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+  /* dt defaults to font-weight: bold in some UA sheets; reset so the
+     kbd chips drive the visual weight. */
+  font-weight: 400;
+}
+.shortcuts-help__plus {
+  /* Whitespace-only separator between chord chips. Kept as a CSS rule
+     (not a hardcoded nbsp) so future styling (e.g. a faint "+" glyph)
+     can be added without touching JSX. */
+  width: 2px;
+}
+.shortcuts-help__desc {
+  margin: 0;
+  font-size: 13px;
+  color: var(--ink-2);
+  font-family: var(--serif);
+}
+.shortcuts-help__footer {
+  padding: 10px 18px;
+  border-top: 1px solid var(--rule);
+  color: var(--ink-3);
+  font-size: 10px;
+  text-align: right;
+}
+
+/* ── Analog detail drawer ───────────────────────────────────────────
+ * Right-side slide-in inspector. Mounts once (even when closed) so the
+ * translateX transition plays both directions. On desktop the drawer is
+ * 420px wide and docked flush-right; on narrow screens (<768px) it
+ * takes the full viewport width so the content stays readable.
+ *
+ * Z-index sits above the chart and workstation backdrop but below any
+ * future modal (e.g. the help overlay, which sits at 200).
+ * ────────────────────────────────────────────────────────────────── */
+.adrawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  height: 100vh;
+  width: 420px;
+  max-width: 100vw;
+  background: var(--bg-card);
+  border-left: 1px solid var(--rule-strong);
+  /* Soft shadow so the drawer reads as elevated above the chart. */
+  box-shadow: -18px 0 40px -20px rgba(0, 0, 0, 0.28);
+  display: flex;
+  flex-direction: column;
+  z-index: 120;
+  /* Translated fully off-screen when closed. 101% instead of 100% so
+     the border-left doesn't peek on fractional-pixel devices. */
+  transform: translateX(101%);
+  transition: transform 220ms ease;
+  overflow: hidden;
+}
+.adrawer[data-open="true"] { transform: translateX(0); }
+@media (max-width: 767px) {
+  .adrawer { width: 100vw; }
+}
+
+/* Header */
+.adrawer__head {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto auto;
+  gap: 10px;
+  align-items: center;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--rule);
+  background: var(--bg-elevated);
+}
+.adrawer__rank-badge {
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 500;
+  padding: 4px 8px;
+  border-radius: 3px;
+  color: white;
+  background: var(--c-analog-strong);
+  letter-spacing: 0.04em;
+  min-width: 32px;
+  text-align: center;
+}
+.adrawer__rank-badge[data-rank="0"] { background: var(--c-analog-1); }
+.adrawer__rank-badge[data-rank="1"] { background: var(--c-analog-2); }
+.adrawer__rank-badge[data-rank="2"] { background: var(--c-analog-3); }
+.adrawer__rank-badge[data-rank="3"] { background: var(--c-analog-4); }
+.adrawer__rank-badge[data-rank="4"] { background: var(--c-analog-5); }
+.adrawer__rank-badge[data-rank="5"] { background: var(--c-analog-6); }
+.adrawer__head-meta { min-width: 0; }
+.adrawer__date-range {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-2);
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.adrawer__label {
+  font-family: var(--serif);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink);
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.adrawer__composite {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1;
+}
+.adrawer__composite-v {
+  font-family: var(--serif);
+  font-size: 22px;
+  font-weight: 500;
+  color: var(--ink);
+}
+.adrawer__composite-k {
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  margin-top: 3px;
+}
+.adrawer__pin-toggle {
+  appearance: none;
+  background: transparent;
+  border: 1px solid var(--rule-strong);
+  border-radius: 3px;
+  color: var(--ink-2);
+  padding: 5px 10px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.adrawer__pin-toggle:hover:not(:disabled) {
+  background: var(--bg-hover);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.adrawer__pin-toggle[aria-pressed="true"] {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.adrawer__pin-toggle:disabled { opacity: 0.4; cursor: not-allowed; }
+.adrawer__close {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  color: var(--ink-3);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+.adrawer__close:hover { background: var(--bg-hover); color: var(--ink); }
+
+/* Context strip */
+.adrawer__context {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: var(--bg-hover);
+  border-bottom: 1px solid var(--rule);
+  font-size: 12px;
+  color: var(--ink-2);
+}
+.adrawer__context-icon { font-size: 13px; }
+.adrawer__context-text { font-family: var(--serif); font-style: italic; }
+
+/* Section wrapper */
+.adrawer__section {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--rule);
+  overflow-y: auto;
+}
+.adrawer__section:last-of-type { border-bottom: 0; }
+.adrawer__h {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin: 0 0 10px;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.adrawer__h-sub {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: none;
+  color: var(--ink-4);
+}
+
+/* Lens breakdown list */
+.adrawer__lens-list { display: flex; flex-direction: column; gap: 6px; }
+.adrawer__lens-row {
+  display: grid;
+  grid-template-columns: 96px 1fr 38px;
+  gap: 10px;
+  align-items: center;
+}
+.adrawer__lens-name {
+  font-size: 11.5px;
+  color: var(--ink-2);
+}
+.adrawer__lens-bar {
+  position: relative;
+  height: 8px;
+  background: var(--bg-hover);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.adrawer__lens-bar-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  background: var(--ink-4);
+  transition: width 0.25s ease;
+}
+.adrawer__lens-row[data-top="true"] .adrawer__lens-bar-fill {
+  background: var(--c-analog-strong);
+}
+.adrawer__lens-row[data-top="true"][data-rank="0"] .adrawer__lens-bar-fill { background: var(--c-analog-1); }
+.adrawer__lens-row[data-top="true"][data-rank="1"] .adrawer__lens-bar-fill { background: var(--c-analog-2); }
+.adrawer__lens-row[data-top="true"][data-rank="2"] .adrawer__lens-bar-fill { background: var(--c-analog-3); }
+.adrawer__lens-row[data-top="true"][data-rank="3"] .adrawer__lens-bar-fill { background: var(--c-analog-4); }
+.adrawer__lens-row[data-top="true"][data-rank="4"] .adrawer__lens-bar-fill { background: var(--c-analog-5); }
+.adrawer__lens-row[data-top="true"][data-rank="5"] .adrawer__lens-bar-fill { background: var(--c-analog-6); }
+.adrawer__lens-score {
+  font-size: 10.5px;
+  color: var(--ink-2);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Sparkline (expanded) */
+.adrawer__spark-wrap {
+  border: 1px solid var(--rule);
+  background: var(--bg);
+  border-radius: 3px;
+  padding: 6px 4px;
+}
+.adrawer__spark-wrap svg { width: 100%; height: auto; }
+.adrawer__spark-meta {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 6px;
+  font-size: 10.5px;
+  color: var(--ink-3);
+}
+.adrawer__spark-ret.pos { color: var(--positive); }
+.adrawer__spark-ret.neg { color: var(--negative); }
+
+/* Action row */
+.adrawer__actions {
+  display: flex;
+  gap: 8px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--rule);
+  background: var(--bg-elevated);
+  margin-top: auto;
+  flex-wrap: wrap;
+}
+.adrawer__action {
+  appearance: none;
+  border: 1px solid var(--rule-strong);
+  background: transparent;
+  color: var(--ink-2);
+  font-size: 11.5px;
+  padding: 7px 12px;
+  border-radius: 3px;
+  cursor: pointer;
+  flex: 1 1 auto;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  white-space: nowrap;
+}
+.adrawer__action:hover:not(:disabled) {
+  background: var(--bg-hover);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.adrawer__action:disabled { opacity: 0.4; cursor: not-allowed; }
+.adrawer__action--primary {
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 500;
+}
+.adrawer__action--primary:hover:not(:disabled) {
+  background: var(--accent);
+  color: var(--bg-card);
+}
+.adrawer__action--ghost { flex: 0 0 auto; }
+
+/* ── Pin icon inside the analog card head ──────────────────────────
+ * Replaces the whole-card click-toggles-pin behavior: the card body
+ * opens the drawer, this tiny icon is the only surface that pins.
+ * Muted by default, accent-colored when pinned. e.stopPropagation in
+ * the JSX handler is what keeps the two affordances independent.
+ * ────────────────────────────────────────────────────────────────── */
+.analog-card__head-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.analog-card__pin-btn {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  padding: 2px;
+  border-radius: 2px;
+  cursor: pointer;
+  color: var(--ink-4);
+  display: inline-flex;
+  align-items: center;
+  transition: color 0.15s, background 0.15s, transform 0.15s;
+}
+.analog-card__pin-btn:hover { color: var(--ink); background: var(--bg-hover); }
+.analog-card__pin-btn[data-pinned="true"] { color: var(--accent); }
+.analog-card__pin-btn[data-pinned="true"]:hover { color: var(--accent); }
+.analog-card__pin-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* Give the card itself a visible focus ring when tabbed to —
+   important because we now expose it as role=button. */
+.analog-card:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ── "Use as query" transient banner ───────────────────────────────
+ * Toast shown after the user clicks "Find similar analogs" in the
+ * drawer. Floats above the chart at top-center of the main column so
+ * it doesn't reflow the layout. Auto-dismisses after 8s; manual
+ * dismiss via the × button. Slide+fade-in for a gentle reveal.
+ * ────────────────────────────────────────────────────────────────── */
+.ws-use-as-query-banner {
+  position: fixed;
+  top: 64px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  box-shadow: 0 6px 22px -10px rgba(0, 0, 0, 0.35);
+  z-index: 110;
+  font-size: 12.5px;
+  color: var(--ink);
+  max-width: 90vw;
+  animation: wsUseAsQueryIn 220ms ease;
+}
+@keyframes wsUseAsQueryIn {
+  from { opacity: 0; transform: translate(-50%, -6px); }
+  to   { opacity: 1; transform: translate(-50%, 0); }
+}
+.ws-use-as-query-banner__icon { font-size: 14px; }
+.ws-use-as-query-banner__text strong {
+  font-family: var(--mono);
+  font-weight: 500;
+  font-size: 11.5px;
+  color: var(--accent);
+}
+.ws-use-as-query-banner__dismiss {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  color: var(--ink-3);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 4px;
+  border-radius: 2px;
+}
+.ws-use-as-query-banner__dismiss:hover { color: var(--ink); background: var(--bg-hover); }
+
+/* ──────────────────────────────────────────────────────────────────
+   Dataset dropdown (workstation left sidebar)
+
+   Lives in the `Dataset` side__section. The native <select> / simple
+   chip-row used previously is replaced by a trigger button + a
+   popover-style panel with searchable, grouped, metadata-rich cards.
+
+   Visual hierarchy (per-item):
+     ┌ SYMBOL · TIMEFRAME         ← bold title (14px, --ink-1)
+     │ Source · 7,500 bars        ← sub-line 1 (11px, --ink-2)
+     │ 2020-01-01 → 2026-04-20    ← sub-line 2 (11px, --ink-2)
+     │ Updated: Apr 22, 2026      ← sub-line 3 (10.5px, --ink-3)
+     └─────────────────────────────
+
+   Keep this block self-contained — every selector is prefixed with
+   `dataset-` so it can't collide with other components.
+   ────────────────────────────────────────────────────────────────── */
+
+/* Freshness line under the "DATASET" label. Lives on its own row; the
+   colour flips to --warn when the data is more than 7 days old so the
+   user can notice the problem without opening the dropdown. */
+.dataset-freshness {
+  font-family: var(--mono, ui-monospace, SFMono-Regular, monospace);
+  font-size: 10.5px;
+  color: var(--ink-3);
+  margin: 2px 0 6px;
+  letter-spacing: 0.02em;
+}
+.dataset-freshness[data-warn="true"] {
+  color: var(--warn, #c08400);
+}
+
+/* The always-visible trigger button that opens the dropdown. Uses the
+   same chip aesthetic as the rest of the left sidebar but is taller
+   (two text rows) so we can pack the selected summary. */
+.dataset-trigger {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  background: var(--surface-1, #fff);
+  border: 1px solid var(--rule, #d9d6ce);
+  border-radius: 4px;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  transition: border-color 120ms ease, background-color 120ms ease;
+}
+.dataset-trigger:hover,
+.dataset-trigger:focus-visible {
+  border-color: var(--ink-3);
+  background: var(--surface-2, #faf8f4);
+  outline: none;
+}
+.dataset-trigger__main {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+  gap: 1px;
+}
+.dataset-trigger__symbol {
+  font-family: var(--mono, ui-monospace, SFMono-Regular, monospace);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-1, #1b1b1b);
+  letter-spacing: 0.02em;
+}
+.dataset-trigger__meta {
+  font-family: var(--mono, ui-monospace, SFMono-Regular, monospace);
+  font-size: 10px;
+  color: var(--ink-3, #8a867d);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+.dataset-trigger__caret {
+  font-size: 9px;
+  color: var(--ink-3, #8a867d);
+  flex: 0 0 auto;
+}
+
+/* Popover panel that opens when the trigger is clicked. We use a
+   simple in-flow block (not position:absolute) so it doesn't overflow
+   the scroll container of the sidebar — users at 768-1023px see it
+   inside the drawer naturally. */
+.dataset-panel {
+  margin-top: 4px;
+  border: 1px solid var(--rule, #d9d6ce);
+  border-radius: 4px;
+  background: var(--surface-1, #fff);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  /* Bound total height so long catalogs scroll inside the panel
+     rather than pushing the rest of the sidebar off-screen. */
+  max-height: 360px;
+}
+.dataset-panel__search {
+  flex: 0 0 auto;
+  border: 0;
+  border-bottom: 1px solid var(--rule, #d9d6ce);
+  padding: 8px 10px;
+  font: inherit;
+  font-family: var(--mono, ui-monospace, SFMono-Regular, monospace);
+  font-size: 12px;
+  background: var(--surface-2, #faf8f4);
+  color: var(--ink-1, #1b1b1b);
+  outline: none;
+}
+.dataset-panel__search::placeholder {
+  color: var(--ink-3, #8a867d);
+}
+.dataset-panel__search:focus-visible {
+  background: var(--surface-1, #fff);
+}
+.dataset-panel__list {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 4px 0;
+}
+.dataset-panel__empty {
+  padding: 14px 12px;
+  font-size: 11px;
+  color: var(--ink-3, #8a867d);
+  text-align: center;
+}
+.dataset-panel__group {
+  padding: 4px 0;
+}
+.dataset-panel__group-header {
+  padding: 4px 10px 2px;
+  font-family: var(--mono, ui-monospace, SFMono-Regular, monospace);
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--ink-3, #8a867d);
+}
+
+/* Individual item card. Rendered as a <button> so keyboard navigation
+   gets it for free. The hover / selected states use background tints
+   rather than border-colour so the visual rhythm of the stacked cards
+   stays intact. */
+.dataset-card {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  padding: 6px 10px;
+  background: transparent;
+  border: 0;
+  border-left: 2px solid transparent;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  transition: background-color 100ms ease, border-color 100ms ease;
+}
+.dataset-card:hover,
+.dataset-card:focus-visible {
+  background: var(--surface-2, #faf8f4);
+  outline: none;
+}
+.dataset-card[data-selected="true"] {
+  background: var(--surface-2, #faf8f4);
+  border-left-color: var(--ink-1, #1b1b1b);
+}
+.dataset-card__title-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.dataset-card__title {
+  font-family: var(--mono, ui-monospace, SFMono-Regular, monospace);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-1, #1b1b1b);
+  letter-spacing: 0.02em;
+  flex: 1 1 auto;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dataset-card__stale-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--warn, #c08400);
+  flex: 0 0 auto;
+  opacity: 0.75;
+}
+.dataset-card__sub {
+  font-family: var(--mono, ui-monospace, SFMono-Regular, monospace);
+  font-size: 10.5px;
+  color: var(--ink-2, #5a5850);
+  line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dataset-card__sub--muted {
+  color: var(--ink-3, #8a867d);
+  font-size: 10px;
+}

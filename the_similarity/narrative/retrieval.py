@@ -54,8 +54,6 @@ principle), callers should prefer it for its richer scoring pipeline.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
-
 import numpy as np
 from numpy.typing import NDArray
 

@@ -88,7 +88,12 @@ function edgeKey(a, b) {
  * Generate fractal terrain mesh.
  *
  * @param {Object} opts
- * @param {number} opts.iterations   - subdivision depth (0-8)
+ * @param {number} opts.iterations   - subdivision depth. Soft cap 10:
+ *   at level 10 a diamond base yields ~2M triangles with ~1M verts —
+ *   comfortably interactive on a mid-range GPU. Levels 11+ still
+ *   generate cleanly (no hard assert) but perf tanks at ~8M+ tris
+ *   and the noise amplitude is already sub-pixel at default
+ *   roughness (0.55^10 ≈ 2.5e-3). UI slider caps at 10.
  * @param {number} opts.roughness    - fractal roughness (0.1-1.0)
  * @param {number} opts.displacement - initial displacement amplitude
  * @param {number} opts.scale        - base triangle scale

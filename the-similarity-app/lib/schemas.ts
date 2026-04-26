@@ -91,8 +91,40 @@ export const ForecastResponseSchema = z.object({
   weights: z.array(z.number()),
 });
 
+/**
+ * Reliability diagram bucket: (predicted_level, observed_frequency) pair.
+ * Both fields are clamped to [0, 1] by downstream rendering, but the schema
+ * itself is permissive (z.number()) so the backend can return slight
+ * over/under-shoots (e.g. 1.02) without rejecting the payload.
+ */
+export const ReliabilityBucketSchema = z.object({
+  predicted: z.number(),
+  observed: z.number(),
+});
+
+/**
+ * Calibration metrics schema. `grade` and `regimeDrift` default to
+ * "unknown" so older backends that don't return a `metrics` block still
+ * produce a valid (but non-graded) payload when forward-compat wrapping
+ * synthesizes an empty metrics object. All numeric fields default to 0
+ * to keep coerce-from-JSON trivial for the UI.
+ */
+export const CalibrationMetricsSchema = z.object({
+  coverage: z.number().default(0),
+  crps: z.number().default(0),
+  hitRate: z.number().default(0),
+  grade: z.enum(["A", "B", "C", "D", "F", "unknown"]).default("unknown"),
+  regimeDrift: z.enum(["low", "elevated", "high", "unknown"]).default("unknown"),
+  reliability: z.array(ReliabilityBucketSchema).default([]),
+  nAnalogs: z.number().default(0),
+});
+
 export const SearchResponseSchema = z.object({
   queryValues: z.array(z.number()),
   matches: z.array(MatchResultSchema),
   forecast: ForecastResponseSchema.nullable().default(null),
+  // metrics is optional+nullable so older backends without the field still
+  // parse cleanly — the UI falls back to a client-computed metrics block
+  // when the server returns null.
+  metrics: CalibrationMetricsSchema.nullable().optional().default(null),
 });

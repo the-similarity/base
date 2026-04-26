@@ -18,6 +18,7 @@ from app.auth_deps import get_current_user
 from app.platform_routes import router as platform_router
 from app.finance_routes import router as finance_router
 from app.state_routes import router as state_router
+from app.backtest_routes import router as backtest_router
 
 logger = logging.getLogger(__name__)
 
@@ -47,9 +48,20 @@ app.include_router(finance_router)
 # State-space query surface — 3D projection, nearest neighbors, clusters,
 # transitions, and cross-domain correspondences. See ``app/state_routes.py``.
 app.include_router(state_router)
+# Backtest trigger surface — run backtests via API and register results.
+# See ``app/backtest_routes.py`` for the endpoint contract.
+app.include_router(backtest_router)
 
 
+# Health probe — registered on both /health and /healthz.
+#
+# `/healthz` is the Kubernetes-style convention and is what the frontend
+# probes on mount (the-similarity-app/lib/api.ts). Without this alias the
+# frontend flips into "API offline" / synthetic-fallback mode even when
+# the backend is up and healthy. `/health` is kept for any existing
+# operator tooling that already points at it.
 @app.get("/health")
+@app.get("/healthz")
 def health() -> dict[str, str]:
     return {
         "status": "ok",
@@ -238,15 +250,16 @@ def warehouse_refresh(
     """
     try:
         import sys
-        from pathlib import Path
+
+        from app.data_service import _data_root
 
         data_root = _data_root()
         sys.path.insert(0, str(data_root))
 
         from the_similarity_data.config import load_dataset_specs
         from the_similarity_data.refresh import refresh_all_datasets
-        
-        
+
+
         specs = load_dataset_specs()
         results = refresh_all_datasets(
             specs,

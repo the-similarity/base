@@ -108,14 +108,17 @@ def search(
     )
     h_dates = history.dates if isinstance(history, TimeSeries) else None
 
-    # Auto-detect query region for self-exclusion
+    # Auto-detect query region for self-exclusion.
+    #
+    # The value-match loop works on the resolved numpy arrays, so it is safe
+    # for ANY input shape (raw arrays, TimeSeries, lists). The prior
+    # `isinstance(..., TimeSeries)` gate silently disabled self-exclusion
+    # for the HTTP path — where the FastAPI layer hands us raw float lists
+    # — and the engine happily returned the query window itself as its own
+    # top-1 match. On the workstation chart this showed up as a "mirror"
+    # analog laying exactly on top of the query, with spurious 1.00 scores.
     exclude_region = None
-    if (
-        exclude_self
-        and isinstance(query, TimeSeries)
-        and isinstance(history, TimeSeries)
-    ):
-        # Try to find query in history by value match
+    if exclude_self and len(q_values) > 0 and len(h_values) >= len(q_values):
         for i in range(len(h_values) - len(q_values) + 1):
             if np.array_equal(h_values[i : i + len(q_values)], q_values):
                 exclude_region = (i, i + len(q_values))

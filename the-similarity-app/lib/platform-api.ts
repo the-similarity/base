@@ -85,6 +85,28 @@ async function apiFetch<T>(path: string): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+/**
+ * Generic POST wrapper. Sends JSON body and returns parsed JSON of type T.
+ * Throws on non-2xx with server detail message.
+ */
+async function apiPost<T>(path: string, body: unknown): Promise<T> {
+  const url = `${base()}${path}`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`Platform API ${res.status}: ${text || res.statusText}`);
+  }
+  return res.json() as Promise<T>;
+}
+
 // ---------------------------------------------------------------------------
 // Public API functions
 // ---------------------------------------------------------------------------
@@ -162,6 +184,128 @@ export interface Cluster {
   centroid: { x: number; y: number; z: number };
 }
 
+// ---------------------------------------------------------------------------
+// Review types and API functions — mirror finance_routes.py review models
+// ---------------------------------------------------------------------------
+
+/** Matches ReviewResponse in finance_routes.py. */
+export interface Review {
+  review_id: string;
+  run_id: string;
+  reviewer: string;
+  status: string;
+  signal_summary: string;
+  trust_decision: string;
+  calibration_context: Record<string, unknown>;
+  risk_flags: string[];
+  notes: string;
+  realized_outcome: Record<string, unknown> | null;
+  created_at: string;
+  updated_at: string | null;
+}
+
+/** Body for POST /platform/runs/{run_id}/review. */
+export interface ReviewCreateBody {
+  reviewer: string;
+  status?: string;
+  signal_summary?: string;
+  trust_decision?: string;
+  risk_flags?: string[];
+  notes?: string;
+}
+
+/** Body for PUT /platform/runs/{run_id}/review. */
+export interface ReviewUpdateBody {
+  status?: string;
+  trust_decision?: string;
+  notes?: string;
+  realized_outcome?: Record<string, unknown>;
+  risk_flags?: string[];
+}
+
+/**
+ * Generic fetch wrapper for mutation (POST/PUT) requests.
+ * Sends JSON body and returns parsed response of type T.
+ */
+async function apiMutate<T>(
+  path: string,
+  method: "POST" | "PUT",
+  body: unknown
+): Promise<T> {
+  const url = `${base()}${path}`;
+  const res = await fetch(url, {
+    method,
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`Platform API ${res.status}: ${text || res.statusText}`);
+  }
+  return res.json() as Promise<T>;
+}
+
+/**
+ * Create a review for a finance run.
+ * POST /platform/runs/{run_id}/review
+ * Returns 409 if a review already exists for this run.
+ */
+export async function createReview(
+  runId: string,
+  body: ReviewCreateBody
+): Promise<Review> {
+  return apiMutate<Review>(
+    `/platform/runs/${encodeURIComponent(runId)}/review`,
+    "POST",
+    body
+  );
+}
+
+/**
+ * Fetch the review for a run. Returns the review or throws 404 if none exists.
+ * GET /platform/runs/{run_id}/review
+ */
+export async function fetchReview(runId: string): Promise<Review> {
+  return apiFetch<Review>(
+    `/platform/runs/${encodeURIComponent(runId)}/review`
+  );
+}
+
+/**
+ * Update an existing review (status, notes, realized_outcome, risk_flags).
+ * PUT /platform/runs/{run_id}/review
+ * Only non-undefined fields in the body are sent.
+ */
+export async function updateReview(
+  runId: string,
+  body: ReviewUpdateBody
+): Promise<Review> {
+  return apiMutate<Review>(
+    `/platform/runs/${encodeURIComponent(runId)}/review`,
+    "PUT",
+    body
+  );
+}
+
+/**
+ * List reviews, optionally filtered by status.
+ * GET /platform/reviews?status={status}
+ * Returns newest-first by created_at.
+ */
+export async function fetchReviews(status?: string): Promise<Review[]> {
+  const params = new URLSearchParams();
+  if (status) params.set("status", status);
+  const qs = params.toString();
+  return apiFetch<Review[]>(`/platform/reviews${qs ? `?${qs}` : ""}`);
+}
+
+// ---------------------------------------------------------------------------
+// State Map — projection, nearest-neighbor, cluster endpoints
+// ---------------------------------------------------------------------------
+
 /**
  * Fetch the full state-map projection. Returns one ProjectionPoint per
  * registered run. Empty array if no runs exist yet.
@@ -191,4 +335,39 @@ export async function fetchNearest(
  */
 export async function fetchClusters(): Promise<Cluster[]> {
   return apiFetch<Cluster[]>("/platform/state/clusters");
+}
+
+// ---------------------------------------------------------------------------
+// Backtest trigger — POST /platform/backtests
+// ---------------------------------------------------------------------------
+
+/** Request body for triggering a backtest via the API. */
+export interface BacktestParams {
+  symbol: string;
+  window_size: number;
+  forward_bars: number;
+  seed?: number;
+  k_analogs?: number;
+  n_trials?: number;
+}
+
+/** Response from the backtest trigger endpoint. */
+export interface BacktestResult {
+  run_id: string;
+  status: "succeeded" | "failed";
+  error?: string | null;
+  summary?: Record<string, unknown> | null;
+}
+
+/**
+ * Trigger a walk-forward backtest for the given symbol.
+ * Runs synchronously on the server and registers the result in the registry.
+ *
+ * @param params - Backtest parameters (symbol, window_size, forward_bars, etc.)
+ * @returns The run_id and status, plus headline metrics on success.
+ */
+export async function triggerBacktest(
+  params: BacktestParams
+): Promise<BacktestResult> {
+  return apiPost<BacktestResult>("/platform/backtests", params);
 }
