@@ -142,7 +142,7 @@ export function ScreenRhymes({ onCmdK }: ScreenProps) {
             <div className="text-2 fz-13" style={{ lineHeight: 1.6 }}>
               For each candidate 7-day window in your own history, Cadence
               z-normalizes 5 channels (HRV, RHR, sleep, energy, glucose),
-              computes per-channel L2 distance to today's window, averages
+              computes per-channel L2 distance to today&rsquo;s window, averages
               across channels, then maps to a similarity score
               <span className="mono"> 100·exp(−distance)</span>. The 14 days
               that followed each rhyming window become the projection set,
