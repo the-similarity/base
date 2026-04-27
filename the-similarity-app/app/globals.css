@@ -4197,11 +4197,11 @@ input, select, textarea { font: inherit; color: inherit; }
 
 .case-study__chart-wrap--single {
   /* Aspect ratio gives the chart real height without a fixed pixel
-     value that breaks on small screens. ~16:7 = wide presentation
-     shape that fits well above the fold on a 16:9 laptop. */
-  aspect-ratio: 16 / 7;
-  min-height: 320px;
-  max-height: 540px;
+     value that breaks on small screens. ~16:6 = wide presentation
+     shape that fits comfortably above the fold on a 16:9 laptop. */
+  aspect-ratio: 16 / 6;
+  min-height: 280px;
+  max-height: 440px;
 }
 
 .case-study__chart-wrap--pair {
@@ -4213,10 +4213,11 @@ input, select, textarea { font: inherit; color: inherit; }
 .case-study__chart-pane {
   /* Each pane gets the same aspect ratio so the side-by-side rhyme
      reads at-a-glance — same y range, same x extent (in pixels),
-     same visual weight. */
-  aspect-ratio: 8 / 7;
+     same visual weight. 4:3 reads as a presentation chart; anything
+     squarer wastes horizontal real estate. */
+  aspect-ratio: 4 / 3;
   min-height: 280px;
-  max-height: 480px;
+  max-height: 460px;
   background: var(--bg-card);
   border: 1px solid var(--rule);
   border-radius: 4px;

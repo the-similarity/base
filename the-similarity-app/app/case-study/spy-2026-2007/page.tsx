@@ -201,18 +201,41 @@ export default function CaseStudySpyPage() {
   // both to 100. We compute it once across every series including the
   // continuation and the cone bottom so nothing pops out of frame when
   // the reveal fires.
-  const yLo = (() => {
-    let lo = Math.min(...presentSeries.map(p => p.norm), ...analogSeries.map(p => p.norm));
-    // Continuation rebased on present anchor for the cone reveal.
-    for (const bar of cone) lo = Math.min(lo, bar.p10);
-    return Math.floor(lo - 2);
+  //
+  // We use TWO domains: a tight one for the match section (where only
+  // the present and analog windows render) and a wider one for the
+  // reveal section (where the continuation and cone push lower). Using
+  // a single max-domain everywhere left a lot of empty space below 100
+  // in the match section because the rolldown bottoms near 92 — and a
+  // chart with 30% empty space below the line reads as broken.
+  const matchDomain: [number, number] = (() => {
+    const lo = Math.min(
+      ...presentSeries.map(p => p.norm),
+      ...analogSeries.map(p => p.norm),
+    );
+    const hi = Math.max(
+      ...presentSeries.map(p => p.norm),
+      ...analogSeries.map(p => p.norm),
+    );
+    return [Math.floor(lo - 1), Math.ceil(hi + 1)];
   })();
-  const yHi = (() => {
-    let hi = Math.max(...presentSeries.map(p => p.norm), ...analogSeries.map(p => p.norm));
-    for (const bar of cone) hi = Math.max(hi, bar.p75);
-    return Math.ceil(hi + 2);
+  const revealDomain: [number, number] = (() => {
+    let lo = Math.min(
+      ...presentSeries.map(p => p.norm),
+      ...analogSeries.map(p => p.norm),
+      ...analogContinuation.map(p => p.norm),
+    );
+    let hi = Math.max(
+      ...presentSeries.map(p => p.norm),
+      ...analogSeries.map(p => p.norm),
+      ...analogContinuation.map(p => p.norm),
+    );
+    for (const bar of cone) {
+      lo = Math.min(lo, bar.p10);
+      hi = Math.max(hi, bar.p75);
+    }
+    return [Math.floor(lo - 1), Math.ceil(hi + 1)];
   })();
-  const sharedDomain: [number, number] = [yLo, yHi];
 
   // Locate the analog's peak inside the analog series for the marker.
   // Doing it client-side is cheap (~160 elements) and avoids baking an
@@ -307,7 +330,7 @@ export default function CaseStudySpyPage() {
             <div className="case-study__chart-wrap case-study__chart-wrap--single">
               <RhymeChart
                 primary={presentSeries as RhymePoint[]}
-                yDomain={sharedDomain}
+                yDomain={matchDomain}
                 caption="SPY · normalized"
                 subtitle={`${meta.presentStart} → ${meta.presentEnd}`}
               />
@@ -342,7 +365,7 @@ export default function CaseStudySpyPage() {
               <div className="case-study__chart-pane">
                 <RhymeChart
                   primary={presentSeries as RhymePoint[]}
-                  yDomain={sharedDomain}
+                  yDomain={matchDomain}
                   caption="Present · 2025 → 2026"
                   subtitle={`${meta.presentStart} → ${meta.presentEnd}`}
                 />
@@ -350,11 +373,10 @@ export default function CaseStudySpyPage() {
               <div className="case-study__chart-pane">
                 <RhymeChart
                   primary={analogSeries as RhymePoint[]}
-                  showSecondary={matchInView}
-                  yDomain={sharedDomain}
+                  yDomain={matchDomain}
                   caption="Analog · 2007"
                   subtitle={`${meta.analogStart} → ${meta.analogEnd}`}
-                  secondaryMarker={{ idx: analogPeakIdx, label: meta.analogPeakDate }}
+                  primaryMarker={{ idx: analogPeakIdx, label: meta.analogPeakDate }}
                 />
               </div>
             </div>
@@ -405,7 +427,7 @@ export default function CaseStudySpyPage() {
                   primary={presentSeries as RhymePoint[]}
                   cone={cone}
                   showCone={revealInView}
-                  yDomain={sharedDomain}
+                  yDomain={revealDomain}
                   caption="Present + projected path"
                   subtitle="P10 / P50 / P75 cone"
                 />
@@ -414,12 +436,11 @@ export default function CaseStudySpyPage() {
                 <RhymeChart
                   primary={analogSeries as RhymePoint[]}
                   continuation={analogContinuation as RhymePoint[]}
-                  showSecondary={true}
                   showContinuation={revealInView}
-                  yDomain={sharedDomain}
+                  yDomain={revealDomain}
                   caption="Analog + continuation"
                   subtitle={`${meta.analogStart} → ${meta.continuationEnd}`}
-                  secondaryMarker={{ idx: analogPeakIdx, label: meta.analogPeakDate }}
+                  primaryMarker={{ idx: analogPeakIdx, label: meta.analogPeakDate }}
                 />
               </div>
             </div>

@@ -92,6 +92,10 @@ export interface RhymeChartProps {
   /** Marker for a notable point on the secondary series (e.g. the
    *  2007-10-09 peak). The chart draws a small ring + label. */
   secondaryMarker?: { idx: number; label: string };
+  /** Marker for a notable point on the PRIMARY series. Used when the
+   *  primary line *is* the analog (the right pane of the match
+   *  section), so the peak annotation lands on the correct line. */
+  primaryMarker?: { idx: number; label: string };
 }
 
 /* ----------------------------------------------------------------------
@@ -173,6 +177,7 @@ export function RhymeChart({
   className,
   style,
   secondaryMarker,
+  primaryMarker,
 }: RhymeChartProps) {
   // --------- y-domain calc ------------------------------------------------
   // The domain spans every series that is currently visible OR will be
@@ -220,10 +225,17 @@ export function RhymeChart({
   const continuationLen = continuation?.length ?? 0;
   const coneLen = cone?.length ?? 0;
 
-  // Total x slots = max(primary, secondary + continuation, primary + cone).
+  // Total x slots = max(primary, secondary + continuation,
+  //                     primary + continuation, primary + cone).
+  // The "primary + continuation" case is the right pane of the reveal
+  // section: the analog is mounted as PRIMARY and the rolldown is
+  // continuation, no secondary. Without this branch the continuation
+  // would land at a negative xStart and render off-canvas.
+  const continuationAnchorLen = secondaryLen > 0 ? secondaryLen : primaryLen;
   const totalSlots = Math.max(
     primaryLen,
     secondaryLen + continuationLen,
+    continuationAnchorLen + continuationLen,
     primaryLen + coneLen,
   );
   const slotsForScale = Math.max(totalSlots - 1, 1);
@@ -266,13 +278,18 @@ export function RhymeChart({
   );
 
   const continuationValues = (continuation ?? []).map(p => p.norm);
-  const continuationXStart = xStart + (secondaryLen - 1) * slotW;
-  // Prepend secondary's last point so the continuation starts where
-  // secondary ends. Without this the line would either disconnect or
-  // would visually re-anchor at norm=100.
+  // The continuation anchors against whichever series ends at the
+  // matched-window's right edge — secondary if present, primary
+  // otherwise. The right pane of the reveal section uses the second
+  // path: analog is the primary, no secondary, continuation extends
+  // past the analog's right edge.
+  const continuationXStart =
+    xStart + (continuationAnchorLen - 1) * slotW;
   const stitchedContinuation = (() => {
-    if (!secondary || !continuation || continuation.length === 0) return [];
-    const last = secondary[secondary.length - 1].norm;
+    if (!continuation || continuation.length === 0) return [];
+    const anchorSeries = secondary ?? primary;
+    if (anchorSeries.length === 0) return [];
+    const last = anchorSeries[anchorSeries.length - 1].norm;
     return [last, ...continuationValues];
   })();
   const continuationPath = pathFor(
@@ -314,11 +331,23 @@ export function RhymeChart({
 
   // Marker on the secondary (peak point) — a small ring + label.
   const marker = (() => {
-    if (!secondary || !secondaryMarker) return null;
-    const i = Math.max(0, Math.min(secondary.length - 1, secondaryMarker.idx));
-    const x = xStart + i * slotW;
-    const y = scaleY(secondary[i].norm);
-    return { x, y, label: secondaryMarker.label };
+    if (secondary && secondaryMarker) {
+      const i = Math.max(0, Math.min(secondary.length - 1, secondaryMarker.idx));
+      const x = xStart + i * slotW;
+      const y = scaleY(secondary[i].norm);
+      return { x, y, label: secondaryMarker.label };
+    }
+    // Fallback: when the analog is mounted as the PRIMARY line (e.g.
+    // the right pane of the match section), the consumer passes
+    // `primaryMarker` instead so the annotation lands on the line
+    // that's actually visible.
+    if (primaryMarker && primary.length > 0) {
+      const i = Math.max(0, Math.min(primary.length - 1, primaryMarker.idx));
+      const x = xStart + i * slotW;
+      const y = scaleY(primary[i].norm);
+      return { x, y, label: primaryMarker.label };
+    }
+    return null;
   })();
 
   // X-axis date ticks — show first / middle / last of the primary,
@@ -443,8 +472,8 @@ export function RhymeChart({
           <path d={primaryPath} />
         </g>
 
-        {/* Optional marker on the secondary. */}
-        {marker && showSecondary && (
+        {/* Optional marker on the secondary or primary. */}
+        {marker && (showSecondary || primaryMarker) && (
           <g className="rhyme-chart__marker">
             <circle cx={marker.x} cy={marker.y} r="5" />
             <circle
