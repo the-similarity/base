@@ -424,7 +424,7 @@ export function Icon({ name, className = "", style = {} }: IconProps) {
       strokeWidth="1.5"
       strokeLinecap="round"
       strokeLinejoin="round"
-      className={`ico ${className}`}
+      className={`lumen-ico ${className}`}
       style={style}
     >
       {iconMap[name] || null}

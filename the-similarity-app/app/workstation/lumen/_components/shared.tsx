@@ -1,18 +1,20 @@
 /**
  * Lumen — small layout/atom components shared across screens.
  *
- * Pill / Chip / SectionHead / Topbar / MerchantBadge / CategoryChip /
- * SegControl / PropRow.
+ * Pill / Chip / SectionHead / Topbar / SegControl / PropRow.
  *
- * These are intentionally thin wrappers around the page-scoped CSS classes
- * (.pill, .chip, .topbar, .merch, etc.) — they do not own visual logic
- * beyond what the stylesheet defines. The only visual logic in here is the
- * MerchantBadge fallback (when an unknown merchant name lands in TX, we
- * derive a 2-letter mark from the first two characters).
+ * Every JSX class name in this file uses the `lumen-` prefix. The page
+ * stylesheet (styles.tsx) only knows about `.lumen-app .lumen-foo`
+ * selectors — anything un-prefixed will collide with `app/globals.css`
+ * (which defines its own `.pill`, `.chip`, `.kbd`, `.row`, `.right`,
+ * `.label`, `.mono` etc.). Treat the prefix as load-bearing.
+ *
+ * MerchantBadge / CategoryChip from the previous personal-finance
+ * design were removed — they referenced demo `MERCHANTS` and
+ * `CATEGORIES` lookup tables that no longer exist.
  */
 import type { ReactNode, CSSProperties } from "react";
 import { Icon } from "./icons";
-import { CATEGORIES, MERCHANTS } from "./data";
 
 // =====================================================================
 // Pill — small rounded label with optional dot + tone variant.
@@ -27,36 +29,19 @@ export interface PillProps {
   style?: CSSProperties;
 }
 
+/**
+ * Pill — `lumen-pill` colored chip. Tones map to `is-*` modifier
+ * classes defined in styles.tsx (is-pos, is-neg, is-warn, is-info,
+ * is-outline). Default tone leaves the modifier off and uses the
+ * neutral grey background.
+ */
 export function Pill({ tone = "default", children, dot = false, style }: PillProps) {
+  const toneClass = tone === "default" ? "" : `is-${tone}`;
   return (
-    <span className={`pill ${tone === "default" ? "" : tone}`} style={style}>
-      {dot && <span className="dot" />}
+    <span className={`lumen-pill ${toneClass}`.trim()} style={style}>
+      {dot && <span className="lumen-dot" />}
       {children}
     </span>
-  );
-}
-
-// =====================================================================
-// Chip — filter chip used in the transactions filter bar.
-// =====================================================================
-
-export interface ChipProps {
-  active?: boolean;
-  children: ReactNode;
-  onClick?: () => void;
-  removable?: boolean;
-}
-
-export function Chip({ active, children, onClick, removable }: ChipProps) {
-  return (
-    <button className={`chip ${active ? "active" : ""}`} onClick={onClick}>
-      {children}
-      {active && removable && (
-        <span className="x">
-          <Icon name="x" />
-        </span>
-      )}
-    </button>
   );
 }
 
@@ -72,16 +57,16 @@ export interface SectionHeadProps {
 
 export function SectionHead({ title, sub, actions }: SectionHeadProps) {
   return (
-    <div className="section-head">
-      <div className="title">{title}</div>
-      {sub && <div className="sub">{sub}</div>}
-      {actions && <div className="actions">{actions}</div>}
+    <div className="lumen-section-head">
+      <div className="lumen-title">{title}</div>
+      {sub && <div className="lumen-sub">{sub}</div>}
+      {actions && <div className="lumen-actions">{actions}</div>}
     </div>
   );
 }
 
 // =====================================================================
-// Topbar — breadcrumbs + search button + bell/refresh + per-screen actions.
+// Topbar — breadcrumbs + search button + per-screen actions.
 // =====================================================================
 
 export interface TopbarProps {
@@ -90,87 +75,39 @@ export interface TopbarProps {
   onCmdK?: () => void;
 }
 
+/**
+ * Topbar — fixed-height row at the top of the main panel.
+ *
+ * Visual layout:
+ *   [crumbs]                        [search button]  [actions]
+ *
+ * The search button is a styled `lumen-btn is-ghost` that triggers the
+ * Cmd+K palette. The optional `actions` slot is the place each screen
+ * stuffs its own primary action (e.g. "Open workstation").
+ */
 export function Topbar({ crumbs = [], actions, onCmdK }: TopbarProps) {
   return (
-    <div className="topbar">
-      <div className="crumbs">
+    <div className="lumen-topbar">
+      <div className="lumen-crumbs">
         {crumbs.map((c, i) => (
-          // Using index-as-key is fine here because crumbs are stable per screen.
+          // Index-as-key is fine because crumbs are stable per screen.
           <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-            {i > 0 && <span className="sep">/</span>}
-            <span className={i === crumbs.length - 1 ? "here" : ""}>{c}</span>
+            {i > 0 && <span className="lumen-sep">/</span>}
+            <span className={i === crumbs.length - 1 ? "lumen-here" : ""}>{c}</span>
           </span>
         ))}
       </div>
-      <div className="top-actions">
+      <div className="lumen-top-actions">
         <button
-          className="btn ghost"
+          className="lumen-btn is-ghost"
           onClick={onCmdK}
           style={{ height: 28, paddingRight: 6 }}
         >
-          <Icon name="search" /> Search <span className="kbd">⌘K</span>
-        </button>
-        <button className="icon-btn" title="Notifications">
-          <Icon name="bell" />
-        </button>
-        <button className="icon-btn" title="Refresh">
-          <Icon name="refresh" />
+          <Icon name="search" /> Search <span className="lumen-kbd">⌘K</span>
         </button>
         {actions}
       </div>
     </div>
-  );
-}
-
-// =====================================================================
-// MerchantBadge — colored tile with the merchant's 2-letter mark.
-// =====================================================================
-
-export interface MerchantBadgeProps {
-  name: string;
-  size?: number;
-  withMark?: boolean;
-}
-
-export function MerchantBadge({ name, size = 26, withMark = true }: MerchantBadgeProps) {
-  // Unknown merchants get a neutral grey tile + first-two-letter fallback
-  // rather than crashing with `undefined.color`.
-  const m = MERCHANTS[name] || { color: "#7a7a75", mark: name.slice(0, 2).toUpperCase() };
-  return (
-    <div
-      className="merch"
-      style={{
-        background: m.color,
-        width: size,
-        height: size,
-        fontSize: size * 0.42,
-        flex: `0 0 ${size}px`,
-        borderRadius: size * 0.27,
-      }}
-    >
-      {withMark && (m.mark || name.slice(0, 1))}
-    </div>
-  );
-}
-
-// =====================================================================
-// CategoryChip — pill colored by the category's signature hue.
-// =====================================================================
-
-export interface CategoryChipProps {
-  cat: string;
-}
-
-export function CategoryChip({ cat }: CategoryChipProps) {
-  const c = CATEGORIES[cat];
-  if (!c) return null;
-  return (
-    // Inline style here because the tint mixes per-category color + 15%
-    // alpha, which can't be expressed cleanly as a static class.
-    <span className="pill" style={{ background: c.color + "15", color: c.color }}>
-      <Icon name={c.icon} style={{ width: 11, height: 11 }} />
-      {c.label}
-    </span>
   );
 }
 
@@ -188,14 +125,14 @@ export interface SegControlProps {
 
 export function SegControl({ value, options, onChange }: SegControlProps) {
   return (
-    <div className="seg">
+    <div className="lumen-seg">
       {options.map((o) => {
         const v = typeof o === "object" ? o.value : o;
         const l = typeof o === "object" ? o.label : o;
         return (
           <button
             key={v}
-            className={value === v ? "active" : ""}
+            className={value === v ? "is-active" : ""}
             onClick={() => onChange(v)}
           >
             {l}
@@ -207,7 +144,7 @@ export function SegControl({ value, options, onChange }: SegControlProps) {
 }
 
 // =====================================================================
-// PropRow — two-column key/value row used in the transaction detail panel.
+// PropRow — two-column key/value row used in detail panels.
 // =====================================================================
 
 export interface PropRowProps {
@@ -218,12 +155,12 @@ export interface PropRowProps {
 
 export function PropRow({ icon, label, children }: PropRowProps) {
   return (
-    <div className="prop-row">
-      <div className="k">
+    <div className="lumen-prop-row">
+      <div className="lumen-k">
         {icon && <Icon name={icon} />}
         {label}
       </div>
-      <div className="v">{children}</div>
+      <div className="lumen-v">{children}</div>
     </div>
   );
 }
