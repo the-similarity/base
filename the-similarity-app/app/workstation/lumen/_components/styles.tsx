@@ -1,21 +1,28 @@
 /**
- * Lumen Finance scoped stylesheet.
+ * Lumen scoped stylesheet for /workstation/lumen.
  *
- * The design's CSS uses generic class names (.card, .pill, .kpi, .btn,
- * .merch, .scroll, etc.) that would collide with any other route in this
- * app. To keep the styling page-local, every selector is prefixed with
- * `.lumen-app`. The only top-level rule is the `.lumen-app` block itself,
- * which sets the CSS custom properties (design tokens) that the rest of
- * the rules consume.
+ * Bug context (fixed in this revision):
+ *   The previous revision still used generic class names like `.app`,
+ *   `.main`, `.pill`, `.brand`, `.cmdk`, `.kbd`, `.num`, `.mono`,
+ *   `.label`, `.right`, `.chip` — all of which COLLIDE with global rules
+ *   defined in `app/globals.css`. Even with the `.lumen-app` prefix on
+ *   selectors, the global rules still applied for properties NOT
+ *   explicitly overridden by the Lumen rules. The killer example was
+ *   `.app { display: grid; grid-template-rows: 44px 1fr 26px; ...}` in
+ *   globals.css combining with `.lumen-app .app { grid-template-columns:
+ *   220px 1fr; ... }` here. Result: a 3-row × 2-col grid where the
+ *   sidebar+main got squeezed into the 44px first row, leaving the main
+ *   panel visually empty.
  *
- * Background note: the painterly background is rendered by a sibling
- * element with class `.lumen-painterly`. It is absolutely positioned
- * (NOT fixed) so it stays inside this route's wrapper and doesn't bleed
- * into other pages. Its background-image is mutated at runtime by the
- * tweaks panel to swap between Painterly/Dusk/Char/Paper presets.
+ * The bulletproof fix: rename every Lumen-owned class to a `lumen-`
+ * prefixed name. No prefix collision with anything else in the app, no
+ * specificity gymnastics. Selectors here all read `.lumen-app
+ * .lumen-foo`. The JSX tree was updated in lockstep — every
+ * `className=` under this route now uses `lumen-foo` instead of `foo`.
  *
- * IMPORTANT: NEVER add un-prefixed selectors here. Anything without a
- * `.lumen-app` ancestor will leak into the rest of the app.
+ * IMPORTANT: NEVER add un-prefixed selectors to this file. Anything
+ * without the `.lumen-app` ancestor would leak into the rest of the app,
+ * and any class without a `lumen-` prefix can collide with `globals.css`.
  */
 "use client";
 
@@ -91,18 +98,20 @@ export const LUMEN_CSS = `
   opacity: 0.5;
 }
 
-/* ============ app shell ============ */
-.lumen-app .app {
+/* ============ app shell — renamed from .app to avoid colliding with
+   the global .app rule in globals.css that sets a 3-row grid template. */
+.lumen-app .lumen-shell {
   position: relative; z-index: 1;
   height: 100vh;
   padding: 14px;
   display: grid;
   grid-template-columns: 220px 1fr;
+  grid-template-rows: 1fr;
   gap: 14px;
 }
 
 /* ============ sidebar ============ */
-.lumen-app .sidebar {
+.lumen-app .lumen-sidebar {
   background: rgba(255,255,255,0.72);
   backdrop-filter: blur(20px) saturate(120%);
   -webkit-backdrop-filter: blur(20px) saturate(120%);
@@ -112,26 +121,26 @@ export const LUMEN_CSS = `
   display: flex; flex-direction: column;
   box-shadow: var(--shadow-card);
 }
-.lumen-app .brand {
+.lumen-app .lumen-brand {
   display: flex; align-items: center; gap: 8px;
   padding: 6px 8px 18px 8px;
 }
-.lumen-app .brand-mark {
+.lumen-app .lumen-brand-mark {
   width: 22px; height: 22px;
-  border-radius: 6px;
-  background: var(--ink);
   display: grid; place-items: center;
-  color: #f4f1ea;
-  font-family: 'Instrument Serif', serif;
-  font-size: 16px; font-style: italic;
+  color: var(--ink);
   line-height: 1;
 }
-.lumen-app .brand-name {
+.lumen-app .lumen-brand-mark svg { display: block; }
+.lumen-app .lumen-brand-name {
   font-family: 'Instrument Serif', serif;
   font-size: 18px;
   letter-spacing: -0.01em;
 }
-.lumen-app .brand-sub {
+.lumen-app .lumen-brand-name em {
+  font-style: italic;
+}
+.lumen-app .lumen-brand-sub {
   margin-left: auto;
   font-size: 10px;
   color: var(--ink-3);
@@ -142,8 +151,8 @@ export const LUMEN_CSS = `
   text-transform: uppercase;
 }
 
-.lumen-app .nav-group { display: flex; flex-direction: column; gap: 1px; }
-.lumen-app .nav-label {
+.lumen-app .lumen-nav-group { display: flex; flex-direction: column; gap: 1px; }
+.lumen-app .lumen-nav-label {
   font-size: 10.5px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -151,7 +160,7 @@ export const LUMEN_CSS = `
   padding: 14px 10px 6px 10px;
   font-weight: 550;
 }
-.lumen-app .nav-item {
+.lumen-app .lumen-nav-item {
   display: flex; align-items: center; gap: 9px;
   padding: 6px 10px;
   border-radius: 7px;
@@ -164,15 +173,15 @@ export const LUMEN_CSS = `
   text-align: left;
   transition: background 100ms;
 }
-.lumen-app .nav-item:hover { background: rgba(0,0,0,0.04); color: var(--ink); }
-.lumen-app .nav-item.active {
+.lumen-app .lumen-nav-item:hover { background: rgba(0,0,0,0.04); color: var(--ink); }
+.lumen-app .lumen-nav-item.is-active {
   background: rgba(0,0,0,0.06);
   color: var(--ink);
   font-weight: 550;
 }
-.lumen-app .nav-item .ico { width: 15px; height: 15px; flex: 0 0 15px; opacity: 0.75; }
-.lumen-app .nav-item.active .ico { opacity: 1; }
-.lumen-app .nav-item .badge {
+.lumen-app .lumen-nav-item .lumen-ico { width: 15px; height: 15px; flex: 0 0 15px; opacity: 0.75; }
+.lumen-app .lumen-nav-item.is-active .lumen-ico { opacity: 1; }
+.lumen-app .lumen-nav-item .lumen-badge {
   margin-left: auto;
   font-size: 10.5px;
   color: var(--ink-3);
@@ -181,32 +190,19 @@ export const LUMEN_CSS = `
   border-radius: 999px;
   font-variant-numeric: tabular-nums;
 }
-.lumen-app .nav-item .badge.dot {
-  width: 6px; height: 6px;
-  padding: 0;
-  background: var(--accent);
-}
 
-.lumen-app .sidebar-foot {
+.lumen-app .lumen-sidebar-foot {
   margin-top: auto;
   padding: 10px 8px 4px 8px;
   border-top: 1px solid var(--border);
   display: flex; align-items: center; gap: 9px;
 }
-.lumen-app .avatar {
-  width: 26px; height: 26px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #c8a878, #6b4a2a);
-  color: #fff;
-  display: grid; place-items: center;
-  font-size: 11px; font-weight: 600;
-  flex: 0 0 26px;
-}
-.lumen-app .sidebar-foot .who { font-size: 12.5px; font-weight: 550; line-height: 1.1; }
-.lumen-app .sidebar-foot .plan { font-size: 11px; color: var(--ink-3); line-height: 1.1; }
+.lumen-app .lumen-sidebar-foot .lumen-who { font-size: 12px; font-weight: 500; line-height: 1.2; color: var(--ink-2); }
+.lumen-app .lumen-sidebar-foot .lumen-plan { font-size: 11px; color: var(--ink-3); line-height: 1.2; }
 
-/* ============ main panel ============ */
-.lumen-app .main {
+/* ============ main panel — renamed from .main to avoid collision with
+   the global .main rule in globals.css. */
+.lumen-app .lumen-main {
   background: var(--surface);
   border-radius: var(--radius-lg);
   border: 1px solid rgba(255,255,255,0.5);
@@ -216,7 +212,7 @@ export const LUMEN_CSS = `
   min-width: 0;
 }
 
-.lumen-app .topbar {
+.lumen-app .lumen-topbar {
   height: 46px;
   border-bottom: 1px solid var(--border);
   display: flex; align-items: center;
@@ -224,16 +220,16 @@ export const LUMEN_CSS = `
   gap: 10px;
   flex: 0 0 46px;
 }
-.lumen-app .crumbs {
+.lumen-app .lumen-crumbs {
   display: flex; align-items: center; gap: 6px;
   font-size: 13px;
   color: var(--ink-3);
 }
-.lumen-app .crumbs .sep { color: var(--ink-4); }
-.lumen-app .crumbs .here { color: var(--ink); font-weight: 500; }
-.lumen-app .top-actions { margin-left: auto; display: flex; align-items: center; gap: 6px; }
+.lumen-app .lumen-crumbs .lumen-sep { color: var(--ink-4); }
+.lumen-app .lumen-crumbs .lumen-here { color: var(--ink); font-weight: 500; }
+.lumen-app .lumen-top-actions { margin-left: auto; display: flex; align-items: center; gap: 6px; }
 
-.lumen-app .icon-btn {
+.lumen-app .lumen-icon-btn {
   width: 28px; height: 28px;
   display: grid; place-items: center;
   border-radius: 7px;
@@ -242,11 +238,11 @@ export const LUMEN_CSS = `
   color: var(--ink-2);
   transition: all 120ms;
 }
-.lumen-app .icon-btn:hover { background: rgba(0,0,0,0.05); color: var(--ink); }
-.lumen-app .icon-btn.outline { border-color: var(--border-strong); }
-.lumen-app .icon-btn svg { width: 15px; height: 15px; }
+.lumen-app .lumen-icon-btn:hover { background: rgba(0,0,0,0.05); color: var(--ink); }
+.lumen-app .lumen-icon-btn.outline { border-color: var(--border-strong); }
+.lumen-app .lumen-icon-btn svg { width: 15px; height: 15px; }
 
-.lumen-app .btn {
+.lumen-app .lumen-btn {
   display: inline-flex; align-items: center; gap: 6px;
   height: 28px;
   padding: 0 11px;
@@ -257,50 +253,51 @@ export const LUMEN_CSS = `
   font-size: 12.5px;
   font-weight: 500;
   transition: all 120ms;
+  text-decoration: none;
 }
-.lumen-app .btn:hover { background: var(--surface-2); }
-.lumen-app .btn.primary {
+.lumen-app .lumen-btn:hover { background: var(--surface-2); }
+.lumen-app .lumen-btn.is-primary {
   background: var(--ink);
   color: #fff;
   border-color: var(--ink);
 }
-.lumen-app .btn.primary:hover { background: #000; }
-.lumen-app .btn.accent {
+.lumen-app .lumen-btn.is-primary:hover { background: #000; }
+.lumen-app .lumen-btn.is-accent {
   background: var(--accent);
   color: #fff;
   border-color: var(--accent);
 }
-.lumen-app .btn.ghost { border-color: transparent; }
-.lumen-app .btn.ghost:hover { background: rgba(0,0,0,0.05); }
-.lumen-app .btn .ico { width: 13px; height: 13px; }
+.lumen-app .lumen-btn.is-ghost { border-color: transparent; }
+.lumen-app .lumen-btn.is-ghost:hover { background: rgba(0,0,0,0.05); }
+.lumen-app .lumen-btn .lumen-ico { width: 13px; height: 13px; }
 
-.lumen-app .scroll {
+.lumen-app .lumen-scroll {
   flex: 1; min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
 }
-.lumen-app .scroll::-webkit-scrollbar { width: 10px; }
-.lumen-app .scroll::-webkit-scrollbar-thumb { background: var(--ink-5); border-radius: 999px; border: 3px solid var(--surface); background-clip: padding-box; }
-.lumen-app .scroll::-webkit-scrollbar-thumb:hover { background: var(--ink-4); border: 3px solid var(--surface); background-clip: padding-box; }
+.lumen-app .lumen-scroll::-webkit-scrollbar { width: 10px; }
+.lumen-app .lumen-scroll::-webkit-scrollbar-thumb { background: var(--ink-5); border-radius: 999px; border: 3px solid var(--surface); background-clip: padding-box; }
+.lumen-app .lumen-scroll::-webkit-scrollbar-thumb:hover { background: var(--ink-4); border: 3px solid var(--surface); background-clip: padding-box; }
 
 /* ============ typography ============ */
-.lumen-app .h-eyebrow {
+.lumen-app .lumen-eyebrow {
   font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em;
   color: var(--ink-3); font-weight: 550;
 }
-.lumen-app .h-display {
+.lumen-app .lumen-display {
   font-family: 'Instrument Serif', serif;
   font-weight: 400;
   letter-spacing: -0.02em;
   line-height: 1;
 }
-.lumen-app .num { font-variant-numeric: tabular-nums; font-feature-settings: 'tnum'; }
-.lumen-app .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
-.lumen-app .pos { color: var(--pos); }
-.lumen-app .neg { color: var(--neg); }
+.lumen-app .lumen-num { font-variant-numeric: tabular-nums; font-feature-settings: 'tnum'; }
+.lumen-app .lumen-mono { font-family: 'JetBrains Mono', ui-monospace, monospace; font-feature-settings: 'tnum'; }
+.lumen-app .lumen-pos { color: var(--pos); }
+.lumen-app .lumen-neg { color: var(--neg); }
 
-/* ============ pills / chips ============ */
-.lumen-app .pill {
+/* ============ pills ============ */
+.lumen-app .lumen-pill {
   display: inline-flex; align-items: center; gap: 5px;
   height: 22px; padding: 0 8px;
   border-radius: 999px;
@@ -309,36 +306,36 @@ export const LUMEN_CSS = `
   font-size: 11.5px;
   font-weight: 500;
 }
-.lumen-app .pill .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
-.lumen-app .pill.pos { background: var(--accent-soft); color: var(--accent-ink); }
-.lumen-app .pill.neg { background: #f5e4e0; color: #7a2f24; }
-.lumen-app .pill.warn { background: #f6ecd6; color: #6b4f0f; }
-.lumen-app .pill.info { background: #e3ecf5; color: #1f4569; }
-.lumen-app .pill.outline { background: transparent; border: 1px solid var(--border-strong); }
+.lumen-app .lumen-pill .lumen-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.lumen-app .lumen-pill.is-pos { background: var(--accent-soft); color: var(--accent-ink); }
+.lumen-app .lumen-pill.is-neg { background: #f5e4e0; color: #7a2f24; }
+.lumen-app .lumen-pill.is-warn { background: #f6ecd6; color: #6b4f0f; }
+.lumen-app .lumen-pill.is-info { background: #e3ecf5; color: #1f4569; }
+.lumen-app .lumen-pill.is-outline { background: transparent; border: 1px solid var(--border-strong); }
 
 /* ============ section title ============ */
-.lumen-app .section-head {
+.lumen-app .lumen-section-head {
   display: flex; align-items: baseline; gap: 12px;
   padding: 6px 0 12px 0;
 }
-.lumen-app .section-head .title {
+.lumen-app .lumen-section-head .lumen-title {
   font-size: 13px; font-weight: 600; color: var(--ink);
 }
-.lumen-app .section-head .sub { font-size: 12.5px; color: var(--ink-3); }
-.lumen-app .section-head .actions { margin-left: auto; display: flex; gap: 4px; align-items: center; }
+.lumen-app .lumen-section-head .lumen-sub { font-size: 12.5px; color: var(--ink-3); }
+.lumen-app .lumen-section-head .lumen-actions { margin-left: auto; display: flex; gap: 4px; align-items: center; }
 
 /* ============ card ============ */
-.lumen-app .card {
+.lumen-app .lumen-card {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
 }
-.lumen-app .card.tinted { background: var(--surface-2); }
-.lumen-app .card-pad { padding: 16px; }
-.lumen-app .card-pad-lg { padding: 22px; }
+.lumen-app .lumen-card.is-tinted { background: var(--surface-2); }
+.lumen-app .lumen-card-pad { padding: 16px; }
+.lumen-app .lumen-card-pad-lg { padding: 22px; }
 
-/* ============ table ============ */
-.lumen-app .tx-row {
+/* ============ table rows ============ */
+.lumen-app .lumen-tx-row {
   display: grid;
   grid-template-columns: 18px 1fr 130px 110px 110px 24px;
   align-items: center;
@@ -349,8 +346,8 @@ export const LUMEN_CSS = `
   cursor: pointer;
   transition: background 80ms;
 }
-.lumen-app .tx-row:hover { background: var(--surface-2); }
-.lumen-app .tx-row.head {
+.lumen-app .lumen-tx-row:hover { background: var(--surface-2); }
+.lumen-app .lumen-tx-row.is-head {
   cursor: default;
   background: var(--surface-2);
   color: var(--ink-3);
@@ -361,29 +358,17 @@ export const LUMEN_CSS = `
   padding: 8px 16px;
   border-top: 1px solid var(--border);
 }
-.lumen-app .tx-row.head:hover { background: var(--surface-2); }
-.lumen-app .tx-row.selected { background: var(--accent-soft); }
-.lumen-app .tx-row.selected:hover { background: #dde8e1; }
-
-.lumen-app .merch {
-  width: 26px; height: 26px;
-  border-radius: 7px;
-  display: grid; place-items: center;
-  color: #fff;
-  font-size: 11px; font-weight: 600;
-  flex: 0 0 26px;
-}
-.lumen-app .merch-cell { display: flex; align-items: center; gap: 10px; min-width: 0; }
-.lumen-app .merch-name { font-weight: 500; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.lumen-app .merch-sub { font-size: 11.5px; color: var(--ink-3); }
+.lumen-app .lumen-tx-row.is-head:hover { background: var(--surface-2); }
+.lumen-app .lumen-tx-row.is-selected { background: var(--accent-soft); }
+.lumen-app .lumen-tx-row.is-selected:hover { background: #dde8e1; }
 
 /* ============ KPI ============ */
-.lumen-app .kpi-grid {
+.lumen-app .lumen-kpi-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 12px;
 }
-.lumen-app .kpi {
+.lumen-app .lumen-kpi {
   padding: 16px;
   background: var(--surface);
   border: 1px solid var(--border);
@@ -391,108 +376,50 @@ export const LUMEN_CSS = `
   display: flex; flex-direction: column;
   min-height: 108px;
 }
-.lumen-app .kpi .label {
+.lumen-app .lumen-kpi .lumen-label {
   font-size: 11.5px; color: var(--ink-3); font-weight: 500;
   display: flex; align-items: center; gap: 6px;
   margin-bottom: 8px;
+  font-family: inherit;
+  letter-spacing: 0;
+  text-transform: none;
 }
-.lumen-app .kpi .label .ico { width: 13px; height: 13px; opacity: 0.7; }
-.lumen-app .kpi .value {
+.lumen-app .lumen-kpi .lumen-label .lumen-ico { width: 13px; height: 13px; opacity: 0.7; }
+.lumen-app .lumen-kpi .lumen-value {
   font-family: 'Instrument Serif', serif;
   font-size: 30px; line-height: 1;
   letter-spacing: -0.015em;
   color: var(--ink);
 }
-.lumen-app .kpi .delta {
+.lumen-app .lumen-kpi .lumen-delta {
   margin-top: auto; padding-top: 10px;
   font-size: 11.5px; color: var(--ink-3);
   display: flex; align-items: center; gap: 4px;
 }
-.lumen-app .kpi .delta .arrow { font-weight: 600; }
+.lumen-app .lumen-kpi .lumen-delta .lumen-arrow { font-weight: 600; }
 
-/* ============ progress ============ */
-.lumen-app .progress {
-  height: 6px; background: rgba(0,0,0,0.06); border-radius: 999px; overflow: hidden;
-  position: relative;
-}
-.lumen-app .progress > .fill { height: 100%; background: var(--ink); border-radius: 999px; }
-.lumen-app .progress.thin { height: 4px; }
-
-/* ============ chart helpers ============ */
-.lumen-app .chart-wrap { position: relative; }
-.lumen-app .chart-wrap svg { display: block; width: 100%; height: 100%; }
-
-/* ============ details panel (right rail) ============ */
-.lumen-app .detail-panel {
-  width: 360px;
-  flex: 0 0 360px;
-  border-left: 1px solid var(--border);
-  background: var(--surface-2);
-  display: flex; flex-direction: column;
-  overflow-y: auto;
-}
-.lumen-app .detail-panel::-webkit-scrollbar { width: 8px; }
-.lumen-app .detail-panel::-webkit-scrollbar-thumb { background: var(--ink-5); border-radius: 999px; }
-
-.lumen-app .prop-row {
-  display: grid;
-  grid-template-columns: 110px 1fr;
-  gap: 12px;
-  padding: 7px 16px;
-  align-items: center;
-  font-size: 12.5px;
-}
-.lumen-app .prop-row .k { color: var(--ink-3); display: flex; align-items: center; gap: 6px; }
-.lumen-app .prop-row .k .ico { width: 13px; height: 13px; opacity: 0.7; }
-.lumen-app .prop-row .v { color: var(--ink); font-weight: 450; }
-.lumen-app .prop-row .v.editable { padding: 3px 6px; margin: -3px -6px; border-radius: 5px; cursor: pointer; }
-.lumen-app .prop-row .v.editable:hover { background: rgba(0,0,0,0.05); }
-
-/* ============ activity ============ */
-.lumen-app .activity-item {
-  display: grid;
-  grid-template-columns: 24px 1fr;
-  gap: 10px;
-  padding: 10px 16px;
-  position: relative;
-}
-.lumen-app .activity-item:not(:last-child)::before {
-  content: ''; position: absolute;
-  left: 27px; top: 28px; bottom: -2px;
-  width: 1px; background: var(--border);
-}
-.lumen-app .activity-item .dot {
-  width: 24px; height: 24px;
-  border-radius: 50%;
-  background: var(--surface);
-  border: 1px solid var(--border-strong);
-  display: grid; place-items: center;
-  color: var(--ink-3);
-  z-index: 1;
-}
-.lumen-app .activity-item .dot svg { width: 11px; height: 11px; }
-.lumen-app .activity-item .body { font-size: 12.5px; }
-.lumen-app .activity-item .body .who { font-weight: 550; color: var(--ink); }
-.lumen-app .activity-item .body .meta { color: var(--ink-3); margin-left: 6px; font-size: 11.5px; }
+/* ============ chart wrap ============ */
+.lumen-app .lumen-chart-wrap { position: relative; }
+.lumen-app .lumen-chart-wrap svg { display: block; width: 100%; height: 100%; }
 
 /* ============ split layout ============ */
-.lumen-app .split {
+.lumen-app .lumen-split {
   display: flex;
   flex: 1;
   min-height: 0;
 }
-.lumen-app .content-col { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-.lumen-app .scroll-pad { padding: 22px 28px 80px 28px; }
+.lumen-app .lumen-content-col { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.lumen-app .lumen-scroll-pad { padding: 22px 28px 80px 28px; }
 
-/* ============ command palette — fixed because it's a modal overlay ============ */
-.lumen-app .cmdk-back {
+/* ============ command palette ============ */
+.lumen-app .lumen-cmdk-back {
   position: fixed; inset: 0; z-index: 100;
   background: rgba(20,20,20,0.35);
   backdrop-filter: blur(4px);
   display: grid; place-items: start center;
   padding-top: 14vh;
 }
-.lumen-app .cmdk {
+.lumen-app .lumen-cmdk {
   width: 580px;
   max-width: 92vw;
   background: var(--surface);
@@ -501,22 +428,22 @@ export const LUMEN_CSS = `
   box-shadow: var(--shadow-pop);
   overflow: hidden;
 }
-.lumen-app .cmdk-input {
+.lumen-app .lumen-cmdk-input {
   width: 100%; height: 48px; border: none; outline: none;
   padding: 0 18px; font-size: 14px;
   border-bottom: 1px solid var(--border);
   background: transparent;
   color: var(--ink);
 }
-.lumen-app .cmdk-list { max-height: 380px; overflow-y: auto; padding: 6px; }
-.lumen-app .cmdk-group { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-4); padding: 10px 12px 4px 12px; font-weight: 550; }
-.lumen-app .cmdk-item { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 7px; font-size: 13px; cursor: pointer; color: var(--ink); }
-.lumen-app .cmdk-item:hover, .lumen-app .cmdk-item.active { background: rgba(0,0,0,0.05); }
-.lumen-app .cmdk-item .ico { width: 14px; height: 14px; color: var(--ink-3); }
-.lumen-app .cmdk-item .kbd { margin-left: auto; font-size: 10.5px; color: var(--ink-4); }
+.lumen-app .lumen-cmdk-list { max-height: 380px; overflow-y: auto; padding: 6px; }
+.lumen-app .lumen-cmdk-group { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-4); padding: 10px 12px 4px 12px; font-weight: 550; }
+.lumen-app .lumen-cmdk-item { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 7px; font-size: 13px; cursor: pointer; color: var(--ink); }
+.lumen-app .lumen-cmdk-item:hover, .lumen-app .lumen-cmdk-item.is-active { background: rgba(0,0,0,0.05); }
+.lumen-app .lumen-cmdk-item .lumen-ico { width: 14px; height: 14px; color: var(--ink-3); }
+.lumen-app .lumen-cmdk-item .lumen-kbd { margin-left: auto; }
 
 /* ============ kbd ============ */
-.lumen-app .kbd {
+.lumen-app .lumen-kbd {
   font-family: 'JetBrains Mono', monospace;
   font-size: 10.5px;
   padding: 1px 5px;
@@ -525,10 +452,13 @@ export const LUMEN_CSS = `
   background: var(--surface);
   color: var(--ink-3);
   line-height: 1.4;
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 400;
 }
 
-/* ============ assistant ============ */
-.lumen-app .ai-bubble {
+/* ============ AI insight bubble ============ */
+.lumen-app .lumen-ai-bubble {
   background: linear-gradient(180deg, #fafaf6, #f4f1ea);
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -537,13 +467,14 @@ export const LUMEN_CSS = `
   color: var(--ink);
   line-height: 1.55;
 }
-.lumen-app .ai-bubble .ai-head {
+.lumen-app .lumen-ai-bubble .lumen-ai-head {
   display: flex; align-items: center; gap: 6px;
   font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em;
   color: var(--ink-3); font-weight: 550;
   margin-bottom: 8px;
+  font-family: inherit;
 }
-.lumen-app .ai-bubble .ai-head .pulse {
+.lumen-app .lumen-ai-bubble .lumen-ai-head .lumen-pulse {
   width: 6px; height: 6px; border-radius: 50%;
   background: var(--accent); box-shadow: 0 0 0 0 var(--accent);
   animation: lumen-pulse 2s infinite;
@@ -555,248 +486,47 @@ export const LUMEN_CSS = `
 }
 
 /* ============ utility ============ */
-.lumen-app .row { display: flex; align-items: center; }
-.lumen-app .col { display: flex; flex-direction: column; }
-.lumen-app .gap-4 { gap: 4px; }
-.lumen-app .gap-6 { gap: 6px; }
-.lumen-app .gap-8 { gap: 8px; }
-.lumen-app .gap-12 { gap: 12px; }
-.lumen-app .gap-16 { gap: 16px; }
-.lumen-app .gap-20 { gap: 20px; }
-.lumen-app .gap-24 { gap: 24px; }
-.lumen-app .grow { flex: 1; min-width: 0; }
-.lumen-app .right { margin-left: auto; }
-.lumen-app .mt-4 { margin-top: 4px; }
-.lumen-app .mt-8 { margin-top: 8px; }
-.lumen-app .mt-12 { margin-top: 12px; }
-.lumen-app .mt-16 { margin-top: 16px; }
-.lumen-app .mt-20 { margin-top: 20px; }
-.lumen-app .mt-24 { margin-top: 24px; }
-.lumen-app .mt-32 { margin-top: 32px; }
-.lumen-app .mb-4 { margin-bottom: 4px; }
-.lumen-app .mb-8 { margin-bottom: 8px; }
-.lumen-app .mb-12 { margin-bottom: 12px; }
-.lumen-app .mb-16 { margin-bottom: 16px; }
-.lumen-app .mb-20 { margin-bottom: 20px; }
-.lumen-app .mb-24 { margin-bottom: 24px; }
-.lumen-app .text-3 { color: var(--ink-3); }
-.lumen-app .text-2 { color: var(--ink-2); }
-.lumen-app .fz-11 { font-size: 11px; }
-.lumen-app .fz-12 { font-size: 12px; }
-.lumen-app .fz-13 { font-size: 13px; }
-.lumen-app .fz-14 { font-size: 14px; }
-.lumen-app .fw-5 { font-weight: 500; }
-.lumen-app .fw-6 { font-weight: 600; }
-
-/* ============ donut legend ============ */
-.lumen-app .legend-row {
-  display: flex; align-items: center; gap: 8px;
-  padding: 6px 0;
-  font-size: 12.5px;
-  border-bottom: 1px dashed var(--border);
-}
-.lumen-app .legend-row:last-child { border-bottom: none; }
-.lumen-app .legend-row .sw { width: 8px; height: 8px; border-radius: 2px; flex: 0 0 8px; }
-.lumen-app .legend-row .lab { color: var(--ink-2); }
-.lumen-app .legend-row .pct { margin-left: auto; color: var(--ink-3); font-variant-numeric: tabular-nums; }
-.lumen-app .legend-row .amt { width: 80px; text-align: right; color: var(--ink); font-weight: 500; font-variant-numeric: tabular-nums; }
-
-/* ============ accounts cards ============ */
-.lumen-app .acct-card {
-  padding: 14px 16px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--surface);
-  display: flex; align-items: center; gap: 14px;
-  cursor: pointer;
-  transition: all 120ms;
-}
-.lumen-app .acct-card:hover { border-color: var(--border-strong); transform: translateY(-1px); box-shadow: var(--shadow-card); }
-.lumen-app .acct-logo {
-  width: 36px; height: 36px;
-  border-radius: 8px;
-  display: grid; place-items: center;
-  color: #fff;
-  font-size: 13px; font-weight: 600;
-  flex: 0 0 36px;
-}
-
-/* ============ goal ring ============ */
-.lumen-app .ring-wrap { position: relative; width: 84px; height: 84px; }
-.lumen-app .ring-wrap .ring-text {
-  position: absolute; inset: 0; display: grid; place-items: center;
-  font-family: 'Instrument Serif', serif;
-  font-size: 22px; line-height: 1;
-}
-
-/* ============ subscription row ============ */
-.lumen-app .sub-row {
-  display: grid;
-  grid-template-columns: 32px 1fr 100px 100px;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 16px;
-  border-bottom: 1px solid var(--border);
-  font-size: 13px;
-}
-.lumen-app .sub-row:last-child { border-bottom: none; }
-
-/* ============ filter bar ============ */
-.lumen-app .filter-bar {
-  display: flex; align-items: center; gap: 6px;
-  padding: 10px 16px;
-  border-bottom: 1px solid var(--border);
-  flex-wrap: wrap;
-}
-.lumen-app .chip {
-  display: inline-flex; align-items: center; gap: 5px;
-  height: 26px;
-  padding: 0 9px;
-  border-radius: 999px;
-  border: 1px dashed var(--border-strong);
-  color: var(--ink-3);
-  font-size: 12px;
-  background: transparent;
-}
-.lumen-app .chip.active {
-  border-style: solid;
-  background: var(--surface-2);
-  color: var(--ink);
-}
-.lumen-app .chip .x { color: var(--ink-4); }
-.lumen-app .chip:hover { color: var(--ink); border-color: var(--ink-3); }
-
-/* ============ search input ============ */
-.lumen-app .search-input {
-  height: 28px;
-  padding: 0 10px 0 30px;
-  border-radius: 7px;
-  border: 1px solid var(--border-strong);
-  background: var(--surface);
-  width: 220px;
-  font-size: 12.5px;
-  outline: none;
-  color: var(--ink);
-  transition: border 120ms;
-}
-.lumen-app .search-input:focus { border-color: var(--ink-3); }
-.lumen-app .search-wrap { position: relative; }
-.lumen-app .search-wrap svg { position: absolute; left: 9px; top: 50%; transform: translateY(-50%); width: 13px; height: 13px; color: var(--ink-4); }
-
-/* ============ donut ============ */
-.lumen-app .donut-c { width: 200px; height: 200px; position: relative; }
-.lumen-app .donut-c .center {
-  position: absolute; inset: 0; display: grid; place-items: center; text-align: center;
-}
-
-/* ============ flow chart bars ============ */
-.lumen-app .flow-bars { display: flex; align-items: end; gap: 6px; height: 180px; }
-.lumen-app .flow-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; }
-.lumen-app .flow-col .stack { display: flex; flex-direction: column-reverse; width: 100%; gap: 2px; height: 156px; align-items: stretch; justify-content: end; }
-.lumen-app .flow-col .b-in { background: var(--accent); border-radius: 3px 3px 0 0; }
-.lumen-app .flow-col .b-out { background: var(--ink); border-radius: 0 0 3px 3px; opacity: 0.85; }
-.lumen-app .flow-col .lab { font-size: 10.5px; color: var(--ink-3); }
-
-/* ============ investments ============ */
-.lumen-app .holding-row {
-  display: grid;
-  grid-template-columns: 32px 1fr 90px 90px 100px 90px;
-  gap: 12px;
-  align-items: center;
-  padding: 10px 16px;
-  border-bottom: 1px solid var(--border);
-  font-size: 13px;
-}
-.lumen-app .holding-row.head {
-  background: var(--surface-2);
-  color: var(--ink-3);
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  font-weight: 550;
-  padding: 8px 16px;
-}
-.lumen-app .ticker {
-  width: 32px; height: 32px;
-  border-radius: 7px;
-  color: #fff;
-  display: grid; place-items: center;
-  font-size: 11px; font-weight: 700;
-  letter-spacing: -0.02em;
-}
-
-/* ============ tweaks panel custom ============ */
-.lumen-app .tweak-swatch-row { display: flex; gap: 6px; flex-wrap: wrap; }
-.lumen-app .tweak-swatch {
-  width: 26px; height: 26px;
-  border-radius: 6px;
-  border: 2px solid transparent;
-  cursor: pointer;
-  position: relative;
-}
-.lumen-app .tweak-swatch.active {
-  border-color: var(--ink);
-  box-shadow: 0 0 0 2px var(--surface) inset;
-}
-
-/* mini segmented */
-.lumen-app .seg {
-  display: inline-flex;
-  background: rgba(0,0,0,0.05);
-  border-radius: 7px;
-  padding: 2px;
-}
-.lumen-app .seg button {
-  border: none; background: transparent;
-  padding: 4px 10px;
-  border-radius: 5px;
-  font-size: 12px;
-  color: var(--ink-3);
-  font-weight: 500;
-}
-.lumen-app .seg button.active {
-  background: var(--surface);
-  color: var(--ink);
-  box-shadow: 0 1px 2px rgba(0,0,0,0.06);
-}
-
-/* ============ popover ============ */
-.lumen-app .popover {
-  position: absolute;
-  z-index: 50;
-  background: var(--surface);
-  border: 1px solid var(--border-strong);
-  border-radius: 10px;
-  box-shadow: var(--shadow-pop);
-  padding: 6px;
-  min-width: 220px;
-}
-.lumen-app .popover .pop-head {
-  padding: 6px 8px;
-  font-size: 11px;
-  color: var(--ink-3);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  font-weight: 550;
-}
-.lumen-app .popover .pop-item {
-  display: flex; align-items: center; gap: 9px;
-  padding: 6px 8px;
-  border-radius: 6px;
-  font-size: 13px;
-  cursor: pointer;
-}
-.lumen-app .popover .pop-item:hover { background: rgba(0,0,0,0.05); }
-.lumen-app .popover .pop-item .ico { width: 14px; height: 14px; color: var(--ink-3); }
+.lumen-app .lumen-row { display: flex; align-items: center; }
+.lumen-app .lumen-col { display: flex; flex-direction: column; }
+.lumen-app .lumen-gap-4 { gap: 4px; }
+.lumen-app .lumen-gap-6 { gap: 6px; }
+.lumen-app .lumen-gap-8 { gap: 8px; }
+.lumen-app .lumen-gap-12 { gap: 12px; }
+.lumen-app .lumen-gap-16 { gap: 16px; }
+.lumen-app .lumen-gap-20 { gap: 20px; }
+.lumen-app .lumen-gap-24 { gap: 24px; }
+.lumen-app .lumen-grow { flex: 1; min-width: 0; }
+.lumen-app .lumen-right { margin-left: auto; }
+.lumen-app .lumen-mt-4 { margin-top: 4px; }
+.lumen-app .lumen-mt-8 { margin-top: 8px; }
+.lumen-app .lumen-mt-12 { margin-top: 12px; }
+.lumen-app .lumen-mt-16 { margin-top: 16px; }
+.lumen-app .lumen-mt-20 { margin-top: 20px; }
+.lumen-app .lumen-mt-24 { margin-top: 24px; }
+.lumen-app .lumen-mt-32 { margin-top: 32px; }
+.lumen-app .lumen-mb-4 { margin-bottom: 4px; }
+.lumen-app .lumen-mb-8 { margin-bottom: 8px; }
+.lumen-app .lumen-mb-12 { margin-bottom: 12px; }
+.lumen-app .lumen-mb-16 { margin-bottom: 16px; }
+.lumen-app .lumen-mb-20 { margin-bottom: 20px; }
+.lumen-app .lumen-mb-24 { margin-bottom: 24px; }
+.lumen-app .lumen-text-3 { color: var(--ink-3); }
+.lumen-app .lumen-text-2 { color: var(--ink-2); }
+.lumen-app .lumen-fz-11 { font-size: 11px; }
+.lumen-app .lumen-fz-12 { font-size: 12px; }
+.lumen-app .lumen-fz-13 { font-size: 13px; }
+.lumen-app .lumen-fz-14 { font-size: 14px; }
+.lumen-app .lumen-fw-5 { font-weight: 500; }
+.lumen-app .lumen-fw-6 { font-weight: 600; }
 
 /* sparkline color helpers */
-.lumen-app .spark-pos path.line { stroke: var(--pos); }
-.lumen-app .spark-pos path.fill { fill: var(--pos); fill-opacity: 0.10; }
-.lumen-app .spark-neg path.line { stroke: var(--neg); }
-.lumen-app .spark-neg path.fill { fill: var(--neg); fill-opacity: 0.10; }
+.lumen-app .lumen-spark-pos path.line { stroke: var(--pos); }
+.lumen-app .lumen-spark-pos path.fill { fill: var(--pos); fill-opacity: 0.10; }
+.lumen-app .lumen-spark-neg path.line { stroke: var(--neg); }
+.lumen-app .lumen-spark-neg path.fill { fill: var(--neg); fill-opacity: 0.10; }
 
 /* fade-in for screens */
-.lumen-app .screen-fade {
+.lumen-app .lumen-screen-fade {
   animation: lumen-fadeIn 220ms ease-out;
 }
 @keyframes lumen-fadeIn {
@@ -805,7 +535,7 @@ export const LUMEN_CSS = `
 }
 
 /* checkbox */
-.lumen-app .ck {
+.lumen-app .lumen-ck {
   width: 14px; height: 14px;
   border: 1px solid var(--border-strong);
   border-radius: 3px;
@@ -813,16 +543,85 @@ export const LUMEN_CSS = `
   background: var(--surface);
   flex: 0 0 14px;
 }
-.lumen-app .ck.on {
+.lumen-app .lumen-ck.is-on {
   background: var(--ink);
   border-color: var(--ink);
   color: #fff;
 }
-.lumen-app .ck svg { width: 10px; height: 10px; display: none; }
-.lumen-app .ck.on svg { display: block; }
+.lumen-app .lumen-ck svg { width: 10px; height: 10px; display: none; }
+.lumen-app .lumen-ck.is-on svg { display: block; }
 
 /* selection */
 .lumen-app ::selection { background: var(--accent-soft); color: var(--accent-ink); }
+
+/* mini segmented control */
+.lumen-app .lumen-seg {
+  display: inline-flex;
+  background: rgba(0,0,0,0.05);
+  border-radius: 7px;
+  padding: 2px;
+}
+.lumen-app .lumen-seg button {
+  border: none; background: transparent;
+  padding: 4px 10px;
+  border-radius: 5px;
+  font-size: 12px;
+  color: var(--ink-3);
+  font-weight: 500;
+}
+.lumen-app .lumen-seg button.is-active {
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+}
+
+/* status pill (run lifecycle) */
+.lumen-app .lumen-status {
+  display: inline-flex; align-items: center; gap: 5px;
+  height: 20px; padding: 0 8px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border: 1px solid currentColor;
+}
+.lumen-app .lumen-status.is-complete { color: var(--pos); }
+.lumen-app .lumen-status.is-running { color: var(--info); }
+.lumen-app .lumen-status.is-failed { color: var(--neg); }
+.lumen-app .lumen-status.is-pending { color: var(--ink-3); }
+
+/* search input (topbar search button) — kept thin */
+.lumen-app .lumen-search-wrap { position: relative; display: inline-flex; }
+.lumen-app .lumen-search-wrap svg { position: absolute; left: 9px; top: 50%; transform: translateY(-50%); width: 13px; height: 13px; color: var(--ink-4); }
+
+/* ============ runs table — generic table layout used by Runs screen ============ */
+.lumen-app .lumen-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.lumen-app .lumen-table th {
+  text-align: left;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 550;
+  color: var(--ink-3);
+  background: var(--surface-2);
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.lumen-app .lumen-table th.is-right { text-align: right; }
+.lumen-app .lumen-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+  color: var(--ink);
+}
+.lumen-app .lumen-table td.is-right { text-align: right; }
+.lumen-app .lumen-table td.is-mono { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 12px; font-feature-settings: 'tnum'; }
+.lumen-app .lumen-table tr.is-link { cursor: pointer; transition: background 80ms; }
+.lumen-app .lumen-table tr.is-link:hover { background: var(--surface-2); }
 
 /* ============ dark mode (toggled via .dark on .lumen-app root) ============ */
 .lumen-app.dark {
@@ -843,17 +642,15 @@ export const LUMEN_CSS = `
 .lumen-app.dark .lumen-painterly {
   background: linear-gradient(160deg, #1a3528 0%, #2a4534 25%, #4a3a2a 55%, #2a1f15 80%, #0a0a08 100%);
 }
-.lumen-app.dark .sidebar {
+.lumen-app.dark .lumen-sidebar {
   background: rgba(24,25,26,0.7);
   border-color: rgba(255,255,255,0.06);
 }
-.lumen-app.dark .ai-bubble {
+.lumen-app.dark .lumen-ai-bubble {
   background: linear-gradient(180deg, #1f2122, #18191a);
 }
 
-/* ============ tweaks panel (collapsed tab + expanded panel) ============
-   These are page-scoped so they can't leak. The expanded panel is fixed
-   to the bottom-right corner with a glass backdrop matching the design. */
+/* ============ tweaks panel ============ */
 .lumen-app .lumen-tweaks-tab {
   position: fixed; right: 16px; bottom: 16px; z-index: 90;
   height: 28px; padding: 0 12px;
@@ -917,11 +714,11 @@ export const LUMEN_CSS = `
   color: inherit;
   cursor: pointer;
 }
-.lumen-app .lumen-tweaks-radio button.active {
+.lumen-app .lumen-tweaks-radio button.is-active {
   background: rgba(255,255,255,0.9);
   box-shadow: 0 1px 2px rgba(0,0,0,0.12);
 }
-.lumen-app.dark .lumen-tweaks-radio button.active { background: rgba(255,255,255,0.12); }
+.lumen-app.dark .lumen-tweaks-radio button.is-active { background: rgba(255,255,255,0.12); }
 .lumen-app .lumen-tweaks-toggle-row {
   display: flex; align-items: center; justify-content: space-between;
   padding: 2px 0;
@@ -943,4 +740,17 @@ export const LUMEN_CSS = `
   transition: transform 0.15s;
 }
 .lumen-app .lumen-tweaks-toggle[data-on="1"] i { transform: translateX(14px); }
+
+.lumen-app .lumen-tweak-swatch-row { display: flex; gap: 6px; flex-wrap: wrap; }
+.lumen-app .lumen-tweak-swatch {
+  width: 26px; height: 26px;
+  border-radius: 6px;
+  border: 2px solid transparent;
+  cursor: pointer;
+  position: relative;
+}
+.lumen-app .lumen-tweak-swatch.is-active {
+  border-color: var(--ink);
+  box-shadow: 0 0 0 2px var(--surface) inset;
+}
 `;
