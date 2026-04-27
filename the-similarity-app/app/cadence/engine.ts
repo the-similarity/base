@@ -56,7 +56,7 @@
  * stranger like me" question. Pure self-similarity over your own log.
  */
 
-import type { DaySummary } from "./_components/data";
+import type { DaySummary, TagKind } from "./_components/data";
 import { BASELINE } from "./_components/data";
 
 // ─────────── public types ───────────
@@ -77,7 +77,7 @@ export interface RhymeWindow {
   /** Coarse narrative tag for the outcome. */
   outcomeLabel: OutcomeLabel;
   /** Optional context note from any TAGGED_PERIODS overlapping the window. */
-  contextTag?: string;
+  contextTag?: TagKind;
 }
 
 export type OutcomeLabel =
