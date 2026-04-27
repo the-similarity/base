@@ -1,240 +1,319 @@
 /**
- * Cadence — Natural Language → Time Series engine.
+ * Cadence — self-similarity engine over the user's OWN longitudinal data.
  *
- * Deterministic fake-NLP parser that converts a free-text narrative of a
- * user's day into a sequence of valence events, then integrates those events
- * into a continuous series sampled at 5-minute intervals over a 16-hour
- * waking window.
+ * The soul of the product: find past 7-day windows in Buba's history that
+ * "rhyme" with today's 7-day window across multivariate biomarkers (HRV,
+ * RHR, sleep, energy, glucose). For each rhyme, surface the 14-day
+ * outcome that followed — the calibrated forecast for what's likely to
+ * happen next.
  *
- * The output shape is the contract relied on by dashboard.tsx:
- *   - events: Event[]   (parsed sentence → {text, delta, tag, time, cert})
- *   - series: Point[]   (5-min samples across 16h, valence ∈ [0, 100])
+ * This mirrors `app/prudent/engine.ts`'s `findRhyme` but for biomarker
+ * tuples instead of valence narratives. The shape of the API is
+ * deliberately small and side-effect free so the rhymes screen can call
+ * it from a useMemo without owning any caching layer.
  *
- * The parser is intentionally deterministic so the dashboard re-renders
- * predictably as the user types. The "30-day history" is pseudo-random but
- * seeded, so reloads produce identical data until the real engine ships.
+ * ─────────── Mathematical formulation ───────────
+ *
+ * Query window  q ∈ R^{W × C}   (W = 7 days, C = 5 channels)
+ * History H = {h_i ∈ R^{W × C} : i = startIdx, …, max-W}
+ *
+ * For each candidate window h_i:
+ *   1. z-normalize each channel of q and h_i independently:
+ *         z(x) = (x - mean(x)) / std(x)
+ *   2. compute per-channel L2 distance:
+ *         d_c = sqrt( Σ_t (z_q[t,c] - z_h[t,c])² / W )
+ *   3. average across channels (equal weight; later versions can weight
+ *      by channel reliability or user-specified importance):
+ *         D(q, h_i) = mean_c d_c
+ *   4. similarity score = 100 * exp(-D), bounded [0, 100], sortable
+ *      descending. Rationale for exp: D is unbounded and right-skewed for
+ *      noisy windows; exp(-D) maps 0 → 100, 1 → ~37, 2 → ~14, which gives
+ *      a nice visual scale ("85% similar" feels right when D ≈ 0.16).
+ *
+ * Top-K rhymes are returned with their similarity score AND a slice of
+ * the 14 days AFTER the window (clamped to history length) so the rhymes
+ * screen can render "what came next" outcomes.
+ *
+ * ─────────── Outcome labeling ───────────
+ *
+ * outcomeLabel(window) summarizes the 14 post-window days into a coarse
+ * narrative tag (illness / overtraining / breakthrough / steady / recovery)
+ * by checking simple rules over the BASELINE-relative trajectory. This is
+ * intentionally rule-based rather than ML — the demo data is small and
+ * the rules are interpretable for product-validation review.
+ *
+ * ─────────── Determinism ───────────
+ *
+ * Pure function of the inputs. The same DAYS array yields the same rhymes
+ * on every render. Screens MUST useMemo the result keyed on (DAYS, k)
+ * because the inner loop is O(N · W · C) where N = history length.
+ *
+ * ─────────── Why this is the soul of the product ───────────
+ *
+ * The pitch is "your body has rhymed before — here's what came next."
+ * This is what makes Cadence the personal-health surface of the
+ * Similarity primitive: no cohort, no HIPAA scramble, no "is this
+ * stranger like me" question. Pure self-similarity over your own log.
  */
 
-export interface Event {
-  id: number;
-  text: string;
-  delta: number;
-  tag: string;
-  cert: number;
-  time: number;
-  appliedAt?: number;
-}
+import type { DaySummary, TagKind } from "./_components/data";
+import { BASELINE } from "./_components/data";
 
-export interface Point {
-  t: number;
-  v: number;
-}
+// ─────────── public types ───────────
 
-export interface HistoryDay {
-  day: number;
-  avg: number;
-  text: string;
-}
-
-export interface Rhyme {
+export interface RhymeWindow {
+  /** Index in DAYS where the window STARTS (most recent of the 7 days). */
   startIdx: number;
+  /** Index in DAYS where the window ENDS (oldest of the 7 days). */
+  endIdx: number;
+  /** Similarity score 0-100; higher = more similar to query. */
   score: number;
+  /** Raw average L2 distance (lower = better). */
+  distance: number;
+  /** The 7-day window slice itself (most recent first, matching DAYS). */
+  window: DaySummary[];
+  /** Up to 14 days that came after the window in history. */
+  outcome: DaySummary[];
+  /** Coarse narrative tag for the outcome. */
+  outcomeLabel: OutcomeLabel;
+  /** Optional context note from any TAGGED_PERIODS overlapping the window. */
+  contextTag?: TagKind;
 }
 
-// Lexicon: regex → valence delta, tag, certainty.
-const LEXICON: { re: RegExp; d: number; tag: string; cert: number }[] = [
-  { re: /\b(terrible|awful|devastat\w*|miserable|wrecked|shattered)\b/i, d: -28, tag: "low", cert: 0.9 },
-  { re: /\b(bad|rough|hard|tough|difficult|painful|stressful)\b/i, d: -14, tag: "low", cert: 0.75 },
-  { re: /\b(tired|exhausted|drained|sluggish|heavy|groggy)\b/i, d: -10, tag: "energy", cert: 0.7 },
-  { re: /\b(anxious|worried|nervous|on edge|panicky)\b/i, d: -12, tag: "tension", cert: 0.8 },
-  { re: /\b(annoyed|frustrated|irritated|angry|pissed)\b/i, d: -11, tag: "tension", cert: 0.8 },
-  { re: /\b(sad|down|low|blue|gloomy|melanchol\w*)\b/i, d: -13, tag: "low", cert: 0.8 },
-  { re: /\b(lonely|isolated|alone)\b/i, d: -10, tag: "low", cert: 0.75 },
-  { re: /\b(bored|flat|dull|meh|okay|ok|fine)\b/i, d: -2, tag: "flat", cert: 0.5 },
-  { re: /\b(work\w*|meeting|email\w*|standup|review)\b/i, d: -3, tag: "work", cert: 0.4 },
-  { re: /\b(commut\w*|subway|traffic|drive|bus)\b/i, d: -2, tag: "move", cert: 0.4 },
-  { re: /\b(lunch|dinner|breakfast|coffee|ate|eating|food)\b/i, d: 2, tag: "food", cert: 0.5 },
-  { re: /\b(walk\w*|run|gym|yoga|stretch\w*|bike|ride)\b/i, d: 7, tag: "body", cert: 0.7 },
-  { re: /\b(read\w*|book|music|listen\w*|podcast)\b/i, d: 4, tag: "quiet", cert: 0.6 },
-  { re: /\b(nap|slept|sleep|rest\w*)\b/i, d: 5, tag: "rest", cert: 0.6 },
-  { re: /\b(friend|texted|called|saw|met|talked to|hug\w*)\b/i, d: 9, tag: "social", cert: 0.75 },
-  { re: /\b(laugh\w*|joke|funny|smile\w*)\b/i, d: 10, tag: "social", cert: 0.75 },
-  { re: /\b(better|improv\w*|lift\w*|rebound\w*|recover\w*)\b/i, d: 12, tag: "rise", cert: 0.8 },
-  { re: /\b(good|nice|pleasant|calm|peaceful)\b/i, d: 8, tag: "rise", cert: 0.7 },
-  { re: /\b(great|wonderful|amazing|brilliant|love\w*|happy|joy\w*)\b/i, d: 18, tag: "high", cert: 0.85 },
-  { re: /\b(breakthrough|flow|focused|productive|clicked)\b/i, d: 16, tag: "high", cert: 0.85 },
-  { re: /\b(excited|energized|alive|thrilled)\b/i, d: 15, tag: "high", cert: 0.8 },
-];
+export type OutcomeLabel =
+  | "illness"
+  | "overtraining"
+  | "breakthrough"
+  | "steady"
+  | "recovery"
+  | "fatigue cycle";
 
-// Time-of-day anchors (minutes after wake, wake = 7am).
-const TIME_ANCHORS: { re: RegExp; t: number }[] = [
-  { re: /\bmorning\b/i, t: 2 * 60 },
-  { re: /\bdawn|sunrise\b/i, t: 0 },
-  { re: /\bnoon|midday|lunch\b/i, t: 5 * 60 },
-  { re: /\bafternoon\b/i, t: 7 * 60 },
-  { re: /\bevening|dinner\b/i, t: 11 * 60 },
-  { re: /\bnight|bedtime\b/i, t: 14 * 60 },
-  { re: /\blate night\b/i, t: 16 * 60 },
-];
+/**
+ * The 5 biomarker channels we compare across. Order matters — keep stable
+ * across the engine because per-channel distances are reduced by index.
+ *
+ * Why these 5: they're the most widely-collected daily metrics from
+ * mainstream wearables (Whoop / Oura / Apple Watch + a CGM), and they
+ * span autonomic recovery (HRV, RHR), sleep, subjective wellness
+ * (energy), and metabolic load (glucose). Adding morning weight or
+ * training load would tighten the rhyme but also bias toward
+ * weight-fluctuation noise.
+ */
+export const RHYME_CHANNELS = ["hrv", "rhr", "sleep", "energy", "glucose"] as const;
+export type ChannelKey = (typeof RHYME_CHANNELS)[number];
 
-const INTENSIFIERS: { re: RegExp; mul: number }[] = [
-  { re: /\b(really|very|so|extremely|incredibly|deeply)\s+/i, mul: 1.5 },
-  { re: /\b(kind of|sort of|a little|slightly|barely|somewhat)\s+/i, mul: 0.5 },
-];
-const NEG = /\b(not|didn't|didnt|don't|dont|never|no longer|wasn't|wasnt)\s+(\w+\s+){0,3}/i;
+// ─────────── core API ───────────
 
-function clamp(v: number, a: number, b: number): number {
-  return Math.max(a, Math.min(b, v));
+export interface FindRhymesOptions {
+  /** Window length in days (default 7). */
+  window?: number;
+  /** Top-K to return (default 5). */
+  k?: number;
+  /** Min separation between query window and matched window (default 14). */
+  minLag?: number;
+  /** Max history depth to search (default: full DAYS length). */
+  maxHistory?: number;
 }
 
-function splitSentences(text: string): string[] {
-  const parts = text
-    .replace(/\s+/g, " ")
-    .trim()
-    .split(/(?<=[.!?])\s+|(?<=,\s(?:then|and then|after that))\s+|\.\s+|,\s+(?=then|and then)/i);
-  return parts.map((s) => s.trim()).filter(Boolean);
-}
+/**
+ * Find the top-K most-similar past 7-day windows to the query window.
+ *
+ * @param history full history (DAYS), most recent first.
+ * @param query   the 7-day query window (most recent first). Typically
+ *                history.slice(0, 7) for "today's window".
+ * @param opts    tuning knobs (window, k, minLag, maxHistory).
+ * @returns       up to k RhymeWindow records sorted by score desc.
+ */
+export function findRhymes(
+  history: DaySummary[],
+  query: DaySummary[],
+  opts: FindRhymesOptions = {}
+): RhymeWindow[] {
+  const { window: W = 7, k = 5, minLag = 14, maxHistory = history.length } = opts;
+  if (query.length < W || history.length < W + minLag) return [];
 
-interface ParsedSentence {
-  text: string;
-  delta: number;
-  tag: string;
-  cert: number;
-  time: number;
-}
+  // Pre-extract z-normalized query channels — done once.
+  const qZ: Record<ChannelKey, number[]> = {} as Record<ChannelKey, number[]>;
+  for (const c of RHYME_CHANNELS) {
+    qZ[c] = znorm(query.slice(0, W).map((d) => d[c] as number));
+  }
 
-function parseSentence(sent: string, baseTime: number): ParsedSentence | null {
-  const hits: { delta: number; tag: string; cert: number }[] = [];
-  for (const lex of LEXICON) {
-    const m = sent.match(lex.re);
-    if (!m) continue;
-    let d = lex.d;
-    const idx = m.index ?? 0;
-    const pre = sent.slice(Math.max(0, idx - 24), idx);
-    for (const i of INTENSIFIERS) {
-      if (i.re.test(pre)) d *= i.mul;
+  const hits: RhymeWindow[] = [];
+  // Slide windows across history. We start at minLag (so we don't compare
+  // today to yesterday's overlapping window) and end at maxHistory - W so
+  // the candidate window has W complete days.
+  for (let s = minLag; s <= maxHistory - W; s++) {
+    const w = history.slice(s, s + W);
+    let dSum = 0;
+    let dCount = 0;
+    for (const c of RHYME_CHANNELS) {
+      const cz = znorm(w.map((d) => d[c] as number));
+      dSum += rmse(qZ[c], cz);
+      dCount += 1;
     }
-    if (NEG.test(pre)) d = -d * 0.6;
-    hits.push({ delta: d, tag: lex.tag, cert: lex.cert });
+    const distance = dSum / dCount;
+    const score = Math.round(100 * Math.exp(-distance));
+
+    // Outcome = the 14 days BEFORE (older days are higher idx, but in
+    // wall-clock terms they came AFTER the window; remember history is
+    // most-recent-first, so outcome days have idx LESS than s).
+    const outcomeStart = Math.max(0, s - 14);
+    const outcomeEnd = s; // exclusive
+    const outcome = history.slice(outcomeStart, outcomeEnd);
+    const outcomeLabel = labelOutcome(outcome);
+
+    // Pull the most distinctive context tag in the window (if any).
+    const contextTag = w.find((d) => d.tag && d.tag !== "normal")?.tag;
+
+    hits.push({
+      startIdx: s,
+      endIdx: s + W - 1,
+      score,
+      distance,
+      window: w,
+      outcome,
+      outcomeLabel,
+      contextTag,
+    });
   }
-  if (!hits.length) return null;
 
-  // Sublinear aggregation so many hits don't explode.
-  const delta = hits.reduce((a, h) => a + h.delta, 0) / Math.sqrt(hits.length);
-  const tag = [...hits].sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta))[0].tag;
-  const cert = Math.min(0.95, hits.reduce((a, h) => a + h.cert, 0) / hits.length);
+  // Sort by score desc, take top k. We do this rather than a partial sort
+  // because k <= 50 and N <= 365, so Array.sort is comfortably under 1ms.
+  hits.sort((a, b) => b.score - a.score);
+  return hits.slice(0, k);
+}
 
-  let time = baseTime;
-  for (const a of TIME_ANCHORS) {
-    if (a.re.test(sent)) {
-      time = a.t;
-      break;
+/**
+ * Given the 14 days that followed a rhyming window, summarize what
+ * happened. Coarse rule-based labels keep the demo legible.
+ *
+ * Rules (checked in priority order — first match wins):
+ *   illness       — 3+ days where RHR > baseline+8 and HRV < baseline-15
+ *   overtraining  — 5+ days where HRV stays > 10 below baseline AND
+ *                   training load drops below 4 (forced backoff)
+ *   breakthrough  — 3+ days where HRV > baseline+10 and recovery > 80
+ *   recovery      — average HRV trend +5 ms across the 14d
+ *   fatigue cycle — average energy < 60 across the 14d AND no illness
+ *   steady        — fallthrough
+ */
+function labelOutcome(after: DaySummary[]): OutcomeLabel {
+  if (after.length === 0) return "steady";
+  const sickDays = after.filter(
+    (d) => d.rhr > BASELINE.rhr + 8 && d.hrv < BASELINE.hrv - 15
+  ).length;
+  if (sickDays >= 3) return "illness";
+
+  const overtrainDays = after.filter(
+    (d) => d.hrv < BASELINE.hrv - 10 && d.trainingLoad < 4
+  ).length;
+  if (overtrainDays >= 5) return "overtraining";
+
+  const breakDays = after.filter(
+    (d) => d.hrv > BASELINE.hrv + 10 && d.recovery > 80
+  ).length;
+  if (breakDays >= 3) return "breakthrough";
+
+  // HRV trend: avg of first 4 vs last 4 days
+  const head = after.slice(after.length - 4);
+  const tail = after.slice(0, 4);
+  const trend = avg(tail.map((d) => d.hrv)) - avg(head.map((d) => d.hrv));
+  if (trend > 5) return "recovery";
+
+  if (avg(after.map((d) => d.energy)) < 60) return "fatigue cycle";
+  return "steady";
+}
+
+// ─────────── projection (forecast cone) ───────────
+
+export interface ForecastPoint {
+  day: number;     // 1..14 days from now
+  median: number;  // p50 HRV projection
+  p10: number;     // p10 (worst 10%)
+  p90: number;     // p90 (best 10%)
+}
+
+/**
+ * Build a 14-day forecast cone from the top-K rhymes.
+ *
+ * For each day d in 1..14, take the HRV value of each rhyme's outcome at
+ * the corresponding offset (most-recent-first), weighted by the rhyme's
+ * similarity score. The median, p10, p90 are taken across this weighted
+ * sample.
+ *
+ * Weighting: w_i = score_i / sum(scores). This is intentionally simple
+ * (not exponential decay) because k is small (≤5) and a sharper weight
+ * would collapse the cone to almost just the top-1 rhyme, hiding the
+ * disagreement between analogues — which is exactly what the cone width
+ * is supposed to communicate.
+ */
+export function projectFromRhymes(rhymes: RhymeWindow[], horizon = 14): ForecastPoint[] {
+  if (rhymes.length === 0) return [];
+  const totalW = rhymes.reduce((s, r) => s + r.score, 0) || 1;
+  const out: ForecastPoint[] = [];
+  for (let d = 1; d <= horizon; d++) {
+    const samples: { v: number; w: number }[] = [];
+    for (const r of rhymes) {
+      // Outcome is most-recent-first, so day d means r.outcome[d-1] when
+      // counting forward in time from the window's "end".
+      const pt = r.outcome[Math.min(r.outcome.length - 1, d - 1)];
+      if (pt) samples.push({ v: pt.hrv, w: r.score / totalW });
     }
+    if (samples.length === 0) continue;
+    samples.sort((a, b) => a.v - b.v);
+    out.push({
+      day: d,
+      median: weightedQuantile(samples, 0.5),
+      p10: weightedQuantile(samples, 0.1),
+      p90: weightedQuantile(samples, 0.9),
+    });
   }
-  return { text: sent, delta: Math.round(delta * 10) / 10, tag, cert, time };
+  return out;
 }
 
-export function parseNarrative(text: string): { events: Event[]; series: Point[] } {
-  const sentences = splitSentences(text);
-  if (!sentences.length) return { events: [], series: emptySeries() };
+// ─────────── helpers ───────────
 
-  const events: Event[] = [];
-  let t = 60;
-  sentences.forEach((s, i) => {
-    const parsed = parseSentence(s, t);
-    if (parsed) {
-      events.push({ id: i, ...parsed });
-      // Deterministic forward drift: 45-75 min between sentences unless
-      // anchored. Using a sine of sentence index avoids Math.random() so
-      // the output is stable across re-renders.
-      t = parsed.time + 45 + Math.floor(Math.abs(Math.sin(i * 7.31)) * 30);
-      if (t > 16 * 60) t = 16 * 60;
-    }
-  });
-  events.sort((a, b) => a.time - b.time);
-
-  const steps = (16 * 60) / 5 + 1;
-  const series: Point[] = new Array(steps);
-  let y = 50;
-  let target = 50;
-  const applied = new Set<number>();
-  for (let i = 0; i < steps; i++) {
-    const minute = i * 5;
-    for (const ev of events) {
-      if (applied.has(ev.id)) continue;
-      if (ev.time <= minute) {
-        target = clamp(target + ev.delta, 0, 100);
-        applied.add(ev.id);
-        ev.appliedAt = minute;
-      }
-    }
-    y += (target - y) * 0.25;
-    y += (Math.sin(minute / 23) + Math.cos(minute / 17)) * 0.4;
-    series[i] = { t: minute, v: clamp(y, 0, 100) };
-  }
-  return { events, series };
+function znorm(arr: number[]): number[] {
+  const m = avg(arr);
+  const s = std(arr, m) || 1;
+  return arr.map((x) => (x - m) / s);
 }
 
-function emptySeries(): Point[] {
-  const steps = (16 * 60) / 5 + 1;
-  return Array.from({ length: steps }, (_, i) => ({ t: i * 5, v: 50 }));
-}
-
-// Build a 30-day personal history with pre-seeded narratives.
-// Deterministic via a linear-congruential RNG so reloads are stable.
-export function buildHistory(todayAvg: number): HistoryDay[] {
-  const days: HistoryDay[] = [];
-  const narratives = [
-    "slow morning. rough commute. lunch helped. productive afternoon. long walk. read before bed.",
-    "woke up tired. bad meeting. lunch with a friend. afternoon was good. evening got heavy.",
-    "great morning run. flow state all morning. lunch fine. afternoon dragged. nice dinner.",
-    "anxious about the deadline. pushed through. friend called at night. felt better.",
-    "low energy all day. napped. evening walk. okay night.",
-    "really good day. breakthrough at work. laughed at dinner. calm night.",
-  ];
-  let seed = 7;
-  const rand = () => {
-    seed = (seed * 9301 + 49297) % 233280;
-    return seed / 233280;
-  };
-  for (let d = 29; d >= 1; d--) {
-    const pick = narratives[Math.floor(rand() * narratives.length)];
-    const avg = 40 + rand() * 40;
-    days.push({ day: d, avg: Math.round(avg), text: pick });
-  }
-  days.push({ day: 0, avg: todayAvg, text: "today" });
-  return days;
-}
-
-// Find the 7-day rolling window that best "rhymes" (shape match) with today.
-// Uses z-normalized RMSE over 7 sampled points.
-export function findRhyme(history: HistoryDay[], today: Point[]): Rhyme | null {
-  if (!today || today.length === 0) return null;
-  const lastShape = sampleShape(today, 12);
-  let best: Rhyme = { score: -Infinity, startIdx: 0 };
-  for (let i = 0; i < history.length - 7; i++) {
-    const window = history.slice(i, i + 7);
-    const shape = window.map((d) => d.avg);
-    const s1 = normalize(lastShape.slice(0, 7));
-    const s2 = normalize(shape);
-    const score = -rmse(s1, s2);
-    if (score > best.score) best = { score, startIdx: i };
-  }
-  return best;
-}
-
-function sampleShape(series: Point[], n: number): number[] {
-  const step = series.length / n;
-  return Array.from({ length: n }, (_, i) => series[Math.floor(i * step)].v);
-}
-function normalize(arr: number[]): number[] {
-  const mean = arr.reduce((a, b) => a + b, 0) / arr.length;
-  const std = Math.sqrt(arr.reduce((a, b) => a + (b - mean) ** 2, 0) / arr.length) || 1;
-  return arr.map((x) => (x - mean) / std);
-}
 function rmse(a: number[], b: number[]): number {
   const n = Math.min(a.length, b.length);
   let s = 0;
   for (let i = 0; i < n; i++) s += (a[i] - b[i]) ** 2;
   return Math.sqrt(s / n);
 }
+
+function avg(arr: number[]): number {
+  if (arr.length === 0) return 0;
+  return arr.reduce((s, x) => s + x, 0) / arr.length;
+}
+
+function std(arr: number[], m?: number): number {
+  if (arr.length === 0) return 0;
+  const mean = m ?? avg(arr);
+  return Math.sqrt(avg(arr.map((x) => (x - mean) ** 2)));
+}
+
+function weightedQuantile(samples: { v: number; w: number }[], q: number): number {
+  // Samples must be pre-sorted by v ascending.
+  const total = samples.reduce((s, x) => s + x.w, 0);
+  let acc = 0;
+  for (const sm of samples) {
+    acc += sm.w;
+    if (acc / total >= q) return sm.v;
+  }
+  return samples[samples.length - 1].v;
+}
+
+// ─────────── outcome label display helpers ───────────
+
+export const OUTCOME_META: Record<OutcomeLabel, { label: string; color: string; tone: "pos" | "neg" | "warn" | "default" }> = {
+  illness: { label: "→ got sick", color: "#c2655c", tone: "neg" },
+  overtraining: { label: "→ overtraining cycle", color: "#b14a3a", tone: "neg" },
+  breakthrough: { label: "→ breakthrough week", color: "#5b8a72", tone: "pos" },
+  recovery: { label: "→ recovery curve", color: "#5b8a72", tone: "pos" },
+  steady: { label: "→ steady", color: "#7a7a75", tone: "default" },
+  "fatigue cycle": { label: "→ extended fatigue", color: "#c89a4a", tone: "warn" },
+};
