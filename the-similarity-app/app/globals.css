@@ -316,7 +316,11 @@ input, select, textarea { font: inherit; color: inherit; }
 /* ====================================================================
    PAGE: RETRIEVE (workstation)
    ==================================================================== */
-.page { overflow: auto; }
+.page {
+  overflow-y: auto;
+  overflow-x: clip;
+  overscroll-behavior-y: contain;
+}
 
 /* ====================================================================
    PAGE: HOME
