@@ -5,3 +5,5 @@ coverage
 dist
 *.log
 .DS_Store
+.vercel
+tsconfig.tsbuildinfo

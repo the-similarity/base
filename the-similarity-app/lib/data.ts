@@ -50,6 +50,27 @@ export interface LensScores {
   lens9: number;  // Consensus (cross-lens agreement)
 }
 
+/**
+ * Raw engine score breakdown — the pre-mapped math-name fields from the
+ * API's ``SearchResponse.matches[i].scoreBreakdown``. Held alongside the
+ * opaque ``LensScores`` so features that need the original method names
+ * (e.g. "Save to goodrun" in the AnalogDetailDrawer) can read them
+ * without re-fetching. `null` for synthetic/offline analogs that never
+ * had a backend breakdown; UI consumers should disable features that
+ * require math names when this is null.
+ */
+export interface ScoreBreakdownRaw {
+  dtw: number;
+  pearsonWarped: number;
+  bempedelisR2: number;
+  bempedelisSmoothness: number;
+  koopman: number;
+  waveletSpectrum: number;
+  emd: number;
+  tda: number;
+  transferEntropy: number;
+}
+
 /** A single analog match result */
 export interface AnalogMatch {
   id: string;
@@ -64,6 +85,12 @@ export interface AnalogMatch {
   after: number[];
   afterReturn: number;
   note: string;
+  /**
+   * Raw engine score breakdown (math-name keys). Populated by the API
+   * path in ``mapMatchesToAnalogs``. `null` in the synthetic fallback
+   * path where no real backend response exists.
+   */
+  scoreBreakdown: ScoreBreakdownRaw | null;
 }
 
 /** Forecast cone quantile at a single time step */
@@ -397,6 +424,11 @@ export function findAnalogs(
       after,
       afterReturn,
       note: analogNote(c.lenses),
+      // Synthetic analogs never went through the backend, so there's no
+      // engine-native math-name breakdown to preserve. Consumers that
+      // need math names (goodruns save) must disable their UI when this
+      // is null rather than invent values.
+      scoreBreakdown: null,
     };
   });
 }

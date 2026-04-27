@@ -155,7 +155,7 @@ export default function RhymesPage() {
 
 // ─── Top-3 non-overlapping rhymes ────────────────────────────────────
 
-interface RhymePair {
+export interface RhymePair {
   a: number;
   b: number;
   score: number; // closer to 0 = better (negative rmse, per engine.findRhyme)
@@ -212,13 +212,13 @@ function rootMse(a: number[], b: number[]): number {
   return Math.sqrt(s / n);
 }
 
-function sliceShape(history: HistoryDay[], start: number, n: number): number[] {
+export function sliceShape(history: HistoryDay[], start: number, n: number): number[] {
   return history.slice(start, start + n).map((d) => d.avg);
 }
 
 // ─── Rhyme pair card ─────────────────────────────────────────────────
 
-function RhymePairCard({ pair, history }: { pair: RhymePair; history: HistoryDay[] }) {
+export function RhymePairCard({ pair, history }: { pair: RhymePair; history: HistoryDay[] }) {
   const A = history.slice(pair.a, pair.a + 7);
   const B = history.slice(pair.b, pair.b + 7);
   const themeA = dominantTheme(A);
@@ -326,7 +326,7 @@ function dominantTheme(week: HistoryDay[]): string {
 
 // ─── Overlay sparklines (hero) ───────────────────────────────────────
 
-function OverlaySparklines({
+export function OverlaySparklines({
   a,
   b,
   width,

@@ -234,7 +234,7 @@ function groupByMonth(entries: StoredEntry[]): Array<[string, StoredEntry[]]> {
 
 // ─── Entry card ───────────────────────────────────────────────────────
 
-function EntryCard({ entry, onClick }: { entry: StoredEntry; onClick: () => void }) {
+export function EntryCard({ entry, onClick }: { entry: StoredEntry; onClick: () => void }) {
   const created = new Date(entry.createdAt);
   const tags = Array.from(new Set(entry.events.map((ev) => ev.tag))).slice(0, 5);
   const tone = valenceTone(entry.avg);

@@ -49,6 +49,7 @@ function makeAnalog(overrides: Partial<AnalogMatch> = {}): AnalogMatch {
     after: Array.from({ length: 60 }, (_, i) => 130 + i * 0.5),
     afterReturn: 0.08,
     note: "strong shape alignment",
+    scoreBreakdown: null,
     ...overrides,
   };
 }

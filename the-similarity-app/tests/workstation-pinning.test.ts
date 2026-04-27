@@ -51,6 +51,7 @@ function makeAnalog(id: string, rank: number, afterFactor: number): AnalogMatch 
     after,
     afterReturn: afterFactor - 1,
     note: "",
+    scoreBreakdown: null,
   };
 }
 

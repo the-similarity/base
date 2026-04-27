@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 26 26">
+  <style>
+    circle { stroke: #14161A; fill: none; stroke-width: 1.7; }
+    circle.dot { fill: #14161A; stroke: none; }
+    @media (prefers-color-scheme: dark) {
+      circle { stroke: #EDEEF0; }
+      circle.dot { fill: #EDEEF0; }
+    }
+  </style>
+  <circle cx="13" cy="13" r="11"/>
+  <circle cx="13" cy="13" r="6"/>
+  <circle class="dot" cx="13" cy="13" r="2.1"/>
+</svg>

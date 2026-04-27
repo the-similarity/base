@@ -190,7 +190,7 @@ export default function StrategyPage() {
     <div className="strategy-page">
       {/* ── Top Bar ── */}
       <div className="strategy-topbar">
-        <Link href="/" className="strategy-topbar-logo">
+        <Link href="/workstation" className="strategy-topbar-logo">
           THE SIMILARITY
         </Link>
         <div className="terminal-topbar-sep" />
