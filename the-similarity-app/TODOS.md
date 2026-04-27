@@ -16,13 +16,6 @@
 - **Priority:** P2
 - **Depends on:** Docker Compose (so API is always available), ErrorBoundary (to handle no-API gracefully).
 
-### Keyboard shortcuts
-- **What:** `1`-`6` to switch time ranges, `j`/`k` to cycle matches, `/` to focus search input, `Esc` to close panels.
-- **Why:** Power users (researchers) live on the keyboard. Transforms the tool from click-around to instrument-grade.
-- **Effort:** S (~30 min)
-- **Priority:** P3
-- **Depends on:** Search UI being stable.
-
 ### Matplotlib backtest report visualization
 - **What:** Add `BacktestReport.plot()` that produces a 4-panel matplotlib figure: (1) calibration curve, (2) rolling hit rate, (3) P50 error distribution histogram, (4) CRPS by trial.
 - **Why:** Researchers want to see, not just read, their backtest results. Visual validation is much faster than parsing numbers.
@@ -64,3 +57,10 @@
 - **Effort:** S
 - **Priority:** P3
 - **Depends on:** Real API data wiring.
+
+## Completed
+
+### Keyboard shortcuts
+- **What:** `1`-`6` to switch time ranges, `j`/`k` to cycle matches, `/` to focus search input, `Esc` to close panels.
+- **Why:** Power users (researchers) live on the keyboard. Transforms the tool from click-around to instrument-grade.
+- **Completed:** 2026-04-26 — shipped via #229 (`feat(app): keyboard shortcuts help (?) + command palette actions`); see `the-similarity-app/components/shortcuts-help.tsx` and `tests/shortcuts-help.test.tsx`.
