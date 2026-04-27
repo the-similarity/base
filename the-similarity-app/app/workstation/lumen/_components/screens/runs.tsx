@@ -66,7 +66,6 @@ export function ScreenRuns({ onCmdK }: ScreenProps) {
       })
       .catch((e: unknown) => {
         if (cancelled) return;
-        // eslint-disable-next-line no-console
         console.warn("Lumen runs: fetchRuns(finance) failed", e);
         setError(String(e));
         setRuns([]);

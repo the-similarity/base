@@ -104,7 +104,6 @@ export function ScreenRetrieve({ onCmdK }: ScreenProps) {
         if (cancelled) return;
         // Don't surface raw error to the user on the hero screen —
         // log + soft-fail. The full /finance app handles error UX.
-        // eslint-disable-next-line no-console
         console.warn("Lumen retrieve: fetchRuns(finance) failed", e);
         setLoadError(String(e));
         setRuns([]);
