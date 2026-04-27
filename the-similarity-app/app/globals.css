@@ -4041,3 +4041,470 @@ input, select, textarea { font: inherit; color: inherit; }
   color: var(--ink);
   border-bottom-color: var(--ink);
 }
+
+/* ──────────────────────────────────────────────────────────────────
+ *  Case study page (/case-study/spy-2026-2007)
+ *  Scroll-driven analog showcase. Reuses the marquee + statusbar
+ *  chrome from /demo and /home so the route feels native.
+ *  Section reveals are driven by IntersectionObserver flipping a
+ *  data-state="enter|active" attribute on each <section>; CSS owns
+ *  the actual transition timing.
+ *  ────────────────────────────────────────────────────────────── */
+.case-study {
+  display: block;
+  padding: 0;
+  background: var(--bg);
+}
+
+/* Wide-but-bounded inner column so headlines and charts share a
+   consistent measure across viewports. The 1180px cap keeps line
+   length readable on a 27-inch monitor. */
+.case-study__section-inner,
+.case-study__hook-inner {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 0 var(--s-7);
+}
+
+/* Section 1: hook. Full-viewport so the first impression is the
+   sentence, nothing else competing for attention. */
+.case-study__hook {
+  min-height: calc(100vh - 70px);
+  display: grid;
+  place-items: center;
+  padding: var(--s-9) 0;
+}
+
+.case-study__hook-inner {
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-6);
+}
+
+.case-study__hook-title {
+  font-family: var(--serif);
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  /* Scales between 36px and 80px so the headline reads as a poster on
+     desktop without overflowing on a phone. */
+  font-size: clamp(2.25rem, 6vw + 0.5rem, 5rem);
+  line-height: 1.05;
+  color: var(--ink);
+  margin: 0;
+  /* Slow fade-up on first paint so the page doesn't feel static.
+     2.4s matches the Signature reveal timing on /home for visual
+     family resemblance. */
+  animation: caseStudyFadeUp 1.6s cubic-bezier(0.22, 0.03, 0.26, 1) both;
+}
+
+.case-study__hook-sub {
+  font-family: var(--serif);
+  font-weight: 400;
+  font-size: clamp(1rem, 1.4vw + 0.4rem, 1.4rem);
+  line-height: 1.45;
+  color: var(--ink-2);
+  margin: 0;
+  max-width: 760px;
+  animation: caseStudyFadeUp 1.6s 0.3s cubic-bezier(0.22, 0.03, 0.26, 1) both;
+}
+
+.case-study__hook-scroll-hint {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  margin-top: var(--s-7);
+  /* Gentle pulse so the hint reads as an invitation rather than a
+     piece of furniture. */
+  animation: caseStudyScrollPulse 2.4s ease-in-out infinite;
+}
+
+@keyframes caseStudyFadeUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes caseStudyScrollPulse {
+  0%, 100% { opacity: 0.4; transform: translateY(0); }
+  50%      { opacity: 1;   transform: translateY(4px); }
+}
+
+/* Sections 2-5: shared scaffolding. Each section gets generous top
+   padding so the chart sits clear of the previous section's
+   bottom edge. */
+.case-study__section {
+  padding: var(--s-9) 0;
+  border-top: 1px solid var(--rule);
+  /* Reveal mechanics: enter state is offset + faded; active state
+     slides in. Transition is intentionally slow (700ms) — the page
+     wants to feel deliberate, not snappy. */
+  opacity: 0;
+  transform: translateY(28px);
+  transition: opacity 700ms cubic-bezier(0.22, 0.03, 0.26, 1),
+              transform 700ms cubic-bezier(0.22, 0.03, 0.26, 1);
+}
+
+.case-study__section[data-state="active"] {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.case-study__section-head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  max-width: 760px;
+  margin: 0 0 var(--s-7);
+}
+
+.case-study__section-title {
+  font-family: var(--serif);
+  font-weight: 500;
+  letter-spacing: -0.015em;
+  font-size: clamp(1.6rem, 3vw + 0.5rem, 2.4rem);
+  line-height: 1.15;
+  color: var(--ink);
+  margin: 0;
+}
+
+.case-study__section-lede {
+  font-family: var(--serif);
+  font-weight: 400;
+  font-size: 1.05rem;
+  line-height: 1.6;
+  color: var(--ink-2);
+  margin: 0;
+}
+
+.case-study__section-foot {
+  font-family: var(--serif);
+  font-weight: 400;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  color: var(--ink-3);
+  margin: var(--s-6) 0 0;
+  max-width: 760px;
+}
+
+/* Chart layout. Single = one chart full-width. Pair = two charts
+   side-by-side on desktop, stacked on mobile. */
+.case-study__chart-wrap {
+  width: 100%;
+  margin: 0;
+}
+
+.case-study__chart-wrap--single {
+  /* Aspect ratio gives the chart real height without a fixed pixel
+     value that breaks on small screens. ~16:6 = wide presentation
+     shape that fits comfortably above the fold on a 16:9 laptop. */
+  aspect-ratio: 16 / 6;
+  min-height: 280px;
+  max-height: 440px;
+}
+
+.case-study__chart-wrap--pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--s-5);
+}
+
+.case-study__chart-pane {
+  /* Each pane gets the same aspect ratio so the side-by-side rhyme
+     reads at-a-glance — same y range, same x extent (in pixels),
+     same visual weight. 4:3 reads as a presentation chart; anything
+     squarer wastes horizontal real estate. */
+  aspect-ratio: 4 / 3;
+  min-height: 280px;
+  max-height: 460px;
+  background: var(--bg-card);
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+}
+
+@media (max-width: 880px) {
+  .case-study__chart-wrap--pair {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Score strip rendered under the match section. Reads as a
+   typographic data dump, not a chart legend. */
+.case-study__scores {
+  display: flex;
+  gap: var(--s-6);
+  flex-wrap: wrap;
+  margin-top: var(--s-6);
+  padding-top: var(--s-5);
+  border-top: 1px solid var(--rule);
+}
+
+.case-study__score {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.case-study__score-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.case-study__score-value {
+  font-family: var(--mono);
+  font-feature-settings: "tnum" 1, "zero" 1;
+  font-size: 1.6rem;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+
+.case-study__score--composite .case-study__score-value {
+  color: var(--accent);
+}
+
+/* CTA row + platform explainer in the close section. */
+.case-study__cta-row {
+  display: flex;
+  gap: var(--s-3);
+  flex-wrap: wrap;
+  margin: var(--s-6) 0 var(--s-9);
+}
+
+.case-study__platform {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--s-7) var(--s-9);
+  margin-bottom: var(--s-8);
+  padding-top: var(--s-7);
+  border-top: 1px solid var(--rule);
+}
+
+@media (max-width: 720px) {
+  .case-study__platform {
+    grid-template-columns: 1fr;
+    gap: var(--s-6);
+  }
+}
+
+.case-study__platform-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+}
+
+.case-study__platform-head {
+  font-family: var(--serif);
+  font-weight: 500;
+  font-size: 1.15rem;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  margin: 0;
+}
+
+.case-study__platform-body {
+  font-family: var(--serif);
+  font-weight: 400;
+  font-size: 0.98rem;
+  line-height: 1.6;
+  color: var(--ink-2);
+  margin: 0;
+}
+
+.case-study__signoff {
+  display: flex;
+  align-items: center;
+  gap: var(--s-5);
+  margin-top: var(--s-7);
+  padding-top: var(--s-6);
+  border-top: 1px solid var(--rule);
+}
+
+.case-study__sig {
+  width: 96px;
+  height: auto;
+  color: var(--ink);
+  flex-shrink: 0;
+}
+
+.case-study__signoff-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.case-study__signoff-name {
+  font-family: var(--serif);
+  font-weight: 500;
+  font-size: 1rem;
+  color: var(--ink);
+}
+
+.case-study__signoff-line {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+/* ──────────────────────────────────────────────────────────────────
+ *  RhymeChart styling. The component renders an SVG; everything below
+ *  is the visual language for the lines, grid, and overlays. The
+ *  primary line uses --ink so it carries full contrast; the secondary
+ *  uses --accent so the analog reads as the "highlighted historical
+ *  voice" speaking under the present line.
+ *  ────────────────────────────────────────────────────────────── */
+.rhyme-chart {
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
+.rhyme-chart__svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.rhyme-chart__caption {
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  fill: var(--ink);
+}
+
+.rhyme-chart__subtitle {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  fill: var(--ink-3);
+}
+
+.rhyme-chart__grid {
+  stroke: var(--rule);
+  stroke-width: 1;
+  stroke-dasharray: 2 4;
+}
+
+.rhyme-chart__yaxis {
+  font-family: var(--mono);
+  font-size: 10px;
+  fill: var(--ink-3);
+}
+
+.rhyme-chart__xaxis {
+  font-family: var(--mono);
+  font-size: 10px;
+  fill: var(--ink-3);
+}
+
+/* Line styles. Each .rhyme-chart__line wraps a <path> so we can
+   apply a clip-path reveal to the group without touching the path
+   itself (path-length animation requires a runtime DOM read). */
+.rhyme-chart__line path {
+  fill: none;
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+
+.rhyme-chart__line--primary path {
+  stroke: var(--ink);
+}
+
+.rhyme-chart__line--secondary path {
+  stroke: var(--accent);
+  /* Slightly thinner so the secondary feels like a "voice from
+     history" rather than a competing primary. */
+  stroke-width: 1.6;
+}
+
+.rhyme-chart__line--continuation path {
+  stroke: var(--accent);
+  stroke-width: 1.4;
+  /* Dashed so the eye reads the continuation as a different
+     narrative segment from the matched window. */
+  stroke-dasharray: 5 4;
+  opacity: 0.7;
+}
+
+/* Reveal mechanic: clip-path on the group hides the line until the
+   group is marked visible. The transition is slow (1.6s) so the
+   line "draws" rather than pops. */
+.rhyme-chart__line {
+  clip-path: inset(0 100% 0 0);
+  transition: clip-path 1.6s cubic-bezier(0.22, 0.03, 0.26, 1);
+}
+
+.rhyme-chart__line.is-visible {
+  clip-path: inset(0 0% 0 0);
+}
+
+/* Marker on the secondary peak. Filled dot + larger ring so the
+   peak reads as an annotated point rather than a stray pixel. */
+.rhyme-chart__marker circle {
+  fill: var(--accent);
+}
+
+.rhyme-chart__marker-ring {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.2;
+  opacity: 0.5;
+}
+
+.rhyme-chart__marker-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  fill: var(--accent);
+  letter-spacing: 0.04em;
+}
+
+/* Forecast cone. Two stacked translucent fills + a dashed median
+   line. The outer (P10..P75) is lighter than the inner (P25..P75)
+   so the eye reads "this is the wider band" without needing a
+   legend. */
+.rhyme-chart__cone-outer {
+  fill: var(--accent);
+  opacity: 0.08;
+  stroke: none;
+}
+
+.rhyme-chart__cone-inner {
+  fill: var(--accent);
+  opacity: 0.16;
+  stroke: none;
+}
+
+.rhyme-chart__cone-median {
+  stroke: var(--accent);
+  stroke-width: 1.4;
+  stroke-dasharray: 4 3;
+  vector-effect: non-scaling-stroke;
+}
+
+/* Cone reveal: fade in over 0.9s when its parent section enters. */
+.rhyme-chart__cone {
+  opacity: 0;
+  transition: opacity 0.9s cubic-bezier(0.22, 0.03, 0.26, 1);
+}
+
+.case-study__section[data-state="active"] .rhyme-chart__cone {
+  opacity: 1;
+}
+
+/* Reveal section gets a slightly inset background so the page
+   visually shifts gear at the punchline — an unobtrusive cue that
+   "this is the moment". */
+.case-study__section--reveal {
+  background: var(--bg-inset);
+}
+
+.case-study__section--close {
+  background: var(--bg);
+}
