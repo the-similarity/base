@@ -33,16 +33,17 @@ export function ScreenTransactions({ onCmdK }: ScreenProps) {
   const [activeFilters, setActiveFilters] = useState<string[]>(["This month"]);
   const [view, setView] = useState("list");
 
-  const filtered = TX.filter(
-    (t) => !search || t.merchant.toLowerCase().includes(search.toLowerCase())
-  );
-  const tx = filtered.find((t) => t.id === selected) || filtered[0];
-
-  // Group by long-form date string so the "Monday, April 27" headers in
-  // the design appear as bucket separators.
-  const groups = useMemo(() => {
+  // Filter + group are tightly coupled on `search`, so we compute both
+  // inside a single useMemo keyed on the search string. TX is a module-level
+  // constant so it doesn't need to be in the dep list. Grouping by long-form
+  // date string yields the "Monday, April 27" bucket headers from the design.
+  const { filtered, groups } = useMemo(() => {
+    const f = TX.filter(
+      (t) =>
+        !search || t.merchant.toLowerCase().includes(search.toLowerCase())
+    );
     const g: Record<string, Transaction[]> = {};
-    filtered.forEach((t) => {
+    f.forEach((t) => {
       const k = t.date.toLocaleDateString("en-US", {
         weekday: "long",
         month: "long",
@@ -50,8 +51,10 @@ export function ScreenTransactions({ onCmdK }: ScreenProps) {
       });
       (g[k] = g[k] || []).push(t);
     });
-    return g;
-  }, [filtered]);
+    return { filtered: f, groups: g };
+  }, [search]);
+
+  const tx = filtered.find((t) => t.id === selected) || filtered[0];
 
   const account = ACCOUNTS.find((a) => a.id === tx?.account);
 

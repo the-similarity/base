@@ -255,7 +255,21 @@ export function Donut({ slices, size = 200, thickness = 24 }: DonutProps) {
   // Each slice is a stroked circle whose visible arc is drawn via a
   // dasharray "[arc] [gap]". Stacking them with strokeDashoffset bumps each
   // subsequent arc forward by the prior cumulative length.
-  let acc = 0;
+  //
+  // We compute the per-slice fractions, then a prefix-sum of those
+  // fractions to derive each slice's "start fraction" (i.e. how far
+  // around the ring it begins). Both passes return new arrays — no
+  // in-render mutation of an outer variable, so React Compiler is happy.
+  const len = 2 * Math.PI * r;
+  const fractions = slices.map((s) => (total > 0 ? s.value / total : 0));
+  const startFractions = fractions.map((_, i) =>
+    fractions.slice(0, i).reduce((sum, f) => sum + f, 0)
+  );
+  const arcs = slices.map((s, i) => ({
+    color: s.color,
+    dash: fractions[i] * len,
+    offset: -startFractions[i] * len,
+  }));
   return (
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
       <circle
@@ -266,28 +280,21 @@ export function Donut({ slices, size = 200, thickness = 24 }: DonutProps) {
         stroke="#ececea"
         strokeWidth={thickness}
       />
-      {slices.map((s, i) => {
-        const frac = total > 0 ? s.value / total : 0;
-        const len = 2 * Math.PI * r;
-        const dash = frac * len;
-        const offset = -acc * len;
-        acc += frac;
-        return (
-          <circle
-            key={i}
-            cx={cx}
-            cy={cy}
-            r={r}
-            fill="none"
-            stroke={s.color}
-            strokeWidth={thickness}
-            strokeDasharray={`${dash} ${len - dash}`}
-            strokeDashoffset={offset}
-            transform={`rotate(-90 ${cx} ${cy})`}
-            strokeLinecap="butt"
-          />
-        );
-      })}
+      {arcs.map((a, i) => (
+        <circle
+          key={i}
+          cx={cx}
+          cy={cy}
+          r={r}
+          fill="none"
+          stroke={a.color}
+          strokeWidth={thickness}
+          strokeDasharray={`${a.dash} ${len - a.dash}`}
+          strokeDashoffset={a.offset}
+          transform={`rotate(-90 ${cx} ${cy})`}
+          strokeLinecap="butt"
+        />
+      ))}
     </svg>
   );
 }

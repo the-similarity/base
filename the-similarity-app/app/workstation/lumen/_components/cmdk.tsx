@@ -9,8 +9,13 @@
  *   - Up/Down move the active highlight within the visible filtered list
  *   - Enter runs the highlighted item then closes
  *
- * Focus management: when `open` flips true, the input ref is focused on
- * the next tick so the modal grabs the caret reliably.
+ * Architecture note: the modal is split into two pieces — a top-level
+ * `CmdK` that early-returns when closed, and an inner `CmdKBody` that
+ * holds the query + highlight state. Splitting it this way means each
+ * "open" event freshly mounts the body so the state is reset to defaults
+ * naturally without an `useEffect(() => setQ('')...)` (which would trip
+ * the React Compiler's set-state-in-effect rule). It also keeps the
+ * input.focus() call colocated with the input that gets focused.
  */
 "use client";
 
@@ -34,20 +39,30 @@ export interface CmdKProps {
 }
 
 export function CmdK({ open, onClose, onNavigate }: CmdKProps) {
+  // Early-return when closed so React unmounts the body and its state
+  // disappears. The next open() will mount a fresh CmdKBody, giving us a
+  // pristine query/active state without any explicit reset.
+  if (!open) return null;
+  return <CmdKBody onClose={onClose} onNavigate={onNavigate} />;
+}
+
+interface CmdKBodyProps {
+  onClose: () => void;
+  onNavigate: (id: ScreenId) => void;
+}
+
+function CmdKBody({ onClose, onNavigate }: CmdKBodyProps) {
   const [q, setQ] = useState("");
   const [active, setActive] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Reset query and highlight whenever the modal opens. Defer focus by a
-  // tick to dodge the React event that triggered the open (Cmd+K keydown).
+  // Mount-once focus pass. Using setTimeout(0) defers focus past the React
+  // event loop turn that opened the palette, otherwise the original
+  // keypress that triggered the open might steal focus back.
   useEffect(() => {
-    if (open) {
-      setQ("");
-      setActive(0);
-      const t = setTimeout(() => inputRef.current?.focus(), 30);
-      return () => clearTimeout(t);
-    }
-  }, [open]);
+    const t = setTimeout(() => inputRef.current?.focus(), 30);
+    return () => clearTimeout(t);
+  }, []);
 
   const items: PaletteItem[] = [
     { g: "Navigate", label: "Dashboard", icon: "home", run: () => onNavigate("dashboard"), kbd: "G D" },
@@ -78,7 +93,6 @@ export function CmdK({ open, onClose, onNavigate }: CmdKProps) {
     (groups[i.g] = groups[i.g] || []).push(i);
   });
 
-  if (!open) return null;
   return (
     <div className="cmdk-back" onClick={onClose}>
       <div className="cmdk" onClick={(e) => e.stopPropagation()}>
