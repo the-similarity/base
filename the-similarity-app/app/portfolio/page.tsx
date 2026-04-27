@@ -48,7 +48,7 @@ export default function PortfolioPage() {
       {/* Header */}
       <header className="portfolio-header">
         <div className="portfolio-header__breadcrumb">
-          <Link href="/" className="portfolio-header__breadcrumb-link">Terminal</Link>
+          <Link href="/workstation" className="portfolio-header__breadcrumb-link">Terminal</Link>
           <span className="portfolio-header__breadcrumb-sep">/</span>
           <span className="portfolio-header__breadcrumb-current">Portfolio Scanner</span>
         </div>

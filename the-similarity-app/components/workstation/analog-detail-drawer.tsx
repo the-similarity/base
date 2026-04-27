@@ -29,6 +29,8 @@
  *     live at the bottom of `app/globals.css` (see task spec).
  */
 
+import { useEffect, useState } from "react";
+
 import type { AnalogMatch, LensScores } from "../../lib/data";
 import { LENS_DEFS, fmtDate, fmtPct } from "../../lib/data";
 import { Sparkline } from "./sparkline";
@@ -52,6 +54,17 @@ export interface AnalogDetailDrawerProps {
    * explicitly so the new query window is visible first.
    */
   onUseAsQuery: (analog: AnalogMatch) => void;
+  /**
+   * Persist this analog as a "goodrun" — the host writes a row to the
+   * backend ``/goodruns`` surface carrying the query window, the match
+   * window, and the raw engine score breakdown (math names). Optional:
+   * when omitted the Save button is hidden. When present but the
+   * analog has no ``scoreBreakdown`` (synthetic / offline fallback),
+   * the button renders disabled with a tooltip explaining why. The
+   * state machine for the button (idle / saving / saved / error) lives
+   * in the drawer because it's UI-local.
+   */
+  onSaveGoodrun?: (analog: AnalogMatch) => Promise<void>;
 }
 
 /**
@@ -124,7 +137,77 @@ export function AnalogDetailDrawer({
   onClose,
   onTogglePin,
   onUseAsQuery,
+  onSaveGoodrun,
 }: AnalogDetailDrawerProps) {
+  /*
+   * Save-to-goodrun button state machine.
+   *
+   * States:
+   *   - "idle"    : default; click triggers the save
+   *   - "saving"  : awaiting the POST; button disabled to prevent
+   *                 double-submit if the user mashes the button
+   *   - "saved"   : success; label flips to "Saved ✓" for ~2s then returns
+   *                 to idle (visual feedback without a toast dependency)
+   *   - "error"   : most recent save failed; label shows "Retry — <msg>".
+   *                 Next click retries; no automatic reset
+   *
+   * Resets to "idle" whenever the selected analog changes so a previous
+   * save's success/error state doesn't bleed across different matches.
+   * Also resets when the drawer closes — re-opening should not show a
+   * stale "Saved ✓" that no longer corresponds to a visible save action.
+   */
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setSaveState("idle");
+    setSaveError(null);
+  }, [analog?.id, open]);
+
+  useEffect(() => {
+    if (saveState !== "saved") return;
+    const handle = window.setTimeout(() => setSaveState("idle"), 2000);
+    return () => window.clearTimeout(handle);
+  }, [saveState]);
+
+  const hasBreakdown = analog?.scoreBreakdown != null;
+  // Hide the save action entirely when the host didn't pass a handler.
+  // That way tests and non-workstation mounts of the drawer (if any)
+  // don't have a no-op button littering the footer.
+  const canShowSave = typeof onSaveGoodrun === "function";
+  const saveDisabled =
+    !analog || !hasBreakdown || saveState === "saving" || saveState === "saved";
+
+  async function handleSave() {
+    if (!analog || !onSaveGoodrun) return;
+    setSaveState("saving");
+    setSaveError(null);
+    try {
+      await onSaveGoodrun(analog);
+      setSaveState("saved");
+    } catch (err) {
+      setSaveState("error");
+      setSaveError(err instanceof Error ? err.message : "save failed");
+    }
+  }
+
+  const saveLabel = (() => {
+    if (saveState === "saving") return "Saving…";
+    if (saveState === "saved") return "Saved ✓";
+    if (saveState === "error") return "Retry save";
+    return "Save to goodrun";
+  })();
+  const saveTitle = (() => {
+    if (!hasBreakdown) {
+      // Explain why the button is inert — a synthetic/offline analog has
+      // no engine math-name breakdown to persist, which is the whole
+      // point of the feature. Saving would write null lenses and
+      // defeat the purpose.
+      return "Save requires the live API — synthetic analogs have no engine score breakdown.";
+    }
+    if (saveState === "error" && saveError) return `Last attempt failed: ${saveError}`;
+    return "Persist this match with its raw engine score breakdown (dtw, koopman, etc.)";
+  })();
   // Rank 0..5 → palette color. We clamp to 0..5 because the multi-analog
   // palette only defines six slots (--c-analog-1..6); ranks above that
   // fall back to the strong ink color via the CSS rule.
@@ -281,7 +364,7 @@ export function AnalogDetailDrawer({
         </section>
       )}
 
-      {/* Action row — pin/unpin, find-similar, close. */}
+      {/* Action row — pin/unpin, find-similar, save-to-goodrun, close. */}
       <footer className="adrawer__actions">
         <button
           type="button"
@@ -300,6 +383,18 @@ export function AnalogDetailDrawer({
         >
           Find similar analogs
         </button>
+        {canShowSave && (
+          <button
+            type="button"
+            className="adrawer__action"
+            onClick={handleSave}
+            disabled={saveDisabled}
+            data-state={saveState}
+            title={saveTitle}
+          >
+            {saveLabel}
+          </button>
+        )}
         <button
           type="button"
           className="adrawer__action adrawer__action--ghost"

@@ -30,6 +30,7 @@ import {
   isApiAvailable, fetchCatalog, fetchSeries, fetchOhlc, searchApi,
   mapMatchesToAnalogs, mapForecastToCone, mapScoreBreakdownToLenses,
 } from "../../lib/api";
+import { saveGoodrun, newGoodrunId, type GoodrunCreatePayload } from "../../lib/goodruns";
 import type { CatalogItem, OhlcData } from "../../lib/types";
 import {
   parseUrlState,
@@ -1252,33 +1253,59 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
   }, [analogs, pinned]);
 
   /*
-   * Pin-gated forecast cone.
+   * Hoisted so the cone useMemo below can read the current horizon/K
+   * without a TDZ reference. These are cheap derivations of `settings`
+   * and are read by the view-range effect and isDirty below as well.
+   */
+  const currentK = settings.kAnalogs || 6;
+  const currentHorizon = settings.horizon || 60;
+
+  /*
+   * Forecast cone — always recomputed client-side from analogs.
    *
-   * When pinned.size > 0 we IGNORE the backend-computed apiCone (which
-   * was computed server-side over the full top-K) and recompute locally
-   * via buildCone() — same algorithm as the synthetic fallback path.
-   * This keeps the cone semantically tied to `effectiveAnalogs`: the
-   * quantiles reflect the curated subset, not the original top-K.
+   * Invariant: cone length tracks `currentHorizon`, not `lastSearch.horizon`.
+   * Changing the horizon is a pure slice over already-loaded history — no
+   * API round-trip. This is possible because each analog carries its
+   * `startIdx` and `priceWindow.length`, which pins down where the match
+   * sits in `loadedSeries`; the "what happened next" is just the next N
+   * bars of that series.
    *
-   * When pinned.size === 0 the baseline resolution order applies:
-   *   1. apiCone (if online and present)
-   *   2. searchedCone (last successful runSearch result)
-   *   3. empty array
+   * Why not trust the backend-built apiCone?
+   *   - The backend sizes the forecast to exactly `forward_bars`, so
+   *     apiCone is fixed at lastSearch.horizon. Relying on it would make
+   *     horizon changes (shrink or grow) require a re-fetch. Recomputing
+   *     locally gives instant response and symmetric shrink/grow behavior.
+   *   - The per-analog `after` from the API is the same raw forward
+   *     prices we get from slicing loadedSeries; no backend-only
+   *     transformation is lost by recomputing.
    *
-   * Note: the price anchor for local buildCone is `queryLastPrice` from
-   * the CURRENT windowState, not lastSearch.start — this matches what
-   * the chart displays as the query terminal bar.
+   * Pin interaction: effectiveAnalogs collapses to the curated subset when
+   * pinned.size > 0, so the cone naturally reflects pins too — no separate
+   * code path needed.
+   *
+   * Near-end-of-history analogs produce shorter `afterExt` arrays, and
+   * buildCone breaks at the first t where zero analogs have data. That's
+   * intentional — the cone shrinks when the analog survivor set can no
+   * longer support the requested horizon, rather than extrapolating past
+   * known data.
    */
   const cone: ConePoint[] = useMemo(() => {
-    if (pinned.size > 0 && effectiveAnalogs.length > 0) {
-      const queryLastIdx = windowState.start + windowState.len - 1;
-      const queryLastPrice = loadedSeries[queryLastIdx]?.p ?? 1;
-      const horizon = lastSearch?.horizon ?? settings.horizon ?? 60;
-      return buildCone(effectiveAnalogs, horizon, queryLastPrice);
+    if (effectiveAnalogs.length === 0) {
+      // No analogs available yet — fall back to the last-known cone so
+      // the chart doesn't blank out between loads.
+      return (isOnline && apiCone) ? apiCone : (searchedCone ?? []);
     }
-    return (isOnline && apiCone) ? apiCone : (searchedCone ?? []);
+    const queryLastIdx = windowState.start + windowState.len - 1;
+    const queryLastPrice = loadedSeries[queryLastIdx]?.p ?? 1;
+    const extended = effectiveAnalogs.map(a => {
+      const anchorIdx = a.startIdx + a.priceWindow.length;
+      const afterExt = loadedSeries
+        .slice(anchorIdx, anchorIdx + currentHorizon)
+        .map(dp => dp.p);
+      return { ...a, after: afterExt };
+    });
+    return buildCone(extended, currentHorizon, queryLastPrice);
   }, [
-    pinned,
     effectiveAnalogs,
     isOnline,
     apiCone,
@@ -1286,8 +1313,7 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
     windowState.start,
     windowState.len,
     loadedSeries,
-    lastSearch?.horizon,
-    settings.horizon,
+    currentHorizon,
   ]);
 
   /*
@@ -1295,9 +1321,10 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
    * longer match the snapshot captured at last-search time. Used to
    * pulse the Search button so the user knows the displayed cone
    * doesn't reflect the current query window / top-K / horizon.
+   *
+   * Note: `currentK` / `currentHorizon` are declared above the cone
+   * useMemo so both can read them without a TDZ reference.
    */
-  const currentK = settings.kAnalogs || 6;
-  const currentHorizon = settings.horizon || 60;
 
   /*
    * View-range sanity check.
@@ -1333,6 +1360,7 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
     // write to it inside this effect).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentHorizon, windowState.start, windowState.len, N]);
+
   const isDirty = !lastSearch
     || lastSearch.start !== windowState.start
     || lastSearch.len !== windowState.len
@@ -1481,6 +1509,73 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
       return n;
     });
   };
+
+  /*
+   * Save-to-goodrun handler.
+   *
+   * Responsibility:
+   *   - Snapshot the CURRENT query window (start/len/date/prices) and
+   *     the analog's match window + post-match prices, and POST to
+   *     ``/goodruns``. The backend stores this as a durable record
+   *     keyed by a client-supplied ULID-ish id.
+   *   - Throws on failure; the drawer's local state machine shows the
+   *     error inline. We deliberately do NOT catch + toast here — the
+   *     drawer already has the affordance and bubbling lets it
+   *     transition to its "error" state.
+   *
+   * Invariants:
+   *   - `analog.scoreBreakdown` MUST be non-null. The drawer disables
+   *     its Save button when it's null, so reaching this function with
+   *     null indicates a misuse; we fail loudly (throw) instead of
+   *     silently writing empty lenses.
+   *   - The query window is captured from the LIVE `windowState` — NOT
+   *     from `lastSearch`. Saving something the user is currently
+   *     looking at matches their mental model; if they want the exact
+   *     search that produced the analog, they should save before
+   *     dragging the window.
+   */
+  const handleSaveGoodrun = useCallback(async (analog: AnalogMatch) => {
+    if (!analog.scoreBreakdown) {
+      // Defensive — the drawer's disabled state should prevent this.
+      throw new Error("Analog has no engine score breakdown; cannot save goodrun.");
+    }
+    const queryStart = windowState.start;
+    const queryEnd = windowState.start + windowState.len; // exclusive upper bound
+    const queryValues = loadedSeries.slice(queryStart, queryEnd).map(dp => dp.p);
+    const queryStartDate = loadedSeries[queryStart]?.d?.toISOString().slice(0, 10) ?? null;
+    const queryEndDate = loadedSeries[queryEnd - 1]?.d?.toISOString().slice(0, 10) ?? null;
+
+    const matchStart = analog.startIdx;
+    const matchEnd = analog.startIdx + analog.priceWindow.length; // exclusive
+    const matchStartDate = analog.date?.toISOString().slice(0, 10) ?? null;
+    const matchEndDate = analog.endDate?.toISOString().slice(0, 10) ?? null;
+
+    const payload: GoodrunCreatePayload = {
+      id: newGoodrunId(),
+      dataset: activeDataset,
+      horizon: currentHorizon,
+      query: {
+        start_idx: queryStart,
+        end_idx: queryEnd,
+        start_date: queryStartDate,
+        end_date: queryEndDate,
+        values: queryValues,
+      },
+      match_id: analog.id,
+      match: {
+        start_idx: matchStart,
+        end_idx: matchEnd,
+        start_date: matchStartDate,
+        end_date: matchEndDate,
+        values: [...analog.priceWindow],
+      },
+      match_after_values: [...analog.after],
+      lens_breakdown: analog.scoreBreakdown,
+      composite: Number.isFinite(analog.composite) ? analog.composite : null,
+      note: null,
+    };
+    await saveGoodrun(payload);
+  }, [activeDataset, currentHorizon, loadedSeries, windowState.start, windowState.len]);
 
   // Query metadata for sidebar
   const queryMeta = useMemo(() => {
@@ -1868,67 +1963,19 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
             "Pinned analogs N/M" label in the sidebar — we don't need a
             dedicated banner shouting it again. The banner felt like a
             nag every time the user clicked a pin. */}
-        <header className="main__head">
-          <div className="main__title-wrap">
-            <div className="label" style={{ marginBottom: 6 }}>Retrieve &middot; analog workstation</div>
-            <h1>What does <em>this</em> moment rhyme with?</h1>
-            <div className="main__subtitle">
-              Drag the query window along the timeline. The engine re-ranks {analogs.length} historical
-              matches and redraws the forecast cone. Pin analogs to overlay them.
-            </div>
-            {/* Drawer toggles — each only visible in its own breakpoint via CSS.
-                "Controls" (left drawer) appears at 768-1023px where the sidebar
-                is hidden. "Details" (right drawer) appears at 1024-1279px where
-                the right panel is hidden. */}
-            <div className="ws-drawer-toggles">
-              <button
-                type="button"
-                className="ws-drawer-toggle ws-drawer-toggle--left"
-                aria-expanded={leftDrawerOpen}
-                aria-controls="workstation-left-panel"
-                onClick={() => setLeftDrawerOpen(o => !o)}
-              >
-                &larr; {leftDrawerOpen ? "Hide controls" : "Controls"}
-              </button>
-              <button
-                type="button"
-                className="ws-drawer-toggle ws-drawer-toggle--right"
-                aria-expanded={rightDrawerOpen}
-                aria-controls="workstation-right-panel"
-                onClick={() => setRightDrawerOpen(o => !o)}
-              >
-                {rightDrawerOpen ? "Hide details" : "Details"} &rarr;
-              </button>
-            </div>
-          </div>
-          <div className="main__metrics">
-            <div className="metric">
-              <span className="label">Composite</span>
-              {/* Top-of-set composite score. Reads from effectiveAnalogs so
-                  when the user pins a curated subset, this reports the
-                  best score AMONG the pins, not the original top-K. */}
-              <span className="v">{(effectiveAnalogs[0]?.composite ?? 0).toFixed(2)}</span>
-              <span className="d">top match</span>
-            </div>
-            <div className="metric">
-              <span className="label">P50 / {coneStats?.horizon}d</span>
-              <span className={"v " + (coneStats && coneStats.p50Return >= 0 ? "pos" : "neg")}>
-                {coneStats ? fmtPct(coneStats.p50Return) : "\u2014"}
-              </span>
-              <span className="d">median outcome</span>
-            </div>
-            <div className="metric">
-              <span className="label">Cone width</span>
-              <span className="v">{coneStats ? fmtPct(coneStats.width, 0) : "\u2014"}</span>
-              <span className="d">p10 to p90</span>
-            </div>
-            <div className="metric">
-              <span className="label">Calibration</span>
-              <span className="v">B+</span>
-              <span className="d">12-mo rolling</span>
-            </div>
-          </div>
-        </header>
+        {/*
+          Header / summary-metrics strip removed: workstation now reads as a
+          focused tool rather than a marketing/onboarding panel, and the
+          working surface starts immediately.
+
+          Drawer toggles were the only interactive controls in the old header
+          and are still responsive-critical at <1280px — relocated into the
+          ws-search-row below. Static copy (RETRIEVE label, the "What does
+          this moment rhyme with?" h1, subtitle) and the four summary
+          metrics (composite / P50 / cone width / calibration) are gone.
+          Calibration was hardcoded to "B+" and never wired, so removing it
+          deletes a lie rather than a feature.
+        */}
 
         {/* ── Search control row ───────────────────────────────────────
             Visible manual-search controls. Left group:
@@ -1969,12 +2016,16 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
                     horizon is a field on WorkstationSettings that already
                     persists through localStorage in app/page.tsx, so no
                     new persistence wiring is needed.
-                  - This flips isDirty (see the derivation below which
-                    already diffs lastSearch.horizon vs currentHorizon),
-                    which makes the Search button pulse. Searches do NOT
-                    auto-fire — user clicks Search or presses Enter/r.
-                  - The `d` suffix on each button disambiguates the unit
-                    (bars-on-a-daily-series) without cluttering the label.
+                  - Horizon changes do NOT re-fetch. The cone useMemo below
+                    rebuilds each analog's `after[]` from `loadedSeries`
+                    using the known `startIdx` + match length, so a horizon
+                    click is just a client-side slice over already-loaded
+                    history. Both growing and shrinking the horizon work
+                    symmetrically without a network round-trip.
+                  - The label is a bare bar count (no unit suffix). The
+                    values are forward BARS, not days — on a 4h series
+                    30 means 30 four-hour bars, not 30 days — so a `d`
+                    suffix would lie on any non-daily timeframe.
                   - Tabular-num is applied via the .ws-horizon__btn CSS so
                     three-digit vs two-digit values don't cause width jitter.
 
@@ -2001,7 +2052,7 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
                   onClick={() => onSettings({ ...settings, horizon: h })}
                   title={`Forecast ${h} bars forward`}
                 >
-                  {h}d
+                  {h}
                 </button>
               ))}
             </div>
@@ -2043,6 +2094,32 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
             })()}
           </div>
           <div className="ws-search-row__group ws-search-row__group--end">
+            {/* Drawer toggles — each only visible in its own breakpoint via CSS.
+                "Controls" (left drawer) appears at 768-1023px where the sidebar
+                is hidden. "Details" (right drawer) appears at 1024-1279px where
+                the right panel is hidden. Originally lived inside the removed
+                .main__head. Sits at the start of the end-group so it precedes
+                the fewer-matches note / last-run timestamp / search button. */}
+            <div className="ws-drawer-toggles">
+              <button
+                type="button"
+                className="ws-drawer-toggle ws-drawer-toggle--left"
+                aria-expanded={leftDrawerOpen}
+                aria-controls="workstation-left-panel"
+                onClick={() => setLeftDrawerOpen(o => !o)}
+              >
+                &larr; {leftDrawerOpen ? "Hide controls" : "Controls"}
+              </button>
+              <button
+                type="button"
+                className="ws-drawer-toggle ws-drawer-toggle--right"
+                aria-expanded={rightDrawerOpen}
+                aria-controls="workstation-right-panel"
+                onClick={() => setRightDrawerOpen(o => !o)}
+              >
+                {rightDrawerOpen ? "Hide details" : "Details"} &rarr;
+              </button>
+            </div>
             {/*
              * Fewer-matches warning.
              *
@@ -2985,6 +3062,7 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
         pinned={detailAnalog ? pinned.has(detailAnalog.id) : false}
         onClose={() => setDetailAnalogId(null)}
         onTogglePin={togglePin}
+        onSaveGoodrun={handleSaveGoodrun}
         onUseAsQuery={(analog) => {
           // Move the query window to the analog's [startIdx, priceWindow.length]
           // range. We DO NOT auto-fire search — the user must click Search so

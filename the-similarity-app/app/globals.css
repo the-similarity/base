@@ -211,6 +211,13 @@ input, select, textarea { font: inherit; color: inherit; }
   letter-spacing: normal;
   font-family: var(--sans, inherit);
   flex-shrink: 0;
+  /* Left rule visually separates the utility cluster from the
+     scrolling ticker, so search + tweaks + avatar read as one group
+     rather than dissolving into the marquee content. */
+  margin-left: var(--s-4);
+  padding-left: var(--s-4);
+  border-left: 1px solid var(--rule);
+  gap: 6px;
 }
 
 /* ── Top navigation ─────────────────────────────────────────────
@@ -222,23 +229,75 @@ input, select, textarea { font: inherit; color: inherit; }
    .nav__logo, .nav__word, .nav__verbs, .nav__verb) was removed with
    the header. */
 .nav__right { display: flex; align-items: center; gap: var(--s-4); }
+/*
+ * .nav__search — primary control in the top utility cluster.
+ *
+ * Why flip the surface to --bg-elevated: the marquee itself paints
+ * --bg-inset, so the earlier nav__search (also --bg-inset) vanished
+ * into the bar. Elevated bg + rule-strong border lifts the control
+ * off the ticker. Tokens still resolve in both themes, so nothing
+ * is hardcoded.
+ */
 .nav__search {
   display: flex; align-items: center; gap: var(--s-2);
-  padding: 6px 10px;
-  border: 1px solid var(--rule);
+  height: 30px;
+  padding: 0 8px 0 11px;
+  border: 1px solid var(--rule-strong);
+  border-radius: 4px;
+  background: var(--bg-elevated);
+  color: var(--ink-2);
+  font-family: var(--mono); font-size: 11px;
+  font-weight: 500;
+  min-width: 260px;
+  transition: border-color 120ms ease, color 120ms ease, box-shadow 120ms ease, background 120ms ease;
+}
+.nav__search > svg { color: var(--ink-2); flex-shrink: 0; }
+.nav__search:hover {
+  border-color: var(--rule-focus);
+  color: var(--ink);
+}
+.nav__search:hover > svg { color: var(--ink); }
+.nav__search:focus-visible {
+  outline: none;
+  border-color: var(--rule-focus);
+  color: var(--ink);
+  /* Accent-soft ring gives a subtle brand color without painting the
+     whole control — keeps the muted editorial feel while the focus
+     state still reads as "primary". */
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.nav__search:focus-visible > svg { color: var(--ink); }
+.nav__search .label {
+  margin-left: auto;
+  padding: 2px 5px;
+  border: 1px solid var(--rule-strong);
   border-radius: 3px;
   background: var(--bg-inset);
   color: var(--ink-3);
-  font-family: var(--mono); font-size: 11px;
-  min-width: 220px;
+  font-size: 9.5px;
+  line-height: 1;
+  font-family: var(--mono);
+  letter-spacing: 0;
 }
-.nav__search:hover { border-color: var(--rule-strong); color: var(--ink-2); }
 .nav__iconbtn {
-  width: 28px; height: 28px; display: grid; place-items: center;
-  border: 1px solid var(--rule); border-radius: 3px;
+  width: 30px; height: 30px; display: grid; place-items: center;
+  border: 1px solid var(--rule-strong);
+  border-radius: 4px;
+  background: var(--bg-elevated);
   color: var(--ink-2);
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease, box-shadow 120ms ease;
 }
-.nav__iconbtn:hover { background: var(--bg-hover); }
+.nav__iconbtn:hover {
+  background: var(--bg-hover);
+  border-color: var(--rule-focus);
+  color: var(--ink);
+}
+.nav__iconbtn:focus-visible {
+  outline: none;
+  border-color: var(--rule-focus);
+  color: var(--ink);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
 
 /* ── Footer status bar ───────────────────────────────────────── */
 .statusbar {
@@ -545,15 +604,8 @@ input, select, textarea { font: inherit; color: inherit; }
   .workstation > .side,
   .workstation > .right { display: none; }
   .ws-mobile-notice { display: block; }
-  .main__head {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: var(--s-4);
-  }
-  .main__metrics {
-    flex-wrap: wrap;
-    gap: var(--s-4);
-  }
+  /* .main__head / .main__metrics responsive overrides removed with the
+     header JSX they were stacking. */
 }
 
 /* ------------------------------------------------------------------
@@ -639,7 +691,9 @@ input, select, textarea { font: inherit; color: inherit; }
 .ws-drawer-toggles {
   display: flex;
   gap: var(--s-2);
-  margin-top: var(--s-3);
+  /* margin-top removed: the toggles no longer sit under a subtitle; they
+     live inside the ws-search-row's end-group where the row's own gap
+     handles spacing. */
 }
 .ws-drawer-toggle {
   display: none; /* hidden by default, shown in media queries below */
@@ -801,32 +855,10 @@ input, select, textarea { font: inherit; color: inherit; }
   overflow: hidden;
 }
 
-.main__head {
-  padding: var(--s-4) var(--s-6);
-  border-bottom: 1px solid var(--rule);
-  display: flex; justify-content: space-between; align-items: flex-end;
-  background: var(--bg);
-}
-.main__title-wrap h1 {
-  margin: 0;
-  font-family: var(--serif);
-  font-weight: 500;
-  font-size: 28px;
-  letter-spacing: -0.02em;
-  line-height: 1.1;
-}
-.main__title-wrap h1 em { font-style: italic; color: var(--ink-3); font-weight: 400; }
-.main__subtitle {
-  margin-top: 4px; color: var(--ink-3); font-size: 12.5px;
-  max-width: 560px;
-}
-.main__metrics { display: flex; gap: var(--s-6); }
-.metric { text-align: right; }
-.metric .label { display: block; margin-bottom: 3px; }
-.metric .v { font-family: var(--mono); font-size: 18px; color: var(--ink); font-weight: 500; }
-.metric .d { font-family: var(--mono); font-size: 10.5px; color: var(--ink-3); }
-.metric .v.pos { color: var(--positive); }
-.metric .v.neg { color: var(--negative); }
+/* .main__head + .main__title-wrap + .main__subtitle + .main__metrics + .metric
+   rules removed along with the header JSX they styled. The workstation
+   starts directly at the ws-search-row now, so there's no titled panel
+   surface above it that would need typography / layout tokens. */
 
 /* ------------------------------------------------------------------
    Search control row — visible manual-search surface.
@@ -3025,4 +3057,987 @@ input, select, textarea { font: inherit; color: inherit; }
 .dataset-card__sub--muted {
   color: var(--ink-3, #8a867d);
   font-size: 10px;
+}
+
+/* ======================================================================
+   PAGE: INVEST (/ — investor landing)
+
+   Long-scroll editorial that shares chrome with the workstation. Lives
+   alongside the existing `.home__*` tokens; most buttons still reuse
+   `.home__cta` / `.home__cta--primary` so the CTA treatment is shared.
+
+   Section rhythm: each major section has a ~96–120px top margin to give
+   the editorial hierarchy room to breathe. Anything tighter starts to
+   feel like a product dashboard and this page is closer to a museum
+   catalog than a UI.
+   ====================================================================== */
+
+.invest {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: var(--s-8) var(--s-6) var(--s-9);
+}
+
+/* ── 1. Hero ─────────────────────────────────────────────────── */
+.invest__hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+  gap: var(--s-9);
+  align-items: center;
+  padding-top: var(--s-8);
+  padding-bottom: 120px;
+  border-bottom: 1px solid var(--rule);
+}
+@media (max-width: 960px) {
+  .invest__hero { grid-template-columns: 1fr; padding-bottom: 80px; }
+}
+
+.invest__eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+  padding: 6px 10px;
+  border: 1px solid var(--rule-strong);
+  border-radius: 999px;
+  background: var(--bg-elevated);
+  margin-bottom: var(--s-5);
+}
+.invest__eyebrow b {
+  color: var(--accent);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+}
+.invest__eyebrow-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--positive);
+  box-shadow: 0 0 0 3px var(--positive-soft);
+  animation: invest-pulse 2.4s ease-in-out infinite;
+}
+@keyframes invest-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: 0.55; transform: scale(0.82); }
+}
+
+.invest__headline {
+  font-family: var(--serif);
+  font-size: clamp(44px, 6.4vw, 84px);
+  line-height: 1.02;
+  letter-spacing: -0.025em;
+  font-weight: 500;
+  color: var(--ink);
+  margin: 0 0 var(--s-6);
+}
+.invest__headline em {
+  font-style: italic;
+  font-weight: 400;
+  color: var(--accent);
+}
+
+.invest__lede {
+  font-family: var(--serif);
+  font-size: 20px;
+  line-height: 1.55;
+  color: var(--ink-2);
+  max-width: 560px;
+  margin: 0 0 var(--s-7);
+}
+
+.invest__cta-row {
+  display: flex;
+  gap: var(--s-3);
+  flex-wrap: wrap;
+  margin-bottom: var(--s-6);
+}
+
+.invest__hero-ticks {
+  display: flex;
+  gap: var(--s-3);
+  align-items: center;
+  flex-wrap: wrap;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.invest__tick-sep { color: var(--rule-strong); }
+
+/* Hero visual — frames the SVG so it sits on an elevated surface with
+   a soft inset shadow, giving it a little "on-screen" weight. */
+.invest__hero-visual {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  min-height: 320px;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-md);
+  background:
+    linear-gradient(180deg, var(--bg-elevated), var(--bg));
+  overflow: hidden;
+  display: grid;
+  place-items: stretch;
+}
+.invest__hero-visual::before,
+.invest__hero-visual::after {
+  content: "";
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border: 1px solid var(--ink-4);
+  opacity: 0.35;
+  pointer-events: none;
+}
+.invest__hero-visual::before {
+  top: 10px; left: 10px;
+  border-right: 0; border-bottom: 0;
+}
+.invest__hero-visual::after {
+  bottom: 10px; right: 10px;
+  border-left: 0; border-top: 0;
+}
+
+.invest__rhyme {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.invest__rhyme-query {
+  filter: drop-shadow(0 1px 0 rgba(0,0,0,.08));
+}
+.invest__rhyme-analog--1 { animation: invest-breathe1 9s ease-in-out infinite; }
+.invest__rhyme-analog--2 { animation: invest-breathe2 11s ease-in-out infinite; }
+.invest__rhyme-analog--3 { animation: invest-breathe3 13s ease-in-out infinite; }
+.invest__rhyme-pulse {
+  transform-origin: 400px 260px;
+  animation: invest-ring 2.6s ease-out infinite;
+}
+.invest__rhyme-axis {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.18em;
+  fill: var(--ink-4);
+}
+@keyframes invest-breathe1 {
+  0%, 100% { transform: translateY(0); opacity: .42; }
+  50%      { transform: translateY(-4px); opacity: .58; }
+}
+@keyframes invest-breathe2 {
+  0%, 100% { transform: translateY(0); opacity: .55; }
+  50%      { transform: translateY(3px); opacity: .38; }
+}
+@keyframes invest-breathe3 {
+  0%, 100% { transform: translateY(0); opacity: .35; }
+  50%      { transform: translateY(-2px); opacity: .52; }
+}
+@keyframes invest-ring {
+  0%   { transform: scale(1); opacity: 0.9; }
+  100% { transform: scale(4); opacity: 0; }
+}
+
+/* ── 2. Plain English ────────────────────────────────────────── */
+.invest__plain {
+  display: grid;
+  grid-template-columns: 180px 1fr;
+  gap: var(--s-8);
+  padding: 120px 0;
+  border-bottom: 1px solid var(--rule);
+}
+@media (max-width: 720px) {
+  .invest__plain { grid-template-columns: 1fr; gap: var(--s-5); padding: 80px 0; }
+}
+.invest__plain-label { padding-top: 10px; }
+.invest__plain-body {
+  font-family: var(--serif);
+  font-size: 24px;
+  line-height: 1.45;
+  color: var(--ink);
+  margin: 0;
+  max-width: 760px;
+  letter-spacing: -0.005em;
+}
+.invest__plain-body em {
+  font-style: italic;
+  color: var(--accent);
+}
+
+/* ── Shared section header ───────────────────────────────────── */
+.invest__section-header { margin-bottom: var(--s-8); max-width: 720px; }
+.invest__section-head {
+  font-family: var(--serif);
+  font-size: clamp(30px, 4vw, 48px);
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  font-weight: 500;
+  color: var(--ink);
+  margin: var(--s-3) 0 var(--s-4);
+}
+.invest__section-lede {
+  font-family: var(--serif);
+  font-size: 17px;
+  line-height: 1.55;
+  color: var(--ink-2);
+  margin: 0;
+  max-width: 620px;
+}
+
+/* ── 3. Demo frames ─────────────────────────────────────────── */
+.invest__demos { padding: 120px 0; border-bottom: 1px solid var(--rule); }
+@media (max-width: 720px) { .invest__demos { padding: 80px 0; } }
+
+.invest__demo-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--s-8);
+}
+.invest__demo {
+  display: grid;
+  grid-template-columns: 1.15fr 1fr;
+  gap: var(--s-8);
+  align-items: center;
+}
+.invest__demo:nth-child(even) .invest__demo-visual { order: 2; }
+@media (max-width: 900px) {
+  .invest__demo { grid-template-columns: 1fr; gap: var(--s-5); }
+  .invest__demo:nth-child(even) .invest__demo-visual { order: 0; }
+}
+
+.invest__demo-visual {
+  position: relative;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-md);
+  background: var(--bg-elevated);
+  padding: var(--s-4);
+  box-shadow: 0 1px 0 rgba(0,0,0,.02), 0 12px 32px -16px rgba(20,19,15,.12);
+  transition: transform 260ms ease, box-shadow 260ms ease;
+}
+.invest__demo-visual:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 1px 0 rgba(0,0,0,.03), 0 24px 48px -20px rgba(20,19,15,.18);
+}
+
+.invest__demo-head {
+  font-family: var(--serif);
+  font-size: clamp(26px, 3vw, 36px);
+  letter-spacing: -0.02em;
+  line-height: 1.12;
+  font-weight: 500;
+  color: var(--ink);
+  margin: var(--s-3) 0 var(--s-4);
+}
+.invest__demo-copy {
+  font-size: 15px;
+  line-height: 1.65;
+  color: var(--ink-2);
+  margin: 0 0 var(--s-5);
+  max-width: 480px;
+}
+.invest__demo-copy em {
+  font-family: var(--serif);
+  font-style: italic;
+  color: var(--accent);
+}
+.invest__demo-link {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink);
+  border-bottom: 1px solid var(--ink);
+  padding-bottom: 2px;
+  transition: color 120ms ease, border-color 120ms ease;
+}
+.invest__demo-link:hover { color: var(--accent); border-color: var(--accent); }
+
+/* Generic inner frame used by both Workstation + Prudent previews */
+.invest__frame {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  font-size: 12px;
+  color: var(--ink-2);
+}
+.invest__frame-head {
+  display: flex;
+  gap: var(--s-4);
+  align-items: center;
+  padding: 6px 10px;
+  background: var(--bg-inset);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-sm);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  color: var(--ink-3);
+}
+.invest__frame-sym {
+  color: var(--ink);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-weight: 500;
+}
+.invest__frame-meta { color: var(--ink-3); }
+.invest__frame-meta b { color: var(--ink); font-weight: 500; }
+.invest__frame-meta--trust { margin-left: auto; color: var(--positive); }
+.invest__frame-meta--trust b { color: var(--positive); }
+
+.invest__frame-chart {
+  display: block;
+  width: 100%;
+  height: 220px;
+  background: var(--bg);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-sm);
+}
+
+.invest__frame-foot {
+  display: flex;
+  align-items: center;
+  gap: var(--s-4);
+  padding: 6px 10px;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+}
+.invest__frame-foot-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.invest__matches { display: flex; gap: var(--s-3); flex-wrap: wrap; }
+.invest__match {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-2);
+}
+.invest__match b { color: var(--ink); font-weight: 600; }
+.invest__match-n {
+  display: inline-grid;
+  place-items: center;
+  width: 16px; height: 16px;
+  background: var(--bg-inset);
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  font-size: 9px;
+  color: var(--ink-3);
+}
+
+/* Prudent-preview natural-language strip */
+.invest__prud-text {
+  padding: var(--s-3) var(--s-4);
+  background: var(--bg);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-sm);
+  font-family: var(--serif);
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--ink);
+}
+.invest__tok-pos { color: var(--positive); font-weight: 600; }
+.invest__tok-neg { color: var(--negative); font-weight: 600; }
+
+/* ── 4. Numbers ──────────────────────────────────────────────── */
+.invest__stats { padding: 120px 0; border-bottom: 1px solid var(--rule); }
+@media (max-width: 720px) { .invest__stats { padding: 80px 0; } }
+
+.invest__stat-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  background: var(--rule);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+@media (max-width: 880px) { .invest__stat-grid { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 520px) { .invest__stat-grid { grid-template-columns: 1fr; } }
+
+.invest__stat {
+  background: var(--bg-elevated);
+  padding: var(--s-6) var(--s-6) var(--s-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  transition: background 180ms ease;
+}
+.invest__stat:hover { background: var(--bg-hover); }
+.invest__stat-value {
+  font-family: var(--serif);
+  font-size: clamp(40px, 4.5vw, 56px);
+  line-height: 1;
+  letter-spacing: -0.03em;
+  font-weight: 500;
+  color: var(--ink);
+  font-feature-settings: "tnum" 1;
+}
+.invest__stat-label {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+  line-height: 1.45;
+}
+.invest__stat-label span {
+  color: var(--ink-3);
+  letter-spacing: 0.08em;
+  font-size: 10px;
+  text-transform: none;
+  font-family: var(--mono);
+}
+
+/* Horizon section - forward-looking target industries.
+ *
+ * Visually parallel to the numbers strip (same grid, same tile chrome)
+ * so the two sections feel like "today / tomorrow" pair rather than
+ * unrelated. Swaps the big numeric `invest__stat-value` slot for two
+ * elements:
+ *   - a small uppercase "TARGET →" eyebrow so the aspiration is
+ *     explicit; investors never read these as current metrics.
+ *   - a serif headline (industry-sized, not numeral-sized) that names
+ *     the reach we're pointed at.
+ * The `.invest__stat-label` stack below keeps the same typography as
+ * the today tiles, holding the visual cadence. `--horizon` tiles also
+ * shift background one step muted so the "target" feel reads without
+ * a loud color pop.
+ */
+.invest__stats--horizon { padding-top: 40px; }
+@media (max-width: 720px) { .invest__stats--horizon { padding-top: 20px; } }
+
+.invest__stat--horizon {
+  background: var(--bg-muted, var(--bg-elevated));
+}
+.invest__stat--horizon:hover {
+  background: var(--bg-hover);
+}
+.invest__stat-eyebrow {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  font-weight: 600;
+}
+.invest__stat-headline {
+  font-family: var(--serif);
+  font-size: clamp(20px, 2.2vw, 26px);
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+  font-weight: 500;
+  color: var(--ink);
+}
+
+/* ── 5. Five pillars ─────────────────────────────────────────── */
+.invest__vision { padding: 120px 0; border-bottom: 1px solid var(--rule); }
+@media (max-width: 720px) { .invest__vision { padding: 80px 0; } }
+
+.invest__pillars {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 1px;
+  background: var(--rule);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+@media (max-width: 960px) { .invest__pillars { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 560px) { .invest__pillars { grid-template-columns: 1fr; } }
+
+.invest__pillar {
+  background: var(--bg-elevated);
+  padding: var(--s-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  min-height: 180px;
+  transition: background 200ms ease, transform 200ms ease;
+}
+.invest__pillar:hover { background: var(--bg-hover); }
+.invest__pillar-top { display: flex; justify-content: space-between; align-items: center; }
+.invest__pillar-num {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  color: var(--ink-4);
+}
+.invest__pillar-status {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 3px 7px;
+  border-radius: 999px;
+  border: 1px solid var(--rule-strong);
+}
+.invest__pillar-status--live    { color: var(--positive); border-color: var(--positive); background: var(--positive-soft); }
+.invest__pillar-status--beta    { color: var(--warn);     border-color: var(--warn);     background: rgba(138, 98, 0, .08); }
+.invest__pillar-status--preview { color: var(--ink-3); }
+.invest__pillar-name {
+  font-family: var(--serif);
+  font-size: 22px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  margin: var(--s-2) 0 0;
+}
+.invest__pillar-desc {
+  color: var(--ink-2);
+  font-size: 13px;
+  line-height: 1.55;
+  margin: 0;
+}
+
+/* ── 6. The ask ──────────────────────────────────────────────── */
+.invest__ask { padding: 120px 0 var(--s-9); }
+@media (max-width: 720px) { .invest__ask { padding: 80px 0 var(--s-8); } }
+
+.invest__ask-card {
+  position: relative;
+  padding: var(--s-9) var(--s-8);
+  background: var(--bg-elevated);
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius-md);
+  max-width: 920px;
+  margin: 0 auto;
+  text-align: center;
+  overflow: hidden;
+}
+.invest__ask-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at 0% 0%,   var(--accent-soft), transparent 55%),
+    radial-gradient(ellipse at 100% 100%, var(--accent-soft), transparent 55%);
+  pointer-events: none;
+  opacity: .65;
+}
+/* tiny corner brackets — quiet frame treatment that gives the card
+   a "signed document" feel without painting borders everywhere. */
+.invest__ask-corner {
+  position: absolute;
+  width: 18px; height: 18px;
+  border: 1px solid var(--ink);
+  opacity: 0.8;
+  pointer-events: none;
+}
+.invest__ask-corner--tl { top: 10px;    left: 10px;    border-right: 0; border-bottom: 0; }
+.invest__ask-corner--tr { top: 10px;    right: 10px;   border-left: 0;  border-bottom: 0; }
+.invest__ask-corner--bl { bottom: 10px; left: 10px;    border-right: 0; border-top: 0; }
+.invest__ask-corner--br { bottom: 10px; right: 10px;   border-left: 0;  border-top: 0; }
+
+.invest__ask-eyebrow { position: relative; margin-bottom: var(--s-4); }
+.invest__ask-head {
+  position: relative;
+  font-family: var(--serif);
+  font-size: clamp(34px, 4.6vw, 56px);
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  font-weight: 500;
+  color: var(--ink);
+  margin: 0 0 var(--s-5);
+}
+.invest__ask-head em {
+  font-style: italic;
+  color: var(--accent);
+  font-weight: 500;
+}
+.invest__ask-body {
+  position: relative;
+  font-family: var(--serif);
+  font-size: 17px;
+  line-height: 1.6;
+  color: var(--ink-2);
+  max-width: 640px;
+  margin: 0 auto var(--s-7);
+}
+
+.invest__ask-stats {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  background: var(--rule);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-sm);
+  margin: 0 auto var(--s-7);
+  max-width: 640px;
+  overflow: hidden;
+}
+@media (max-width: 560px) { .invest__ask-stats { grid-template-columns: 1fr 1fr; } }
+.invest__ask-stats > div {
+  background: var(--bg-elevated);
+  padding: var(--s-4) var(--s-3);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: center;
+}
+.invest__ask-stats b {
+  font-family: var(--serif);
+  font-size: 22px;
+  font-weight: 500;
+  color: var(--ink);
+  letter-spacing: -0.015em;
+}
+.invest__ask-stats span {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.invest__ask-cta {
+  position: relative;
+  display: inline-flex;
+  gap: var(--s-3);
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.invest__ask-primary {
+  padding-left: 22px;
+  padding-right: 22px;
+}
+
+/* Signature block under the ask card.
+ *
+ * Layout: two-column on wide screens (signature left, meta right), but
+ * collapses cleanly to a centered stack on narrow viewports so the
+ * autograph keeps its full legibility below ~560px. Divider above the
+ * block separates it from the ask CTAs so the eye reads "pay" → "who's
+ * asking" as two beats rather than one continuous stream.
+ */
+.invest__signature {
+  margin-top: var(--s-6);
+  padding-top: var(--s-6);
+  border-top: 1px dashed var(--rule-strong, var(--rule));
+  display: grid;
+  grid-template-columns: minmax(220px, 42%) 1fr;
+  gap: var(--s-6);
+  align-items: center;
+  text-align: left;
+  color: var(--ink);
+}
+@media (max-width: 640px) {
+  .invest__signature {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    text-align: center;
+    gap: var(--s-4);
+  }
+}
+.invest__signature-mark {
+  color: var(--ink);
+  width: 100%;
+  max-width: 340px;
+  line-height: 0;
+  /* Faint drop shadow so the "ink" reads as physically written on the
+     card rather than a pure screen stroke. */
+  filter: drop-shadow(0 1px 0 rgba(0, 0, 0, 0.04));
+}
+/* Ink container. Overflow-hidden is required because the motion
+ * clipPath inset animation might briefly paint outside the svg bounds
+ * during the ease-out tail. */
+.signature-ink {
+  display: block;
+  width: 100%;
+  color: var(--ink);
+  overflow: hidden;
+}
+.invest__signature-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.invest__signature-name {
+  font-family: var(--serif);
+  font-size: 22px;
+  line-height: 1.15;
+  letter-spacing: -0.015em;
+  font-weight: 500;
+  color: var(--ink);
+}
+.invest__signature-role {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+.invest__signature-bio {
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--ink-2);
+  max-width: 46ch;
+}
+.invest__signature-links {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--ink-3);
+  align-items: center;
+}
+.invest__signature-links a {
+  color: var(--ink-2);
+  text-decoration: none;
+  border-bottom: 1px solid var(--rule-strong, var(--rule));
+  transition: color 140ms ease, border-color 140ms ease;
+}
+.invest__signature-links a:hover {
+  color: var(--ink);
+  border-bottom-color: var(--ink);
+}
+
+/* ── 7. Foot ─────────────────────────────────────────────────── */
+.invest__foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--s-7) 0 var(--s-4);
+  border-top: 1px solid var(--rule);
+  gap: var(--s-4);
+  flex-wrap: wrap;
+}
+.invest__foot-left { display: flex; align-items: center; gap: var(--s-4); }
+.invest__foot-tag { color: var(--ink-4); }
+.invest__foot-right {
+  display: flex;
+  gap: var(--s-5);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.invest__foot-right a { color: var(--ink-3); }
+.invest__foot-right a:hover { color: var(--ink); }
+
+/* Respect reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .invest__eyebrow-dot,
+  .invest__rhyme-analog--1,
+  .invest__rhyme-analog--2,
+  .invest__rhyme-analog--3,
+  .invest__rhyme-pulse,
+  .marquee__track {
+    animation: none !important;
+  }
+}
+
+/* ======================================================================
+   PAGE: DEMO (/demo)
+
+   Standalone quick-demo surface. Shares marquee + statusbar chrome with
+   the rest of the product. Body is a narrow editorial column: a short
+   orienting header, the reused workstation chart (via DemoChart), three
+   annotation rows, and two navigation CTAs.
+   ====================================================================== */
+
+.demo-page {
+  overflow: auto;
+}
+.demo-page__inner {
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: var(--s-8) var(--s-6) var(--s-9);
+}
+.demo-page__head {
+  margin: 0 auto var(--s-7);
+  max-width: 680px;
+  text-align: center;
+}
+.demo-page__title {
+  font-family: var(--serif);
+  font-size: clamp(32px, 4vw, 48px);
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  font-weight: 500;
+  color: var(--ink);
+  margin: var(--s-3) 0 var(--s-4);
+}
+.demo-page__lede {
+  font-family: var(--serif);
+  font-size: 16.5px;
+  line-height: 1.6;
+  color: var(--ink-2);
+  margin: 0;
+}
+
+.demo-page__chart {
+  margin: 0 auto var(--s-7);
+}
+
+/* Video variant of the demo-page chart slot.
+ *
+ * When /demo embeds a screen-capture instead of the live DemoChart, we
+ * swap `.demo-page__chart` for `.demo-page__chart.demo-page__video` so
+ * the frame keeps the same outer margin but gains a card-style border,
+ * rounded corners, and a fixed aspect ratio. The workstation capture is
+ * 3024x1716 (16:9.07) so 16/9 fits edge-to-edge without object-fit
+ * letterboxing eating into the frame. `object-fit: cover` stays on as a
+ * safety net in case a future capture is recorded at a slightly
+ * different aspect.
+ */
+.demo-page__video {
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--bg-inset, var(--bg));
+  aspect-ratio: 16 / 9;
+}
+.demo-page__video video {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+@media (prefers-reduced-motion: reduce) {
+  .demo-page__video video {
+    animation-play-state: paused;
+  }
+}
+
+.demo-page__beats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px;
+  background: var(--rule);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  margin-bottom: var(--s-7);
+}
+@media (max-width: 780px) { .demo-page__beats { grid-template-columns: 1fr; } }
+.demo-page__beat {
+  display: flex;
+  gap: var(--s-3);
+  align-items: flex-start;
+  padding: var(--s-5);
+  background: var(--bg-elevated);
+}
+.demo-page__beat-num {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  color: var(--ink-4);
+  padding-top: 3px;
+  flex-shrink: 0;
+}
+.demo-page__beat-head {
+  font-family: var(--serif);
+  font-size: 17px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  margin-bottom: 4px;
+}
+.demo-page__beat-sub {
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--ink-2);
+}
+
+.demo-page__cta-row {
+  display: flex;
+  gap: var(--s-3);
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+/* ── Home page: chart-mode demo visual ──────────────────────────────
+   When the home page embeds the real DemoChart instead of a static
+   SVG mock, the chart-card brings its own border / padding / typography.
+   This variant removes the outer padding + border so the chart-card
+   takes the full tile without a double-border effect. */
+.invest__demo-visual--chart {
+  padding: 0;
+  background: transparent;
+  border-color: transparent;
+  box-shadow: 0 12px 36px -20px rgba(20,19,15,.22);
+}
+.invest__demo-visual--chart:hover {
+  box-shadow: 0 24px 56px -24px rgba(20,19,15,.28);
+}
+.invest__demo-visual--chart .chart-card {
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+  height: 100%;
+}
+
+/* Video variant - sandbox tile. Rounds the corners, clips the video,
+   and locks a 16:10-ish aspect ratio so the tile keeps height parity
+   with the chart / rhyme tiles above it. `object-fit: cover` fills
+   any residual gap if the source aspect differs. */
+.invest__demo-visual--video {
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  aspect-ratio: 16 / 10;
+  background: var(--bg-inset);
+}
+.invest__demo-visual--video video {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+
+/* Image variant - mirrors the video variant for static tiles (e.g. 04
+ * Worlds NEXUS SIM screenshot). Same aspect ratio and chrome so tiles
+ * stay visually parallel whether their visual is a live chart, a looped
+ * capture, or a single frame. `object-fit: cover` crops the outer UI
+ * chrome from the NEXUS SIM screenshot and centers on the map - which
+ * is the part of the image an investor should see first.
+ */
+.invest__demo-visual--image {
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  aspect-ratio: 16 / 10;
+  background: var(--bg-inset);
+}
+.invest__demo-visual--image img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+/* Respect reduced-motion: pause autoplay loops. Browsers won't honor
+   this automatically, but pairing this opacity nudge with the fact
+   that we render the poster as an <img> fallback under `<video>`
+   keeps the tile legible. For users who want motion paused fully,
+   the OS setting still gates it. */
+@media (prefers-reduced-motion: reduce) {
+  .invest__demo-visual--video video {
+    animation-play-state: paused;
+  }
+}
+
+.invest__demo-links {
+  display: flex;
+  gap: var(--s-5);
+  flex-wrap: wrap;
+  align-items: center;
+}
+.invest__demo-link--muted {
+  color: var(--ink-3);
+  border-bottom-color: var(--rule-strong);
+}
+.invest__demo-link--muted:hover {
+  color: var(--ink);
+  border-bottom-color: var(--ink);
 }

@@ -141,6 +141,22 @@ export function mapMatchesToAnalogs(
       after,
       afterReturn,
       note: generateLensNote(lenses),
+      // Preserve raw math-name scores for features that need the
+      // engine-native breakdown (e.g. "Save to goodrun" in the
+      // AnalogDetailDrawer). These are the pre-mapping fields — the UI
+      // moat (`lens1..9`) is enforced by only READING these in
+      // opt-in consumers, not by their absence.
+      scoreBreakdown: {
+        dtw: m.scoreBreakdown.dtw,
+        pearsonWarped: m.scoreBreakdown.pearsonWarped,
+        bempedelisR2: m.scoreBreakdown.bempedelisR2,
+        bempedelisSmoothness: m.scoreBreakdown.bempedelisSmoothness,
+        koopman: m.scoreBreakdown.koopman,
+        waveletSpectrum: m.scoreBreakdown.waveletSpectrum,
+        emd: m.scoreBreakdown.emd,
+        tda: m.scoreBreakdown.tda,
+        transferEntropy: m.scoreBreakdown.transferEntropy,
+      },
     };
   });
 }
