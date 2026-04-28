@@ -30,7 +30,7 @@
  *   - Ring            — single progress arc for goal cards
  */
 
-import type { ReactNode } from "react";
+import { Fragment, type ReactNode } from "react";
 
 import type { DaySummary } from "./data";
 import { BASELINE, TAG_META } from "./data";
@@ -366,9 +366,11 @@ export function RhymeHeatmap({ days }: RhymeHeatmapProps) {
       ))}
       {days.map((d, di) => {
         const dow = d.date.toLocaleDateString("en-US", { weekday: "short" });
+        // Fragment carries the row's stable key so React's reconciler can
+        // diff per-day rather than re-keying every cell on row reorder.
         return (
-          <>
-            <div key={`lbl-${di}`} style={{ fontSize: 11, color: "#7a7a75", fontWeight: 500 }}>
+          <Fragment key={di}>
+            <div style={{ fontSize: 11, color: "#7a7a75", fontWeight: 500 }}>
               {dow}
             </div>
             {Array.from({ length: cols }, (_, c) => {
@@ -379,7 +381,7 @@ export function RhymeHeatmap({ days }: RhymeHeatmapProps) {
               const bg = `rgba(91,138,114,${0.10 + intensity * 0.7})`;
               return (
                 <div
-                  key={`${di}-${c}`}
+                  key={c}
                   title={`${dow} ${String(h).padStart(2, "0")}:00 — energy ${Math.round(d.energy * tod)}/100`}
                   style={{
                     aspectRatio: "1",
@@ -390,7 +392,7 @@ export function RhymeHeatmap({ days }: RhymeHeatmapProps) {
                 />
               );
             })}
-          </>
+          </Fragment>
         );
       })}
     </div>
