@@ -59,27 +59,27 @@ export function ScreenRhymes({ onCmdK }: ScreenProps) {
   const cone = useMemo(() => projectFromRhymes(rhymes, 14), [rhymes]);
 
   return (
-    <div className="content-col screen-fade">
+    <div className="cadence-content-col cadence-screen-fade">
       <Topbar
         crumbs={["Workspace", "Rhymes"]}
         onCmdK={onCmdK}
         actions={
-          <button className="btn">
+          <button className="cadence-btn">
             <Icon name="download" /> Export
           </button>
         }
       />
 
-      <div className="scroll">
-        <div className="scroll-pad">
+      <div className="cadence-scroll">
+        <div className="cadence-scroll-pad">
           {/* Hero */}
-          <div className="h-eyebrow mb-8">
+          <div className="cadence-h-eyebrow cadence-mb-8">
             Self-similarity over your own data · last 7 days
           </div>
-          <div className="h-display num" style={{ fontSize: 44 }}>
+          <div className="cadence-h-display cadence-num" style={{ fontSize: 44 }}>
             {rhymes.length} rhymes found
           </div>
-          <div className="row gap-12 mt-12 mb-20">
+          <div className="cadence-row cadence-gap-12 cadence-mt-12 cadence-mb-20">
             <Pill tone="pos" dot>
               best match {rhymes[0]?.score ?? 0}% similar
             </Pill>
@@ -88,16 +88,16 @@ export function ScreenRhymes({ onCmdK }: ScreenProps) {
                 14-day HRV projection {Math.round(cone[cone.length - 1].p10)}–{Math.round(cone[cone.length - 1].p90)}ms
               </Pill>
             )}
-            <span className="text-3 fz-12">
+            <span className="cadence-text-3 cadence-fz-12">
               5 channels · z-normalized RMSE · weighted-quantile cone
             </span>
           </div>
 
           {/* Forecast cone */}
-          <div className="card mt-8" style={{ padding: "16px 20px 12px 12px" }}>
+          <div className="cadence-card cadence-mt-8" style={{ padding: "16px 20px 12px 12px" }}>
             <div style={{ display: "flex", alignItems: "baseline", gap: 12, padding: "0 0 4px 12px" }}>
-              <div className="title fz-13 fw-6">14-day HRV projection</div>
-              <span className="text-3 fz-12">p10 / p50 / p90 across {rhymes.length} rhymes</span>
+              <div className="cadence-title cadence-fz-13 cadence-fw-6">14-day HRV projection</div>
+              <span className="cadence-text-3 cadence-fz-12">p10 / p50 / p90 across {rhymes.length} rhymes</span>
             </div>
             <ForecastCone
               cone={cone}
@@ -106,7 +106,7 @@ export function ScreenRhymes({ onCmdK }: ScreenProps) {
               yMin={Math.max(20, BASELINE.hrv - 30)}
               yMax={BASELINE.hrv + 30}
             />
-            <div className="row gap-16 mt-8 fz-11 text-3" style={{ paddingLeft: 38 }}>
+            <div className="cadence-row cadence-gap-16 cadence-mt-8 cadence-fz-11 cadence-text-3" style={{ paddingLeft: 38 }}>
               <span>
                 <span style={{ display: "inline-block", width: 14, borderTop: "2px solid var(--accent)", verticalAlign: "middle", marginRight: 4 }} />
                 p50 (median outcome)
@@ -119,9 +119,9 @@ export function ScreenRhymes({ onCmdK }: ScreenProps) {
           </div>
 
           {/* Rhyme cards */}
-          <div className="section-head mt-24">
-            <div className="title">Rhymes</div>
-            <div className="sub">Click to select · the cone uses all 5 weighted by similarity</div>
+          <div className="cadence-section-head cadence-mt-24">
+            <div className="cadence-title">Rhymes</div>
+            <div className="cadence-sub">Click to select · the cone uses all 5 weighted by similarity</div>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 12 }}>
             {rhymes.map((r, i) => (
@@ -137,14 +137,14 @@ export function ScreenRhymes({ onCmdK }: ScreenProps) {
           </div>
 
           {/* Methodology note */}
-          <div className="card tinted card-pad mt-24">
+          <div className="cadence-card cadence-card-tinted cadence-card-pad cadence-mt-24">
             <SectionHead title="How rhymes are found" sub="Methodology" />
-            <div className="text-2 fz-13" style={{ lineHeight: 1.6 }}>
+            <div className="cadence-text-2 cadence-fz-13" style={{ lineHeight: 1.6 }}>
               For each candidate 7-day window in your own history, Cadence
               z-normalizes 5 channels (HRV, RHR, sleep, energy, glucose),
               computes per-channel L2 distance to today&rsquo;s window, averages
               across channels, then maps to a similarity score
-              <span className="mono"> 100·exp(−distance)</span>. The 14 days
+              <span className="cadence-mono"> 100·exp(−distance)</span>. The 14 days
               that followed each rhyming window become the projection set,
               blended by similarity into the forecast cone above.
               <br />
@@ -174,21 +174,21 @@ function RhymeCard({ r, today, featured, onClick, rank }: RhymeCardProps) {
   return (
     <button
       onClick={onClick}
-      className={`rhyme-card ${featured ? "featured" : ""}`}
+      className={`cadence-rhyme-card ${featured ? "cadence-rhyme-card-featured" : ""}`}
       style={{ textAlign: "left", width: "100%", cursor: "pointer" }}
     >
-      <div className="rh-head">
-        <span className="text-3 fz-11 mono">#{rank}</span>
-        <span className="rh-date">
+      <div className="cadence-rh-head">
+        <span className="cadence-text-3 cadence-fz-11 cadence-mono">#{rank}</span>
+        <span className="cadence-rh-date">
           {FMT.shortDate(r.window[r.window.length - 1].date)} – {FMT.shortDate(r.window[0].date)}
         </span>
-        <span className="rh-score">{r.score}% match</span>
+        <span className="cadence-rh-score">{r.score}% match</span>
         {r.contextTag && (
           <Pill tone="default" style={{ background: TAG_META[r.contextTag].color + "22", color: TAG_META[r.contextTag].color }}>
             {TAG_META[r.contextTag].label}
           </Pill>
         )}
-        <span className="right text-3 fz-12" style={{ marginLeft: "auto", color: om.color, fontWeight: 600 }}>
+        <span className="cadence-right cadence-text-3 cadence-fz-12" style={{ marginLeft: "auto", color: om.color, fontWeight: 600 }}>
           {om.label}
         </span>
       </div>
@@ -201,9 +201,9 @@ function RhymeCard({ r, today, featured, onClick, rank }: RhymeCardProps) {
           const cur = today[0][c] as number;
           return (
             <div key={c}>
-              <div className="text-3 fz-11" style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 2 }}>
+              <div className="cadence-text-3 cadence-fz-11" style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 2 }}>
                 <span style={{ textTransform: "uppercase", letterSpacing: "0.04em", fontWeight: 550 }}>{c}</span>
-                <span className="mono">{cur}</span>
+                <span className="cadence-mono">{cur}</span>
               </div>
               <div style={{ position: "relative", height: 36 }}>
                 <div style={{ position: "absolute", inset: 0, opacity: 0.45 }}>

@@ -91,34 +91,34 @@ export function ScreenToday({ onCmdK, onNavigate }: ScreenProps) {
   };
 
   return (
-    <div className="content-col screen-fade">
+    <div className="cadence-content-col cadence-screen-fade">
       <Topbar
         crumbs={["Workspace", "Today"]}
         onCmdK={onCmdK}
         actions={
           <>
-            <button className="btn">
+            <button className="cadence-btn">
               <Icon name="download" /> Share
             </button>
-            <button className="btn primary" onClick={() => onNavigate("log")}>
+            <button className="cadence-btn cadence-btn-primary" onClick={() => onNavigate("log")}>
               <Icon name="plus" /> Log
             </button>
           </>
         }
       />
 
-      <div className="scroll">
-        <div className="scroll-pad">
+      <div className="cadence-scroll">
+        <div className="cadence-scroll-pad">
           {/* Hero */}
           <div style={{ display: "flex", alignItems: "flex-end", gap: 24, marginBottom: 4 }}>
             <div>
-              <div className="h-eyebrow mb-8">
+              <div className="cadence-h-eyebrow cadence-mb-8">
                 Recovery · {FMT.longDate(today.date)}
               </div>
-              <div className="h-display num" style={{ fontSize: 56 }}>
+              <div className="cadence-h-display cadence-num" style={{ fontSize: 56 }}>
                 {today.recovery}<span style={{ fontSize: 28, color: "var(--ink-3)" }}>%</span>
               </div>
-              <div className="row gap-12 mt-12">
+              <div className="cadence-row cadence-gap-12 cadence-mt-12">
                 <Pill tone={today.recovery >= 70 ? "pos" : today.recovery >= 50 ? "warn" : "neg"} dot>
                   {today.recovery >= 70 ? "Primed to train" : today.recovery >= 50 ? "Moderate" : "Take it easy"}
                 </Pill>
@@ -127,15 +127,15 @@ export function ScreenToday({ onCmdK, onNavigate }: ScreenProps) {
                     Rhymes with {FMT.shortDate(top.window[0].date)} · {top.score}% match
                   </Pill>
                 )}
-                <span className="text-3 fz-12">
+                <span className="cadence-text-3 cadence-fz-12">
                   HRV {today.hrv}ms · RHR {today.rhr} · Sleep {today.sleep.toFixed(1)}h
                 </span>
               </div>
             </div>
-            <div className="right" style={{ marginLeft: "auto" }}>
-              <div className="ring-wrap" style={{ width: 96, height: 96 }}>
+            <div className="cadence-right" style={{ marginLeft: "auto" }}>
+              <div className="cadence-ring-wrap" style={{ width: 96, height: 96 }}>
                 <Ring pct={today.recovery / 100} size={96} thickness={8} color="var(--accent)" />
-                <div className="ring-text" style={{ fontSize: 24 }}>{today.recovery}</div>
+                <div className="cadence-ring-text" style={{ fontSize: 24 }}>{today.recovery}</div>
               </div>
             </div>
           </div>
@@ -149,7 +149,7 @@ export function ScreenToday({ onCmdK, onNavigate }: ScreenProps) {
               marginTop: 24,
             }}
           >
-            <div className="metric-col">
+            <div className="cadence-metric-col">
               <MetricRow
                 icon="heart"
                 label="HRV"
@@ -206,13 +206,13 @@ export function ScreenToday({ onCmdK, onNavigate }: ScreenProps) {
               />
             </div>
 
-            <div className="card" style={{ padding: "16px 20px 8px 12px" }}>
+            <div className="cadence-card" style={{ padding: "16px 20px 8px 12px" }}>
               <div style={{ display: "flex", alignItems: "center", padding: "0 0 6px 12px" }}>
-                <div className="title fz-13 fw-6">Heart rate today</div>
-                <span className="text-3 fz-12" style={{ marginLeft: 10 }}>
+                <div className="cadence-title cadence-fz-13 cadence-fw-6">Heart rate today</div>
+                <span className="cadence-text-3 cadence-fz-12" style={{ marginLeft: 10 }}>
                   vs {overlay === "rhyme" && top ? `${FMT.shortDate(top.window[0].date)} (rhyme)` : overlay === "yesterday" ? "yesterday" : "your baseline"}
                 </span>
-                <div className="right" style={{ marginLeft: "auto" }}>
+                <div className="cadence-right" style={{ marginLeft: "auto" }}>
                   <SegControl
                     value={overlay}
                     onChange={(v) => setOverlay(v as OverlayChoice)}
@@ -248,15 +248,15 @@ export function ScreenToday({ onCmdK, onNavigate }: ScreenProps) {
               marginTop: 20,
             }}
           >
-            <div className="card card-pad">
+            <div className="cadence-card cadence-card-pad">
               <SectionHead
                 title="Energy heatmap"
                 sub="Last 7 days · 2-hour bins · darker = higher energy"
               />
               <RhymeHeatmap days={last7} />
-              <div className="row gap-8 mt-16 fz-11 text-3">
+              <div className="cadence-row cadence-gap-8 cadence-mt-16 cadence-fz-11 cadence-text-3">
                 <span>Less</span>
-                <div className="row gap-4">
+                <div className="cadence-row cadence-gap-4">
                   {[0.1, 0.3, 0.5, 0.7, 0.9].map((v) => (
                     <div
                       key={v}
@@ -273,19 +273,19 @@ export function ScreenToday({ onCmdK, onNavigate }: ScreenProps) {
               </div>
             </div>
 
-            <div className="card card-pad">
+            <div className="cadence-card cadence-card-pad">
               <SectionHead title="Context" sub="Last 30 days" />
               <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
-                <div className="donut-c" style={{ width: 160, height: 160 }}>
+                <div className="cadence-donut-c" style={{ width: 160, height: 160 }}>
                   <TagDonut days={last30} size={160} thickness={20} />
                 </div>
-                <div className="grow">
+                <div className="cadence-grow">
                   {tagBreakdown(last30).slice(0, 5).map((row) => (
-                    <div className="legend-row" key={row.key}>
-                      <span className="sw" style={{ background: row.color }} />
-                      <span className="lab">{row.label}</span>
-                      <span className="pct">{row.pct}%</span>
-                      <span className="amt">{row.n}d</span>
+                    <div className="cadence-legend-row" key={row.key}>
+                      <span className="cadence-sw" style={{ background: row.color }} />
+                      <span className="cadence-lab">{row.label}</span>
+                      <span className="cadence-pct">{row.pct}%</span>
+                      <span className="cadence-amt">{row.n}d</span>
                     </div>
                   ))}
                 </div>
@@ -294,7 +294,7 @@ export function ScreenToday({ onCmdK, onNavigate }: ScreenProps) {
           </div>
 
           {/* 30-day thread ribbon */}
-          <div className="card card-pad mt-20">
+          <div className="cadence-card cadence-card-pad cadence-mt-20">
             <SectionHead
               title="30-day thread"
               sub="Bar height = recovery · color = context"
@@ -304,10 +304,10 @@ export function ScreenToday({ onCmdK, onNavigate }: ScreenProps) {
 
           {/* Top rhyme — featured analogue */}
           {top && (
-            <div className="ai-bubble mt-20" style={{ display: "flex", gap: 18, alignItems: "flex-start" }}>
+            <div className="cadence-ai-bubble cadence-mt-20" style={{ display: "flex", gap: 18, alignItems: "flex-start" }}>
               <div style={{ flex: 1 }}>
-                <div className="ai-head">
-                  <span className="pulse" /> Top rhyme
+                <div className="cadence-ai-head">
+                  <span className="cadence-pulse" /> Top rhyme
                 </div>
                 <div>
                   Your last 7 days look like the week of{" "}
@@ -319,11 +319,11 @@ export function ScreenToday({ onCmdK, onNavigate }: ScreenProps) {
                   </span>
                   .
                 </div>
-                <div className="row gap-6 mt-12">
-                  <button className="btn" onClick={() => onNavigate("rhymes")}>
+                <div className="cadence-row cadence-gap-6 cadence-mt-12">
+                  <button className="cadence-btn" onClick={() => onNavigate("rhymes")}>
                     See all rhymes <Icon name="arrowRight" />
                   </button>
-                  <button className="btn ghost" onClick={() => setOverlay("rhyme")}>
+                  <button className="cadence-btn cadence-btn-ghost" onClick={() => setOverlay("rhyme")}>
                     Overlay on chart
                   </button>
                 </div>
@@ -350,14 +350,14 @@ interface MetricRowProps {
 
 function MetricRow({ icon, label, value, unit, delta, deltaUnit, tone }: MetricRowProps) {
   return (
-    <div className="metric-row">
-      <Icon name={icon} className="ico" />
-      <div className="lab">{label}</div>
+    <div className="cadence-metric-row">
+      <Icon name={icon} className="cadence-ico" />
+      <div className="cadence-lab">{label}</div>
       <div>
-        <span className="val">{value}</span>
-        <span className="unit">{unit}</span>
+        <span className="cadence-val">{value}</span>
+        <span className="cadence-unit">{unit}</span>
       </div>
-      <span className={`delta ${tone}`}>
+      <span className={`cadence-delta cadence-delta-${tone}`}>
         {delta > 0 ? "+" : ""}
         {Math.abs(delta) < 1 ? delta.toFixed(1) : delta.toFixed(0)}
         {deltaUnit}
