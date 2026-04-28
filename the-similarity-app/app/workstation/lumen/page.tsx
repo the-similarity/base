@@ -143,13 +143,19 @@ export default function LumenPage() {
   // colors but leave the workstation's own `data-theme` attribute (read
   // by some of its sub-components) on the previous value, producing a
   // half-themed view.
-  useEffect(() => {
-    setSettings((s) =>
-      s.theme === (tweaks.dark ? "dark" : "light")
-        ? s
-        : { ...s, theme: tweaks.dark ? "dark" : "light" },
-    );
-  }, [tweaks.dark]);
+  //
+  // We compute the merged settings object DURING RENDER instead of in a
+  // useEffect → setState pair. The previous effect-based mirror tripped
+  // the `react-hooks/set-state-in-effect` lint rule (the React Compiler
+  // treats post-render setState as a cascading-render anti-pattern).
+  // Deriving the value here is also cheaper: it avoids the extra render
+  // pass and keeps the prop in sync on the very first commit, without
+  // an intermediate "wrong theme" frame.
+  const desiredTheme: "dark" | "light" = tweaks.dark ? "dark" : "light";
+  const effectiveSettings: WorkstationSettings =
+    settings.theme === desiredTheme
+      ? settings
+      : { ...settings, theme: desiredTheme };
 
   // Cmd/Ctrl+K toggles the palette; Esc closes it. We attach to window
   // so the shortcut works regardless of focus location within the app.
@@ -227,7 +233,7 @@ export default function LumenPage() {
                 overflow: "hidden",
               }}
             >
-              <Workstation settings={settings} onSettings={setSettings} />
+              <Workstation settings={effectiveSettings} onSettings={setSettings} />
             </div>
           </div>
         </div>
