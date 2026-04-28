@@ -49,12 +49,8 @@ import type { TweakState } from "./_components/tweaks";
 import type { ScreenId } from "./_components/screen-types";
 
 import { ScreenToday } from "./_components/screens/today";
-import { ScreenFlow } from "./_components/screens/flow";
 import { ScreenRhymes } from "./_components/screens/rhymes";
-import { ScreenCycles } from "./_components/screens/cycles";
 import { ScreenLog } from "./_components/screens/log";
-import { ScreenTargets } from "./_components/screens/targets";
-import { ScreenGoals } from "./_components/screens/goals";
 import { ScreenSources } from "./_components/screens/sources";
 import { ScreenLabs } from "./_components/screens/labs";
 
@@ -99,8 +95,11 @@ export default function CadencePage() {
     const p = painterlyRef.current;
     if (p) {
       // The "paper" preset is a flat color, not a gradient; the underlying
-      // CSS handles the noise overlay either way.
-      p.style.background = BACKGROUNDS[tweaks.background] || BACKGROUNDS.bloom;
+      // CSS handles the noise overlay either way. The lookup is total over
+      // TweakState["background"] so no fallback is needed (and an old
+      // BACKGROUNDS.bloom fallback was a renamed-key leftover that broke
+      // tsc --noEmit + next build).
+      p.style.background = BACKGROUNDS[tweaks.background];
     }
   }, [tweaks]);
 
@@ -130,23 +129,11 @@ export default function CadencePage() {
     case "today":
       content = <ScreenToday {...screenProps} />;
       break;
-    case "flow":
-      content = <ScreenFlow {...screenProps} />;
-      break;
     case "rhymes":
       content = <ScreenRhymes {...screenProps} />;
       break;
-    case "cycles":
-      content = <ScreenCycles {...screenProps} />;
-      break;
     case "log":
       content = <ScreenLog {...screenProps} />;
-      break;
-    case "targets":
-      content = <ScreenTargets {...screenProps} />;
-      break;
-    case "goals":
-      content = <ScreenGoals {...screenProps} />;
       break;
     case "sources":
       content = <ScreenSources {...screenProps} />;

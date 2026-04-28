@@ -1,15 +1,10 @@
 /**
- * Cadence sidebar — left rail with brand mark, 3 nav groups, and user footer.
+ * Cadence sidebar — left rail with brand mark, flat 5-item nav, and user footer.
  *
- * Three groups (Today / Patterns / Plan) span 9 items total — one per
- * screen in the workstation. Mirrors Lumen's structure exactly so the
- * two routes feel like sibling products from the same family.
- *
- * Group rationale:
- *   - Today    — everything anchored to the current moment (today / flow / log)
- *   - Patterns — analogue retrieval over user's own past (rhymes / cycles)
- *   - Plan     — forward-looking commitments (targets / goals)
- *   - System   — connectivity + lab inputs (sources / labs)
+ * The slop cut collapsed Cadence from 9 screens to 5. With only five items
+ * remaining (Today / Rhymes / Log / Sources / Labs), the original 4 group
+ * labels (Today / Patterns / Plan / System) added more visual noise than
+ * navigation help — so the rail renders as a single ungrouped list.
  *
  * The "Rhymes" item carries a "NEW" pill to highlight the hero feature on
  * first visit.
@@ -34,41 +29,15 @@ interface NavItem {
   badge?: string | number;
 }
 
-interface NavGroup {
-  label: string;
-  items: NavItem[];
-}
-
-const GROUPS: NavGroup[] = [
-  {
-    label: "Today",
-    items: [
-      { id: "today", name: "Today", icon: "heartPulse" },
-      { id: "flow", name: "Flow", icon: "waveform" },
-      { id: "log", name: "Log", icon: "ledger" },
-    ],
-  },
-  {
-    label: "Patterns",
-    items: [
-      { id: "rhymes", name: "Rhymes", icon: "echoRings", badge: "NEW" },
-      { id: "cycles", name: "Cycles", icon: "circleArrow" },
-    ],
-  },
-  {
-    label: "Plan",
-    items: [
-      { id: "targets", name: "Targets", icon: "target" },
-      { id: "goals", name: "Goals", icon: "flag" },
-    ],
-  },
-  {
-    label: "System",
-    items: [
-      { id: "sources", name: "Sources", icon: "plug" },
-      { id: "labs", name: "Labs", icon: "beaker" },
-    ],
-  },
+// Flat nav — no groups. Order intentionally matches Cmd+K palette so users
+// who learn the keyboard shortcut find the same vertical scan order in the
+// rail.
+const NAV: NavItem[] = [
+  { id: "today", name: "Today", icon: "heartPulse" },
+  { id: "rhymes", name: "Rhymes", icon: "echoRings", badge: "NEW" },
+  { id: "log", name: "Log", icon: "ledger" },
+  { id: "sources", name: "Sources", icon: "plug" },
+  { id: "labs", name: "Labs", icon: "beaker" },
 ];
 
 export function Sidebar({ current, onNavigate }: SidebarProps) {
@@ -80,38 +49,33 @@ export function Sidebar({ current, onNavigate }: SidebarProps) {
         <div className="cadence-brand-sub">v1</div>
       </div>
 
-      {GROUPS.map((g) => (
-        <div className="cadence-nav-group" key={g.label}>
-          <div className="cadence-nav-label">{g.label}</div>
-          {g.items.map((it) => (
-            <button
-              key={it.id}
-              className={`cadence-nav-item ${current === it.id ? "is-active" : ""}`}
-              onClick={() => onNavigate(it.id)}
-            >
-              <Icon name={it.icon} />
-              <span>{it.name}</span>
-              {it.badge !== undefined &&
-                (typeof it.badge === "string" ? (
-                  // Text badge ("NEW") gets the sage-green pill style.
-                  <span
-                    className="cadence-pill cadence-pill-pos"
-                    style={{
-                      marginLeft: "auto",
-                      height: 17,
-                      padding: "0 6px",
-                      fontSize: 10,
-                    }}
-                  >
-                    {it.badge}
-                  </span>
-                ) : (
-                  // Numeric badge (count) gets the neutral pill.
-                  <span className="cadence-badge">{it.badge}</span>
-                ))}
-            </button>
-          ))}
-        </div>
+      {NAV.map((it) => (
+        <button
+          key={it.id}
+          className={`cadence-nav-item ${current === it.id ? "is-active" : ""}`}
+          onClick={() => onNavigate(it.id)}
+        >
+          <Icon name={it.icon} />
+          <span>{it.name}</span>
+          {it.badge !== undefined &&
+            (typeof it.badge === "string" ? (
+              // Text badge ("NEW") gets the sage-green pill style.
+              <span
+                className="cadence-pill cadence-pill-pos"
+                style={{
+                  marginLeft: "auto",
+                  height: 17,
+                  padding: "0 6px",
+                  fontSize: 10,
+                }}
+              >
+                {it.badge}
+              </span>
+            ) : (
+              // Numeric badge (count) gets the neutral pill.
+              <span className="cadence-badge">{it.badge}</span>
+            ))}
+        </button>
       ))}
 
       <div className="cadence-sidebar-foot">

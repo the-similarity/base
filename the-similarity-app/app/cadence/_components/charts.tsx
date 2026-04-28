@@ -18,23 +18,18 @@
  *
  * Components:
  *   - Sparkline       — small inline trend line, optional fill + dot
- *   - DayTrajectory   — today's HR over 24h with up to 3 compare overlays
- *   - ChannelMini     — small-multiples row used by /flow
- *   - RhymeHeatmap    — 7-day × 12-hour intensity grid (Today screen)
- *   - TagDonut        — context donut (travel/illness/training/normal)
- *   - ThreadRibbon    — 30-day thin-bar history strip
+ *   - DayTrajectory   — today's HR over 24h with overlay (used by /today)
  *   - ForecastCone    — line + p10/p90 fan area for /rhymes
- *   - PolarCycle      — polar bar/area chart for /cycles
- *   - LabTrend        — 5-point lab trendline with optimal range band
- *   - Donut           — concentric arcs sized by stroke-dasharray
- *   - Ring            — single progress arc for goal cards
+ *   - LabTrend        — 5-point lab trendline with optimal range band (/labs)
+ *   - Ring            — single progress arc (used by Today recovery hero)
+ *
+ * RhymeHeatmap, TagDonut, ThreadRibbon, ChannelMini, PolarCycle, and the
+ * inner Donut primitive were removed in the slop cut along with the
+ * screens / sections that consumed them.
  */
 
-import { Fragment, type ReactNode } from "react";
+import { type ReactNode } from "react";
 
-import type { DaySummary } from "./data";
-import { BASELINE, TAG_META } from "./data";
-import type { ChannelSeries } from "./data";
 import type { ForecastPoint } from "../engine";
 
 // =====================================================================
@@ -280,193 +275,6 @@ export function DayTrajectory({
 }
 
 // =====================================================================
-// ChannelMini — small-multiple row used by /flow.
-// =====================================================================
-//
-// Compact 24h sparkline for a single channel with label, current value,
-// and a faint baseline reference line. Designed to stack vertically.
-
-export interface ChannelMiniProps {
-  channel: ChannelSeries;
-  height?: number;
-}
-
-export function ChannelMini({ channel, height = 88 }: ChannelMiniProps) {
-  const W = 800;
-  const H = height;
-  const P = { l: 50, r: 12, t: 12, b: 18 };
-  const [yMin, yMax] = channel.range;
-  const xStep = (W - P.l - P.r) / (channel.series.length - 1);
-  const yScale = (v: number) =>
-    P.t + (1 - (v - yMin) / (yMax - yMin)) * (H - P.t - P.b);
-  const pts: [number, number][] = channel.series.map((v, i) => [
-    P.l + i * xStep,
-    yScale(v),
-  ]);
-  let d = `M ${pts[0][0]} ${pts[0][1]}`;
-  for (let i = 1; i < pts.length; i++) {
-    const [px, py] = pts[i - 1];
-    const [x, y] = pts[i];
-    const cx = (px + x) / 2;
-    d += ` C ${cx} ${py}, ${cx} ${y}, ${x} ${y}`;
-  }
-  const fillD =
-    d + ` L ${pts[pts.length - 1][0]} ${H - P.b} L ${pts[0][0]} ${H - P.b} Z`;
-  return (
-    <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ width: "100%", height: H }}>
-      <defs>
-        <linearGradient id={`chan-${channel.key}`} x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0%" stopColor={channel.color} stopOpacity="0.18" />
-          <stop offset="100%" stopColor={channel.color} stopOpacity="0" />
-        </linearGradient>
-      </defs>
-      {/* baseline tick line at midpoint */}
-      <line
-        x1={P.l}
-        x2={W - P.r}
-        y1={yScale((yMin + yMax) / 2)}
-        y2={yScale((yMin + yMax) / 2)}
-        stroke="#ececea"
-        strokeDasharray="2 4"
-      />
-      <text x={P.l - 6} y={yScale(yMax) + 3} fontSize="9" fill="#a8a8a3" textAnchor="end" fontFamily="JetBrains Mono">{yMax}</text>
-      <text x={P.l - 6} y={yScale(yMin) + 3} fontSize="9" fill="#a8a8a3" textAnchor="end" fontFamily="JetBrains Mono">{yMin}</text>
-      <path d={fillD} fill={`url(#chan-${channel.key})`} />
-      <path d={d} fill="none" stroke={channel.color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-// =====================================================================
-// RhymeHeatmap — 7-day × 12-hour intensity grid (Today screen).
-// =====================================================================
-//
-// Shows the user's last 7 days as rows × 12 two-hour bins as columns.
-// Cell intensity = energy level (0-100). Sage-tinted palette so it reads
-// as biological.
-
-export interface RhymeHeatmapProps {
-  days: DaySummary[]; // last 7 days, most recent first
-}
-
-export function RhymeHeatmap({ days }: RhymeHeatmapProps) {
-  // 12 columns: 0-2, 2-4, …, 22-24
-  const cols = 12;
-  // Synthesize hourly intensity per day from the day's energy + a smooth
-  // morning-low / evening-high curve. Demo-only — real version would use
-  // hourly steps + HR.
-  return (
-    <div style={{ display: "grid", gridTemplateColumns: `60px repeat(${cols}, 1fr)`, gap: 4, alignItems: "center" }}>
-      {/* header row: 2-hour labels */}
-      <div />
-      {Array.from({ length: cols }, (_, c) => (
-        <div key={c} style={{ fontSize: 9, fontFamily: "JetBrains Mono", color: "#a8a8a3", textAlign: "center" }}>
-          {String(c * 2).padStart(2, "0")}
-        </div>
-      ))}
-      {days.map((d, di) => {
-        const dow = d.date.toLocaleDateString("en-US", { weekday: "short" });
-        // Fragment carries the row's stable key so React's reconciler can
-        // diff per-day rather than re-keying every cell on row reorder.
-        return (
-          <Fragment key={di}>
-            <div style={{ fontSize: 11, color: "#7a7a75", fontWeight: 500 }}>
-              {dow}
-            </div>
-            {Array.from({ length: cols }, (_, c) => {
-              const h = c * 2;
-              // Intensity model: low overnight, peak mid-afternoon
-              const tod = Math.cos(((h - 14) / 24) * Math.PI * 2) * 0.5 + 0.5;
-              const intensity = Math.pow((d.energy / 100) * tod, 0.7);
-              const bg = `rgba(91,138,114,${0.10 + intensity * 0.7})`;
-              return (
-                <div
-                  key={c}
-                  title={`${dow} ${String(h).padStart(2, "0")}:00 — energy ${Math.round(d.energy * tod)}/100`}
-                  style={{
-                    aspectRatio: "1",
-                    borderRadius: 3,
-                    background: bg,
-                    minHeight: 18,
-                  }}
-                />
-              );
-            })}
-          </Fragment>
-        );
-      })}
-    </div>
-  );
-}
-
-// =====================================================================
-// TagDonut — distribution of tagged contexts across last 30 days.
-// =====================================================================
-
-export interface TagDonutProps {
-  days: DaySummary[]; // last 30 days
-  size?: number;
-  thickness?: number;
-}
-
-export function TagDonut({ days, size = 160, thickness = 22 }: TagDonutProps) {
-  const counts: Record<string, number> = {};
-  for (const d of days) {
-    const t = d.tag ?? "normal";
-    counts[t] = (counts[t] || 0) + 1;
-  }
-  const slices = Object.entries(counts)
-    .map(([t, n]) => ({
-      label: TAG_META[t as keyof typeof TAG_META]?.label ?? t,
-      color: TAG_META[t as keyof typeof TAG_META]?.color ?? "#7a7a75",
-      value: n,
-      cat: t,
-    }))
-    .sort((a, b) => b.value - a.value);
-  return <Donut slices={slices} size={size} thickness={thickness} />;
-}
-
-// =====================================================================
-// ThreadRibbon — last 30 days as a horizontal strip of colored bars.
-// =====================================================================
-//
-// Each bar = one day. Height encodes recovery (0-100), color encodes the
-// day's tag. Hover tooltip via <title>.
-
-export interface ThreadRibbonProps {
-  days: DaySummary[]; // last 30 days, most recent first
-  height?: number;
-}
-
-export function ThreadRibbon({ days, height = 50 }: ThreadRibbonProps) {
-  // Reverse so the most-recent is on the right (timeline reads left=old → right=new)
-  const order = [...days].reverse();
-  return (
-    <div style={{ display: "flex", alignItems: "flex-end", gap: 2, height }}>
-      {order.map((d, i) => {
-        const h = (d.recovery / 100) * height;
-        const color = d.tag ? TAG_META[d.tag].color : "#5b8a72";
-        const dow = d.date.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
-        return (
-          <div
-            key={i}
-            title={`${dow} — recovery ${d.recovery}, HRV ${d.hrv}ms, RHR ${d.rhr}${d.tag ? ` · ${TAG_META[d.tag].label}` : ""}`}
-            style={{
-              flex: 1,
-              minWidth: 4,
-              height: Math.max(4, h),
-              borderRadius: 2,
-              background: color,
-              opacity: 0.8,
-            }}
-          />
-        );
-      })}
-    </div>
-  );
-}
-
-// =====================================================================
 // ForecastCone — line (median) + p10/p90 fan area for /rhymes.
 // =====================================================================
 
@@ -564,75 +372,6 @@ export function ForecastCone({
 }
 
 // =====================================================================
-// PolarCycle — polar bar chart for /cycles (recurring patterns).
-// =====================================================================
-
-export interface PolarCycleProps {
-  /** Categorical labels around the perimeter (e.g. ["Mon","Tue",...]). */
-  labels: string[];
-  /** Values, one per label, scaled to 0-1. */
-  values: number[];
-  size?: number;
-  color?: string;
-}
-
-export function PolarCycle({
-  labels,
-  values,
-  size = 220,
-  color = "#5b8a72",
-}: PolarCycleProps) {
-  const cx = size / 2;
-  const cy = size / 2;
-  const rOuter = size / 2 - 24;
-  const rInner = rOuter * 0.4;
-  const n = labels.length;
-  const angle = (i: number) => (i / n) * Math.PI * 2 - Math.PI / 2;
-  const sweep = (Math.PI * 2) / n;
-
-  // Build sector paths. Each sector spans from angle(i) - sweep/2 to + sweep/2,
-  // with outer radius = rInner + (rOuter - rInner) * value.
-  const sectors = values.map((v, i) => {
-    const a = angle(i);
-    const a0 = a - sweep / 2 + 0.02;
-    const a1 = a + sweep / 2 - 0.02;
-    const r = rInner + (rOuter - rInner) * Math.max(0, Math.min(1, v));
-    const x0 = cx + r * Math.cos(a0);
-    const y0 = cy + r * Math.sin(a0);
-    const x1 = cx + r * Math.cos(a1);
-    const y1 = cy + r * Math.sin(a1);
-    const ix0 = cx + rInner * Math.cos(a0);
-    const iy0 = cy + rInner * Math.sin(a0);
-    const ix1 = cx + rInner * Math.cos(a1);
-    const iy1 = cy + rInner * Math.sin(a1);
-    const large = a1 - a0 > Math.PI ? 1 : 0;
-    return `M ${ix0} ${iy0} L ${x0} ${y0} A ${r} ${r} 0 ${large} 1 ${x1} ${y1} L ${ix1} ${iy1} A ${rInner} ${rInner} 0 ${large} 0 ${ix0} ${iy0} Z`;
-  });
-
-  return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-      {/* track */}
-      <circle cx={cx} cy={cy} r={rInner} fill="none" stroke="#ececea" strokeWidth="1" />
-      <circle cx={cx} cy={cy} r={rOuter} fill="none" stroke="#ececea" strokeWidth="1" strokeDasharray="2 4" />
-      {sectors.map((d, i) => (
-        <path key={i} d={d} fill={color} fillOpacity={0.22 + values[i] * 0.55} stroke={color} strokeOpacity="0.4" />
-      ))}
-      {labels.map((l, i) => {
-        const a = angle(i);
-        const r = rOuter + 14;
-        const x = cx + r * Math.cos(a);
-        const y = cy + r * Math.sin(a);
-        return (
-          <text key={i} x={x} y={y + 3} fontSize="10" fill="#7a7a75" textAnchor="middle" fontFamily="Inter" fontWeight="500">
-            {l}
-          </text>
-        );
-      })}
-    </svg>
-  );
-}
-
-// =====================================================================
 // LabTrend — 5-point trendline with optimal range band.
 // =====================================================================
 
@@ -685,62 +424,7 @@ export function LabTrend({
 }
 
 // =====================================================================
-// Donut — concentric arcs sized by stroke-dasharray; rotated -90° so
-// slices start at the top.
-// =====================================================================
-
-export interface DonutSlice {
-  value: number;
-  color: string;
-  label?: string;
-  cat?: string;
-}
-
-export interface DonutProps {
-  slices: DonutSlice[];
-  size?: number;
-  thickness?: number;
-}
-
-export function Donut({ slices, size = 200, thickness = 24 }: DonutProps) {
-  const total = slices.reduce((s, x) => s + x.value, 0);
-  const r = size / 2 - thickness / 2;
-  const cx = size / 2;
-  const cy = size / 2;
-  const len = 2 * Math.PI * r;
-  const fractions = slices.map((s) => (total > 0 ? s.value / total : 0));
-  const startFractions = fractions.map((_, i) =>
-    fractions.slice(0, i).reduce((sum, f) => sum + f, 0)
-  );
-  const arcs = slices.map((s, i) => ({
-    color: s.color,
-    dash: fractions[i] * len,
-    offset: -startFractions[i] * len,
-  }));
-  return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-      <circle cx={cx} cy={cy} r={r} fill="none" stroke="#ececea" strokeWidth={thickness} />
-      {arcs.map((a, i) => (
-        <circle
-          key={i}
-          cx={cx}
-          cy={cy}
-          r={r}
-          fill="none"
-          stroke={a.color}
-          strokeWidth={thickness}
-          strokeDasharray={`${a.dash} ${len - a.dash}`}
-          strokeDashoffset={a.offset}
-          transform={`rotate(-90 ${cx} ${cy})`}
-          strokeLinecap="butt"
-        />
-      ))}
-    </svg>
-  );
-}
-
-// =====================================================================
-// Ring — single progress arc for goal cards.
+// Ring — single progress arc (used by Today recovery hero).
 // =====================================================================
 
 export interface RingProps {

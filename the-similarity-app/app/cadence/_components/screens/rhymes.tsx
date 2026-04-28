@@ -31,7 +31,7 @@
  */
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Icon } from "../icons";
 import { Pill, Topbar, SectionHead } from "../shared";
 import { ForecastCone, Sparkline } from "../charts";
@@ -42,8 +42,6 @@ import type { RhymeWindow } from "../../engine";
 import type { ScreenProps } from "../screen-types";
 
 export function ScreenRhymes({ onCmdK }: ScreenProps) {
-  const [selected, setSelected] = useState(0);
-
   const last7 = DAYS.slice(0, 7);
   const today = DAYS[0];
 
@@ -89,7 +87,7 @@ export function ScreenRhymes({ onCmdK }: ScreenProps) {
               </Pill>
             )}
             <span className="cadence-text-3 cadence-fz-12">
-              5 channels · z-normalized RMSE · weighted-quantile cone
+              5 channels · 14-day forecast blended from past matches
             </span>
           </div>
 
@@ -118,10 +116,13 @@ export function ScreenRhymes({ onCmdK }: ScreenProps) {
             </div>
           </div>
 
-          {/* Rhyme cards */}
+          {/* Rhyme cards — display-only. The cone above already uses
+              all five weighted by similarity, so there is nothing to
+              select. Click affordance was removed in the slop cut so the
+              cards do not advertise interactivity that does not exist. */}
           <div className="cadence-section-head cadence-mt-24">
             <div className="cadence-title">Rhymes</div>
-            <div className="cadence-sub">Click to select · the cone uses all 5 weighted by similarity</div>
+            <div className="cadence-sub">All 5 contribute to the cone, weighted by similarity</div>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 12 }}>
             {rhymes.map((r, i) => (
@@ -129,24 +130,21 @@ export function ScreenRhymes({ onCmdK }: ScreenProps) {
                 key={`${r.startIdx}-${r.endIdx}`}
                 r={r}
                 today={last7}
-                featured={i === selected}
-                onClick={() => setSelected(i)}
                 rank={i + 1}
               />
             ))}
           </div>
 
-          {/* Methodology note */}
+          {/* Methodology note — plain English. Slop-cut copy: drop
+              z-normalized RMSE / weighted-quantile cone jargon and
+              describe the actual mechanic in one sentence. */}
           <div className="cadence-card cadence-card-tinted cadence-card-pad cadence-mt-24">
             <SectionHead title="How rhymes are found" sub="Methodology" />
             <div className="cadence-text-2 cadence-fz-13" style={{ lineHeight: 1.6 }}>
-              For each candidate 7-day window in your own history, Cadence
-              z-normalizes 5 channels (HRV, RHR, sleep, energy, glucose),
-              computes per-channel L2 distance to today&rsquo;s window, averages
-              across channels, then maps to a similarity score
-              <span className="cadence-mono"> 100·exp(−distance)</span>. The 14 days
-              that followed each rhyming window become the projection set,
-              blended by similarity into the forecast cone above.
+              Each past week is scored by how similar its 5 metrics
+              (HRV, RHR, sleep, energy, glucose) are to today&rsquo;s. The 14 days
+              that followed each match are blended by similarity to forecast
+              what&rsquo;s likely next.
               <br />
               <br />
               No cohort. No HIPAA. No &ldquo;is this stranger like me.&rdquo;
@@ -164,19 +162,17 @@ export function ScreenRhymes({ onCmdK }: ScreenProps) {
 interface RhymeCardProps {
   r: RhymeWindow;
   today: DaySummary[];
-  featured?: boolean;
-  onClick: () => void;
   rank: number;
 }
 
-function RhymeCard({ r, today, featured, onClick, rank }: RhymeCardProps) {
+// Display-only card. Kept as a <div> (not a <button>) so screen
+// readers + the cursor do not advertise interactivity that does not
+// exist — the slop cut removed the click-to-select behaviour because
+// the cone is already a weighted blend of all rhymes.
+function RhymeCard({ r, today, rank }: RhymeCardProps) {
   const om = OUTCOME_META[r.outcomeLabel];
   return (
-    <button
-      onClick={onClick}
-      className={`cadence-rhyme-card ${featured ? "cadence-rhyme-card-featured" : ""}`}
-      style={{ textAlign: "left", width: "100%", cursor: "pointer" }}
-    >
+    <div className="cadence-rhyme-card" style={{ textAlign: "left", width: "100%" }}>
       <div className="cadence-rh-head">
         <span className="cadence-text-3 cadence-fz-11 cadence-mono">#{rank}</span>
         <span className="cadence-rh-date">
@@ -217,6 +213,6 @@ function RhymeCard({ r, today, featured, onClick, rank }: RhymeCardProps) {
           );
         })}
       </div>
-    </button>
+    </div>
   );
 }
