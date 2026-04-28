@@ -1050,9 +1050,15 @@ export const LUMEN_CSS = `
      without extra padding here. */
   .lumen-app .workstation > .right {
     position: absolute;
-    top: 0;
-    right: 0;
-    bottom: 0;
+    /* Inset by 14px on top/right/bottom to match .lumen-shell's padding.
+       Absolute positioning anchors to the shell's padding box (= the
+       element's outer edge since the shell has no border), so top/right/
+       bottom: 0 would place this 14px ABOVE, BEYOND, and BELOW the
+       content area where .lumen-main lives -- making this card 28px
+       taller than .lumen-main. Inset to 14px aligns the two cards. */
+    top: 14px;
+    right: 14px;
+    bottom: 14px;
     width: 320px;
     /* Lumen card chrome -- mirror .lumen-main exactly. */
     background: var(--surface);
