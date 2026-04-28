@@ -80,11 +80,11 @@ export function TweaksPanel({ tweaks, setTweaks }: TweaksPanelProps) {
       <div className="cadence-tweaks-body">
         {/* Accent section — 5 brand-friendly swatches */}
         <div className="cadence-tweaks-sect">Accent</div>
-        <div className="tweak-swatch-row">
+        <div className="cadence-tweak-swatch-row">
           {ACCENTS.map((a) => (
             <button
               key={a.v}
-              className={`tweak-swatch ${tweaks.accent === a.v ? "active" : ""}`}
+              className={`cadence-tweak-swatch ${tweaks.accent === a.v ? "is-active" : ""}`}
               style={{ background: a.v }}
               title={a.l}
               aria-label={`Accent ${a.l}`}
@@ -99,7 +99,7 @@ export function TweaksPanel({ tweaks, setTweaks }: TweaksPanelProps) {
           {BG_OPTIONS.map((o) => (
             <button
               key={o.value}
-              className={tweaks.background === o.value ? "active" : ""}
+              className={tweaks.background === o.value ? "is-active" : ""}
               onClick={() =>
                 setTweaks((t) => ({ ...t, background: o.value }))
               }

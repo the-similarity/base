@@ -13,6 +13,11 @@
  *
  * The "Rhymes" item carries a "NEW" pill to highlight the hero feature on
  * first visit.
+ *
+ * Class names are all `cadence-` prefixed — the page-scoped stylesheet
+ * (styles.tsx) only matches `.cadence-app .cadence-foo` selectors. Any
+ * un-prefixed class on this rail will be styled by `app/globals.css`
+ * (which has `.brand`, `.sidebar`, etc.) and break the layout.
  */
 import type { ScreenId } from "./screen-types";
 import { Icon } from "./icons";
@@ -68,20 +73,20 @@ const GROUPS: NavGroup[] = [
 
 export function Sidebar({ current, onNavigate }: SidebarProps) {
   return (
-    <aside className="sidebar">
-      <div className="brand">
-        <div className="brand-mark">C</div>
-        <div className="brand-name">Cadence</div>
-        <div className="brand-sub">v1</div>
+    <aside className="cadence-sidebar">
+      <div className="cadence-brand">
+        <div className="cadence-brand-mark">C</div>
+        <div className="cadence-brand-name">Cadence</div>
+        <div className="cadence-brand-sub">v1</div>
       </div>
 
       {GROUPS.map((g) => (
-        <div className="nav-group" key={g.label}>
-          <div className="nav-label">{g.label}</div>
+        <div className="cadence-nav-group" key={g.label}>
+          <div className="cadence-nav-label">{g.label}</div>
           {g.items.map((it) => (
             <button
               key={it.id}
-              className={`nav-item ${current === it.id ? "active" : ""}`}
+              className={`cadence-nav-item ${current === it.id ? "is-active" : ""}`}
               onClick={() => onNavigate(it.id)}
             >
               <Icon name={it.icon} />
@@ -90,7 +95,7 @@ export function Sidebar({ current, onNavigate }: SidebarProps) {
                 (typeof it.badge === "string" ? (
                   // Text badge ("NEW") gets the sage-green pill style.
                   <span
-                    className="pill pos"
+                    className="cadence-pill cadence-pill-pos"
                     style={{
                       marginLeft: "auto",
                       height: 17,
@@ -102,21 +107,21 @@ export function Sidebar({ current, onNavigate }: SidebarProps) {
                   </span>
                 ) : (
                   // Numeric badge (count) gets the neutral pill.
-                  <span className="badge">{it.badge}</span>
+                  <span className="cadence-badge">{it.badge}</span>
                 ))}
             </button>
           ))}
         </div>
       ))}
 
-      <div className="sidebar-foot">
-        <div className="avatar">B</div>
-        <div className="col" style={{ minWidth: 0 }}>
-          <div className="who">Buba</div>
-          <div className="plan">Cadence</div>
+      <div className="cadence-sidebar-foot">
+        <div className="cadence-avatar">B</div>
+        <div className="cadence-col" style={{ minWidth: 0 }}>
+          <div className="cadence-who">Buba</div>
+          <div className="cadence-plan">Cadence</div>
         </div>
         <button
-          className="icon-btn"
+          className="cadence-icon-btn"
           style={{ marginLeft: "auto" }}
           onClick={() => onNavigate("today")}
           title="Settings"
