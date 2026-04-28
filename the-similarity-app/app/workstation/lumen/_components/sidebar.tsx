@@ -1,7 +1,15 @@
 /**
- * Lumen sidebar — left rail with The Similarity wordmark, three nav
- * groups (WORKSTATION / FINANCE / REPORTS), and a small workspace
- * footer.
+ * Lumen sidebar — left rail with The Similarity wordmark, a single
+ * "Workstation" nav group, and a small workspace footer.
+ *
+ * History note: this file used to render three groups (Workstation /
+ * Finance / Reports) wired to nine inert mockup screens. The Lumen
+ * route now embeds the real Workstation component, so the rail
+ * collapses to one always-active "Retrieve" entry plus an
+ * informational "Catalog" row. The `current` and `onNavigate` props
+ * are kept as inert pass-throughs so the page-level type contract
+ * (`ScreenId`) doesn't need to change shape just because navigation
+ * has nowhere to go right now.
  *
  * The brand mark is a 22x22 SVG of three nested circles (the
  * self-similarity primitive) drawn with `currentColor` so it inherits
@@ -24,6 +32,11 @@ interface NavItem {
   id: ScreenId;
   name: string;
   icon: string;
+  // When `inert` is true the row is rendered as decorative — it still
+  // calls onNavigate (which is a no-op for non-`retrieve` ids in the
+  // current page contract) but never appears active. Used for the
+  // Catalog row, which is informational only.
+  inert?: boolean;
 }
 
 interface NavGroup {
@@ -32,37 +45,19 @@ interface NavGroup {
 }
 
 /**
- * Three-group nav. Order:
- *   WORKSTATION → the headline analog-retrieval entry point
- *   FINANCE     → run-management surfaces (Runs / Compare / Reviews / Dashboard)
- *   REPORTS     → narrative + portfolio surfaces (Strategy / Cadence / Case Studies / Reports)
- *
- * Adding a new screen requires extending `ScreenId` and the page
- * switch in `page.tsx` — see screen-types.ts for the contract.
+ * Single-group nav. The Lumen route is a contained workstation page —
+ * there is exactly one screen (Retrieve, the embedded Workstation
+ * component). Catalog is included as a second row purely so the rail
+ * doesn't feel empty; clicking it is a no-op for now.
  */
 const GROUPS: NavGroup[] = [
   {
     label: "Workstation",
     items: [
       { id: "retrieve", name: "Retrieve", icon: "target" },
-    ],
-  },
-  {
-    label: "Finance",
-    items: [
-      { id: "runs", name: "Runs", icon: "list" },
-      { id: "compare", name: "Compare", icon: "grid" },
-      { id: "reviews", name: "Reviews", icon: "note" },
-      { id: "dashboard", name: "Dashboard", icon: "pie" },
-    ],
-  },
-  {
-    label: "Reports",
-    items: [
-      { id: "strategy", name: "Strategy", icon: "trend" },
-      { id: "cadence", name: "Cadence", icon: "flow" },
-      { id: "case-studies", name: "Case Studies", icon: "book" },
-      { id: "reports", name: "Reports", icon: "receipt" },
+      // Catalog is decorative — there's no second screen to route to.
+      // Marked inert so the row never shows the active state.
+      { id: "retrieve", name: "Catalog", icon: "bank", inert: true },
     ],
   },
 ];
@@ -107,16 +102,23 @@ export function Sidebar({ current, onNavigate }: SidebarProps) {
       {GROUPS.map((g) => (
         <div className="lumen-nav-group" key={g.label}>
           <div className="lumen-nav-label">{g.label}</div>
-          {g.items.map((it) => (
-            <button
-              key={it.id}
-              className={`lumen-nav-item ${current === it.id ? "is-active" : ""}`}
-              onClick={() => onNavigate(it.id)}
-            >
-              <Icon name={it.icon} />
-              <span>{it.name}</span>
-            </button>
-          ))}
+          {g.items.map((it, idx) => {
+            // Active when the row's id matches AND it isn't marked
+            // decorative. Without the `inert` guard the Catalog row
+            // (which shares the `retrieve` id) would always paint as
+            // active alongside Retrieve.
+            const isActive = !it.inert && current === it.id;
+            return (
+              <button
+                key={`${it.id}-${idx}`}
+                className={`lumen-nav-item ${isActive ? "is-active" : ""}`}
+                onClick={() => onNavigate(it.id)}
+              >
+                <Icon name={it.icon} />
+                <span>{it.name}</span>
+              </button>
+            );
+          })}
         </div>
       ))}
 

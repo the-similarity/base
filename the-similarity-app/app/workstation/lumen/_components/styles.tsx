@@ -73,6 +73,130 @@ export const LUMEN_CSS = `
 .lumen-app textarea,
 .lumen-app select { font-family: inherit; }
 
+/* ====================================================================
+ * Lumen palette overrides for the embedded <Workstation> component.
+ *
+ * These shadow the same custom properties defined on :root by
+ * app/globals.css. Because they live deeper in the cascade (under
+ * .lumen-app), every descendant of the Lumen route picks the Lumen
+ * palette instead of the app's default Newsreader-on-burgundy theme.
+ *
+ * That is the load-bearing trick that lets us re-skin the entire
+ * 3000-line Workstation component without touching a single line in
+ * components/workstation/*. Anything that uses var(--bg), var(--ink),
+ * var(--accent), etc. inside the Workstation tree resolves against
+ * THESE values, not :root's.
+ *
+ * Token mapping reference (apps/globals.css → Lumen):
+ *   --bg            → paper beige                #f4f1ea
+ *   --bg-card       → white surface              #ffffff
+ *   --ink           → near-black ink             #161614
+ *   --rule          → soft beige rule            #ececea
+ *   --positive      → forest green (Lumen accent) #0a6b48
+ *   --negative      → muted brick                 #b14a3a
+ *   --accent        → forest green                #0a6b48
+ *   --serif         → Instrument Serif (display)
+ *   --sans          → Inter
+ *   --mono          → JetBrains Mono
+ *
+ * Analog/cone color tokens are also overridden so the chart's analog
+ * lines + forecast cone use Lumen-friendly hues instead of the
+ * burgundy/oxblood roster from the standalone route.
+ * ==================================================================== */
+.lumen-app {
+  --bg: #f4f1ea;
+  --bg-elevated: #ffffff;
+  --bg-card: #ffffff;
+  --bg-inset: #faf9f6;
+  --bg-hover: #f4f3ef;
+
+  --ink: #161614;
+  --ink-2: #3d3d3a;
+  --ink-3: #7a7a75;
+  --ink-4: #a8a8a3;
+
+  --rule: #ececea;
+  --rule-strong: #dcdbd7;
+  --rule-focus: #161614;
+
+  --positive: #0a6b48;
+  --positive-soft: rgba(10,107,72,0.08);
+  --negative: #b14a3a;
+  --negative-soft: rgba(177,74,58,0.08);
+  --warn: #b07c1d;
+
+  /* Default accent — overwritten by the tweaks panel via a per-element
+     style.setProperty() call on the .lumen-app root, but the Lumen
+     palette uses forest green out of the gate. */
+  --accent: #0a6b48;
+  --accent-soft: rgba(10,107,72,0.08);
+
+  /* Chart palette — query line, analog band, forecast cone, grid. */
+  --c-query: #161614;
+  --c-analog: #a8a8a3;
+  --c-analog-strong: #7a7a75;
+  --c-cone-fill: rgba(10,107,72,0.10);
+  --c-cone-line: #0a6b48;
+  --c-grid: #ececea;
+
+  /* Top-K analog ranks 1–6 — earthy palette that pairs with painterly bg. */
+  --c-analog-1: #0a6b48;
+  --c-analog-2: #b07c1d;
+  --c-analog-3: #2e5d8c;
+  --c-analog-4: #7d3aa9;
+  --c-analog-5: #b14a3a;
+  --c-analog-6: #3d3d3a;
+
+  --serif: 'Instrument Serif', Georgia, "Times New Roman", serif;
+  --sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --mono: 'JetBrains Mono', "SF Mono", Consolas, monospace;
+}
+
+/* Dark-mode overrides — keyed off the .dark class the tweaks panel
+   toggles. Mirrors app/globals.css [data-theme="dark"] so the
+   embedded Workstation flips into a Lumen-palette dark mode. */
+.lumen-app.dark {
+  --bg: #0e0f0d;
+  --bg-elevated: #18191a;
+  --bg-card: #18191a;
+  --bg-inset: #1f2122;
+  --bg-hover: #25272a;
+
+  --ink: #ececea;
+  --ink-2: #c4c5c2;
+  --ink-3: #8a8c89;
+  --ink-4: #5a5d5b;
+
+  --rule: #2a2c2e;
+  --rule-strong: #3a3d40;
+  --rule-focus: #ececea;
+
+  --positive: #6fb88e;
+  --positive-soft: rgba(111,184,142,0.10);
+  --negative: #c77272;
+  --negative-soft: rgba(199,114,114,0.10);
+  --warn: #c9a14f;
+
+  --accent: #2c8862;
+  --accent-soft: rgba(44,136,98,0.10);
+
+  --c-query: #ececea;
+  --c-analog: #5a5d5b;
+  --c-analog-strong: #8a8c89;
+  --c-cone-fill: rgba(111,184,142,0.10);
+  --c-cone-line: #6fb88e;
+  --c-grid: #22241f;
+}
+
+/* The embedded Workstation reads var(--bg) for its outer background.
+   The Lumen card already provides a white surface, so we tell the
+   Workstation root to be transparent — letting the Lumen card's own
+   background show through and avoiding a doubled paint. */
+.lumen-app .workstation {
+  background: transparent;
+  font-family: var(--sans);
+}
+
 /* ============ painterly background — absolutely positioned inside the
    page, not fixed, so it's contained to this route only. */
 .lumen-app .lumen-painterly {
