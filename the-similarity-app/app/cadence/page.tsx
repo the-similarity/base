@@ -58,29 +58,19 @@ import { ScreenGoals } from "./_components/screens/goals";
 import { ScreenSources } from "./_components/screens/sources";
 import { ScreenLabs } from "./_components/screens/labs";
 
-// Background presets driven by the tweaks panel. The painterly DIV's
-// inline background is overwritten with these strings; the page-scoped CSS
-// supplies the default Bloom gradient as a fallback so a SSR pass with
-// no tweak applied still renders the right look.
-//
-// Palette rationale:
-//   bloom = sunrise coral → sage (the body's morning light)
-//   dawn  = warmer sunrise → twilight indigo (the early hour)
-//   paper = clinical white (chart-of-the-day reading mode)
-//   slate = dark-mode bias (night reading / sleep tracking)
+// Background presets driven by the tweaks panel. Identical to Lumen's so
+// /cadence and /workstation/lumen feel like siblings of the same product.
 const BACKGROUNDS: Record<TweakState["background"], string> = {
-  bloom:
-    "linear-gradient(160deg, #d4a3a3 0%, #e8c4b0 30%, #b8c9a8 60%, #5b8a72 100%)",
-  dawn: "linear-gradient(160deg, #f4d4b8 0%, #d4a3a3 40%, #8a6a8a 80%, #2a3a5c 100%)",
+  painterly:
+    "linear-gradient(160deg, #4a7a5a 0%, #6b9a72 25%, #c4b896 55%, #8a6a4a 80%, #3d2f1f 100%)",
+  dusk: "linear-gradient(160deg, #2a3a5c 0%, #6b6a8c 35%, #c89a78 70%, #5c2a3a 100%)",
   paper: "#f4f1ea",
-  slate: "linear-gradient(160deg, #1f2326 0%, #2a3030 50%, #1f2326 100%)",
+  charcoal: "linear-gradient(160deg, #1a1c1e 0%, #2a2d30 50%, #1a1c1e 100%)",
 };
 
-// Default tweak state matches the design's TWEAK_DEFAULTS block.
-// Sage accent + Bloom background = the "morning vitals" intro look.
 const TWEAK_DEFAULTS: TweakState = {
   accent: "#5b8a72",
-  background: "bloom",
+  background: "painterly",
   dark: false,
 };
 

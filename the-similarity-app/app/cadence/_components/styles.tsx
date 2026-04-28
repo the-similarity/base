@@ -98,22 +98,22 @@ export const CADENCE_CSS = `
 .cadence-app .cadence-painterly {
   position: absolute; inset: 0; z-index: 0;
   overflow: hidden;
-  background: linear-gradient(160deg, #d4a3a3 0%, #e8c4b0 30%, #b8c9a8 60%, #5b8a72 100%);
+  background: linear-gradient(160deg, #4a7a5a 0%, #6b9a72 25%, #c4b896 55%, #8a6a4a 80%, #3d2f1f 100%);
   pointer-events: none;
 }
 .cadence-app .cadence-painterly::before {
   content: ''; position: absolute; inset: -10%;
   background:
-    radial-gradient(ellipse 60% 40% at 20% 30%, rgba(220,180,170,0.55), transparent 60%),
-    radial-gradient(ellipse 50% 35% at 75% 60%, rgba(140,180,150,0.45), transparent 60%),
-    radial-gradient(ellipse 40% 30% at 50% 85%, rgba(60,90,75,0.35), transparent 60%),
-    radial-gradient(ellipse 70% 50% at 90% 15%, rgba(200,150,140,0.45), transparent 70%);
+    radial-gradient(ellipse 60% 40% at 20% 30%, rgba(120,160,140,0.6), transparent 60%),
+    radial-gradient(ellipse 50% 35% at 75% 60%, rgba(180,150,100,0.5), transparent 60%),
+    radial-gradient(ellipse 40% 30% at 50% 85%, rgba(60,40,25,0.4), transparent 60%),
+    radial-gradient(ellipse 70% 50% at 90% 15%, rgba(90,130,110,0.5), transparent 70%);
   filter: blur(40px);
 }
 .cadence-app .cadence-painterly::after {
   content: ''; position: absolute; inset: 0;
   background-image:
-    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='400' height='400'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.4 0 0 0 0 0.35 0 0 0 0 0.30 0 0 0 0.6 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)' opacity='0.30'/></svg>");
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='400' height='400'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.4 0 0 0 0 0.35 0 0 0 0 0.25 0 0 0 0.6 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)' opacity='0.35'/></svg>");
   mix-blend-mode: overlay;
   opacity: 0.5;
 }
@@ -203,6 +203,10 @@ export const CADENCE_CSS = `
   color: var(--ink);
   font-weight: 550;
 }
+/* Default icon size — every site that wraps Icon in a sized parent overrides
+   this. Without it, an SVG with no width/height attrs fills its container,
+   which blew up the composer "+" to ~600px. */
+.cadence-app .cadence-ico { width: 14px; height: 14px; flex: 0 0 auto; }
 .cadence-app .cadence-nav-item .cadence-ico { width: 15px; height: 15px; flex: 0 0 15px; opacity: 0.75; }
 .cadence-app .cadence-nav-item.is-active .cadence-ico { opacity: 1; }
 .cadence-app .cadence-nav-item .cadence-badge {
