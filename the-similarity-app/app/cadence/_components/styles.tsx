@@ -454,7 +454,7 @@ export const CADENCE_CSS = `
   flex: 1;
   min-height: 0;
 }
-.cadence-app .cadence-content-col { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.cadence-app .cadence-content-col { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
 .cadence-app .cadence-scroll-pad { padding: 22px 28px 80px 28px; }
 
 /* ============ command palette — fixed because it's a modal overlay ============ */
