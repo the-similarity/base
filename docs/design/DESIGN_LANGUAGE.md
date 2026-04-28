@@ -3,9 +3,15 @@
 Clean, data-dense dashboard UI in the style of TradingView/Bloomberg Lite.
 Every pixel serves a purpose. No decorative elements.
 
+## Scope
+
+This base doc covers editorial pages (home, case studies, demos, marketing surfaces) and the shared component primitives. Per-surface guidelines for `/workstation`, `/workstation/lumen`, `/cadence`, and `/prudent` live in `design_guideline/` at the repo root and override or extend the rules below where the surface's audience or density requires it. See `design_guideline/README.md` for the index.
+
 ---
 
 ## Layout
+
+Editorial pages (home, case studies, demos) follow the 1100px container below. Terminal-grade surfaces (`/workstation`, `/workstation/lumen`, `/cadence`) are full-viewport and use their own grids; see `design_guideline/<surface>.md`.
 
 - Card-based grid with horizontal scroll for overflow sections.
 - Max-width container: `1100px`, centered.
@@ -128,7 +134,9 @@ Each card contains:
 
 ## Typography
 
-System font stack. Heavy headers, tabular numbers, tight spacing.
+System font stack for editorial pages. Heavy headers, tabular numbers, tight spacing. Surface-specific font stacks live in their respective `design_guideline/*.md` files and override the SF Pro fallback chain below.
+
+**Actual ship.** Workstation uses Newsreader (display serif), Inter, and JetBrains Mono. Lumen uses Newsreader or Instrument Serif paired with Inter. Cadence uses Newsreader or Instrument Serif (metrics up to 56px) with Inter. Prudent uses Newsreader (composer 19px) with Inter. The SF Pro chain stays as the system fallback for editorial surfaces.
 
 ```css
 :root {
@@ -158,6 +166,8 @@ body {
 ## Color
 
 No gradients on UI chrome. Flat, high-contrast palette.
+
+Lumen and Cadence ship painterly multi-stop gradient backgrounds. Those gradients are background art behind the cards, not chrome on the cards themselves. Cards stay flat. See `design_guideline/lumen.md` and `design_guideline/cadence.md` for the gradient compositions.
 
 | Token | Value | Usage |
 |---|---|---|
@@ -401,3 +411,14 @@ Consistent spacing based on a 4px grid.
 | Precision | Swiss/editorial. Tabular numbers everywhere. Tight letter-spacing on headers. |
 | Restraint | No decorative elements, no gradients on chrome, no heavy animations. |
 | Color | Semantic only: green = positive, red = negative. Everything else is grayscale. |
+
+---
+
+## Per-surface guidelines
+
+The base doc above is the editorial baseline. Each terminal surface has its own guideline that overrides or extends these rules where the audience and information density demand it. Start at `design_guideline/README.md` for the index.
+
+- `design_guideline/workstation.md`: flagship Bloomberg-Lite analog finder
+- `design_guideline/lumen.md`: `<Workstation>` reskinned via CSS-variable cascade for demos
+- `design_guideline/cadence.md`: nine-screen personal-health workstation
+- `design_guideline/prudent.md`: conversational NL-to-time-series journal
