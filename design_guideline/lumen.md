@@ -48,9 +48,9 @@ The Lumen-only strings are the topbar crumbs, the sidebar nav labels, and the tw
 
 Three families. All three are loaded via the `<link rel="stylesheet">` injected at the top of the route (`lumen/page.tsx` lines 182 to 187):
 
-- `--serif: 'Instrument Serif'` — display, used for the brand wordmark and the lumen brand-name.
-- `--sans: 'Inter'` — body, controls, sidebar nav, topbar crumbs.
-- `--mono: 'JetBrains Mono'` — kbd chips, mono labels, status counts.
+- `--serif: 'Instrument Serif'`: display, used for the brand wordmark and the lumen brand-name.
+- `--sans: 'Inter'`: body, controls, sidebar nav, topbar crumbs.
+- `--mono: 'JetBrains Mono'`: kbd chips, mono labels, status counts.
 
 Font-feature-settings on `.lumen-app` (line 63): `'cv11', 'ss01', 'ss03'`. These are the Inter character-variant flags that swap in the single-story `g`, alternate `i`, and curly `f` ligature. They are explicit because the rest of the app does not turn them on; Lumen does because the painterly background reads as more editorial.
 
@@ -132,7 +132,7 @@ Lumen-only state surfaces:
 
 ## Don'ts
 
-- Do not edit `components/workstation/workstation.tsx` to make Lumen work. The token-cascade trick is the design. If you need a Lumen-only behavior in the workstation, extract the workstation into a smaller component and let Lumen wrap it differently — do not branch on a route name.
+- Do not edit `components/workstation/workstation.tsx` to make Lumen work. The token-cascade trick is the design. If you need a Lumen-only behavior in the workstation, extract the workstation into a smaller component and let Lumen wrap it differently: do not branch on a route name.
 - Do not add un-prefixed selectors to `LUMEN_CSS`. The header docstring at `styles.tsx` lines 22 to 26 is explicit: "any class without a `lumen-` prefix can collide with `globals.css`." The previous bug that motivated this rule (the empty-main-panel collision with `.app`'s `grid-template-rows`) is documented in the same comment.
 - Do not write an animated painterly background. The static gradient + radial overlays + fractal-noise SVG is the look. Animating it pulls focus from the workstation.
 - Do not put route-level state in `globals.css`. Lumen is route-scoped on purpose; everything must stay under `.lumen-app`.

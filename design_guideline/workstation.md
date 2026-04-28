@@ -47,7 +47,7 @@ Real strings from the UI:
 
 Rules:
 - No exclamation points.
-- No emoji except the load-bearing `🔶` and `ℹ` in `.ws-banner__icon`.
+- No emoji in copy. The two icon glyphs in `.ws-banner__icon` (orange diamond `&#x1F536;`, info `&#x2139;`) are the only legal exceptions and they are decorative not textual.
 - Absolute units always carry the unit (`60 d`, `7,500 bars`, `+3.2%`).
 - Dates are `MMM D, YYYY` for prose and `YYYY-MM-DD` inside cards (see `formatShortDate` in `workstation.tsx`).
 - Time is wall-clock SF, format `Apr 20, 2026 · 09:47 SF` (see `nyClock` block in `app/workstation/page.tsx`).

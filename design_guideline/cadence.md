@@ -1,6 +1,6 @@
 # Cadence Design Guideline
 
-Cadence lives at `/cadence`. It is the personal-health workstation: nine screens of self-similarity over the user's own 365-day biomarker history. The product question is "your body has rhymed before — here's what came next." Mock data only at this stage; no cohort acquisition, no HIPAA scope.
+Cadence lives at `/cadence`. It is the personal-health workstation: nine screens of self-similarity over the user's own 365-day biomarker history. The product question is "your body has rhymed before; here's what came next." Mock data only at this stage; no cohort acquisition, no HIPAA scope.
 
 Cadence borrows the Lumen scaffold (sidebar + main card + Cmd+K + painterly background + tweaks) and replaces the palette with a sage-clinical green. It is NOT a trading UI; the visual language signals calm-clinical, not Bloomberg-pit.
 
@@ -16,15 +16,15 @@ Code anchors:
 User: a quantified-self enthusiast on a wearable (Whoop, Oura) plus a CGM, occasionally adding lab uploads. They want to know which past day or week structurally rhymes with the current one, and what came next on the rhyming day's tail.
 
 The screens, by spec (`_components/screen-types.ts` lines 12 to 22):
-- `today` — KPI column + DayTrajectory + RhymeHeatmap + TagDonut + ThreadRibbon
-- `flow` — multi-channel vitals (HRV, HR, glucose, activity)
-- `rhymes` — hero analogue cards + forecast cone
-- `cycles` — recurring patterns weekly/monthly/training
-- `log` — chronological event ledger + composer
-- `targets` — active sleep/HRV/recovery targets with progress
-- `goals` — long-horizon goals with projected completion
-- `sources` — connected wearables + lab uploads
-- `labs` — long-term biomarker tracking with optimal ranges
+- `today`: KPI column + DayTrajectory + RhymeHeatmap + TagDonut + ThreadRibbon
+- `flow`: multi-channel vitals (HRV, HR, glucose, activity)
+- `rhymes`: hero analogue cards + forecast cone
+- `cycles`: recurring patterns weekly/monthly/training
+- `log`: chronological event ledger + composer
+- `targets`: active sleep/HRV/recovery targets with progress
+- `goals`: long-horizon goals with projected completion
+- `sources`: connected wearables + lab uploads
+- `labs`: long-term biomarker tracking with optimal ranges
 
 "Good" looks like: the screen reads as a calm clinical report, the rhyme overlay on a chart actually shows the rhyme (not just states it), and the painterly green-and-coral background does not overpower the white panels.
 
@@ -41,7 +41,7 @@ It overrides almost everything else:
 
 1. **Background.** Painterly multi-stop gradient with fractal-noise overlay (`.cadence-painterly` in `styles.tsx` line 98). The default preset is sage-and-coral: `linear-gradient(160deg, #4a7a5a, #6b9a72, #c4b896, #8a6a4a, #3d2f1f)`. Three other presets `dusk`, `paper`, `charcoal` are exposed via the tweaks panel.
 2. **Display serif.** Instrument Serif for KPI values, hero numbers, and section eyebrows. Loaded via `<link>` in `cadence/page.tsx` line 173, same mechanism as Lumen.
-3. **Accent.** Sage green `#5b8a72`. Mapped to `--accent`, `--accent-2`, `--pos`. The "color of being well" — green that reads clinical-biological, not finance-bullish.
+3. **Accent.** Sage green `#5b8a72`. Mapped to `--accent`, `--accent-2`, `--pos`. The "color of being well"; green that reads clinical-biological, not finance-bullish.
 4. **Card model.** Two floating cards: a glass sidebar (`.cadence-sidebar`) and a solid white main panel (`.cadence-main`). 14px gutter, 14px border-radius. Same scaffold as Lumen but the screens inside are different.
 5. **Width.** No 1100px container. Cadence runs `100vw × 100vh` and the main card fills the column.
 6. **Negative color.** `#c2655c` warm coral instead of the workstation's `#8a2a2a` brick. "Negative" in a health context is a body signal, not a market signal; the warmer hue is intentional.
@@ -72,9 +72,9 @@ Rules:
 
 Three families, loaded via `<link>` at `page.tsx` line 173:
 
-- `Instrument Serif` (display) — KPI values, hero numbers, eyebrow rows when serif.
-- `Inter` (sans) — body, controls, sidebar nav. Default `font-size: 14px`, `line-height: 1.45`.
-- `JetBrains Mono` — kbd chips, mono labels, command palette.
+- `Instrument Serif` (display): KPI values, hero numbers, eyebrow rows when serif.
+- `Inter` (sans): body, controls, sidebar nav. Default `font-size: 14px`, `line-height: 1.45`.
+- `JetBrains Mono`: kbd chips, mono labels, command palette.
 
 Font-feature-settings on `.cadence-app` (line 82): `'cv11', 'ss01', 'ss03'`. Same rationale as Lumen.
 
@@ -120,10 +120,10 @@ Light theme:
 | `--bloom` | `#e8c4b0` | Decorative accent |
 
 Painterly presets (from `cadence/page.tsx` lines 63 to 69, identical to Lumen so the two routes feel like siblings):
-- `painterly` — sage and coral sunrise.
-- `dusk` — indigo to coral.
-- `paper` — flat `#f4f1ea`.
-- `charcoal` — dark mode bias.
+- `painterly`: sage and coral sunrise.
+- `dusk`: indigo to coral.
+- `paper`: flat `#f4f1ea`.
+- `charcoal`: dark mode bias.
 
 Dark mode is opt-in via the tweaks panel (toggles `.dark` on `.cadence-app`). The dark token block is set up as a parallel to the light block.
 
