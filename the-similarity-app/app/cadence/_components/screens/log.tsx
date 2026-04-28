@@ -1,28 +1,21 @@
 /**
- * Log screen — chronological event ledger + quick-log composer.
+ * Log screen — chronological event ledger.
  *
- * Top section:
- *   - Composer: input + 8 quick-add buttons (vitals / workout / meal /
- *     sleep / mood / supplement / alcohol / stress) — visual-only here,
- *     no actual write since v1 is session-state and the demo data is
- *     pre-seeded
+ * Sections (top → bottom):
+ *   - Hero: 28 logged · Event Ledger · Last 7 Days
  *   - Filter chips: All / Vitals / Workouts / Meals / Sleep / Mood /
  *     Supplements / Alcohol / Stress
- *
- * Body:
  *   - Day-grouped log rows (Today / Yesterday / N days ago) — each row
  *     is one logged event with timestamp, kind icon, title + detail,
  *     and optional metric payload (e.g. "HRV 64 · RHR 58").
+ *   - Per-kind counts breakdown
  *
  * Local state:
- *   - `composerText`: the input contents (visual)
  *   - `filter`: active kind filter (or "all")
  *
- * Why a quick-log composer at the top: the most common interaction in a
- * personal-health app is "I just did X, capture it." The composer mirrors
- * Apple Notes / Day One — type a sentence, hit a quick-add chip to tag.
- * Real version would parse the sentence (à la Prudent's narrative engine)
- * but v1 is mock-only.
+ * The quick-log composer was removed in the slop cut: v1 ships read-only
+ * over pre-seeded demo data, so the composer was a fake input with no
+ * write path. Re-introduce it when there is an actual log-event mutation.
  */
 "use client";
 
@@ -45,19 +38,7 @@ const FILTERS: Array<{ value: "all" | LogKind; label: string }> = [
   { value: "stress", label: "Stress" },
 ];
 
-const QUICK_ADDS: Array<{ kind: LogKind; label: string }> = [
-  { kind: "vitals", label: "Vitals" },
-  { kind: "workout", label: "Workout" },
-  { kind: "meal", label: "Meal" },
-  { kind: "sleep", label: "Sleep" },
-  { kind: "mood", label: "Mood" },
-  { kind: "supplement", label: "Supp" },
-  { kind: "alcohol", label: "Drink" },
-  { kind: "stress", label: "Stress" },
-];
-
 export function ScreenLog({ onCmdK }: ScreenProps) {
-  const [composer, setComposer] = useState("");
   const [filter, setFilter] = useState<"all" | LogKind>("all");
 
   // Filter + sort newest-first.
@@ -95,32 +76,6 @@ export function ScreenLog({ onCmdK }: ScreenProps) {
           <div className="cadence-h-eyebrow cadence-mb-8">Event ledger · last 7 days</div>
           <div className="cadence-h-display cadence-num" style={{ fontSize: 36, marginBottom: 16 }}>
             {LOG_EVENTS.length} logged
-          </div>
-
-          {/* Composer */}
-          <div className="cadence-composer">
-            <Icon name="plus" style={{ color: "var(--ink-3)" }} />
-            <input
-              value={composer}
-              onChange={(e) => setComposer(e.target.value)}
-              placeholder="Capture something — &ldquo;ran 8k easy, hr 142&rdquo;…"
-            />
-            <div style={{ display: "flex", gap: 4 }}>
-              {QUICK_ADDS.map((q) => (
-                <button
-                  key={q.kind}
-                  className="cadence-btn"
-                  style={{ height: 26, padding: "0 8px", fontSize: 11.5 }}
-                  title={`Quick log: ${q.label}`}
-                  onClick={() => {
-                    setComposer((s) => (s.trim() ? `${s} #${q.kind}` : `[${q.label}] `));
-                  }}
-                >
-                  <Icon name={LOG_KIND_META[q.kind].icon} style={{ width: 11, height: 11 }} />
-                  {q.label}
-                </button>
-              ))}
-            </div>
           </div>
 
           {/* Filter chips */}
