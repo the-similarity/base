@@ -23,7 +23,6 @@
 export type ScreenId =
   | "today"
   | "rhymes"
-  | "cycles"
   | "log"
   | "targets"
   | "goals"

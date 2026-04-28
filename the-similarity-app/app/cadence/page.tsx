@@ -50,7 +50,6 @@ import type { ScreenId } from "./_components/screen-types";
 
 import { ScreenToday } from "./_components/screens/today";
 import { ScreenRhymes } from "./_components/screens/rhymes";
-import { ScreenCycles } from "./_components/screens/cycles";
 import { ScreenLog } from "./_components/screens/log";
 import { ScreenTargets } from "./_components/screens/targets";
 import { ScreenGoals } from "./_components/screens/goals";
@@ -131,9 +130,6 @@ export default function CadencePage() {
       break;
     case "rhymes":
       content = <ScreenRhymes {...screenProps} />;
-      break;
-    case "cycles":
-      content = <ScreenCycles {...screenProps} />;
       break;
     case "log":
       content = <ScreenLog {...screenProps} />;

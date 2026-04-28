@@ -71,7 +71,6 @@ function CmdKBody({ onClose, onNavigate }: CmdKBodyProps) {
   const items: PaletteItem[] = [
     { g: "Navigate", label: "Today", icon: "heartPulse", run: () => onNavigate("today"), kbd: "G T" },
     { g: "Navigate", label: "Rhymes", icon: "echoRings", run: () => onNavigate("rhymes"), kbd: "G R" },
-    { g: "Navigate", label: "Cycles", icon: "circleArrow", run: () => onNavigate("cycles"), kbd: "G C" },
     { g: "Navigate", label: "Log", icon: "ledger", run: () => onNavigate("log"), kbd: "G L" },
     { g: "Navigate", label: "Targets", icon: "target", run: () => onNavigate("targets"), kbd: "G K" },
     { g: "Navigate", label: "Goals", icon: "flag", run: () => onNavigate("goals"), kbd: "G G" },
@@ -85,7 +84,7 @@ function CmdKBody({ onClose, onNavigate }: CmdKBodyProps) {
     { g: "Actions", label: "Upload lab results", icon: "download", run: () => onNavigate("labs") },
     { g: "Ask Cadence", label: "When did I last feel this tired?", icon: "sparkle", run: () => onNavigate("rhymes") },
     { g: "Ask Cadence", label: "What pattern preceded my last cold?", icon: "sparkle", run: () => onNavigate("rhymes") },
-    { g: "Ask Cadence", label: "How does this week compare to last month?", icon: "sparkle", run: () => onNavigate("cycles") },
+    { g: "Ask Cadence", label: "How does this week compare to last month?", icon: "sparkle", run: () => onNavigate("rhymes") },
     { g: "Ask Cadence", label: "Am I overtraining?", icon: "sparkle", run: () => onNavigate("rhymes") },
   ];
 

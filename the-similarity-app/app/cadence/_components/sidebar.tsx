@@ -51,7 +51,6 @@ const GROUPS: NavGroup[] = [
     label: "Patterns",
     items: [
       { id: "rhymes", name: "Rhymes", icon: "echoRings", badge: "NEW" },
-      { id: "cycles", name: "Cycles", icon: "circleArrow" },
     ],
   },
   {

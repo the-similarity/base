@@ -23,7 +23,6 @@
  *   - TagDonut        — context donut (travel/illness/training/normal)
  *   - ThreadRibbon    — 30-day thin-bar history strip
  *   - ForecastCone    — line + p10/p90 fan area for /rhymes
- *   - PolarCycle      — polar bar/area chart for /cycles
  *   - LabTrend        — 5-point lab trendline with optimal range band
  *   - Donut           — concentric arcs sized by stroke-dasharray
  *   - Ring            — single progress arc for goal cards
@@ -499,75 +498,6 @@ export function ForecastCone({
       {anchor !== undefined && (
         <circle cx={xScale(0)} cy={yScale(anchor)} r="4" fill={color} stroke="#fff" strokeWidth="2" />
       )}
-    </svg>
-  );
-}
-
-// =====================================================================
-// PolarCycle — polar bar chart for /cycles (recurring patterns).
-// =====================================================================
-
-export interface PolarCycleProps {
-  /** Categorical labels around the perimeter (e.g. ["Mon","Tue",...]). */
-  labels: string[];
-  /** Values, one per label, scaled to 0-1. */
-  values: number[];
-  size?: number;
-  color?: string;
-}
-
-export function PolarCycle({
-  labels,
-  values,
-  size = 220,
-  color = "#5b8a72",
-}: PolarCycleProps) {
-  const cx = size / 2;
-  const cy = size / 2;
-  const rOuter = size / 2 - 24;
-  const rInner = rOuter * 0.4;
-  const n = labels.length;
-  const angle = (i: number) => (i / n) * Math.PI * 2 - Math.PI / 2;
-  const sweep = (Math.PI * 2) / n;
-
-  // Build sector paths. Each sector spans from angle(i) - sweep/2 to + sweep/2,
-  // with outer radius = rInner + (rOuter - rInner) * value.
-  const sectors = values.map((v, i) => {
-    const a = angle(i);
-    const a0 = a - sweep / 2 + 0.02;
-    const a1 = a + sweep / 2 - 0.02;
-    const r = rInner + (rOuter - rInner) * Math.max(0, Math.min(1, v));
-    const x0 = cx + r * Math.cos(a0);
-    const y0 = cy + r * Math.sin(a0);
-    const x1 = cx + r * Math.cos(a1);
-    const y1 = cy + r * Math.sin(a1);
-    const ix0 = cx + rInner * Math.cos(a0);
-    const iy0 = cy + rInner * Math.sin(a0);
-    const ix1 = cx + rInner * Math.cos(a1);
-    const iy1 = cy + rInner * Math.sin(a1);
-    const large = a1 - a0 > Math.PI ? 1 : 0;
-    return `M ${ix0} ${iy0} L ${x0} ${y0} A ${r} ${r} 0 ${large} 1 ${x1} ${y1} L ${ix1} ${iy1} A ${rInner} ${rInner} 0 ${large} 0 ${ix0} ${iy0} Z`;
-  });
-
-  return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-      {/* track */}
-      <circle cx={cx} cy={cy} r={rInner} fill="none" stroke="#ececea" strokeWidth="1" />
-      <circle cx={cx} cy={cy} r={rOuter} fill="none" stroke="#ececea" strokeWidth="1" strokeDasharray="2 4" />
-      {sectors.map((d, i) => (
-        <path key={i} d={d} fill={color} fillOpacity={0.22 + values[i] * 0.55} stroke={color} strokeOpacity="0.4" />
-      ))}
-      {labels.map((l, i) => {
-        const a = angle(i);
-        const r = rOuter + 14;
-        const x = cx + r * Math.cos(a);
-        const y = cy + r * Math.sin(a);
-        return (
-          <text key={i} x={x} y={y + 3} fontSize="10" fill="#7a7a75" textAnchor="middle" fontFamily="Inter" fontWeight="500">
-            {l}
-          </text>
-        );
-      })}
     </svg>
   );
 }
