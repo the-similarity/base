@@ -19,7 +19,7 @@ import type { Dispatch, SetStateAction } from "react";
 
 export interface TweakState {
   accent: string;
-  background: "bloom" | "dawn" | "paper" | "slate";
+  background: "painterly" | "dusk" | "paper" | "charcoal";
   dark: boolean;
 }
 
@@ -41,10 +41,10 @@ const ACCENTS: Array<{ v: string; l: string }> = [
 ];
 
 const BG_OPTIONS: Array<{ value: TweakState["background"]; label: string }> = [
-  { value: "bloom", label: "Bloom" },
-  { value: "dawn", label: "Dawn" },
+  { value: "painterly", label: "Painterly" },
+  { value: "dusk", label: "Dusk" },
   { value: "paper", label: "Paper" },
-  { value: "slate", label: "Slate" },
+  { value: "charcoal", label: "Charcoal" },
 ];
 
 export function TweaksPanel({ tweaks, setTweaks }: TweaksPanelProps) {
