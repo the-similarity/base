@@ -11,7 +11,6 @@
  *
  * Mapping from spec:
  *   today    — KEY METRICS column + DayTrajectory + RhymeHeatmap + TagDonut + ThreadRibbon
- *   flow     — multi-channel vitals (HRV / HR / glucose / activity)
  *   rhymes   — hero analogue cards + forecast cone
  *   cycles   — recurring patterns (weekly / monthly / training)
  *   log      — chronological event ledger + composer
@@ -23,7 +22,6 @@
 
 export type ScreenId =
   | "today"
-  | "flow"
   | "rhymes"
   | "cycles"
   | "log"

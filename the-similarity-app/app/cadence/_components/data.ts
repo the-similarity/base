@@ -21,7 +21,6 @@
  *   - DAYS[]                       — 365-day daily summary (HRV, RHR, sleep,
  *                                    energy, glucose, recovery, training)
  *   - TODAY_HOURLY[]               — today's 24-hour HR series (vs baseline)
- *   - TODAY_FLOW[]                 — today's multi-channel HRV/HR/glucose/act
  *   - LABS[]                       — 9 long-term biomarkers + 5 historical draws
  *   - SOURCES[]                    — connected wearable cards
  *   - LOG_EVENTS[]                 — chronological log entries (last 7 days)
@@ -335,84 +334,6 @@ function buildHourly(seed: number, baselineHR: number, peak: number): HourlyPoin
 export const TODAY_HOURLY = buildHourly(11, 62, 28);
 export const YESTERDAY_HOURLY = buildHourly(31, 60, 18);
 export const BASELINE_HOURLY = buildHourly(51, 58, 14);
-
-// =====================================================================
-// Today — multi-channel flow (24h × HRV / HR / glucose / activity)
-// =====================================================================
-//
-// Used by the Flow screen as small-multiples stacked vertically. Each
-// channel carries a smoothed trend (24 hourly points).
-
-export interface ChannelSeries {
-  key: string;
-  label: string;
-  unit: string;
-  color: string;
-  series: number[]; // 24 hourly points
-  range: [number, number]; // y-axis hint
-}
-
-function buildFlow(): ChannelSeries[] {
-  const rng = makeRng(83);
-  // HRV is recorded mostly at night — only meaningful values 22-08; rest of
-  // day shows baseline-ish.
-  const hrv = Array.from({ length: 24 }, (_, h) => {
-    const overnight = h >= 22 || h <= 8;
-    return Math.round(
-      (overnight ? 70 : 60) + Math.sin(h * 0.6) * 6 + (rng() - 0.5) * 5
-    );
-  });
-  const hr = TODAY_HOURLY.map((p) => p.hr);
-  const glucose = Array.from({ length: 24 }, (_, h) => {
-    // Spikes after 8am, 12pm, 7pm meals
-    const meal =
-      h === 9 ? 30 : h === 13 ? 25 : h === 20 ? 22 : h >= 9 && h <= 11 ? 12 : 0;
-    return Math.round(92 + meal + Math.sin(h * 0.4) * 4 + (rng() - 0.5) * 5);
-  });
-  const activity = Array.from({ length: 24 }, (_, h) => {
-    // Movement: morning walk, evening workout
-    if (h === 7) return 6;
-    if (h >= 17 && h <= 18) return 9;
-    if (h >= 9 && h <= 17) return 3 + Math.floor(rng() * 2);
-    return Math.floor(rng() * 2);
-  });
-  return [
-    {
-      key: "hrv",
-      label: "HRV",
-      unit: "ms",
-      color: "#5b8a72",
-      series: hrv,
-      range: [40, 90],
-    },
-    {
-      key: "hr",
-      label: "Heart rate",
-      unit: "bpm",
-      color: "#c2655c",
-      series: hr,
-      range: [50, 110],
-    },
-    {
-      key: "glucose",
-      label: "Glucose",
-      unit: "mg/dL",
-      color: "#5a7d9c",
-      series: glucose,
-      range: [80, 140],
-    },
-    {
-      key: "activity",
-      label: "Activity",
-      unit: "MET",
-      color: "#c89a4a",
-      series: activity,
-      range: [0, 10],
-    },
-  ];
-}
-
-export const TODAY_FLOW = buildFlow();
 
 // =====================================================================
 // Sources — connected wearables + lab provider cards

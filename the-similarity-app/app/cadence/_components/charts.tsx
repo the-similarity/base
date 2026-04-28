@@ -19,7 +19,6 @@
  * Components:
  *   - Sparkline       — small inline trend line, optional fill + dot
  *   - DayTrajectory   — today's HR over 24h with up to 3 compare overlays
- *   - ChannelMini     — small-multiples row used by /flow
  *   - RhymeHeatmap    — 7-day × 12-hour intensity grid (Today screen)
  *   - TagDonut        — context donut (travel/illness/training/normal)
  *   - ThreadRibbon    — 30-day thin-bar history strip
@@ -34,7 +33,6 @@ import { Fragment, type ReactNode } from "react";
 
 import type { DaySummary } from "./data";
 import { BASELINE, TAG_META } from "./data";
-import type { ChannelSeries } from "./data";
 import type { ForecastPoint } from "../engine";
 
 // =====================================================================
@@ -275,64 +273,6 @@ export function DayTrajectory({
       >
         {primaryLabel}
       </text>
-    </svg>
-  );
-}
-
-// =====================================================================
-// ChannelMini — small-multiple row used by /flow.
-// =====================================================================
-//
-// Compact 24h sparkline for a single channel with label, current value,
-// and a faint baseline reference line. Designed to stack vertically.
-
-export interface ChannelMiniProps {
-  channel: ChannelSeries;
-  height?: number;
-}
-
-export function ChannelMini({ channel, height = 88 }: ChannelMiniProps) {
-  const W = 800;
-  const H = height;
-  const P = { l: 50, r: 12, t: 12, b: 18 };
-  const [yMin, yMax] = channel.range;
-  const xStep = (W - P.l - P.r) / (channel.series.length - 1);
-  const yScale = (v: number) =>
-    P.t + (1 - (v - yMin) / (yMax - yMin)) * (H - P.t - P.b);
-  const pts: [number, number][] = channel.series.map((v, i) => [
-    P.l + i * xStep,
-    yScale(v),
-  ]);
-  let d = `M ${pts[0][0]} ${pts[0][1]}`;
-  for (let i = 1; i < pts.length; i++) {
-    const [px, py] = pts[i - 1];
-    const [x, y] = pts[i];
-    const cx = (px + x) / 2;
-    d += ` C ${cx} ${py}, ${cx} ${y}, ${x} ${y}`;
-  }
-  const fillD =
-    d + ` L ${pts[pts.length - 1][0]} ${H - P.b} L ${pts[0][0]} ${H - P.b} Z`;
-  return (
-    <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ width: "100%", height: H }}>
-      <defs>
-        <linearGradient id={`chan-${channel.key}`} x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0%" stopColor={channel.color} stopOpacity="0.18" />
-          <stop offset="100%" stopColor={channel.color} stopOpacity="0" />
-        </linearGradient>
-      </defs>
-      {/* baseline tick line at midpoint */}
-      <line
-        x1={P.l}
-        x2={W - P.r}
-        y1={yScale((yMin + yMax) / 2)}
-        y2={yScale((yMin + yMax) / 2)}
-        stroke="#ececea"
-        strokeDasharray="2 4"
-      />
-      <text x={P.l - 6} y={yScale(yMax) + 3} fontSize="9" fill="#a8a8a3" textAnchor="end" fontFamily="JetBrains Mono">{yMax}</text>
-      <text x={P.l - 6} y={yScale(yMin) + 3} fontSize="9" fill="#a8a8a3" textAnchor="end" fontFamily="JetBrains Mono">{yMin}</text>
-      <path d={fillD} fill={`url(#chan-${channel.key})`} />
-      <path d={d} fill="none" stroke={channel.color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }

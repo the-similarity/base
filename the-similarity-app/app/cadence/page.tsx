@@ -49,7 +49,6 @@ import type { TweakState } from "./_components/tweaks";
 import type { ScreenId } from "./_components/screen-types";
 
 import { ScreenToday } from "./_components/screens/today";
-import { ScreenFlow } from "./_components/screens/flow";
 import { ScreenRhymes } from "./_components/screens/rhymes";
 import { ScreenCycles } from "./_components/screens/cycles";
 import { ScreenLog } from "./_components/screens/log";
@@ -129,9 +128,6 @@ export default function CadencePage() {
   switch (screen) {
     case "today":
       content = <ScreenToday {...screenProps} />;
-      break;
-    case "flow":
-      content = <ScreenFlow {...screenProps} />;
       break;
     case "rhymes":
       content = <ScreenRhymes {...screenProps} />;

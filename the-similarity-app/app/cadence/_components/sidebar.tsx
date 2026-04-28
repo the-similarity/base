@@ -44,7 +44,6 @@ const GROUPS: NavGroup[] = [
     label: "Today",
     items: [
       { id: "today", name: "Today", icon: "heartPulse" },
-      { id: "flow", name: "Flow", icon: "waveform" },
       { id: "log", name: "Log", icon: "ledger" },
     ],
   },
