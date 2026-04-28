@@ -877,4 +877,1363 @@ export const LUMEN_CSS = `
   border-color: var(--ink);
   box-shadow: 0 0 0 2px var(--surface) inset;
 }
+
+/* ====================================================================
+ * Lumen overrides for the embedded <Workstation> component.
+ * --------------------------------------------------------------------
+ * Goal: 100% Lumen design language inside the workstation tree. The
+ * underlying component (components/workstation/*) was authored in a
+ * "research terminal" idiom — mono uppercase labels, sharp 1px rules,
+ * boxy chips, burgundy-tinted analog cards, hard contrast. None of
+ * that fits Lumen's editorial finance look (Instrument Serif numerals,
+ * paper-on-card surfaces, hairline borders, accent-soft tints).
+ *
+ * Strategy: every workstation class that has a global rule in
+ * app/globals.css gets a paired override at .lumen-app .X specificity
+ * here. Two ancestors (.lumen-app + .X) beat the global single-class
+ * selector without using !important. The token cascade above already
+ * paints the correct colors; these rules also tackle layout, geometry,
+ * typography, and spacing.
+ *
+ * Coverage map (every class below has an override in this section):
+ *   layout          .workstation, .side, .main, .right, .chart-stack
+ *   side panel      .side__section, .side__header, .side__row, .label,
+ *                   .saved-list, .saved, .saved__date, .saved__name,
+ *                   .saved__score, .chip, .chip-row
+ *   topbar/search   .ws-search-row, .ws-search-row__group, .ws-search-row__label,
+ *                   .ws-search-row__lastrun, .ws-search-row__fewer-matches,
+ *                   .ws-topk, .ws-horizon, .ws-search-btn, .ws-share-btn
+ *   chart           .chart-card, .chart-card__head, .chart-card__title,
+ *                   .chart-card__body, .chart-card__legend, .legend-dot,
+ *                   .ws-chartmode-row, .ws-chartmode, .ws-chart-settings,
+ *                   .lw-chart, .svg-chart
+ *   analog strip    .strip, .analog-card, .analog-card__head,
+ *                   .analog-card__date, .analog-card__title,
+ *                   .analog-card__score, .analog-card__note,
+ *                   .analog-card__spark, .analog-card__after,
+ *                   .analog-card__pin-btn
+ *   right rail      .right__section, .lens-head, .lens-bars,
+ *                   .lens-bar, .lens-radar, .score, .d
+ *   trust           .trust, .trust__item, .trust__expand, .trust__info,
+ *                   .trust-panel, .trust-panel--empty,
+ *                   .trust-panel__empty-card, .trust-panel__cta,
+ *                   .trust-panel__narrative, .trust-panel__grade-*
+ *   detail drawer   .adrawer, .adrawer__head, .adrawer__rank-badge,
+ *                   .adrawer__date-range, .adrawer__label,
+ *                   .adrawer__composite-*, .adrawer__pin-toggle,
+ *                   .adrawer__close, .adrawer__context*,
+ *                   .adrawer__section, .adrawer__h, .adrawer__h-sub,
+ *                   .adrawer__lens-*, .adrawer__spark-*,
+ *                   .adrawer__actions, .adrawer__action*
+ *   banners/toasts  .ws-banner*, .ws-pin-banner*,
+ *                   .ws-share-toast*, .ws-use-as-query-banner*
+ *   empty states    .ws-empty-state*, .ws-micro-empty*, .ws-mobile-notice
+ *   drawer chrome   .ws-drawer-toggle, .ws-drawer-toggles,
+ *                   .ws-drawer-close, .ws-drawer-backdrop
+ *   dataset picker  .dataset-trigger*, .dataset-panel*, .dataset-card*,
+ *                   .dataset-freshness
+ * ==================================================================== */
+
+/* --- A. Layout shell -------------------------------------------------
+ * The workstation paints its own .side / .main / .right grid. We strip
+ * the harsh 1px dividers between panels and keep the inside transparent
+ * so the Lumen card behind it is the visible surface. Padding is
+ * relaxed to Lumen's 14-22px rhythm. */
+.lumen-app .workstation {
+  background: transparent;
+  font-family: var(--sans);
+  color: var(--ink);
+  /* Match the Lumen card geometry: rows = topbar-area + body, no third
+     trust row. Trust is rendered inline as a card now, so we collapse
+     the auto-3rd-row to 0. The default workstation grid is 260/1fr/320;
+     bump the side rails wider to give Lumen typography room. */
+  grid-template-columns: 240px 1fr 320px;
+}
+.lumen-app .workstation > .side,
+.lumen-app .workstation > .main,
+.lumen-app .workstation > .right {
+  background: transparent;
+  border: none;
+}
+.lumen-app .workstation > .side {
+  border-right: 1px solid var(--border);
+  padding: 4px 0;
+}
+.lumen-app .workstation > .right {
+  border-left: 1px solid var(--border);
+  padding: 4px 0;
+}
+
+/* --- B. Side panel (left) — query def, window, pinned, notebook ----- */
+.lumen-app .workstation .side__section {
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--border);
+}
+.lumen-app .workstation .side__section:last-child {
+  border-bottom: none;
+}
+.lumen-app .workstation .side__header {
+  display: flex; align-items: baseline; justify-content: space-between;
+  margin-bottom: 10px;
+}
+.lumen-app .workstation .side__row {
+  display: flex; justify-content: space-between;
+  padding: 6px 0;
+  font-size: 12.5px;
+  /* Drop the dotted underline — Lumen prefers white-space hierarchy. */
+  border-bottom: 1px solid var(--border);
+}
+.lumen-app .workstation .side__row:last-child { border-bottom: none; }
+.lumen-app .workstation .side__row .k {
+  color: var(--ink-3);
+  font-family: var(--sans);
+  font-size: 12.5px;
+  letter-spacing: 0;
+  text-transform: none;
+}
+.lumen-app .workstation .side__row .v {
+  font-family: var(--mono);
+  color: var(--ink);
+  font-size: 12px;
+  font-feature-settings: 'tnum';
+  letter-spacing: 0;
+}
+
+/* All .label micro-caps inside the workstation become Lumen eyebrows.
+   Drops mono + uppercase + heavy tracking. */
+.lumen-app .workstation .label {
+  font-family: var(--sans);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--ink-3);
+  font-weight: 600;
+  line-height: 1.2;
+}
+/* Inline .serif and .mono helpers inside the workstation. */
+.lumen-app .workstation .serif {
+  font-family: var(--serif);
+  font-weight: 400;
+  letter-spacing: -0.01em;
+}
+.lumen-app .workstation .mono {
+  font-family: var(--mono);
+  font-feature-settings: 'tnum';
+  letter-spacing: 0;
+  text-transform: none;
+  color: inherit;
+}
+.lumen-app .workstation .sub {
+  color: var(--ink-3);
+  font-size: 12px;
+}
+
+/* --- B1. Chips (window length, view range, etc.) -------------------- */
+.lumen-app .workstation .chip-row {
+  display: flex; flex-wrap: wrap; gap: 6px;
+}
+.lumen-app .workstation .chip {
+  font-family: var(--sans);
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  padding: 4px 9px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--ink-2);
+  background: var(--surface);
+  cursor: pointer;
+  transition: all 120ms;
+}
+.lumen-app .workstation .chip:hover:not([data-active="true"]) {
+  background: var(--surface-2);
+  border-color: var(--border-strong);
+  color: var(--ink);
+}
+.lumen-app .workstation .chip[data-active="true"] {
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+  border-color: var(--accent-soft);
+}
+
+/* --- B2. Saved analogs / pinned list -------------------------------- */
+.lumen-app .workstation .saved-list { gap: 4px; }
+.lumen-app .workstation .saved {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  cursor: pointer;
+  transition: background 120ms, border-color 120ms;
+}
+.lumen-app .workstation .saved:hover {
+  background: var(--surface-2);
+  border-color: var(--border-strong);
+}
+.lumen-app .workstation .saved__date {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--ink-3);
+  width: 64px;
+  font-feature-settings: 'tnum';
+  letter-spacing: 0;
+}
+.lumen-app .workstation .saved__name {
+  font-family: var(--sans);
+  font-size: 12.5px;
+  color: var(--ink);
+  font-weight: 500;
+}
+.lumen-app .workstation .saved__score {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-2);
+  font-feature-settings: 'tnum';
+}
+
+/* --- C. Main column / search row ------------------------------------ */
+.lumen-app .workstation .main {
+  background: transparent;
+}
+.lumen-app .workstation .ws-search-row {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 10px 22px;
+  gap: 14px;
+}
+.lumen-app .workstation .ws-search-row__label {
+  font-family: var(--sans);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--ink-3);
+  font-weight: 600;
+}
+.lumen-app .workstation .ws-search-row__label--secondary { color: var(--ink-3); }
+.lumen-app .workstation .ws-search-row__lastrun {
+  font-family: var(--sans);
+  font-size: 11px;
+  color: var(--ink-3);
+  letter-spacing: 0;
+}
+.lumen-app .workstation .ws-search-row__fewer-matches {
+  font-family: var(--sans);
+  color: var(--warn);
+  letter-spacing: 0;
+}
+
+/* --- C1. Top-K + horizon segmented controls ------------------------- */
+.lumen-app .workstation .ws-topk,
+.lumen-app .workstation .ws-horizon {
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--surface);
+  overflow: hidden;
+  padding: 2px;
+  gap: 0;
+}
+.lumen-app .workstation .ws-topk__btn,
+.lumen-app .workstation .ws-horizon__btn {
+  font-family: var(--sans);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  padding: 4px 11px;
+  border: none;
+  background: transparent;
+  color: var(--ink-3);
+  border-radius: 5px;
+  font-variant-numeric: tabular-nums;
+}
+.lumen-app .workstation .ws-topk__btn:hover:not([data-active="true"]),
+.lumen-app .workstation .ws-horizon__btn:hover:not([data-active="true"]) {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+.lumen-app .workstation .ws-topk__btn[data-active="true"],
+.lumen-app .workstation .ws-horizon__btn[data-active="true"] {
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+}
+.lumen-app .workstation .ws-horizon__clip-hint { color: var(--warn); }
+
+/* --- C2. Primary Search button + Share button ----------------------- */
+.lumen-app .workstation .ws-search-btn {
+  font-family: var(--sans);
+  font-size: 12.5px;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  padding: 6px 14px;
+  background: var(--ink);
+  color: #fff;
+  border: 1px solid var(--ink);
+  border-radius: 7px;
+  height: 30px;
+  display: inline-flex; align-items: center; gap: 7px;
+}
+.lumen-app .workstation .ws-search-btn:hover:not([disabled]) {
+  background: #000;
+  border-color: #000;
+}
+.lumen-app .workstation .ws-search-btn[data-dirty="true"] {
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.lumen-app .workstation .ws-search-btn__dot { background: var(--accent); }
+.lumen-app .workstation .ws-share-btn {
+  font-family: var(--sans);
+  font-size: 12.5px;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  padding: 6px 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: 7px;
+  color: var(--ink);
+  background: var(--surface);
+  height: 30px;
+}
+.lumen-app .workstation .ws-share-btn:hover {
+  background: var(--surface-2);
+}
+
+/* --- D. Chart stack + chart card ------------------------------------ */
+.lumen-app .workstation .chart-stack {
+  padding: 18px 22px 24px;
+  gap: 18px;
+  background: transparent;
+}
+.lumen-app .workstation .chart-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+}
+.lumen-app .workstation .chart-card__head {
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+}
+.lumen-app .workstation .chart-card__title .t {
+  font-family: var(--serif);
+  font-size: 18px;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+.lumen-app .workstation .chart-card__title .sub {
+  color: var(--ink-3);
+  font-family: var(--sans);
+  font-size: 12.5px;
+}
+.lumen-app .workstation .chart-card__body {
+  padding: 14px 18px 18px;
+}
+.lumen-app .workstation .chart-card__legend {
+  font-family: var(--sans);
+  font-size: 11.5px;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--ink-3);
+  padding: 0 18px 14px;
+  gap: 18px;
+}
+.lumen-app .workstation .legend-dot { gap: 7px; }
+.lumen-app .workstation .legend-dot i { background: var(--ink); }
+.lumen-app .workstation .legend-dot.analog i { background: var(--ink-4); }
+.lumen-app .workstation .legend-dot.cone i,
+.lumen-app .workstation .legend-dot.p50 i { background: var(--accent); }
+
+/* --- D1. Chart-mode toggle (Fast/Pro) + settings gear --------------- */
+.lumen-app .workstation .ws-chartmode-row {
+  margin-bottom: 0;
+}
+.lumen-app .workstation .ws-chartmode {
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  font-family: var(--sans);
+  font-size: 11.5px;
+  background: var(--surface);
+  padding: 2px;
+  overflow: hidden;
+}
+.lumen-app .workstation .ws-chartmode__btn {
+  border: none;
+  border-right: none;
+  padding: 4px 11px;
+  letter-spacing: 0;
+  text-transform: none;
+  font-weight: 500;
+  border-radius: 5px;
+  color: var(--ink-3);
+  background: transparent;
+}
+.lumen-app .workstation .ws-chartmode__btn:hover:not([data-active="true"]) {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+.lumen-app .workstation .ws-chartmode__btn[data-active="true"] {
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+}
+.lumen-app .workstation .ws-chart-settings__btn { border-radius: 7px; }
+.lumen-app .workstation .ws-chart-settings__btn:hover,
+.lumen-app .workstation .ws-chart-settings__btn[aria-expanded="true"] {
+  background: var(--surface-2);
+  border-color: var(--border);
+  color: var(--ink);
+}
+.lumen-app .workstation .ws-chart-settings__pop {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-pop);
+  font-family: var(--sans);
+  font-size: 12px;
+  color: var(--ink-2);
+  padding: 6px 4px;
+}
+.lumen-app .workstation .ws-chart-settings__row {
+  border-radius: var(--radius-sm);
+  padding: 6px 10px;
+}
+.lumen-app .workstation .ws-chart-settings__row:hover { background: var(--surface-2); }
+.lumen-app .workstation .ws-chart-settings__row input[type="checkbox"] {
+  accent-color: var(--accent);
+}
+
+/* --- D2. SVG chart internals --------------------------------------- */
+.lumen-app .workstation .svg-chart .grid line { stroke: var(--border); }
+.lumen-app .workstation .svg-chart .axis text {
+  font-family: var(--sans);
+  font-size: 10px;
+  fill: var(--ink-3);
+  letter-spacing: 0;
+}
+.lumen-app .workstation .svg-chart .price { stroke: var(--ink); stroke-width: 1.4; }
+.lumen-app .workstation .svg-chart .data-end { stroke: var(--ink-4); }
+.lumen-app .workstation .svg-chart .data-end-label {
+  font-family: var(--sans);
+  font-size: 10px;
+  fill: var(--ink-3);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.lumen-app .workstation .svg-chart .annot {
+  font-family: var(--sans);
+  font-size: 10.5px;
+  fill: var(--ink-3);
+}
+.lumen-app .workstation .svg-chart .window-rect {
+  fill: var(--accent-soft);
+  stroke: var(--accent);
+}
+.lumen-app .workstation .svg-chart .window-handle { fill: var(--accent); }
+.lumen-app .workstation .svg-chart .window-label {
+  font-family: var(--sans);
+  font-size: 10.5px;
+  font-weight: 600;
+  fill: var(--accent);
+  letter-spacing: 0.04em;
+  text-transform: none;
+}
+.lumen-app .workstation .lw-chart__window {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  border-left: 1px solid color-mix(in srgb, var(--accent) 60%, transparent);
+  border-right: 1px solid color-mix(in srgb, var(--accent) 60%, transparent);
+}
+.lumen-app .workstation .lw-chart__window-label {
+  font-family: var(--sans);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--accent);
+}
+.lumen-app .workstation .lw-chart__note {
+  font-family: var(--sans);
+  font-size: 11px;
+  letter-spacing: 0;
+  color: var(--ink-3);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 3px 7px;
+}
+
+/* --- E. Analog strip + analog cards (KEY VISUAL) -------------------- */
+.lumen-app .workstation .strip {
+  background: transparent;
+  border-top: 1px solid var(--border);
+  padding: 14px 22px 18px;
+  gap: 12px;
+}
+.lumen-app .workstation .analog-card {
+  min-width: 220px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 14px 12px;
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
+  transition: all 150ms;
+  /* Drop the rank-color left stripe; we replace it with a small dot in
+     the head row (see analog-badge styling below). */
+}
+.lumen-app .workstation .analog-card:hover {
+  background: var(--surface-2);
+  border-color: var(--border-strong);
+}
+.lumen-app .workstation .analog-card:not([data-active="true"]) { opacity: 0.65; }
+.lumen-app .workstation .analog-card:not([data-active="true"]):hover { opacity: 1; }
+.lumen-app .workstation .analog-card[data-pinned="true"] {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+/* Kill the burgundy left stripe entirely. */
+.lumen-app .workstation .analog-card[data-pinned="true"]::before {
+  display: none;
+}
+.lumen-app .workstation .analog-card[data-active="true"] {
+  border-color: var(--ink-3);
+}
+.lumen-app .workstation .analog-card__head {
+  margin-bottom: 6px;
+  align-items: center;
+  gap: 8px;
+}
+.lumen-app .workstation .analog-card__date {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-3);
+  letter-spacing: 0;
+  font-feature-settings: 'tnum';
+}
+.lumen-app .workstation .analog-card__score {
+  font-family: var(--serif);
+  font-size: 22px;
+  font-weight: 400;
+  letter-spacing: -0.015em;
+  color: var(--ink);
+}
+.lumen-app .workstation .analog-card__title {
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0;
+  color: var(--ink);
+  margin-bottom: 2px;
+}
+.lumen-app .workstation .analog-card__note {
+  color: var(--ink-3);
+  font-size: 11.5px;
+  font-family: var(--sans);
+  margin-bottom: 8px;
+  line-height: 1.45;
+}
+.lumen-app .workstation .analog-card__after {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  font-feature-settings: 'tnum';
+  letter-spacing: 0;
+  color: var(--ink-2);
+}
+.lumen-app .workstation .analog-card__after.pos { color: var(--pos); }
+.lumen-app .workstation .analog-card__after.neg { color: var(--neg); }
+
+/* Pin button on each analog card — subtle ghost button. */
+.lumen-app .workstation .analog-card__pin-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--ink-4);
+  width: 22px; height: 22px;
+  display: inline-grid; place-items: center;
+  cursor: pointer;
+  transition: all 120ms;
+}
+.lumen-app .workstation .analog-card__pin-btn:hover {
+  color: var(--ink);
+  background: var(--surface-2);
+}
+.lumen-app .workstation .analog-card[data-pinned="true"] .analog-card__pin-btn {
+  color: var(--accent);
+}
+
+/* The rank-numbered colored badge on each card → desaturated dot in
+   Lumen so it doesn't fight the score for visual weight. */
+.lumen-app .workstation .analog-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.lumen-app .workstation .analog-badge-circle {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--ink-3);
+  /* Keep per-rank color identity but dim it. */
+  opacity: 0.7;
+}
+.lumen-app .workstation .analog-badge-text {
+  font-family: var(--sans);
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--ink-3);
+  letter-spacing: 0.04em;
+}
+
+/* --- F. Right rail (lens panel) ------------------------------------- */
+.lumen-app .workstation .right__section {
+  padding: 18px 18px;
+  border-bottom: 1px solid var(--border);
+}
+.lumen-app .workstation .right__section:last-child { border-bottom: none; }
+.lumen-app .workstation .lens-head {
+  margin-bottom: 14px;
+}
+.lumen-app .workstation .lens-head .label {
+  font-family: var(--sans);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--ink-3);
+  font-weight: 600;
+}
+.lumen-app .workstation .lens-head .score {
+  font-family: var(--serif);
+  font-size: 38px;
+  font-weight: 400;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  color: var(--ink);
+}
+.lumen-app .workstation .lens-head .score .d {
+  font-family: var(--sans);
+  font-size: 11.5px;
+  color: var(--ink-3);
+  letter-spacing: 0;
+  margin-left: 4px;
+  font-weight: 400;
+}
+
+/* Lens bars — hairline outline with accent fill, no dotted dividers. */
+.lumen-app .workstation .lens-bars { gap: 4px; }
+.lumen-app .workstation .lens-bar {
+  padding: 6px 4px 6px 0;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  cursor: pointer;
+  transition: background 100ms;
+}
+.lumen-app .workstation .lens-bar:hover {
+  background: transparent;
+}
+.lumen-app .workstation .lens-bar:last-child { border-bottom: none; }
+.lumen-app .workstation .lens-bar__name {
+  font-family: var(--sans);
+  font-size: 12px;
+  color: var(--ink-2);
+  font-weight: 500;
+}
+.lumen-app .workstation .lens-bar__track {
+  height: 5px;
+  background: var(--surface-3);
+  border-radius: 999px;
+  margin-top: 5px;
+}
+.lumen-app .workstation .lens-bar__fill {
+  background: var(--accent);
+  border-radius: 999px;
+}
+.lumen-app .workstation .lens-bar__fill.weak { background: var(--ink-4); }
+.lumen-app .workstation .lens-bar__val {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink);
+  font-feature-settings: 'tnum';
+  letter-spacing: 0;
+}
+
+/* Lens radar — keep the geometry, retint the strokes/labels. */
+.lumen-app .workstation .lens-radar .grid-poly { stroke: var(--border); }
+.lumen-app .workstation .lens-radar .data-poly {
+  fill: var(--accent-soft);
+  stroke: var(--accent);
+  stroke-width: 1.4;
+}
+.lumen-app .workstation .lens-radar .axis { stroke: var(--border); }
+.lumen-app .workstation .lens-radar .axis-label {
+  font-family: var(--sans);
+  font-size: 10px;
+  fill: var(--ink-3);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.lumen-app .workstation .lens-radar .data-dot { fill: var(--accent); }
+
+/* --- G. Trust strip + calibration panel ----------------------------- */
+.lumen-app .workstation .trust {
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  padding: 0 22px;
+  min-height: 60px;
+}
+.lumen-app .workstation .trust__item {
+  padding: 12px 22px 12px 0;
+  margin-right: 22px;
+  border-right: 1px solid var(--border);
+}
+.lumen-app .workstation .trust__item .label {
+  font-family: var(--sans);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--ink-3);
+  font-weight: 600;
+}
+.lumen-app .workstation .trust__item .v {
+  font-family: var(--serif);
+  font-size: 22px;
+  font-weight: 400;
+  letter-spacing: -0.015em;
+  color: var(--ink);
+  margin-top: 4px;
+}
+.lumen-app .workstation .trust__item .v.pos { color: var(--pos); }
+.lumen-app .workstation .trust__item .v.warn { color: var(--warn); }
+.lumen-app .workstation .trust__expand {
+  font-family: var(--sans);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  padding: 6px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: 7px;
+  color: var(--ink);
+  background: var(--surface);
+}
+.lumen-app .workstation .trust__expand:hover {
+  background: var(--surface-2);
+}
+.lumen-app .workstation .trust__info { color: var(--ink-3); }
+.lumen-app .workstation .trust__info:hover { color: var(--ink); }
+
+/* Trust panel (expanded calibration) */
+.lumen-app .workstation .trust-panel {
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  padding: 22px 22px 28px;
+}
+.lumen-app .workstation .trust-panel h3 {
+  font-family: var(--serif);
+  font-size: 18px;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  margin: 0 0 12px;
+}
+.lumen-app .workstation .trust-panel--empty { background: var(--surface); }
+.lumen-app .workstation .trust-panel__empty-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  padding: 22px;
+  box-shadow: none;
+}
+.lumen-app .workstation .trust-panel__empty-card p {
+  font-family: var(--sans);
+  font-size: 13px;
+  color: var(--ink-2);
+  line-height: 1.55;
+}
+.lumen-app .workstation .trust-panel__cta {
+  font-family: var(--sans);
+  font-size: 12.5px;
+  font-weight: 500;
+  letter-spacing: 0;
+  color: var(--accent);
+  text-decoration: none;
+  border-bottom: 1px solid var(--accent);
+  padding-bottom: 1px;
+}
+.lumen-app .workstation .trust-panel__cta:hover {
+  color: var(--accent-ink);
+  border-bottom-color: var(--accent-ink);
+}
+.lumen-app .workstation .trust-panel__grade-copy {
+  font-family: var(--sans);
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--ink-2);
+}
+.lumen-app .workstation .trust-panel__grade-list {
+  font-family: var(--sans);
+  font-size: 12.5px;
+  color: var(--ink-2);
+  line-height: 1.7;
+}
+.lumen-app .workstation .trust-panel__grade-list b {
+  color: var(--ink);
+  font-weight: 600;
+}
+.lumen-app .workstation .trust-panel__grade-current {
+  font-family: var(--sans);
+  font-size: 12px;
+  color: var(--ink-3);
+  letter-spacing: 0;
+}
+
+/* --- H. Analog detail drawer (slide-in) ---------------------------- */
+.lumen-app .workstation .adrawer,
+.lumen-app .adrawer {
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+  box-shadow: var(--shadow-pop);
+  width: 440px;
+}
+.lumen-app .workstation .adrawer__head,
+.lumen-app .adrawer__head {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 16px 18px;
+}
+.lumen-app .workstation .adrawer__rank-badge,
+.lumen-app .adrawer__rank-badge {
+  font-family: var(--sans);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  border-radius: var(--radius-pill);
+  background: var(--ink);
+  color: #fff;
+  padding: 4px 10px;
+  /* Drop the per-rank colors — Lumen prefers a single ink badge. */
+}
+.lumen-app .workstation .adrawer__rank-badge[data-rank="0"],
+.lumen-app .workstation .adrawer__rank-badge[data-rank="1"],
+.lumen-app .workstation .adrawer__rank-badge[data-rank="2"],
+.lumen-app .workstation .adrawer__rank-badge[data-rank="3"],
+.lumen-app .workstation .adrawer__rank-badge[data-rank="4"],
+.lumen-app .workstation .adrawer__rank-badge[data-rank="5"] {
+  background: var(--ink);
+}
+.lumen-app .workstation .adrawer__date-range,
+.lumen-app .adrawer__date-range {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-3);
+  letter-spacing: 0;
+  font-feature-settings: 'tnum';
+}
+.lumen-app .workstation .adrawer__label,
+.lumen-app .adrawer__label {
+  font-family: var(--serif);
+  font-size: 16px;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+.lumen-app .workstation .adrawer__composite-v,
+.lumen-app .adrawer__composite-v {
+  font-family: var(--serif);
+  font-size: 26px;
+  font-weight: 400;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+}
+.lumen-app .workstation .adrawer__composite-k,
+.lumen-app .adrawer__composite-k {
+  font-family: var(--sans);
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  font-weight: 600;
+}
+.lumen-app .workstation .adrawer__pin-toggle,
+.lumen-app .adrawer__pin-toggle {
+  font-family: var(--sans);
+  font-size: 12px;
+  font-weight: 500;
+  border: 1px solid var(--border-strong);
+  border-radius: 7px;
+  padding: 6px 10px;
+  color: var(--ink);
+  background: var(--surface);
+}
+.lumen-app .workstation .adrawer__pin-toggle:hover:not(:disabled),
+.lumen-app .adrawer__pin-toggle:hover:not(:disabled) {
+  background: var(--surface-2);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.lumen-app .workstation .adrawer__pin-toggle[aria-pressed="true"],
+.lumen-app .adrawer__pin-toggle[aria-pressed="true"] {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+.lumen-app .workstation .adrawer__close,
+.lumen-app .adrawer__close {
+  width: 28px; height: 28px;
+  border-radius: 7px;
+  color: var(--ink-3);
+  display: inline-grid; place-items: center;
+}
+.lumen-app .workstation .adrawer__close:hover,
+.lumen-app .adrawer__close:hover {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+.lumen-app .workstation .adrawer__context,
+.lumen-app .adrawer__context {
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border);
+  padding: 10px 18px;
+  font-family: var(--sans);
+  font-size: 12.5px;
+  color: var(--ink-2);
+}
+.lumen-app .workstation .adrawer__context-text,
+.lumen-app .adrawer__context-text {
+  font-family: var(--serif);
+  font-style: italic;
+}
+.lumen-app .workstation .adrawer__section,
+.lumen-app .adrawer__section {
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--border);
+}
+.lumen-app .workstation .adrawer__h,
+.lumen-app .adrawer__h {
+  font-family: var(--sans);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.lumen-app .workstation .adrawer__h-sub,
+.lumen-app .adrawer__h-sub {
+  font-family: var(--sans);
+  font-size: 11px;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--ink-3);
+  font-weight: 400;
+}
+.lumen-app .workstation .adrawer__lens-name,
+.lumen-app .adrawer__lens-name {
+  font-family: var(--sans);
+  font-size: 12px;
+  color: var(--ink-2);
+  font-weight: 500;
+}
+.lumen-app .workstation .adrawer__lens-bar,
+.lumen-app .adrawer__lens-bar {
+  height: 6px;
+  background: var(--surface-3);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.lumen-app .workstation .adrawer__lens-bar-fill,
+.lumen-app .adrawer__lens-bar-fill {
+  background: var(--ink-4);
+  border-radius: 999px;
+}
+.lumen-app .workstation .adrawer__lens-row[data-top="true"] .adrawer__lens-bar-fill,
+.lumen-app .adrawer__lens-row[data-top="true"] .adrawer__lens-bar-fill {
+  background: var(--accent);
+}
+/* Override per-rank color overrides — single accent in Lumen. */
+.lumen-app .workstation .adrawer__lens-row[data-top="true"][data-rank="0"] .adrawer__lens-bar-fill,
+.lumen-app .workstation .adrawer__lens-row[data-top="true"][data-rank="1"] .adrawer__lens-bar-fill,
+.lumen-app .workstation .adrawer__lens-row[data-top="true"][data-rank="2"] .adrawer__lens-bar-fill,
+.lumen-app .workstation .adrawer__lens-row[data-top="true"][data-rank="3"] .adrawer__lens-bar-fill,
+.lumen-app .workstation .adrawer__lens-row[data-top="true"][data-rank="4"] .adrawer__lens-bar-fill,
+.lumen-app .workstation .adrawer__lens-row[data-top="true"][data-rank="5"] .adrawer__lens-bar-fill,
+.lumen-app .adrawer__lens-row[data-top="true"][data-rank="0"] .adrawer__lens-bar-fill,
+.lumen-app .adrawer__lens-row[data-top="true"][data-rank="1"] .adrawer__lens-bar-fill,
+.lumen-app .adrawer__lens-row[data-top="true"][data-rank="2"] .adrawer__lens-bar-fill,
+.lumen-app .adrawer__lens-row[data-top="true"][data-rank="3"] .adrawer__lens-bar-fill,
+.lumen-app .adrawer__lens-row[data-top="true"][data-rank="4"] .adrawer__lens-bar-fill,
+.lumen-app .adrawer__lens-row[data-top="true"][data-rank="5"] .adrawer__lens-bar-fill {
+  background: var(--accent);
+}
+.lumen-app .workstation .adrawer__lens-score,
+.lumen-app .adrawer__lens-score {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-2);
+  font-feature-settings: 'tnum';
+}
+.lumen-app .workstation .adrawer__spark-wrap,
+.lumen-app .adrawer__spark-wrap {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: var(--radius-sm);
+}
+.lumen-app .workstation .adrawer__spark-meta,
+.lumen-app .adrawer__spark-meta {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-3);
+  font-feature-settings: 'tnum';
+}
+.lumen-app .workstation .adrawer__actions,
+.lumen-app .adrawer__actions {
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  padding: 14px 18px;
+}
+.lumen-app .workstation .adrawer__action,
+.lumen-app .adrawer__action {
+  font-family: var(--sans);
+  font-size: 12.5px;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  border: 1px solid var(--border-strong);
+  border-radius: 7px;
+  padding: 7px 12px;
+  color: var(--ink);
+  background: var(--surface);
+}
+.lumen-app .workstation .adrawer__action:hover,
+.lumen-app .adrawer__action:hover {
+  background: var(--surface-2);
+  border-color: var(--ink-3);
+}
+.lumen-app .workstation .adrawer__action--primary,
+.lumen-app .adrawer__action--primary {
+  background: var(--ink);
+  color: #fff;
+  border-color: var(--ink);
+}
+.lumen-app .workstation .adrawer__action--primary:hover,
+.lumen-app .adrawer__action--primary:hover {
+  background: #000;
+  border-color: #000;
+  color: #fff;
+}
+.lumen-app .workstation .adrawer__action--ghost,
+.lumen-app .adrawer__action--ghost {
+  border-color: transparent;
+  background: transparent;
+  color: var(--ink-3);
+}
+.lumen-app .workstation .adrawer__action--ghost:hover,
+.lumen-app .adrawer__action--ghost:hover {
+  background: var(--surface-2);
+  color: var(--ink);
+  border-color: transparent;
+}
+
+/* --- I. Banners + toasts ------------------------------------------- */
+.lumen-app .workstation .ws-banner {
+  font-family: var(--sans);
+  font-size: 12.5px;
+  border-bottom: 1px solid var(--border);
+  padding: 10px 22px;
+  background: var(--surface-2);
+}
+.lumen-app .workstation .ws-banner--warn {
+  background: #fcf6e6;
+  border-left: 3px solid var(--warn);
+}
+.lumen-app .workstation .ws-banner--info {
+  background: var(--accent-soft);
+  border-left: 3px solid var(--accent);
+}
+.lumen-app .workstation .ws-banner__text code {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 1px 6px;
+}
+.lumen-app .workstation .ws-banner__dismiss {
+  border-radius: var(--radius-sm);
+}
+.lumen-app .workstation .ws-banner__dismiss:hover {
+  background: var(--surface);
+  border-color: var(--border);
+}
+
+.lumen-app .workstation .ws-pin-banner {
+  background: var(--accent-soft);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius-sm);
+  margin: 12px 22px;
+  padding: 8px 14px;
+  font-family: var(--sans);
+  font-size: 12.5px;
+}
+.lumen-app .workstation .ws-pin-banner__text strong { color: var(--ink); }
+.lumen-app .workstation .ws-pin-banner__clear {
+  font-family: var(--sans);
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  padding: 4px 9px;
+  color: var(--ink);
+  background: var(--surface);
+}
+.lumen-app .workstation .ws-pin-banner__clear:hover {
+  background: var(--surface-2);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.lumen-app .ws-share-toast {
+  font-family: var(--sans);
+  font-size: 12.5px;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  background: var(--ink);
+  color: #fff;
+  border: 1px solid var(--ink);
+  border-radius: var(--radius);
+  padding: 10px 16px;
+  box-shadow: var(--shadow-pop);
+}
+
+.lumen-app .ws-use-as-query-banner {
+  background: var(--surface);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-pop);
+  padding: 10px 14px;
+  font-family: var(--sans);
+  font-size: 13px;
+  color: var(--ink);
+}
+.lumen-app .ws-use-as-query-banner__text strong {
+  font-family: var(--sans);
+  font-weight: 600;
+  font-size: 12.5px;
+  color: var(--accent);
+  text-transform: none;
+  letter-spacing: 0;
+}
+.lumen-app .ws-use-as-query-banner__dismiss {
+  border-radius: var(--radius-sm);
+  color: var(--ink-3);
+}
+.lumen-app .ws-use-as-query-banner__dismiss:hover {
+  color: var(--ink);
+  background: var(--surface-2);
+}
+
+/* --- J. Empty states ----------------------------------------------- */
+.lumen-app .workstation .ws-empty-state__card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
+  padding: 28px;
+}
+.lumen-app .workstation .ws-empty-state__headline {
+  font-family: var(--serif);
+  font-size: 24px;
+  font-weight: 400;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+}
+.lumen-app .workstation .ws-empty-state__body {
+  font-family: var(--sans);
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--ink-2);
+}
+.lumen-app .workstation .ws-empty-state__cta {
+  font-family: var(--sans);
+  font-size: 12.5px;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  padding: 8px 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: 7px;
+  color: var(--ink);
+  background: var(--surface);
+}
+.lumen-app .workstation .ws-empty-state__cta:hover {
+  background: var(--surface-2);
+}
+.lumen-app .workstation .ws-empty-state__cta--primary {
+  background: var(--ink);
+  color: #fff;
+  border-color: var(--ink);
+}
+.lumen-app .workstation .ws-empty-state__cta--primary:hover {
+  background: #000;
+  border-color: #000;
+}
+
+.lumen-app .workstation .ws-micro-empty__title {
+  font-family: var(--serif);
+  font-size: 17px;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+.lumen-app .workstation .ws-micro-empty__body {
+  font-family: var(--sans);
+  font-size: 12.5px;
+  color: var(--ink-3);
+  line-height: 1.55;
+}
+
+.lumen-app .workstation .ws-mobile-notice {
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border);
+  font-family: var(--sans);
+  font-size: 12.5px;
+  color: var(--ink-2);
+}
+
+/* --- K. Drawer chrome (mid/mobile drawer toggles) ------------------- */
+.lumen-app .workstation .ws-drawer-toggle {
+  font-family: var(--sans);
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  padding: 5px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: 7px;
+  color: var(--ink);
+  background: var(--surface);
+}
+.lumen-app .workstation .ws-drawer-toggle:hover {
+  background: var(--surface-2);
+}
+.lumen-app .workstation .ws-drawer-close {
+  border-radius: 7px;
+  color: var(--ink-3);
+  background: var(--surface);
+  border-color: var(--border);
+}
+.lumen-app .workstation .ws-drawer-close:hover {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+.lumen-app .workstation .ws-drawer-backdrop {
+  background: rgba(20,20,20,0.35);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+}
+
+/* --- L. Dataset selector (left sidebar) ----------------------------- */
+.lumen-app .workstation .dataset-freshness {
+  font-family: var(--sans);
+  font-size: 11px;
+  color: var(--ink-3);
+  letter-spacing: 0;
+}
+.lumen-app .workstation .dataset-freshness[data-warn="true"] { color: var(--warn); }
+.lumen-app .workstation .dataset-trigger {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  padding: 8px 11px;
+}
+.lumen-app .workstation .dataset-trigger:hover,
+.lumen-app .workstation .dataset-trigger:focus-visible {
+  background: var(--surface-2);
+  border-color: var(--border-strong);
+}
+.lumen-app .workstation .dataset-trigger__symbol {
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+  letter-spacing: 0;
+}
+.lumen-app .workstation .dataset-trigger__meta {
+  font-family: var(--sans);
+  font-size: 11px;
+  color: var(--ink-3);
+  letter-spacing: 0;
+}
+.lumen-app .workstation .dataset-trigger__caret {
+  color: var(--ink-3);
+}
+.lumen-app .workstation .dataset-panel {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
+}
+.lumen-app .workstation .dataset-panel__search {
+  font-family: var(--sans);
+  font-size: 12.5px;
+  background: var(--surface-2);
+  color: var(--ink);
+  border-bottom: 1px solid var(--border);
+  padding: 10px 12px;
+}
+.lumen-app .workstation .dataset-panel__search:focus-visible {
+  background: var(--surface);
+}
+.lumen-app .workstation .dataset-panel__group-header {
+  font-family: var(--sans);
+  font-size: 10.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--ink-3);
+  padding: 8px 12px 4px;
+}
+.lumen-app .workstation .dataset-panel__empty {
+  font-family: var(--sans);
+  font-size: 12px;
+  color: var(--ink-3);
+}
+.lumen-app .workstation .dataset-card {
+  padding: 8px 12px;
+  border-left: 2px solid transparent;
+}
+.lumen-app .workstation .dataset-card:hover,
+.lumen-app .workstation .dataset-card:focus-visible {
+  background: var(--surface-2);
+}
+.lumen-app .workstation .dataset-card[data-selected="true"] {
+  background: var(--accent-soft);
+  border-left-color: var(--accent);
+}
+.lumen-app .workstation .dataset-card__title {
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+  letter-spacing: 0;
+}
+.lumen-app .workstation .dataset-card__sub {
+  font-family: var(--sans);
+  font-size: 11px;
+  color: var(--ink-2);
+}
+.lumen-app .workstation .dataset-card__sub--muted {
+  color: var(--ink-3);
+}
+.lumen-app .workstation .dataset-card__stale-dot { background: var(--warn); }
+
+/* --- M. Dark mode overrides for embedded workstation ---------------- */
+.lumen-app.dark .workstation .ws-banner--warn { background: #2a2218; }
+.lumen-app.dark .workstation .ws-banner--info { background: var(--accent-soft); }
+.lumen-app.dark .workstation .ws-pin-banner { background: var(--accent-soft); }
+.lumen-app.dark .workstation .lens-bar__track,
+.lumen-app.dark .workstation .adrawer__lens-bar { background: var(--surface-3); }
+
+/* End of Lumen workstation overrides. */
 `;
