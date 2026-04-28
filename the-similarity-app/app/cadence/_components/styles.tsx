@@ -130,6 +130,7 @@ export const CADENCE_CSS = `
   padding: 14px;
   display: grid;
   grid-template-columns: 220px 1fr;
+  grid-template-rows: 1fr;
   gap: 14px;
 }
 
