@@ -56,7 +56,6 @@ const GROUPS: NavGroup[] = [
   {
     label: "Plan",
     items: [
-      { id: "targets", name: "Targets", icon: "target" },
       { id: "goals", name: "Goals", icon: "flag" },
     ],
   },

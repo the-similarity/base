@@ -72,7 +72,6 @@ function CmdKBody({ onClose, onNavigate }: CmdKBodyProps) {
     { g: "Navigate", label: "Today", icon: "heartPulse", run: () => onNavigate("today"), kbd: "G T" },
     { g: "Navigate", label: "Rhymes", icon: "echoRings", run: () => onNavigate("rhymes"), kbd: "G R" },
     { g: "Navigate", label: "Log", icon: "ledger", run: () => onNavigate("log"), kbd: "G L" },
-    { g: "Navigate", label: "Targets", icon: "target", run: () => onNavigate("targets"), kbd: "G K" },
     { g: "Navigate", label: "Goals", icon: "flag", run: () => onNavigate("goals"), kbd: "G G" },
     { g: "Navigate", label: "Sources", icon: "plug", run: () => onNavigate("sources"), kbd: "G S" },
     { g: "Navigate", label: "Labs", icon: "beaker", run: () => onNavigate("labs"), kbd: "G B" },

@@ -24,7 +24,6 @@
  *   - LABS[]                       — 9 long-term biomarkers + 5 historical draws
  *   - SOURCES[]                    — connected wearable cards
  *   - LOG_EVENTS[]                 — chronological log entries (last 7 days)
- *   - TARGETS[]                    — active sleep/HRV/recovery targets
  *   - GOALS[]                      — long-horizon marathon / DL / BF goals
  *   - TAGGED_PERIODS[]             — illness/travel/training/normal periods
  *
@@ -550,80 +549,6 @@ export const LAB_DATES = [
   "2025-04-08",
   "2025-09-22",
   "2026-03-12",
-];
-
-// =====================================================================
-// Targets — active commitments with progress, hit rate, streak
-// =====================================================================
-
-export interface Target {
-  id: string;
-  name: string;
-  unit: string;
-  goal: number;
-  current: number;       // last 7-day average
-  hitRate: number;       // 0-1 fraction of last 14 days that hit goal
-  streak: number;        // consecutive days hitting target
-  direction: "min" | "max" | "range"; // min = ≥ goal; max = ≤ goal; range = within
-  color: string;
-}
-
-export const TARGETS: Target[] = [
-  {
-    id: "sleep-min",
-    name: "Sleep ≥ 7.5h nightly",
-    unit: "h",
-    goal: 7.5,
-    current: 7.4,
-    hitRate: 0.71,
-    streak: 3,
-    direction: "min",
-    color: "#5a7d9c",
-  },
-  {
-    id: "hrv-week",
-    name: "Weekly HRV avg ≥ 60ms",
-    unit: "ms",
-    goal: 60,
-    current: 62,
-    hitRate: 0.86,
-    streak: 5,
-    direction: "min",
-    color: "#5b8a72",
-  },
-  {
-    id: "recovery",
-    name: "Recovery ≥ 70%",
-    unit: "%",
-    goal: 70,
-    current: 64,
-    hitRate: 0.5,
-    streak: 0,
-    direction: "min",
-    color: "#c89a4a",
-  },
-  {
-    id: "load-band",
-    name: "Training load 6-8/10",
-    unit: "/10",
-    goal: 7,
-    current: 7.2,
-    hitRate: 0.79,
-    streak: 4,
-    direction: "range",
-    color: "#c2655c",
-  },
-  {
-    id: "steps",
-    name: "8k+ steps daily",
-    unit: "steps",
-    goal: 8000,
-    current: 8450,
-    hitRate: 0.93,
-    streak: 11,
-    direction: "min",
-    color: "#7d3aa9",
-  },
 ];
 
 // =====================================================================
