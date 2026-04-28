@@ -1,27 +1,36 @@
 /**
  * The Similarity workstation — Lumen-styled view at `/workstation/lumen`.
  *
- * This route wraps OUR product (analog retrieval, finance runs, etc.) in
- * the Lumen visual design (painterly background, white card surface,
- * deep emerald accent, Inter / Instrument Serif / JetBrains Mono fonts,
- * sidebar + topbar + main shell). The content inside the chrome is The
- * Similarity's own data — Retrieve, Finance Runs, Compare, Reviews,
- * Dashboard, Strategy, Cadence, Case Studies, Reports.
+ * This route renders the REAL Workstation component (analog retrieval,
+ * lightweight-charts price view, top-K analog cards, P10/P90 forecast
+ * cone, 9-lens trust radar) wrapped in the Lumen visual chrome
+ * (painterly background, white card surface, deep emerald accent,
+ * Inter / Instrument Serif / JetBrains Mono fonts).
  *
- * The page is fully self-contained client-side. The visual chrome and
- * eight sub-screens live under `app/workstation/lumen/_components/*` and
- * are page-scoped via the `.lumen-app` CSS root + `lumen-` prefixed
- * class names.
+ * Architectural choice — token cascade theming
+ * --------------------------------------------
+ * The Workstation component reads all of its colors from CSS custom
+ * properties (`--bg`, `--bg-card`, `--ink`, `--accent`, etc.) defined
+ * on `:root` by `app/globals.css`. By redefining the SAME variables on
+ * the `.lumen-app` element (see styles.tsx), the Lumen palette wins via
+ * the cascade for every descendant of this route — without modifying a
+ * single line of `components/workstation/*` or `app/globals.css`.
+ *
+ * That is why this file only mounts <Workstation> and never imports
+ * any styles from the workstation subtree. The whole repaint happens
+ * via 30 lines of CSS variable overrides.
  *
  * State at this level:
- *   - `screen`: which of the 8 sub-screens is mounted in the main panel
- *   - `cmdOpen`: command palette open/closed
- *   - `tweaks`: { accent, background, dark } — driven by the tweaks panel
+ *   - `cmdOpen` — Cmd+K palette open/closed
+ *   - `tweaks`  — { accent, background, dark } — driven by the tweaks panel
+ *   - `settings` — WorkstationSettings forwarded to <Workstation>
  *
  * Tweak side effects:
  *   - `accent` and `accent-2` CSS custom properties are mutated directly
  *     on the `.lumen-app` element (not :root) so they don't leak.
- *   - `dark` toggles a `.dark` class on the same element.
+ *   - `dark` toggles a `.dark` class on the same element AND mirrors the
+ *     value into `settings.theme` so the embedded Workstation flips its
+ *     own internal mode in lockstep.
  *   - `background` swaps the painterly element's `background` style with
  *     one of the four presets (Painterly/Dusk/Char/Paper).
  *
@@ -32,8 +41,8 @@
  * IMPORTANT — file scope discipline:
  *   This file MUST NOT modify any other route. Anything visual lives
  *   under `_components/` (Next.js treats `_*` folders as private
- *   non-routable). Every CSS class here is `lumen-` prefixed to avoid
- *   collisions with `app/globals.css`.
+ *   non-routable). Every CSS class in styles.tsx is `lumen-` prefixed
+ *   to avoid collisions with `app/globals.css`.
  */
 "use client";
 
@@ -43,18 +52,18 @@ import { LUMEN_CSS } from "./_components/styles";
 import { Sidebar } from "./_components/sidebar";
 import { CmdK } from "./_components/cmdk";
 import { TweaksPanel } from "./_components/tweaks";
+import { Topbar } from "./_components/shared";
 import type { TweakState } from "./_components/tweaks";
-import type { ScreenId } from "./_components/screen-types";
 
-import { ScreenRetrieve } from "./_components/screens/retrieve";
-import { ScreenRuns } from "./_components/screens/runs";
-import { ScreenCompare } from "./_components/screens/compare";
-import { ScreenReviews } from "./_components/screens/reviews";
-import { ScreenDashboard } from "./_components/screens/dashboard";
-import { ScreenStrategy } from "./_components/screens/strategy";
-import { ScreenCadence } from "./_components/screens/cadence";
-import { ScreenCaseStudies } from "./_components/screens/case-studies";
-import { ScreenReports } from "./_components/screens/reports";
+// Embed the real product. The Workstation component is left untouched —
+// it picks up the Lumen palette via CSS custom-property cascade (see the
+// header comment above and the `.lumen-app { --bg: ... }` block in
+// styles.tsx). WorkstationSettings is the same prop shape used by
+// `/workstation` (the standalone route).
+import {
+  Workstation,
+  type WorkstationSettings,
+} from "../../../components/workstation/workstation";
 
 // Background presets driven by the tweaks panel. The painterly DIV's
 // inline background is overwritten with these strings; the page-scoped
@@ -75,11 +84,34 @@ const TWEAK_DEFAULTS: TweakState = {
   dark: false,
 };
 
+/**
+ * Workstation defaults — same shape used by `app/workstation/page.tsx`.
+ *
+ * - `theme: "light"` — paired with Lumen's painterly-on-paper light
+ *   palette by default.
+ * - `kAnalogs: 6`    — top-K matches returned by the search.
+ * - `horizon: 60`    — forecast horizon in series steps.
+ * - `showAnalogs: "all"` — every top-K match draws its own forward line.
+ *   This is the product's core loop ("here are K analogs, each drawing
+ *   a different possible future"), so we surface all of them.
+ * - `showCone: false` — P10–P90 band hidden by default; the analog
+ *   lines already convey the range. Users can flip it on inside the
+ *   embedded Workstation's tweaks panel.
+ */
+const WORKSTATION_DEFAULTS: WorkstationSettings = {
+  theme: "light",
+  kAnalogs: 6,
+  horizon: 60,
+  showAnalogs: "all",
+  showCone: false,
+};
+
 export default function LumenPage() {
-  // Default to "retrieve" — that's the headline workstation view.
-  const [screen, setScreen] = useState<ScreenId>("retrieve");
   const [cmdOpen, setCmdOpen] = useState(false);
   const [tweaks, setTweaks] = useState<TweakState>(TWEAK_DEFAULTS);
+  const [settings, setSettings] = useState<WorkstationSettings>(
+    WORKSTATION_DEFAULTS,
+  );
 
   // Refs to mutate accent CSS variables + the painterly element directly.
   // Doing this with refs (instead of inline style on the JSX) keeps the
@@ -106,6 +138,19 @@ export default function LumenPage() {
     }
   }, [tweaks]);
 
+  // Mirror the Lumen dark toggle into the embedded Workstation's
+  // `settings.theme`. Without this, dark mode would flip the chrome
+  // colors but leave the workstation's own `data-theme` attribute (read
+  // by some of its sub-components) on the previous value, producing a
+  // half-themed view.
+  useEffect(() => {
+    setSettings((s) =>
+      s.theme === (tweaks.dark ? "dark" : "light")
+        ? s
+        : { ...s, theme: tweaks.dark ? "dark" : "light" },
+    );
+  }, [tweaks.dark]);
+
   // Cmd/Ctrl+K toggles the palette; Esc closes it. We attach to window
   // so the shortcut works regardless of focus location within the app.
   useEffect(() => {
@@ -119,48 +164,6 @@ export default function LumenPage() {
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, []);
-
-  const screenProps = {
-    onCmdK: () => setCmdOpen(true),
-    onNavigate: setScreen,
-    setTweaks,
-  };
-
-  // Screen switch — each branch is a separate component so React
-  // reconciles a fresh tree per route, getting the screen-fade
-  // animation for free.
-  let content: React.ReactNode;
-  switch (screen) {
-    case "retrieve":
-      content = <ScreenRetrieve {...screenProps} />;
-      break;
-    case "runs":
-      content = <ScreenRuns {...screenProps} />;
-      break;
-    case "compare":
-      content = <ScreenCompare {...screenProps} />;
-      break;
-    case "reviews":
-      content = <ScreenReviews {...screenProps} />;
-      break;
-    case "dashboard":
-      content = <ScreenDashboard {...screenProps} />;
-      break;
-    case "strategy":
-      content = <ScreenStrategy {...screenProps} />;
-      break;
-    case "cadence":
-      content = <ScreenCadence {...screenProps} />;
-      break;
-    case "case-studies":
-      content = <ScreenCaseStudies {...screenProps} />;
-      break;
-    case "reports":
-      content = <ScreenReports {...screenProps} />;
-      break;
-    default:
-      content = <ScreenRetrieve {...screenProps} />;
-  }
 
   return (
     <>
@@ -194,14 +197,44 @@ export default function LumenPage() {
             `grid-template-columns: 220px 1fr` to push the main panel
             into a 44px-tall first row. */}
         <div className="lumen-shell">
-          <Sidebar current={screen} onNavigate={setScreen} />
-          <div className="lumen-main">{content}</div>
+          <Sidebar
+            current="retrieve"
+            // The Lumen route hosts a single screen. `onNavigate` is
+            // wired but has nowhere to route — calls are accepted as a
+            // no-op. Keeping the prop typed means the sidebar stays
+            // contract-compatible if a second contained screen lands.
+            onNavigate={() => {}}
+          />
+          <div className="lumen-main">
+            <Topbar
+              crumbs={["Workspace", "Retrieve"]}
+              onCmdK={() => setCmdOpen(true)}
+            />
+            {/*
+             * Workstation host — flex container with min-height: 0 so
+             * the embedded Workstation can do its own internal
+             * scrolling (its left/right drawers + center grid manage
+             * their own overflow). Without min-height: 0 the flexbox
+             * default of `auto` would push the workstation past the
+             * card's bottom edge.
+             */}
+            <div
+              className="lumen-workstation-host"
+              style={{
+                display: "flex",
+                flex: 1,
+                minHeight: 0,
+                overflow: "hidden",
+              }}
+            >
+              <Workstation settings={settings} onSettings={setSettings} />
+            </div>
+          </div>
         </div>
 
         <CmdK
           open={cmdOpen}
           onClose={() => setCmdOpen(false)}
-          onNavigate={setScreen}
           setTweaks={setTweaks}
         />
 
