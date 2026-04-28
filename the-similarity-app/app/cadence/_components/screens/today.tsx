@@ -1,22 +1,19 @@
 /**
  * Today screen — the workstation home for Cadence.
  *
- * Sections (top → bottom):
- *   1. Hero — date + recovery score + "your body is rhyming with…" headline
+ * Four sections, top → bottom (post slop cut):
+ *   1. Hero — date + recovery score + rhyme-with-date pill
  *   2. Two-column grid:
  *      Left  — Key metrics column (HRV, RHR, recovery, sleep score, energy,
  *              glucose) with delta vs personal baseline
- *      Right — DayTrajectory chart (today's HR with overlay options)
- *   3. Two-column grid:
- *      Left  — RhymeHeatmap (7-day × 12-hour intensity grid)
- *      Right — TagDonut (last 30 days context distribution)
- *   4. ThreadRibbon (30-day recovery history strip)
- *   5. Top rhyme card — featured analogue from engine.findRhymes()
+ *      Right — DayTrajectory chart (today's HR overlayed against the top
+ *              rhyme — overlay is hardcoded, no picker)
+ *   3. Top rhyme card — featured analogue from engine.findRhymes(),
+ *      drives navigation to /rhymes for the full pitch
  *
- * Local state:
- *   - `overlay`: which of "yesterday" / "rhyme" / "baseline" overlays the
- *      DayTrajectory chart shows (visual-only here, default "rhyme" so the
- *      first-impression sells the self-similarity mechanic)
+ * Removed in slop cut: SegControl overlay picker (rhyme overlay now always
+ * on — it's the hero feature), RhymeHeatmap, TagDonut, ThreadRibbon
+ * (decorative widgets without grounded data semantics).
  *
  * Self-similarity mechanic — the soul of the product:
  *   findRhymes() runs over the user's own 365-day history. The top rhyme
@@ -27,16 +24,10 @@
  */
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Icon } from "../icons";
-import { Pill, Topbar, SectionHead, SegControl } from "../shared";
-import {
-  DayTrajectory,
-  RhymeHeatmap,
-  TagDonut,
-  ThreadRibbon,
-  Ring,
-} from "../charts";
+import { Pill, Topbar } from "../shared";
+import { DayTrajectory, Ring } from "../charts";
 import {
   BASELINE,
   BASELINE_HOURLY,
@@ -44,29 +35,20 @@ import {
   FMT,
   TAG_META,
   TODAY_HOURLY,
-  YESTERDAY_HOURLY,
 } from "../data";
-import type { DaySummary } from "../data";
 import { findRhymes, OUTCOME_META } from "../../engine";
 import type { ScreenProps } from "../screen-types";
 
-// Overlay choice = which compare line is layered on the DayTrajectory.
-type OverlayChoice = "yesterday" | "rhyme" | "baseline";
-
 export function ScreenToday({ onCmdK, onNavigate }: ScreenProps) {
-  const [overlay, setOverlay] = useState<OverlayChoice>("rhyme");
-
   // Yesterday's day summary (DAYS[0]) — the headline metrics.
   // Note: in this demo "today" is anchored at 2026-04-27 and DAYS[0] is
   // the most recent COMPLETED day's reading (Whoop/Oura semantics).
   const today = DAYS[0];
   const last7 = DAYS.slice(0, 7);
-  const last30 = DAYS.slice(0, 30);
 
-  // Rhyme finder over user's own data. useMemo is critical here: the
-  // sliding-window scan is O(N · W · C) and the screen re-renders on
-  // overlay toggle. Without memoization we'd re-scan 350+ windows
-  // every click.
+  // Rhyme finder over user's own data. useMemo keeps the O(N · W · C)
+  // sliding-window scan from re-running across re-renders that don't
+  // mutate the input window.
   const rhymes = useMemo(() => findRhymes(DAYS, last7, { k: 5 }), [last7]);
   const top = rhymes[0];
 
@@ -210,99 +192,30 @@ export function ScreenToday({ onCmdK, onNavigate }: ScreenProps) {
               <div style={{ display: "flex", alignItems: "center", padding: "0 0 6px 12px" }}>
                 <div className="cadence-title cadence-fz-13 cadence-fw-6">Heart rate today</div>
                 <span className="cadence-text-3 cadence-fz-12" style={{ marginLeft: 10 }}>
-                  vs {overlay === "rhyme" && top ? `${FMT.shortDate(top.window[0].date)} (rhyme)` : overlay === "yesterday" ? "yesterday" : "your baseline"}
+                  {top ? `vs ${FMT.shortDate(top.window[0].date)} (rhyme)` : "vs your baseline"}
                 </span>
-                <div className="cadence-right" style={{ marginLeft: "auto" }}>
-                  <SegControl
-                    value={overlay}
-                    onChange={(v) => setOverlay(v as OverlayChoice)}
-                    options={[
-                      { value: "rhyme", label: "Rhyme" },
-                      { value: "yesterday", label: "Yesterday" },
-                      { value: "baseline", label: "Baseline" },
-                    ]}
-                  />
-                </div>
               </div>
+              {/* Overlay is hardcoded to the top rhyme — the picker was
+                  removed in the slop cut so the hero feature (analogue
+                  retrieval) is always visible without an interaction. */}
               <DayTrajectory
                 primary={TODAY_HOURLY.map((p) => p.hr)}
                 primaryLabel="Today"
                 primaryColor="var(--accent)"
-                overlays={
-                  overlay === "rhyme"
-                    ? [{ key: "rhy", label: "Rhyme", data: rhymeHourly.map((p) => p.hr), color: "var(--info)", dashed: true }]
-                    : overlay === "yesterday"
-                      ? [{ key: "yst", label: "Yesterday", data: YESTERDAY_HOURLY.map((p) => p.hr), color: "var(--ink-3)", dashed: true }]
-                      : [{ key: "bln", label: "Baseline", data: BASELINE_HOURLY.map((p) => p.hr), color: "var(--ink-3)", dashed: true }]
-                }
+                overlays={[
+                  {
+                    key: "rhy",
+                    label: "Rhyme",
+                    data: rhymeHourly.map((p) => p.hr),
+                    color: "var(--info)",
+                    dashed: true,
+                  },
+                ]}
               />
             </div>
           </div>
 
-          {/* Mid: rhyme heatmap + tag donut */}
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1.4fr 1fr",
-              gap: 14,
-              marginTop: 20,
-            }}
-          >
-            <div className="cadence-card cadence-card-pad">
-              <SectionHead
-                title="Energy heatmap"
-                sub="Last 7 days · 2-hour bins · darker = higher energy"
-              />
-              <RhymeHeatmap days={last7} />
-              <div className="cadence-row cadence-gap-8 cadence-mt-16 cadence-fz-11 cadence-text-3">
-                <span>Less</span>
-                <div className="cadence-row cadence-gap-4">
-                  {[0.1, 0.3, 0.5, 0.7, 0.9].map((v) => (
-                    <div
-                      key={v}
-                      style={{
-                        width: 12,
-                        height: 12,
-                        borderRadius: 2,
-                        background: `rgba(91,138,114,${0.10 + v * 0.7})`,
-                      }}
-                    />
-                  ))}
-                </div>
-                <span>More</span>
-              </div>
-            </div>
-
-            <div className="cadence-card cadence-card-pad">
-              <SectionHead title="Context" sub="Last 30 days" />
-              <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
-                <div className="cadence-donut-c" style={{ width: 160, height: 160 }}>
-                  <TagDonut days={last30} size={160} thickness={20} />
-                </div>
-                <div className="cadence-grow">
-                  {tagBreakdown(last30).slice(0, 5).map((row) => (
-                    <div className="cadence-legend-row" key={row.key}>
-                      <span className="cadence-sw" style={{ background: row.color }} />
-                      <span className="cadence-lab">{row.label}</span>
-                      <span className="cadence-pct">{row.pct}%</span>
-                      <span className="cadence-amt">{row.n}d</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* 30-day thread ribbon */}
-          <div className="cadence-card cadence-card-pad cadence-mt-20">
-            <SectionHead
-              title="30-day thread"
-              sub="Bar height = recovery · color = context"
-            />
-            <ThreadRibbon days={last30} height={56} />
-          </div>
-
-          {/* Top rhyme — featured analogue */}
+          {/* Top rhyme — featured analogue, the bridge to /rhymes */}
           {top && (
             <div className="cadence-ai-bubble cadence-mt-20" style={{ display: "flex", gap: 18, alignItems: "flex-start" }}>
               <div style={{ flex: 1 }}>
@@ -322,9 +235,6 @@ export function ScreenToday({ onCmdK, onNavigate }: ScreenProps) {
                 <div className="cadence-row cadence-gap-6 cadence-mt-12">
                   <button className="cadence-btn" onClick={() => onNavigate("rhymes")}>
                     See all rhymes <Icon name="arrowRight" />
-                  </button>
-                  <button className="cadence-btn cadence-btn-ghost" onClick={() => setOverlay("rhyme")}>
-                    Overlay on chart
                   </button>
                 </div>
               </div>
@@ -366,28 +276,3 @@ function MetricRow({ icon, label, value, unit, delta, deltaUnit, tone }: MetricR
   );
 }
 
-interface TagBreakdownRow {
-  key: string;
-  label: string;
-  color: string;
-  n: number;
-  pct: number;
-}
-
-function tagBreakdown(days: DaySummary[]): TagBreakdownRow[] {
-  const counts: Record<string, number> = {};
-  for (const d of days) {
-    const t = d.tag ?? "normal";
-    counts[t] = (counts[t] || 0) + 1;
-  }
-  const total = days.length || 1;
-  return Object.entries(counts)
-    .map(([key, n]) => ({
-      key,
-      label: TAG_META[key as keyof typeof TAG_META]?.label ?? key,
-      color: TAG_META[key as keyof typeof TAG_META]?.color ?? "#7a7a75",
-      n,
-      pct: Math.round((n / total) * 100),
-    }))
-    .sort((a, b) => b.n - a.n);
-}
