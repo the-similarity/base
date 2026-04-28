@@ -325,11 +325,7 @@ export const LUMEN_CSS = `
 .lumen-app .lumen-sidebar-foot .lumen-plan { font-size: 11px; color: var(--ink-3); line-height: 1.2; }
 
 /* ============ main panel — renamed from .main to avoid collision with
-   the global .main rule in globals.css.
-
-   Default behaviour: a single Lumen card containing the topbar and the
-   route's main content. This is what generic Lumen routes (e.g. plain
-   dashboards) get. */
+   the global .main rule in globals.css. */
 .lumen-app .lumen-main {
   background: var(--surface);
   border-radius: var(--radius-lg);
@@ -340,45 +336,12 @@ export const LUMEN_CSS = `
   min-width: 0;
 }
 
-/* When the embedded <Workstation> mounts inside .lumen-main the page
-   needs TWO visually distinct cards (workstation + lens panel) with a
-   gap between them, instead of a single big card. We detect this via
-   :has(.workstation) — supported in every evergreen browser as of Q1
-   2024 — and turn .lumen-main into a transparent layout container.
-   The two inner card surfaces are painted by the .workstation grid
-   rules in the workstation overrides section further down. */
-.lumen-app .lumen-main:has(.workstation) {
-  background: transparent;
-  border: none;
-  box-shadow: none;
-  /* The card chrome lives on the children now, so we must let their
-     own borders and shadows render outside the parent's box. The
-     .lumen-shell already supplies the outer 14px gutter; this only
-     turns off the parent clip. */
-  overflow: visible;
-}
-
 .lumen-app .lumen-topbar {
   height: 46px;
   border-bottom: 1px solid var(--border);
   display: flex; align-items: center;
   padding: 0 16px;
   gap: 10px;
-  flex: 0 0 46px;
-}
-
-/* When .lumen-main loses its card chrome (workstation route) the
-   topbar would otherwise float on the painterly background with no
-   surface, hurting readability of the breadcrumbs. Give it its own
-   thin Lumen card pill so it still reads cleanly. The 10px gap below
-   matches the gap between the two workstation cards underneath. */
-.lumen-app .lumen-main:has(.workstation) > .lumen-topbar {
-  background: var(--surface);
-  border: 1px solid rgba(255,255,255,0.5);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-card);
-  padding: 0 14px;
-  margin-bottom: 10px;
   flex: 0 0 46px;
 }
 .lumen-app .lumen-crumbs {
@@ -972,92 +935,33 @@ export const LUMEN_CSS = `
  * ==================================================================== */
 
 /* --- A. Layout shell -------------------------------------------------
- * Two-card layout: the LEFT card holds .side (workstation's internal
- * sidebar) + .main (chart + analog strip + trust). The RIGHT card holds
- * .right (the 9-lens radar, bars, and reading narrative). A 14px gap
- * between them shows the painterly background.
- *
- * The DOM is unchanged — .workstation is still a CSS grid with three
- * direct children (.side, .main, .right) — but we paint ONE card across
- * the side+main columns and a SEPARATE card on the right column. The
- * gap is rendered via grid column-gap (transparent), letting the
- * painterly background show through.
- *
- * The .lumen-main parent is transparent on this route (see the
- * :has(.workstation) rule near the top of this stylesheet), so the two
- * inner cards are the only visible surfaces. */
+ * The workstation paints its own .side / .main / .right grid. We strip
+ * the harsh 1px dividers between panels and keep the inside transparent
+ * so the Lumen card behind it is the visible surface. Padding is
+ * relaxed to Lumen's 14-22px rhythm. */
 .lumen-app .workstation {
   background: transparent;
   font-family: var(--sans);
   color: var(--ink);
-  /* 240px (.side) + 1fr (.main) + 14px gap + 320px (.right). The 14px
-     gap between .main and .right is the visual separation the user
-     asked for; the 0 gap between .side and .main keeps them flush so
-     they read as one continuous "workstation" card. We use grid-gap on
-     the parent and a margin-left override on .right (see below) so the
-     gap only appears between cols 2 and 3. */
+  /* Match the Lumen card geometry: rows = topbar-area + body, no third
+     trust row. Trust is rendered inline as a card now, so we collapse
+     the auto-3rd-row to 0. The default workstation grid is 260/1fr/320;
+     bump the side rails wider to give Lumen typography room. */
   grid-template-columns: 240px 1fr 320px;
-  /* Fill the parent flex container's height so each card stretches. */
-  height: 100%;
 }
 .lumen-app .workstation > .side,
 .lumen-app .workstation > .main,
 .lumen-app .workstation > .right {
+  background: transparent;
   border: none;
 }
-
-/* Left card surface — spans the .side + .main grid columns. Each child
-   paints its own slice of the surface so they appear as one card with
-   an internal hairline divider where they meet. */
-.lumen-app .workstation > .side,
-.lumen-app .workstation > .main {
-  background: var(--surface);
-  border-top: 1px solid rgba(255,255,255,0.5);
-  border-bottom: 1px solid rgba(255,255,255,0.5);
-  box-shadow: var(--shadow-card);
-}
 .lumen-app .workstation > .side {
-  border-left: 1px solid rgba(255,255,255,0.5);
-  /* Hairline rule between the side panel and the main content area —
-     this is the internal divider INSIDE the left card, not a card
-     edge. Use the soft beige border, not the highlight white. */
   border-right: 1px solid var(--border);
-  border-top-left-radius: var(--radius-lg);
-  border-bottom-left-radius: var(--radius-lg);
   padding: 4px 0;
-  /* Internal scroll: long pinned/notebook lists shouldn't push the
-     card past the viewport. */
-  overflow-y: auto;
-  overflow-x: hidden;
 }
-.lumen-app .workstation > .main {
-  border-right: 1px solid rgba(255,255,255,0.5);
-  border-top-right-radius: var(--radius-lg);
-  border-bottom-right-radius: var(--radius-lg);
-  /* The main column already manages its own internal layout (chart
-     stack + analog strip + trust). Clip rounded corners. */
-  overflow: hidden;
-}
-
-/* Right card — the 9-lens dashboard. Its own Lumen card with full
-   chrome, separated from the left card by a 14px gap that reveals the
-   painterly background underneath. */
 .lumen-app .workstation > .right {
-  background: var(--surface);
-  border: 1px solid rgba(255,255,255,0.5);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-card);
-  /* Pull the right column 14px away from the .main column to create
-     the visual gap. Using margin-left here (rather than column-gap on
-     the grid) keeps the .side ↔ .main seam flush. */
-  margin-left: 14px;
-  /* The card itself supplies the outer padding — reset the inner
-     panel's section padding via the .right__section override below. */
+  border-left: 1px solid var(--border);
   padding: 4px 0;
-  /* Lens content can be tall (radar + bars + reading narrative); keep
-     the card height bounded and let the inside scroll. */
-  overflow-y: auto;
-  overflow-x: hidden;
 }
 
 /* --- B. Side panel (left) — query def, window, pinned, notebook ----- */
