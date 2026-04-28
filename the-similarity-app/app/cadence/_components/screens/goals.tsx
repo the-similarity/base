@@ -37,16 +37,16 @@ export function ScreenGoals({ onCmdK }: ScreenProps) {
   const behind = GOALS.filter((g) => g.trend === "behind").length;
 
   return (
-    <div className="content-col screen-fade">
+    <div className="cadence-content-col cadence-screen-fade">
       <Topbar crumbs={["Workspace", "Goals"]} onCmdK={onCmdK} />
 
-      <div className="scroll">
-        <div className="scroll-pad">
-          <div className="h-eyebrow mb-8">Long-horizon outcomes</div>
-          <div className="h-display num" style={{ fontSize: 44 }}>
+      <div className="cadence-scroll">
+        <div className="cadence-scroll-pad">
+          <div className="cadence-h-eyebrow cadence-mb-8">Long-horizon outcomes</div>
+          <div className="cadence-h-display cadence-num" style={{ fontSize: 44 }}>
             {GOALS.length} goals · {ahead + onTrack}/{GOALS.length} on track
           </div>
-          <div className="row gap-12 mt-12 mb-20">
+          <div className="cadence-row cadence-gap-12 cadence-mt-12 cadence-mb-20">
             {ahead > 0 && <Pill tone="pos" dot>{ahead} ahead</Pill>}
             <Pill tone="info">{onTrack} on track</Pill>
             {behind > 0 && <Pill tone="neg" dot>{behind} behind</Pill>}
@@ -59,22 +59,22 @@ export function ScreenGoals({ onCmdK }: ScreenProps) {
           </div>
 
           {/* Add-goal stub */}
-          <div className="card tinted card-pad mt-20" style={{ display: "flex", alignItems: "center", gap: 14 }}>
-            <div className="grow">
-              <div className="title fz-13 fw-6">Add a goal</div>
-              <div className="text-3 fz-12 mt-4">
+          <div className="cadence-card cadence-card-tinted cadence-card-pad cadence-mt-20" style={{ display: "flex", alignItems: "center", gap: 14 }}>
+            <div className="cadence-grow">
+              <div className="cadence-title cadence-fz-13 cadence-fw-6">Add a goal</div>
+              <div className="cadence-text-3 cadence-fz-12 cadence-mt-4">
                 Goals work best when they&rsquo;re a single quantifiable outcome
                 with a hard date. Cadence projects completion from your
                 current trajectory.
               </div>
             </div>
-            <button className="btn primary">+ New goal</button>
+            <button className="cadence-btn cadence-btn-primary">+ New goal</button>
           </div>
 
           {/* Methodology */}
-          <div className="card card-pad mt-20">
+          <div className="cadence-card cadence-card-pad cadence-mt-20">
             <SectionHead title="How projections work" sub="Methodology" />
-            <div className="text-2 fz-13" style={{ lineHeight: 1.6 }}>
+            <div className="cadence-text-2 cadence-fz-13" style={{ lineHeight: 1.6 }}>
               For each goal, Cadence fits a linear-trend regression through
               your historical metric (e.g. weekly long-run pace) and
               extrapolates against the due date. Trend = <b>ahead</b> when
@@ -99,22 +99,22 @@ interface GoalCardProps {
 function GoalCard({ g }: GoalCardProps) {
   const meta = TREND_META[g.trend];
   return (
-    <div className="card card-pad-lg" style={{ display: "flex", gap: 18, alignItems: "center" }}>
-      <div className="ring-wrap" style={{ width: 84, height: 84 }}>
+    <div className="cadence-card cadence-card-pad-lg" style={{ display: "flex", gap: 18, alignItems: "center" }}>
+      <div className="cadence-ring-wrap" style={{ width: 84, height: 84 }}>
         <Ring pct={g.progress} size={84} thickness={7} color={meta.color} />
-        <div className="ring-text" style={{ fontSize: 18 }}>{Math.round(g.progress * 100)}%</div>
+        <div className="cadence-ring-text" style={{ fontSize: 18 }}>{Math.round(g.progress * 100)}%</div>
       </div>
-      <div className="grow" style={{ minWidth: 0 }}>
-        <div className="title fz-13 fw-6">{g.name}</div>
-        <div className="text-3 fz-11" style={{ marginTop: 2 }}>{g.metric}</div>
-        <div className="row gap-8 mt-12 fz-12 text-2">
+      <div className="cadence-grow" style={{ minWidth: 0 }}>
+        <div className="cadence-title cadence-fz-13 cadence-fw-6">{g.name}</div>
+        <div className="cadence-text-3 cadence-fz-11" style={{ marginTop: 2 }}>{g.metric}</div>
+        <div className="cadence-row cadence-gap-8 cadence-mt-12 cadence-fz-12 cadence-text-2">
           <span><b>Now:</b> {g.current}</span>
           <span><b>Target:</b> {g.target}</span>
           <span style={{ marginLeft: "auto" }}><b>Due:</b> {g.due}</span>
         </div>
-        <div className="row gap-8 mt-12">
+        <div className="cadence-row cadence-gap-8 cadence-mt-12">
           <Pill tone={meta.tone} dot>{meta.label}</Pill>
-          <span className="text-3 fz-12">{g.projection}</span>
+          <span className="cadence-text-3 cadence-fz-12">{g.projection}</span>
         </div>
       </div>
     </div>

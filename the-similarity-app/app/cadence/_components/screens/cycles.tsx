@@ -71,16 +71,16 @@ export function ScreenCycles({ onCmdK }: ScreenProps) {
   const meNorm = mesoLoad.map((v) => (v - meMin) / (meMax - meMin || 1));
 
   return (
-    <div className="content-col screen-fade">
+    <div className="cadence-content-col cadence-screen-fade">
       <Topbar crumbs={["Workspace", "Cycles"]} onCmdK={onCmdK} />
 
-      <div className="scroll">
-        <div className="scroll-pad">
-          <div className="h-eyebrow mb-8">Recurring patterns in your own data</div>
-          <div className="h-display num" style={{ fontSize: 36, marginBottom: 4 }}>
+      <div className="cadence-scroll">
+        <div className="cadence-scroll-pad">
+          <div className="cadence-h-eyebrow cadence-mb-8">Recurring patterns in your own data</div>
+          <div className="cadence-h-display cadence-num" style={{ fontSize: 36, marginBottom: 4 }}>
             What time keeps repeating?
           </div>
-          <div className="text-3 fz-12 mb-20">
+          <div className="cadence-text-3 cadence-fz-12 cadence-mb-20">
             Cycles aggregates your last 365 days into the weekly, monthly,
             and training-block grains your body actually lives in.
           </div>
@@ -141,7 +141,7 @@ export function ScreenCycles({ onCmdK }: ScreenProps) {
           </div>
 
           {/* Cross-cycle interactions */}
-          <div className="card card-pad mt-24">
+          <div className="cadence-card cadence-card-pad cadence-mt-24">
             <SectionHead
               title="Cross-cycle interactions"
               sub="Where recurrences collide"
@@ -214,15 +214,15 @@ interface CycleCardProps {
 
 function CycleCard({ title, sub, labels, values, raw, insight, color, metric, labelSet, extraRaw, extraLabel }: CycleCardProps) {
   return (
-    <div className="card card-pad">
+    <div className="cadence-card cadence-card-pad">
       <SectionHead title={title} sub={sub} />
       <div style={{ display: "grid", placeItems: "center", marginBottom: 8 }}>
         <PolarCycle labels={labels} values={values} size={220} color={color} />
       </div>
-      <div className="text-3 fz-11 mt-8" style={{ display: "grid", gridTemplateColumns: `repeat(${labels.length}, 1fr)`, gap: 6, textAlign: "center" }}>
+      <div className="cadence-text-3 cadence-fz-11 cadence-mt-8" style={{ display: "grid", gridTemplateColumns: `repeat(${labels.length}, 1fr)`, gap: 6, textAlign: "center" }}>
         {labels.map((l, i) => (
           <div key={l}>
-            <div className="mono" style={{ fontSize: 11, color: "var(--ink)", fontWeight: 500 }}>
+            <div className="cadence-mono" style={{ fontSize: 11, color: "var(--ink)", fontWeight: 500 }}>
               {raw[i].toFixed(metric === "strain" ? 1 : 0)}
             </div>
             <div style={{ fontSize: 10 }}>{l}</div>
@@ -230,10 +230,10 @@ function CycleCard({ title, sub, labels, values, raw, insight, color, metric, la
         ))}
       </div>
       {extraRaw && extraLabel && (
-        <div className="text-3 fz-11 mt-8" style={{ borderTop: "1px dashed var(--border)", paddingTop: 8 }}>
+        <div className="cadence-text-3 cadence-fz-11 cadence-mt-8" style={{ borderTop: "1px dashed var(--border)", paddingTop: 8 }}>
           <span style={{ fontWeight: 550, marginRight: 6 }}>{extraLabel}:</span>
           {extraRaw.map((v, i) => (
-            <span key={labelSet[i]} className="mono" style={{ marginRight: 8 }}>
+            <span key={labelSet[i]} className="cadence-mono" style={{ marginRight: 8 }}>
               {labelSet[i]} {v.toFixed(0)}
             </span>
           ))}
@@ -255,14 +255,14 @@ interface InteractionRowProps {
 
 function InteractionRow({ a, b, value, detail }: InteractionRowProps) {
   return (
-    <div className="card tinted card-pad">
-      <div className="text-3 fz-11" style={{ textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 550 }}>
+    <div className="cadence-card cadence-card-tinted cadence-card-pad">
+      <div className="cadence-text-3 cadence-fz-11" style={{ textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 550 }}>
         {a} × {b}
       </div>
-      <div className="h-display" style={{ fontSize: 22, marginTop: 4 }}>
+      <div className="cadence-h-display" style={{ fontSize: 22, marginTop: 4 }}>
         {value}
       </div>
-      <div className="text-3 fz-12 mt-4">{detail}</div>
+      <div className="cadence-text-3 cadence-fz-12 cadence-mt-4">{detail}</div>
     </div>
   );
 }

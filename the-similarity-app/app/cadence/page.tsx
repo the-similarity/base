@@ -192,9 +192,16 @@ export default function CadencePage() {
             bleed beyond the route. */}
         <div ref={painterlyRef} className="cadence-painterly" />
 
-        <div className="app">
+        {/* `.cadence-app-shell` (formerly `.app`) wraps sidebar + main.
+            The rename is THE bugfix for the empty-main-panel problem:
+            the global `.app` selector in app/globals.css set
+            `grid-template-rows: 44px 1fr 26px`, which combined with our
+            `grid-template-columns: 220px 1fr` to push the main panel
+            into a 44px-tall first row. See styles.tsx for the full
+            collision rationale. */}
+        <div className="cadence-app-shell">
           <Sidebar current={screen} onNavigate={setScreen} />
-          <div className="main">{content}</div>
+          <div className="cadence-main">{content}</div>
         </div>
 
         <CmdK

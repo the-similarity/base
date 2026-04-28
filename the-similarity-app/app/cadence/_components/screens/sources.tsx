@@ -31,24 +31,24 @@ export function ScreenSources({ onCmdK }: ScreenProps) {
   const channelsCount = new Set(connected.flatMap((s) => s.channels)).size;
 
   return (
-    <div className="content-col screen-fade">
+    <div className="cadence-content-col cadence-screen-fade">
       <Topbar
         crumbs={["Workspace", "Sources"]}
         onCmdK={onCmdK}
         actions={
-          <button className="btn primary">
+          <button className="cadence-btn cadence-btn-primary">
             <Icon name="plus" /> Add source
           </button>
         }
       />
 
-      <div className="scroll">
-        <div className="scroll-pad">
-          <div className="h-eyebrow mb-8">Data integrations</div>
-          <div className="h-display num" style={{ fontSize: 44 }}>
+      <div className="cadence-scroll">
+        <div className="cadence-scroll-pad">
+          <div className="cadence-h-eyebrow cadence-mb-8">Data integrations</div>
+          <div className="cadence-h-display cadence-num" style={{ fontSize: 44 }}>
             {connected.length} connected · {channelsCount} channels
           </div>
-          <div className="row gap-12 mt-12 mb-20">
+          <div className="cadence-row cadence-gap-12 cadence-mt-12 cadence-mb-20">
             <Pill tone="pos" dot>
               all syncing
             </Pill>
@@ -56,9 +56,9 @@ export function ScreenSources({ onCmdK }: ScreenProps) {
           </div>
 
           {/* Connected */}
-          <div className="section-head" style={{ paddingBottom: 12 }}>
-            <div className="title">Connected</div>
-            <div className="sub">{connected.length} active sources</div>
+          <div className="cadence-section-head" style={{ paddingBottom: 12 }}>
+            <div className="cadence-title">Connected</div>
+            <div className="cadence-sub">{connected.length} active sources</div>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 10 }}>
             {connected.map((s) => (
@@ -67,9 +67,9 @@ export function ScreenSources({ onCmdK }: ScreenProps) {
           </div>
 
           {/* Available */}
-          <div className="section-head mt-24" style={{ paddingBottom: 12 }}>
-            <div className="title">Available</div>
-            <div className="sub">{available.length} sources you could add</div>
+          <div className="cadence-section-head cadence-mt-24" style={{ paddingBottom: 12 }}>
+            <div className="cadence-title">Available</div>
+            <div className="cadence-sub">{available.length} sources you could add</div>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 10 }}>
             {available.map((s) => (
@@ -78,9 +78,9 @@ export function ScreenSources({ onCmdK }: ScreenProps) {
           </div>
 
           {/* Privacy */}
-          <div className="card tinted card-pad mt-24">
+          <div className="cadence-card cadence-card-tinted cadence-card-pad cadence-mt-24">
             <SectionHead title="Privacy" sub="How your data is handled" />
-            <div className="text-2 fz-13" style={{ lineHeight: 1.6 }}>
+            <div className="cadence-text-2 cadence-fz-13" style={{ lineHeight: 1.6 }}>
               Cadence stores your raw biomarker history locally and runs
               the rhyme finder on-device. Your data never leaves your
               browser unless you explicitly export it. There is no cohort
@@ -100,11 +100,11 @@ interface SourceRowProps {
 
 function SourceRow({ s }: SourceRowProps) {
   return (
-    <div className="source-card">
+    <div className="cadence-source-card">
       <SourceLogo color={s.color} mark={s.mark} size={40} />
-      <div className="grow" style={{ minWidth: 0 }}>
-        <div className="row gap-8">
-          <div className="title fz-13 fw-6">{s.name}</div>
+      <div className="cadence-grow" style={{ minWidth: 0 }}>
+        <div className="cadence-row cadence-gap-8">
+          <div className="cadence-title cadence-fz-13 cadence-fw-6">{s.name}</div>
           <Pill tone="default">{s.kind}</Pill>
           {s.connected && (
             <Pill tone="pos" dot>
@@ -112,24 +112,24 @@ function SourceRow({ s }: SourceRowProps) {
             </Pill>
           )}
         </div>
-        <div className="text-3 fz-12 mt-4">
+        <div className="cadence-text-3 cadence-fz-12 cadence-mt-4">
           {s.channels.join(" · ")}
         </div>
       </div>
-      <div className="text-3 fz-12" style={{ minWidth: 120, textAlign: "right" }}>
+      <div className="cadence-text-3 cadence-fz-12" style={{ minWidth: 120, textAlign: "right" }}>
         {s.connected ? (
           <>
             <div>last sync</div>
-            <div className="mono" style={{ color: "var(--ink-2)", fontWeight: 500 }}>{s.lastSync}</div>
+            <div className="cadence-mono" style={{ color: "var(--ink-2)", fontWeight: 500 }}>{s.lastSync}</div>
           </>
         ) : (
           <span>not connected</span>
         )}
       </div>
       {s.connected ? (
-        <button className="btn">Disconnect</button>
+        <button className="cadence-btn">Disconnect</button>
       ) : (
-        <button className="btn primary">Connect</button>
+        <button className="cadence-btn cadence-btn-primary">Connect</button>
       )}
     </div>
   );

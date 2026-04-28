@@ -47,16 +47,16 @@ export function ScreenTargets({ onCmdK }: ScreenProps) {
   const longestStreak = Math.max(...TARGETS.map((t) => t.streak));
 
   return (
-    <div className="content-col screen-fade">
+    <div className="cadence-content-col cadence-screen-fade">
       <Topbar crumbs={["Workspace", "Targets"]} onCmdK={onCmdK} />
 
-      <div className="scroll">
-        <div className="scroll-pad">
-          <div className="h-eyebrow mb-8">Active commitments</div>
-          <div className="h-display num" style={{ fontSize: 44 }}>
+      <div className="cadence-scroll">
+        <div className="cadence-scroll-pad">
+          <div className="cadence-h-eyebrow cadence-mb-8">Active commitments</div>
+          <div className="cadence-h-display cadence-num" style={{ fontSize: 44 }}>
             {TARGETS.length} targets · {Math.round(overallHit * 100)}% hit rate
           </div>
-          <div className="row gap-12 mt-12 mb-20">
+          <div className="cadence-row cadence-gap-12 cadence-mt-12 cadence-mb-20">
             <Pill tone={overallHit >= 0.7 ? "pos" : overallHit >= 0.5 ? "warn" : "neg"} dot>
               {overallHit >= 0.7 ? "On track" : overallHit >= 0.5 ? "Inconsistent" : "Drifting"}
             </Pill>
@@ -64,14 +64,14 @@ export function ScreenTargets({ onCmdK }: ScreenProps) {
           </div>
 
           {/* Per-target rows */}
-          <div className="card" style={{ overflow: "hidden" }}>
+          <div className="cadence-card" style={{ overflow: "hidden" }}>
             {TARGETS.map((t) => (
               <TargetRow key={t.id} t={t} />
             ))}
           </div>
 
           {/* Aggregate this-week chart */}
-          <div className="card card-pad mt-20">
+          <div className="cadence-card cadence-card-pad cadence-mt-20">
             <SectionHead
               title="This week"
               sub={`Targets hit per day · last 7 days · max ${TARGETS.length}`}
@@ -83,7 +83,7 @@ export function ScreenTargets({ onCmdK }: ScreenProps) {
                 const pct = TARGETS.length === 0 ? 0 : h / TARGETS.length;
                 return (
                   <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-                    <div className="mono" style={{ fontSize: 11, color: "var(--ink)" }}>{h}/{TARGETS.length}</div>
+                    <div className="cadence-mono" style={{ fontSize: 11, color: "var(--ink)" }}>{h}/{TARGETS.length}</div>
                     <div
                       style={{
                         width: "100%",
@@ -93,7 +93,7 @@ export function ScreenTargets({ onCmdK }: ScreenProps) {
                       }}
                       title={`${dow} ${FMT.shortDate(day.date)}: ${h}/${TARGETS.length} targets`}
                     />
-                    <div className="text-3 fz-11">{dow}</div>
+                    <div className="cadence-text-3 cadence-fz-11">{dow}</div>
                   </div>
                 );
               })}
@@ -101,15 +101,15 @@ export function ScreenTargets({ onCmdK }: ScreenProps) {
           </div>
 
           {/* New target stub */}
-          <div className="card tinted card-pad mt-20" style={{ display: "flex", alignItems: "center", gap: 14 }}>
-            <div className="grow">
-              <div className="title fz-13 fw-6">Add a target</div>
-              <div className="text-3 fz-12 mt-4">
+          <div className="cadence-card cadence-card-tinted cadence-card-pad cadence-mt-20" style={{ display: "flex", alignItems: "center", gap: 14 }}>
+            <div className="cadence-grow">
+              <div className="cadence-title cadence-fz-13 cadence-fw-6">Add a target</div>
+              <div className="cadence-text-3 cadence-fz-12 cadence-mt-4">
                 Targets work best when they&rsquo;re short-horizon (nightly /
                 weekly) and quantifiable. For multi-month outcomes use Goals.
               </div>
             </div>
-            <button className="btn primary">+ New target</button>
+            <button className="cadence-btn cadence-btn-primary">+ New target</button>
           </div>
         </div>
       </div>
@@ -134,12 +134,12 @@ function TargetRow({ t }: TargetRowProps) {
     <div style={{ padding: "16px 18px", borderBottom: "1px solid var(--border)" }}>
       <div style={{ display: "flex", alignItems: "baseline", gap: 12 }}>
         <span style={{ width: 8, height: 8, borderRadius: 2, background: t.color }} />
-        <div className="title fz-13 fw-6">{t.name}</div>
-        <div className="text-3 fz-12">
-          last 7d avg <span className="mono" style={{ color: "var(--ink)", fontWeight: 600 }}>{t.current}{t.unit}</span> ·
-          goal <span className="mono">{t.goal}{t.unit}</span>
+        <div className="cadence-title cadence-fz-13 cadence-fw-6">{t.name}</div>
+        <div className="cadence-text-3 cadence-fz-12">
+          last 7d avg <span className="cadence-mono" style={{ color: "var(--ink)", fontWeight: 600 }}>{t.current}{t.unit}</span> ·
+          goal <span className="cadence-mono">{t.goal}{t.unit}</span>
         </div>
-        <span className="right" style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
+        <span className="cadence-right" style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
           <Pill tone={t.streak >= 5 ? "pos" : t.streak > 0 ? "default" : "neg"}>
             {t.streak > 0 ? `${t.streak}d streak` : "no streak"}
           </Pill>
@@ -148,8 +148,8 @@ function TargetRow({ t }: TargetRowProps) {
           </Pill>
         </span>
       </div>
-      <div className="progress mt-12">
-        <div className={`fill ${fillColor}`} style={{ width: `${pct * 100}%`, background: t.color }} />
+      <div className="cadence-progress cadence-mt-12">
+        <div className={`cadence-fill cadence-fill-${fillColor}`} style={{ width: `${pct * 100}%`, background: t.color }} />
       </div>
     </div>
   );

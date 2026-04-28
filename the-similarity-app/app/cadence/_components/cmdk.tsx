@@ -100,11 +100,11 @@ function CmdKBody({ onClose, onNavigate }: CmdKBodyProps) {
   });
 
   return (
-    <div className="cmdk-back" onClick={onClose}>
-      <div className="cmdk" onClick={(e) => e.stopPropagation()}>
+    <div className="cadence-cmdk-back" onClick={onClose}>
+      <div className="cadence-cmdk" onClick={(e) => e.stopPropagation()}>
         <input
           ref={inputRef}
-          className="cmdk-input"
+          className="cadence-cmdk-input"
           placeholder="Type a command, search a metric, or ask Cadence…"
           value={q}
           onChange={(e) => {
@@ -127,16 +127,16 @@ function CmdKBody({ onClose, onNavigate }: CmdKBodyProps) {
             }
           }}
         />
-        <div className="cmdk-list">
+        <div className="cadence-cmdk-list">
           {Object.entries(groups).map(([g, arr]) => (
             <div key={g}>
-              <div className="cmdk-group">{g}</div>
+              <div className="cadence-cmdk-group">{g}</div>
               {arr.map((it) => {
                 const idx = filtered.indexOf(it);
                 return (
                   <div
                     key={it.label}
-                    className={`cmdk-item ${idx === active ? "active" : ""}`}
+                    className={`cadence-cmdk-item ${idx === active ? "is-active" : ""}`}
                     onMouseEnter={() => setActive(idx)}
                     onClick={() => {
                       it.run();
@@ -145,7 +145,7 @@ function CmdKBody({ onClose, onNavigate }: CmdKBodyProps) {
                   >
                     <Icon name={it.icon} />
                     <span>{it.label}</span>
-                    {it.kbd && <span className="kbd">{it.kbd}</span>}
+                    {it.kbd && <span className="cadence-kbd">{it.kbd}</span>}
                   </div>
                 );
               })}
@@ -153,7 +153,7 @@ function CmdKBody({ onClose, onNavigate }: CmdKBodyProps) {
           ))}
           {filtered.length === 0 && (
             <div
-              className="cmdk-item text-3"
+              className="cadence-cmdk-item cadence-text-3"
               style={{ justifyContent: "center" }}
             >
               No results

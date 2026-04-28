@@ -1,12 +1,35 @@
 /**
  * Cadence health workstation scoped stylesheet.
  *
- * The design's CSS uses generic class names (.card, .pill, .kpi, .btn,
- * .merch, .scroll, etc.) that would collide with any other route in this
- * app. To keep the styling page-local, every selector is prefixed with
- * `.cadence-app`. The only top-level rule is the `.cadence-app` block
- * itself, which sets the CSS custom properties (design tokens) that the
- * rest of the rules consume.
+ * Bug context (fixed in this revision):
+ *   The previous revision used generic class names like `.app`, `.main`,
+ *   `.sidebar`, `.scroll`, `.card`, `.btn`, `.pill`, `.kbd`, `.num`,
+ *   `.mono`, `.row`, `.col`, `.crumbs`, `.brand`, `.nav-item`,
+ *   `.h-eyebrow`, `.h-display`, etc. — every one of which COLLIDES with
+ *   rules in `app/globals.css`. Even though every selector here is
+ *   prefixed with `.cadence-app`, the global rules still apply for any
+ *   property NOT explicitly overridden. The killer example was
+ *   `.app { display: grid; grid-template-rows: 44px 1fr 26px; ...}` in
+ *   globals.css combining with `.cadence-app .app { grid-template-columns:
+ *   220px 1fr; ... }` here. Result: the inner shell became a 3-row × 2-col
+ *   grid where the sidebar+main got squeezed into the 44px first row,
+ *   leaving the main panel visually empty (just the painterly background
+ *   showing through).
+ *
+ * The bulletproof fix (mirrors what Lumen did in
+ * `app/workstation/lumen/_components/styles.tsx`): rename every
+ * Cadence-owned class to a `cadence-` prefixed name. No prefix collision
+ * with anything else in the app, no specificity gymnastics. Selectors
+ * here all read `.cadence-app .cadence-foo`. The JSX tree was updated in
+ * lockstep — every `className=` under this route now uses `cadence-foo`
+ * instead of `foo`.
+ *
+ * Design palette rationale (different from Lumen's earthy forest/sienna):
+ *   - Default accent: #5b8a72 (sage green) — calm clinical biological feel
+ *   - Bloom default: warm coral → sage gradient (sunrise + plant)
+ *   - Dawn alt: deeper sunrise → indigo (early-morning feel)
+ *   - Paper: clinical white (chart-of-the-day mode)
+ *   - Slate: dark mode bias (night reading / sleep tracking)
  *
  * Background note: the painterly background is rendered by a sibling
  * element with class `.cadence-painterly`. It is absolutely positioned
@@ -14,15 +37,9 @@
  * into other pages. Its background-image is mutated at runtime by the
  * tweaks panel to swap between Bloom/Dawn/Paper/Slate presets.
  *
- * Palette rationale (different from Lumen's earthy forest/sienna):
- *   - Default accent: #5b8a72 (sage green) — calm clinical biological feel
- *   - Bloom default: warm coral → sage gradient (sunrise + plant)
- *   - Dawn alt: deeper sunrise → indigo (early-morning feel)
- *   - Paper: clinical white (chart-of-the-day mode)
- *   - Slate: dark mode bias (night reading / sleep tracking)
- *
  * IMPORTANT: NEVER add un-prefixed selectors here. Anything without a
- * `.cadence-app` ancestor will leak into the rest of the app.
+ * `.cadence-app` ancestor would leak into the rest of the app, and any
+ * class without a `cadence-` prefix can collide with `globals.css`.
  */
 "use client";
 
@@ -101,8 +118,13 @@ export const CADENCE_CSS = `
   opacity: 0.5;
 }
 
-/* ============ app shell ============ */
-.cadence-app .app {
+/* ============ app shell ============
+   .cadence-app-shell (formerly .app) wraps sidebar + main. The rename is
+   THE bugfix for the empty-main-panel problem: the global .app selector
+   in app/globals.css set grid-template-rows: 44px 1fr 26px, which
+   combined with our grid-template-columns: 220px 1fr to push the main
+   panel into a 44px-tall first row. */
+.cadence-app .cadence-app-shell {
   position: relative; z-index: 1;
   height: 100vh;
   padding: 14px;
@@ -112,7 +134,7 @@ export const CADENCE_CSS = `
 }
 
 /* ============ sidebar ============ */
-.cadence-app .sidebar {
+.cadence-app .cadence-sidebar {
   background: rgba(255,255,255,0.72);
   backdrop-filter: blur(20px) saturate(120%);
   -webkit-backdrop-filter: blur(20px) saturate(120%);
@@ -122,11 +144,11 @@ export const CADENCE_CSS = `
   display: flex; flex-direction: column;
   box-shadow: var(--shadow-card);
 }
-.cadence-app .brand {
+.cadence-app .cadence-brand {
   display: flex; align-items: center; gap: 8px;
   padding: 6px 8px 18px 8px;
 }
-.cadence-app .brand-mark {
+.cadence-app .cadence-brand-mark {
   width: 22px; height: 22px;
   border-radius: 6px;
   background: var(--ink);
@@ -136,12 +158,12 @@ export const CADENCE_CSS = `
   font-size: 16px; font-style: italic;
   line-height: 1;
 }
-.cadence-app .brand-name {
+.cadence-app .cadence-brand-name {
   font-family: 'Instrument Serif', serif;
   font-size: 18px;
   letter-spacing: -0.01em;
 }
-.cadence-app .brand-sub {
+.cadence-app .cadence-brand-sub {
   margin-left: auto;
   font-size: 10px;
   color: var(--ink-3);
@@ -152,8 +174,8 @@ export const CADENCE_CSS = `
   text-transform: uppercase;
 }
 
-.cadence-app .nav-group { display: flex; flex-direction: column; gap: 1px; }
-.cadence-app .nav-label {
+.cadence-app .cadence-nav-group { display: flex; flex-direction: column; gap: 1px; }
+.cadence-app .cadence-nav-label {
   font-size: 10.5px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -161,7 +183,7 @@ export const CADENCE_CSS = `
   padding: 14px 10px 6px 10px;
   font-weight: 550;
 }
-.cadence-app .nav-item {
+.cadence-app .cadence-nav-item {
   display: flex; align-items: center; gap: 9px;
   padding: 6px 10px;
   border-radius: 7px;
@@ -174,15 +196,15 @@ export const CADENCE_CSS = `
   text-align: left;
   transition: background 100ms;
 }
-.cadence-app .nav-item:hover { background: rgba(0,0,0,0.04); color: var(--ink); }
-.cadence-app .nav-item.active {
+.cadence-app .cadence-nav-item:hover { background: rgba(0,0,0,0.04); color: var(--ink); }
+.cadence-app .cadence-nav-item.is-active {
   background: rgba(0,0,0,0.06);
   color: var(--ink);
   font-weight: 550;
 }
-.cadence-app .nav-item .ico { width: 15px; height: 15px; flex: 0 0 15px; opacity: 0.75; }
-.cadence-app .nav-item.active .ico { opacity: 1; }
-.cadence-app .nav-item .badge {
+.cadence-app .cadence-nav-item .cadence-ico { width: 15px; height: 15px; flex: 0 0 15px; opacity: 0.75; }
+.cadence-app .cadence-nav-item.is-active .cadence-ico { opacity: 1; }
+.cadence-app .cadence-nav-item .cadence-badge {
   margin-left: auto;
   font-size: 10.5px;
   color: var(--ink-3);
@@ -191,19 +213,19 @@ export const CADENCE_CSS = `
   border-radius: 999px;
   font-variant-numeric: tabular-nums;
 }
-.cadence-app .nav-item .badge.dot {
+.cadence-app .cadence-nav-item .cadence-badge.cadence-dot {
   width: 6px; height: 6px;
   padding: 0;
   background: var(--accent);
 }
 
-.cadence-app .sidebar-foot {
+.cadence-app .cadence-sidebar-foot {
   margin-top: auto;
   padding: 10px 8px 4px 8px;
   border-top: 1px solid var(--border);
   display: flex; align-items: center; gap: 9px;
 }
-.cadence-app .avatar {
+.cadence-app .cadence-avatar {
   width: 26px; height: 26px;
   border-radius: 50%;
   background: linear-gradient(135deg, #d4a3a3, #5b8a72);
@@ -212,11 +234,11 @@ export const CADENCE_CSS = `
   font-size: 11px; font-weight: 600;
   flex: 0 0 26px;
 }
-.cadence-app .sidebar-foot .who { font-size: 12.5px; font-weight: 550; line-height: 1.1; }
-.cadence-app .sidebar-foot .plan { font-size: 11px; color: var(--ink-3); line-height: 1.1; }
+.cadence-app .cadence-sidebar-foot .cadence-who { font-size: 12.5px; font-weight: 550; line-height: 1.1; }
+.cadence-app .cadence-sidebar-foot .cadence-plan { font-size: 11px; color: var(--ink-3); line-height: 1.1; }
 
 /* ============ main panel ============ */
-.cadence-app .main {
+.cadence-app .cadence-main {
   background: var(--surface);
   border-radius: var(--radius-lg);
   border: 1px solid rgba(255,255,255,0.5);
@@ -226,7 +248,7 @@ export const CADENCE_CSS = `
   min-width: 0;
 }
 
-.cadence-app .topbar {
+.cadence-app .cadence-topbar {
   height: 46px;
   border-bottom: 1px solid var(--border);
   display: flex; align-items: center;
@@ -234,16 +256,16 @@ export const CADENCE_CSS = `
   gap: 10px;
   flex: 0 0 46px;
 }
-.cadence-app .crumbs {
+.cadence-app .cadence-crumbs {
   display: flex; align-items: center; gap: 6px;
   font-size: 13px;
   color: var(--ink-3);
 }
-.cadence-app .crumbs .sep { color: var(--ink-4); }
-.cadence-app .crumbs .here { color: var(--ink); font-weight: 500; }
-.cadence-app .top-actions { margin-left: auto; display: flex; align-items: center; gap: 6px; }
+.cadence-app .cadence-crumbs .cadence-sep { color: var(--ink-4); }
+.cadence-app .cadence-crumbs .cadence-here { color: var(--ink); font-weight: 500; }
+.cadence-app .cadence-top-actions { margin-left: auto; display: flex; align-items: center; gap: 6px; }
 
-.cadence-app .icon-btn {
+.cadence-app .cadence-icon-btn {
   width: 28px; height: 28px;
   display: grid; place-items: center;
   border-radius: 7px;
@@ -252,11 +274,11 @@ export const CADENCE_CSS = `
   color: var(--ink-2);
   transition: all 120ms;
 }
-.cadence-app .icon-btn:hover { background: rgba(0,0,0,0.05); color: var(--ink); }
-.cadence-app .icon-btn.outline { border-color: var(--border-strong); }
-.cadence-app .icon-btn svg { width: 15px; height: 15px; }
+.cadence-app .cadence-icon-btn:hover { background: rgba(0,0,0,0.05); color: var(--ink); }
+.cadence-app .cadence-icon-btn.cadence-outline { border-color: var(--border-strong); }
+.cadence-app .cadence-icon-btn svg { width: 15px; height: 15px; }
 
-.cadence-app .btn {
+.cadence-app .cadence-btn {
   display: inline-flex; align-items: center; gap: 6px;
   height: 28px;
   padding: 0 11px;
@@ -268,49 +290,49 @@ export const CADENCE_CSS = `
   font-weight: 500;
   transition: all 120ms;
 }
-.cadence-app .btn:hover { background: var(--surface-2); }
-.cadence-app .btn.primary {
+.cadence-app .cadence-btn:hover { background: var(--surface-2); }
+.cadence-app .cadence-btn.cadence-btn-primary {
   background: var(--ink);
   color: #fff;
   border-color: var(--ink);
 }
-.cadence-app .btn.primary:hover { background: #000; }
-.cadence-app .btn.accent {
+.cadence-app .cadence-btn.cadence-btn-primary:hover { background: #000; }
+.cadence-app .cadence-btn.cadence-btn-accent {
   background: var(--accent);
   color: #fff;
   border-color: var(--accent);
 }
-.cadence-app .btn.ghost { border-color: transparent; }
-.cadence-app .btn.ghost:hover { background: rgba(0,0,0,0.05); }
-.cadence-app .btn .ico { width: 13px; height: 13px; }
+.cadence-app .cadence-btn.cadence-btn-ghost { border-color: transparent; }
+.cadence-app .cadence-btn.cadence-btn-ghost:hover { background: rgba(0,0,0,0.05); }
+.cadence-app .cadence-btn .cadence-ico { width: 13px; height: 13px; }
 
-.cadence-app .scroll {
+.cadence-app .cadence-scroll {
   flex: 1; min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
 }
-.cadence-app .scroll::-webkit-scrollbar { width: 10px; }
-.cadence-app .scroll::-webkit-scrollbar-thumb { background: var(--ink-5); border-radius: 999px; border: 3px solid var(--surface); background-clip: padding-box; }
-.cadence-app .scroll::-webkit-scrollbar-thumb:hover { background: var(--ink-4); border: 3px solid var(--surface); background-clip: padding-box; }
+.cadence-app .cadence-scroll::-webkit-scrollbar { width: 10px; }
+.cadence-app .cadence-scroll::-webkit-scrollbar-thumb { background: var(--ink-5); border-radius: 999px; border: 3px solid var(--surface); background-clip: padding-box; }
+.cadence-app .cadence-scroll::-webkit-scrollbar-thumb:hover { background: var(--ink-4); border: 3px solid var(--surface); background-clip: padding-box; }
 
 /* ============ typography ============ */
-.cadence-app .h-eyebrow {
+.cadence-app .cadence-h-eyebrow {
   font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em;
   color: var(--ink-3); font-weight: 550;
 }
-.cadence-app .h-display {
+.cadence-app .cadence-h-display {
   font-family: 'Instrument Serif', serif;
   font-weight: 400;
   letter-spacing: -0.02em;
   line-height: 1;
 }
-.cadence-app .num { font-variant-numeric: tabular-nums; font-feature-settings: 'tnum'; }
-.cadence-app .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
-.cadence-app .pos { color: var(--pos); }
-.cadence-app .neg { color: var(--neg); }
+.cadence-app .cadence-num { font-variant-numeric: tabular-nums; font-feature-settings: 'tnum'; }
+.cadence-app .cadence-mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+.cadence-app .cadence-pos { color: var(--pos); }
+.cadence-app .cadence-neg { color: var(--neg); }
 
 /* ============ pills / chips ============ */
-.cadence-app .pill {
+.cadence-app .cadence-pill {
   display: inline-flex; align-items: center; gap: 5px;
   height: 22px; padding: 0 8px;
   border-radius: 999px;
@@ -319,41 +341,41 @@ export const CADENCE_CSS = `
   font-size: 11.5px;
   font-weight: 500;
 }
-.cadence-app .pill .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
-.cadence-app .pill.pos { background: var(--accent-soft); color: var(--accent-ink); }
-.cadence-app .pill.neg { background: #f5e4e0; color: #7a2f24; }
-.cadence-app .pill.warn { background: #f6ecd6; color: #6b4f0f; }
-.cadence-app .pill.info { background: #e3ecf5; color: #1f4569; }
-.cadence-app .pill.outline { background: transparent; border: 1px solid var(--border-strong); }
+.cadence-app .cadence-pill .cadence-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.cadence-app .cadence-pill.cadence-pill-pos { background: var(--accent-soft); color: var(--accent-ink); }
+.cadence-app .cadence-pill.cadence-pill-neg { background: #f5e4e0; color: #7a2f24; }
+.cadence-app .cadence-pill.cadence-pill-warn { background: #f6ecd6; color: #6b4f0f; }
+.cadence-app .cadence-pill.cadence-pill-info { background: #e3ecf5; color: #1f4569; }
+.cadence-app .cadence-pill.cadence-pill-outline { background: transparent; border: 1px solid var(--border-strong); }
 
 /* ============ section title ============ */
-.cadence-app .section-head {
+.cadence-app .cadence-section-head {
   display: flex; align-items: baseline; gap: 12px;
   padding: 6px 0 12px 0;
 }
-.cadence-app .section-head .title {
+.cadence-app .cadence-section-head .cadence-title {
   font-size: 13px; font-weight: 600; color: var(--ink);
 }
-.cadence-app .section-head .sub { font-size: 12.5px; color: var(--ink-3); }
-.cadence-app .section-head .actions { margin-left: auto; display: flex; gap: 4px; align-items: center; }
+.cadence-app .cadence-section-head .cadence-sub { font-size: 12.5px; color: var(--ink-3); }
+.cadence-app .cadence-section-head .cadence-actions { margin-left: auto; display: flex; gap: 4px; align-items: center; }
 
 /* ============ card ============ */
-.cadence-app .card {
+.cadence-app .cadence-card {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
 }
-.cadence-app .card.tinted { background: var(--surface-2); }
-.cadence-app .card-pad { padding: 16px; }
-.cadence-app .card-pad-lg { padding: 22px; }
+.cadence-app .cadence-card.cadence-card-tinted { background: var(--surface-2); }
+.cadence-app .cadence-card-pad { padding: 16px; }
+.cadence-app .cadence-card-pad-lg { padding: 22px; }
 
 /* ============ KPI ============ */
-.cadence-app .kpi-grid {
+.cadence-app .cadence-kpi-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 12px;
 }
-.cadence-app .kpi {
+.cadence-app .cadence-kpi {
   padding: 16px;
   background: var(--surface);
   border: 1px solid var(--border);
@@ -361,28 +383,28 @@ export const CADENCE_CSS = `
   display: flex; flex-direction: column;
   min-height: 108px;
 }
-.cadence-app .kpi .label {
+.cadence-app .cadence-kpi .cadence-label {
   font-size: 11.5px; color: var(--ink-3); font-weight: 500;
   display: flex; align-items: center; gap: 6px;
   margin-bottom: 8px;
 }
-.cadence-app .kpi .label .ico { width: 13px; height: 13px; opacity: 0.7; }
-.cadence-app .kpi .value {
+.cadence-app .cadence-kpi .cadence-label .cadence-ico { width: 13px; height: 13px; opacity: 0.7; }
+.cadence-app .cadence-kpi .cadence-value {
   font-family: 'Instrument Serif', serif;
   font-size: 30px; line-height: 1;
   letter-spacing: -0.015em;
   color: var(--ink);
 }
-.cadence-app .kpi .delta {
+.cadence-app .cadence-kpi .cadence-delta {
   margin-top: auto; padding-top: 10px;
   font-size: 11.5px; color: var(--ink-3);
   display: flex; align-items: center; gap: 4px;
 }
-.cadence-app .kpi .delta .arrow { font-weight: 600; }
+.cadence-app .cadence-kpi .cadence-delta .cadence-arrow { font-weight: 600; }
 
 /* ============ metrics column (Today screen) — 6 vertical key metrics ============ */
-.cadence-app .metric-col { display: flex; flex-direction: column; gap: 8px; }
-.cadence-app .metric-row {
+.cadence-app .cadence-metric-col { display: flex; flex-direction: column; gap: 8px; }
+.cadence-app .cadence-metric-row {
   display: grid;
   grid-template-columns: 18px 1fr auto auto;
   gap: 10px;
@@ -392,57 +414,57 @@ export const CADENCE_CSS = `
   border: 1px solid var(--border);
   border-radius: var(--radius);
 }
-.cadence-app .metric-row .ico { width: 16px; height: 16px; color: var(--ink-3); }
-.cadence-app .metric-row .lab { font-size: 12px; color: var(--ink-3); font-weight: 500; }
-.cadence-app .metric-row .val {
+.cadence-app .cadence-metric-row .cadence-ico { width: 16px; height: 16px; color: var(--ink-3); }
+.cadence-app .cadence-metric-row .cadence-lab { font-size: 12px; color: var(--ink-3); font-weight: 500; }
+.cadence-app .cadence-metric-row .cadence-val {
   font-family: 'Instrument Serif', serif;
   font-size: 22px; line-height: 1;
   letter-spacing: -0.015em;
   color: var(--ink);
   font-variant-numeric: tabular-nums;
 }
-.cadence-app .metric-row .unit { font-size: 11px; color: var(--ink-3); margin-left: 2px; }
-.cadence-app .metric-row .delta {
+.cadence-app .cadence-metric-row .cadence-unit { font-size: 11px; color: var(--ink-3); margin-left: 2px; }
+.cadence-app .cadence-metric-row .cadence-delta {
   font-size: 11px; font-variant-numeric: tabular-nums;
   padding: 1px 6px; border-radius: 999px;
 }
-.cadence-app .metric-row .delta.pos { background: var(--accent-soft); color: var(--accent-ink); }
-.cadence-app .metric-row .delta.neg { background: #f5e4e0; color: #7a2f24; }
-.cadence-app .metric-row .delta.flat { background: rgba(0,0,0,0.04); color: var(--ink-3); }
+.cadence-app .cadence-metric-row .cadence-delta.cadence-pos { background: var(--accent-soft); color: var(--accent-ink); }
+.cadence-app .cadence-metric-row .cadence-delta.cadence-neg { background: #f5e4e0; color: #7a2f24; }
+.cadence-app .cadence-metric-row .cadence-delta.cadence-flat { background: rgba(0,0,0,0.04); color: var(--ink-3); }
 
 /* ============ progress ============ */
-.cadence-app .progress {
+.cadence-app .cadence-progress {
   height: 6px; background: rgba(0,0,0,0.06); border-radius: 999px; overflow: hidden;
   position: relative;
 }
-.cadence-app .progress > .fill { height: 100%; background: var(--ink); border-radius: 999px; }
-.cadence-app .progress.thin { height: 4px; }
-.cadence-app .progress > .fill.accent { background: var(--accent); }
-.cadence-app .progress > .fill.warn { background: var(--warn); }
-.cadence-app .progress > .fill.neg { background: var(--neg); }
+.cadence-app .cadence-progress > .cadence-fill { height: 100%; background: var(--ink); border-radius: 999px; }
+.cadence-app .cadence-progress.cadence-progress-thin { height: 4px; }
+.cadence-app .cadence-progress > .cadence-fill.cadence-fill-accent { background: var(--accent); }
+.cadence-app .cadence-progress > .cadence-fill.cadence-fill-warn { background: var(--warn); }
+.cadence-app .cadence-progress > .cadence-fill.cadence-fill-neg { background: var(--neg); }
 
 /* ============ chart helpers ============ */
-.cadence-app .chart-wrap { position: relative; }
-.cadence-app .chart-wrap svg { display: block; width: 100%; height: 100%; }
+.cadence-app .cadence-chart-wrap { position: relative; }
+.cadence-app .cadence-chart-wrap svg { display: block; width: 100%; height: 100%; }
 
 /* ============ split layout ============ */
-.cadence-app .split {
+.cadence-app .cadence-split {
   display: flex;
   flex: 1;
   min-height: 0;
 }
-.cadence-app .content-col { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-.cadence-app .scroll-pad { padding: 22px 28px 80px 28px; }
+.cadence-app .cadence-content-col { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.cadence-app .cadence-scroll-pad { padding: 22px 28px 80px 28px; }
 
 /* ============ command palette — fixed because it's a modal overlay ============ */
-.cadence-app .cmdk-back {
+.cadence-app .cadence-cmdk-back {
   position: fixed; inset: 0; z-index: 100;
   background: rgba(20,20,20,0.35);
   backdrop-filter: blur(4px);
   display: grid; place-items: start center;
   padding-top: 14vh;
 }
-.cadence-app .cmdk {
+.cadence-app .cadence-cmdk {
   width: 580px;
   max-width: 92vw;
   background: var(--surface);
@@ -451,22 +473,22 @@ export const CADENCE_CSS = `
   box-shadow: var(--shadow-pop);
   overflow: hidden;
 }
-.cadence-app .cmdk-input {
+.cadence-app .cadence-cmdk-input {
   width: 100%; height: 48px; border: none; outline: none;
   padding: 0 18px; font-size: 14px;
   border-bottom: 1px solid var(--border);
   background: transparent;
   color: var(--ink);
 }
-.cadence-app .cmdk-list { max-height: 380px; overflow-y: auto; padding: 6px; }
-.cadence-app .cmdk-group { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-4); padding: 10px 12px 4px 12px; font-weight: 550; }
-.cadence-app .cmdk-item { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 7px; font-size: 13px; cursor: pointer; color: var(--ink); }
-.cadence-app .cmdk-item:hover, .cadence-app .cmdk-item.active { background: rgba(0,0,0,0.05); }
-.cadence-app .cmdk-item .ico { width: 14px; height: 14px; color: var(--ink-3); }
-.cadence-app .cmdk-item .kbd { margin-left: auto; font-size: 10.5px; color: var(--ink-4); }
+.cadence-app .cadence-cmdk-list { max-height: 380px; overflow-y: auto; padding: 6px; }
+.cadence-app .cadence-cmdk-group { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-4); padding: 10px 12px 4px 12px; font-weight: 550; }
+.cadence-app .cadence-cmdk-item { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 7px; font-size: 13px; cursor: pointer; color: var(--ink); }
+.cadence-app .cadence-cmdk-item:hover, .cadence-app .cadence-cmdk-item.is-active { background: rgba(0,0,0,0.05); }
+.cadence-app .cadence-cmdk-item .cadence-ico { width: 14px; height: 14px; color: var(--ink-3); }
+.cadence-app .cadence-cmdk-item .cadence-kbd { margin-left: auto; font-size: 10.5px; color: var(--ink-4); }
 
 /* ============ kbd ============ */
-.cadence-app .kbd {
+.cadence-app .cadence-kbd {
   font-family: 'JetBrains Mono', monospace;
   font-size: 10.5px;
   padding: 1px 5px;
@@ -478,7 +500,7 @@ export const CADENCE_CSS = `
 }
 
 /* ============ assistant / insight bubble ============ */
-.cadence-app .ai-bubble {
+.cadence-app .cadence-ai-bubble {
   background: linear-gradient(180deg, #fafaf6, #f4f1ea);
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -487,13 +509,13 @@ export const CADENCE_CSS = `
   color: var(--ink);
   line-height: 1.55;
 }
-.cadence-app .ai-bubble .ai-head {
+.cadence-app .cadence-ai-bubble .cadence-ai-head {
   display: flex; align-items: center; gap: 6px;
   font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em;
   color: var(--ink-3); font-weight: 550;
   margin-bottom: 8px;
 }
-.cadence-app .ai-bubble .ai-head .pulse {
+.cadence-app .cadence-ai-bubble .cadence-ai-head .cadence-pulse {
   width: 6px; height: 6px; border-radius: 50%;
   background: var(--accent); box-shadow: 0 0 0 0 var(--accent);
   animation: cadence-pulse 2s infinite;
@@ -505,54 +527,54 @@ export const CADENCE_CSS = `
 }
 
 /* ============ utility ============ */
-.cadence-app .row { display: flex; align-items: center; }
-.cadence-app .col { display: flex; flex-direction: column; }
-.cadence-app .gap-4 { gap: 4px; }
-.cadence-app .gap-6 { gap: 6px; }
-.cadence-app .gap-8 { gap: 8px; }
-.cadence-app .gap-12 { gap: 12px; }
-.cadence-app .gap-16 { gap: 16px; }
-.cadence-app .gap-20 { gap: 20px; }
-.cadence-app .gap-24 { gap: 24px; }
-.cadence-app .grow { flex: 1; min-width: 0; }
-.cadence-app .right { margin-left: auto; }
-.cadence-app .mt-4 { margin-top: 4px; }
-.cadence-app .mt-8 { margin-top: 8px; }
-.cadence-app .mt-12 { margin-top: 12px; }
-.cadence-app .mt-16 { margin-top: 16px; }
-.cadence-app .mt-20 { margin-top: 20px; }
-.cadence-app .mt-24 { margin-top: 24px; }
-.cadence-app .mt-32 { margin-top: 32px; }
-.cadence-app .mb-4 { margin-bottom: 4px; }
-.cadence-app .mb-8 { margin-bottom: 8px; }
-.cadence-app .mb-12 { margin-bottom: 12px; }
-.cadence-app .mb-16 { margin-bottom: 16px; }
-.cadence-app .mb-20 { margin-bottom: 20px; }
-.cadence-app .mb-24 { margin-bottom: 24px; }
-.cadence-app .text-3 { color: var(--ink-3); }
-.cadence-app .text-2 { color: var(--ink-2); }
-.cadence-app .fz-11 { font-size: 11px; }
-.cadence-app .fz-12 { font-size: 12px; }
-.cadence-app .fz-13 { font-size: 13px; }
-.cadence-app .fz-14 { font-size: 14px; }
-.cadence-app .fw-5 { font-weight: 500; }
-.cadence-app .fw-6 { font-weight: 600; }
+.cadence-app .cadence-row { display: flex; align-items: center; }
+.cadence-app .cadence-col { display: flex; flex-direction: column; }
+.cadence-app .cadence-gap-4 { gap: 4px; }
+.cadence-app .cadence-gap-6 { gap: 6px; }
+.cadence-app .cadence-gap-8 { gap: 8px; }
+.cadence-app .cadence-gap-12 { gap: 12px; }
+.cadence-app .cadence-gap-16 { gap: 16px; }
+.cadence-app .cadence-gap-20 { gap: 20px; }
+.cadence-app .cadence-gap-24 { gap: 24px; }
+.cadence-app .cadence-grow { flex: 1; min-width: 0; }
+.cadence-app .cadence-right { margin-left: auto; }
+.cadence-app .cadence-mt-4 { margin-top: 4px; }
+.cadence-app .cadence-mt-8 { margin-top: 8px; }
+.cadence-app .cadence-mt-12 { margin-top: 12px; }
+.cadence-app .cadence-mt-16 { margin-top: 16px; }
+.cadence-app .cadence-mt-20 { margin-top: 20px; }
+.cadence-app .cadence-mt-24 { margin-top: 24px; }
+.cadence-app .cadence-mt-32 { margin-top: 32px; }
+.cadence-app .cadence-mb-4 { margin-bottom: 4px; }
+.cadence-app .cadence-mb-8 { margin-bottom: 8px; }
+.cadence-app .cadence-mb-12 { margin-bottom: 12px; }
+.cadence-app .cadence-mb-16 { margin-bottom: 16px; }
+.cadence-app .cadence-mb-20 { margin-bottom: 20px; }
+.cadence-app .cadence-mb-24 { margin-bottom: 24px; }
+.cadence-app .cadence-text-3 { color: var(--ink-3); }
+.cadence-app .cadence-text-2 { color: var(--ink-2); }
+.cadence-app .cadence-fz-11 { font-size: 11px; }
+.cadence-app .cadence-fz-12 { font-size: 12px; }
+.cadence-app .cadence-fz-13 { font-size: 13px; }
+.cadence-app .cadence-fz-14 { font-size: 14px; }
+.cadence-app .cadence-fw-5 { font-weight: 500; }
+.cadence-app .cadence-fw-6 { font-weight: 600; }
 
 /* ============ donut legend ============ */
-.cadence-app .legend-row {
+.cadence-app .cadence-legend-row {
   display: flex; align-items: center; gap: 8px;
   padding: 6px 0;
   font-size: 12.5px;
   border-bottom: 1px dashed var(--border);
 }
-.cadence-app .legend-row:last-child { border-bottom: none; }
-.cadence-app .legend-row .sw { width: 8px; height: 8px; border-radius: 2px; flex: 0 0 8px; }
-.cadence-app .legend-row .lab { color: var(--ink-2); }
-.cadence-app .legend-row .pct { margin-left: auto; color: var(--ink-3); font-variant-numeric: tabular-nums; }
-.cadence-app .legend-row .amt { width: 80px; text-align: right; color: var(--ink); font-weight: 500; font-variant-numeric: tabular-nums; }
+.cadence-app .cadence-legend-row:last-child { border-bottom: none; }
+.cadence-app .cadence-legend-row .cadence-sw { width: 8px; height: 8px; border-radius: 2px; flex: 0 0 8px; }
+.cadence-app .cadence-legend-row .cadence-lab { color: var(--ink-2); }
+.cadence-app .cadence-legend-row .cadence-pct { margin-left: auto; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.cadence-app .cadence-legend-row .cadence-amt { width: 80px; text-align: right; color: var(--ink); font-weight: 500; font-variant-numeric: tabular-nums; }
 
 /* ============ rhyme card ============ */
-.cadence-app .rhyme-card {
+.cadence-app .cadence-rhyme-card {
   padding: 16px 18px;
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -561,30 +583,30 @@ export const CADENCE_CSS = `
   cursor: pointer;
   transition: all 120ms;
 }
-.cadence-app .rhyme-card:hover { border-color: var(--border-strong); transform: translateY(-1px); box-shadow: var(--shadow-card); }
-.cadence-app .rhyme-card.featured {
+.cadence-app .cadence-rhyme-card:hover { border-color: var(--border-strong); transform: translateY(-1px); box-shadow: var(--shadow-card); }
+.cadence-app .cadence-rhyme-card.cadence-rhyme-card-featured {
   border-color: var(--accent);
   background: linear-gradient(180deg, var(--accent-soft), var(--surface));
 }
-.cadence-app .rhyme-card .rh-head { display: flex; align-items: baseline; gap: 12px; }
-.cadence-app .rhyme-card .rh-date { font-size: 13px; font-weight: 600; color: var(--ink); }
-.cadence-app .rhyme-card .rh-score {
+.cadence-app .cadence-rhyme-card .cadence-rh-head { display: flex; align-items: baseline; gap: 12px; }
+.cadence-app .cadence-rhyme-card .cadence-rh-date { font-size: 13px; font-weight: 600; color: var(--ink); }
+.cadence-app .cadence-rhyme-card .cadence-rh-score {
   font-family: 'JetBrains Mono', monospace;
   font-size: 11px; padding: 2px 7px; border-radius: 999px;
   background: var(--accent-soft); color: var(--accent-ink); font-weight: 600;
 }
-.cadence-app .rhyme-card .rh-outcome { font-size: 12.5px; color: var(--ink-2); }
+.cadence-app .cadence-rhyme-card .cadence-rh-outcome { font-size: 12.5px; color: var(--ink-2); }
 
 /* ============ ring ============ */
-.cadence-app .ring-wrap { position: relative; width: 84px; height: 84px; }
-.cadence-app .ring-wrap .ring-text {
+.cadence-app .cadence-ring-wrap { position: relative; width: 84px; height: 84px; }
+.cadence-app .cadence-ring-wrap .cadence-ring-text {
   position: absolute; inset: 0; display: grid; place-items: center;
   font-family: 'Instrument Serif', serif;
   font-size: 22px; line-height: 1;
 }
 
 /* ============ log entry ============ */
-.cadence-app .log-row {
+.cadence-app .cadence-log-row {
   display: grid;
   grid-template-columns: 60px 24px 1fr 100px 24px;
   gap: 10px;
@@ -595,9 +617,9 @@ export const CADENCE_CSS = `
   cursor: pointer;
   transition: background 80ms;
 }
-.cadence-app .log-row:hover { background: var(--surface-2); }
-.cadence-app .log-row .tm { font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: var(--ink-3); }
-.cadence-app .log-row .ic {
+.cadence-app .cadence-log-row:hover { background: var(--surface-2); }
+.cadence-app .cadence-log-row .cadence-tm { font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: var(--ink-3); }
+.cadence-app .cadence-log-row .cadence-ic {
   width: 24px; height: 24px;
   border-radius: 6px;
   display: grid; place-items: center;
@@ -605,14 +627,14 @@ export const CADENCE_CSS = `
   border: 1px solid var(--border);
   color: var(--ink-3);
 }
-.cadence-app .log-row .ic svg { width: 12px; height: 12px; }
-.cadence-app .log-row .body { min-width: 0; }
-.cadence-app .log-row .body .ttl { font-weight: 500; color: var(--ink); }
-.cadence-app .log-row .body .sub { font-size: 11.5px; color: var(--ink-3); }
-.cadence-app .log-row .meta { font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: var(--ink-2); text-align: right; }
+.cadence-app .cadence-log-row .cadence-ic svg { width: 12px; height: 12px; }
+.cadence-app .cadence-log-row .cadence-body { min-width: 0; }
+.cadence-app .cadence-log-row .cadence-body .cadence-ttl { font-weight: 500; color: var(--ink); }
+.cadence-app .cadence-log-row .cadence-body .cadence-sub { font-size: 11.5px; color: var(--ink-3); }
+.cadence-app .cadence-log-row .cadence-meta { font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: var(--ink-2); text-align: right; }
 
 /* composer */
-.cadence-app .composer {
+.cadence-app .cadence-composer {
   display: flex; align-items: center; gap: 8px;
   padding: 12px 16px;
   background: var(--surface-2);
@@ -620,24 +642,24 @@ export const CADENCE_CSS = `
   border-radius: var(--radius);
   margin-bottom: 14px;
 }
-.cadence-app .composer input {
+.cadence-app .cadence-composer input {
   flex: 1; height: 32px;
   border: none; background: transparent;
   font-size: 13.5px;
   outline: none;
   color: var(--ink);
 }
-.cadence-app .composer input::placeholder { color: var(--ink-4); }
+.cadence-app .cadence-composer input::placeholder { color: var(--ink-4); }
 
 /* ============ source card ============ */
-.cadence-app .source-card {
+.cadence-app .cadence-source-card {
   padding: 14px 16px;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--surface);
   display: flex; align-items: center; gap: 14px;
 }
-.cadence-app .source-logo {
+.cadence-app .cadence-source-logo {
   width: 36px; height: 36px;
   border-radius: 8px;
   display: grid; place-items: center;
@@ -647,7 +669,7 @@ export const CADENCE_CSS = `
 }
 
 /* ============ lab row ============ */
-.cadence-app .lab-row {
+.cadence-app .cadence-lab-row {
   display: grid;
   grid-template-columns: 1fr 100px 130px 100px 120px;
   gap: 14px;
@@ -656,7 +678,7 @@ export const CADENCE_CSS = `
   border-bottom: 1px solid var(--border);
   font-size: 13px;
 }
-.cadence-app .lab-row.head {
+.cadence-app .cadence-lab-row.cadence-lab-row-head {
   background: var(--surface-2);
   color: var(--ink-3);
   font-size: 11px;
@@ -665,17 +687,17 @@ export const CADENCE_CSS = `
   font-weight: 550;
   padding: 8px 16px;
 }
-.cadence-app .lab-row .nm { font-weight: 500; }
-.cadence-app .lab-row .vl { font-family: 'Instrument Serif', serif; font-size: 18px; }
+.cadence-app .cadence-lab-row .cadence-nm { font-weight: 500; }
+.cadence-app .cadence-lab-row .cadence-vl { font-family: 'Instrument Serif', serif; font-size: 18px; }
 
 /* ============ filter bar ============ */
-.cadence-app .filter-bar {
+.cadence-app .cadence-filter-bar {
   display: flex; align-items: center; gap: 6px;
   padding: 10px 16px;
   border-bottom: 1px solid var(--border);
   flex-wrap: wrap;
 }
-.cadence-app .chip {
+.cadence-app .cadence-chip {
   display: inline-flex; align-items: center; gap: 5px;
   height: 26px;
   padding: 0 9px;
@@ -685,15 +707,15 @@ export const CADENCE_CSS = `
   font-size: 12px;
   background: transparent;
 }
-.cadence-app .chip.active {
+.cadence-app .cadence-chip.is-active {
   border-style: solid;
   background: var(--surface-2);
   color: var(--ink);
 }
-.cadence-app .chip:hover { color: var(--ink); border-color: var(--ink-3); }
+.cadence-app .cadence-chip:hover { color: var(--ink); border-color: var(--ink-3); }
 
 /* ============ search input ============ */
-.cadence-app .search-input {
+.cadence-app .cadence-search-input {
   height: 28px;
   padding: 0 10px 0 30px;
   border-radius: 7px;
@@ -705,38 +727,38 @@ export const CADENCE_CSS = `
   color: var(--ink);
   transition: border 120ms;
 }
-.cadence-app .search-input:focus { border-color: var(--ink-3); }
-.cadence-app .search-wrap { position: relative; }
-.cadence-app .search-wrap svg { position: absolute; left: 9px; top: 50%; transform: translateY(-50%); width: 13px; height: 13px; color: var(--ink-4); }
+.cadence-app .cadence-search-input:focus { border-color: var(--ink-3); }
+.cadence-app .cadence-search-wrap { position: relative; }
+.cadence-app .cadence-search-wrap svg { position: absolute; left: 9px; top: 50%; transform: translateY(-50%); width: 13px; height: 13px; color: var(--ink-4); }
 
 /* ============ donut ============ */
-.cadence-app .donut-c { width: 200px; height: 200px; position: relative; }
-.cadence-app .donut-c .center {
+.cadence-app .cadence-donut-c { width: 200px; height: 200px; position: relative; }
+.cadence-app .cadence-donut-c .cadence-center {
   position: absolute; inset: 0; display: grid; place-items: center; text-align: center;
 }
 
 /* ============ tweaks panel custom ============ */
-.cadence-app .tweak-swatch-row { display: flex; gap: 6px; flex-wrap: wrap; }
-.cadence-app .tweak-swatch {
+.cadence-app .cadence-tweak-swatch-row { display: flex; gap: 6px; flex-wrap: wrap; }
+.cadence-app .cadence-tweak-swatch {
   width: 26px; height: 26px;
   border-radius: 6px;
   border: 2px solid transparent;
   cursor: pointer;
   position: relative;
 }
-.cadence-app .tweak-swatch.active {
+.cadence-app .cadence-tweak-swatch.is-active {
   border-color: var(--ink);
   box-shadow: 0 0 0 2px var(--surface) inset;
 }
 
 /* mini segmented */
-.cadence-app .seg {
+.cadence-app .cadence-seg {
   display: inline-flex;
   background: rgba(0,0,0,0.05);
   border-radius: 7px;
   padding: 2px;
 }
-.cadence-app .seg button {
+.cadence-app .cadence-seg button {
   border: none; background: transparent;
   padding: 4px 10px;
   border-radius: 5px;
@@ -744,20 +766,21 @@ export const CADENCE_CSS = `
   color: var(--ink-3);
   font-weight: 500;
 }
-.cadence-app .seg button.active {
+.cadence-app .cadence-seg button.is-active {
   background: var(--surface);
   color: var(--ink);
   box-shadow: 0 1px 2px rgba(0,0,0,0.06);
 }
 
-/* sparkline color helpers */
-.cadence-app .spark-pos path.line { stroke: var(--pos); }
-.cadence-app .spark-pos path.fill { fill: var(--pos); fill-opacity: 0.10; }
-.cadence-app .spark-neg path.line { stroke: var(--neg); }
-.cadence-app .spark-neg path.fill { fill: var(--neg); fill-opacity: 0.10; }
+/* sparkline color helpers — .cadence-line / .cadence-fill are applied
+   by Sparkline (charts.tsx) on the inner path elements. */
+.cadence-app .cadence-spark-pos path.cadence-line { stroke: var(--pos); }
+.cadence-app .cadence-spark-pos path.cadence-fill { fill: var(--pos); fill-opacity: 0.10; }
+.cadence-app .cadence-spark-neg path.cadence-line { stroke: var(--neg); }
+.cadence-app .cadence-spark-neg path.cadence-fill { fill: var(--neg); fill-opacity: 0.10; }
 
 /* fade-in for screens */
-.cadence-app .screen-fade {
+.cadence-app .cadence-screen-fade {
   animation: cadence-fadeIn 220ms ease-out;
 }
 @keyframes cadence-fadeIn {
@@ -787,11 +810,11 @@ export const CADENCE_CSS = `
 .cadence-app.dark .cadence-painterly {
   background: linear-gradient(160deg, #1f2326 0%, #2a3030 50%, #1f2326 100%);
 }
-.cadence-app.dark .sidebar {
+.cadence-app.dark .cadence-sidebar {
   background: rgba(36,40,42,0.7);
   border-color: rgba(255,255,255,0.06);
 }
-.cadence-app.dark .ai-bubble {
+.cadence-app.dark .cadence-ai-bubble {
   background: linear-gradient(180deg, #2a3030, #25292c);
 }
 
@@ -861,11 +884,11 @@ export const CADENCE_CSS = `
   color: inherit;
   cursor: pointer;
 }
-.cadence-app .cadence-tweaks-radio button.active {
+.cadence-app .cadence-tweaks-radio button.is-active {
   background: rgba(255,255,255,0.9);
   box-shadow: 0 1px 2px rgba(0,0,0,0.12);
 }
-.cadence-app.dark .cadence-tweaks-radio button.active { background: rgba(255,255,255,0.12); }
+.cadence-app.dark .cadence-tweaks-radio button.is-active { background: rgba(255,255,255,0.12); }
 .cadence-app .cadence-tweaks-toggle-row {
   display: flex; align-items: center; justify-content: space-between;
   padding: 2px 0;

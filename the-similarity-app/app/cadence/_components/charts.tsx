@@ -91,9 +91,9 @@ export function Sparkline({
     d + ` L ${pts[pts.length - 1][0]} ${height} L ${pts[0][0]} ${height} Z`;
   return (
     <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
-      {fill && <path className="fill" d={fillD} fill={stroke} fillOpacity="0.10" />}
+      {fill && <path className="cadence-fill" d={fillD} fill={stroke} fillOpacity="0.10" />}
       <path
-        className="line"
+        className="cadence-line"
         d={d}
         stroke={stroke}
         strokeWidth="1.5"

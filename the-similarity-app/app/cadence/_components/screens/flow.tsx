@@ -43,7 +43,7 @@ export function ScreenFlow({ onCmdK }: ScreenProps) {
   })();
 
   return (
-    <div className="content-col screen-fade">
+    <div className="cadence-content-col cadence-screen-fade">
       <Topbar
         crumbs={["Workspace", "Flow"]}
         onCmdK={onCmdK}
@@ -61,15 +61,15 @@ export function ScreenFlow({ onCmdK }: ScreenProps) {
         }
       />
 
-      <div className="scroll">
-        <div className="scroll-pad">
-          <div className="h-eyebrow mb-8">
+      <div className="cadence-scroll">
+        <div className="cadence-scroll-pad">
+          <div className="cadence-h-eyebrow cadence-mb-8">
             Multi-channel vitals · {FMT.longDate(today.date)}
           </div>
-          <div className="h-display num" style={{ fontSize: 36, marginBottom: 4 }}>
+          <div className="cadence-h-display cadence-num" style={{ fontSize: 36, marginBottom: 4 }}>
             4 channels in parallel
           </div>
-          <div className="text-3 fz-12 mb-20">
+          <div className="cadence-text-3 cadence-fz-12 cadence-mb-20">
             {range === "1D"
               ? "Hourly HRV / HR / Glucose / Activity for the last 24 hours."
               : `Daily aggregate over the last ${range === "3D" ? "3" : range === "1W" ? "7" : "30"} days.`}
@@ -89,21 +89,21 @@ export function ScreenFlow({ onCmdK }: ScreenProps) {
               lowerBetter ? (delta < 0 ? "pos" : "neg") :
               (delta > 0 ? "pos" : "neg");
             return (
-              <div className="card mb-12" style={{ padding: "16px 18px 4px 18px" }} key={ch.key}>
+              <div className="cadence-card cadence-mb-12" style={{ padding: "16px 18px 4px 18px" }} key={ch.key}>
                 <div style={{ display: "flex", alignItems: "baseline", gap: 12, marginBottom: 6 }}>
-                  <div className="title fz-13 fw-6" style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                  <div className="cadence-title cadence-fz-13 cadence-fw-6" style={{ display: "flex", alignItems: "center", gap: 7 }}>
                     <span style={{ width: 8, height: 8, borderRadius: 2, background: ch.color }} />
                     {ch.label}
                   </div>
                   <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
-                    <span className="h-display num" style={{ fontSize: 24, color: ch.color }}>{cur}</span>
-                    <span className="text-3 fz-12">{ch.unit}</span>
+                    <span className="cadence-h-display cadence-num" style={{ fontSize: 24, color: ch.color }}>{cur}</span>
+                    <span className="cadence-text-3 cadence-fz-12">{ch.unit}</span>
                   </div>
                   <Pill tone={tone}>
                     {delta > 0 ? "+" : ""}
                     {delta.toFixed(0)}{ch.unit} vs baseline
                   </Pill>
-                  <span className="text-3 fz-12 right" style={{ marginLeft: "auto" }}>
+                  <span className="cadence-text-3 cadence-fz-12 cadence-right" style={{ marginLeft: "auto" }}>
                     range {ch.range[0]}–{ch.range[1]} {ch.unit}
                   </span>
                 </div>
@@ -126,7 +126,7 @@ export function ScreenFlow({ onCmdK }: ScreenProps) {
           })}
 
           {/* Cross-channel section: small relationship card */}
-          <div className="card card-pad mt-20">
+          <div className="cadence-card cadence-card-pad cadence-mt-20">
             <SectionHead
               title="Cross-channel relationships"
               sub="Quick correlations across today's flow"
@@ -188,12 +188,12 @@ interface RelationCardProps {
 
 function RelationCard({ a, b, value, detail, color }: RelationCardProps) {
   return (
-    <div className="card tinted card-pad" style={{ borderLeft: `3px solid ${color}` }}>
-      <div className="text-3 fz-11" style={{ textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 550 }}>
+    <div className="cadence-card cadence-card-tinted cadence-card-pad" style={{ borderLeft: `3px solid ${color}` }}>
+      <div className="cadence-text-3 cadence-fz-11" style={{ textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 550 }}>
         {a} <Icon name="arrowRight" style={{ width: 10, height: 10, display: "inline" }} /> {b}
       </div>
-      <div className="h-display" style={{ fontSize: 20, marginTop: 6 }}>{value}</div>
-      <div className="text-3 fz-12 mt-4">{detail}</div>
+      <div className="cadence-h-display" style={{ fontSize: 20, marginTop: 6 }}>{value}</div>
+      <div className="cadence-text-3 cadence-fz-12 cadence-mt-4">{detail}</div>
     </div>
   );
 }
