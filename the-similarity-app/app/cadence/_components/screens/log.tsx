@@ -79,26 +79,26 @@ export function ScreenLog({ onCmdK }: ScreenProps) {
   }, [visible]);
 
   return (
-    <div className="content-col screen-fade">
+    <div className="cadence-content-col cadence-screen-fade">
       <Topbar
         crumbs={["Workspace", "Log"]}
         onCmdK={onCmdK}
         actions={
-          <button className="btn primary">
+          <button className="cadence-btn cadence-btn-primary">
             <Icon name="plus" /> Add
           </button>
         }
       />
 
-      <div className="scroll">
-        <div className="scroll-pad">
-          <div className="h-eyebrow mb-8">Event ledger · last 7 days</div>
-          <div className="h-display num" style={{ fontSize: 36, marginBottom: 16 }}>
+      <div className="cadence-scroll">
+        <div className="cadence-scroll-pad">
+          <div className="cadence-h-eyebrow cadence-mb-8">Event ledger · last 7 days</div>
+          <div className="cadence-h-display cadence-num" style={{ fontSize: 36, marginBottom: 16 }}>
             {LOG_EVENTS.length} logged
           </div>
 
           {/* Composer */}
-          <div className="composer">
+          <div className="cadence-composer">
             <Icon name="plus" style={{ color: "var(--ink-3)" }} />
             <input
               value={composer}
@@ -109,7 +109,7 @@ export function ScreenLog({ onCmdK }: ScreenProps) {
               {QUICK_ADDS.map((q) => (
                 <button
                   key={q.kind}
-                  className="btn"
+                  className="cadence-btn"
                   style={{ height: 26, padding: "0 8px", fontSize: 11.5 }}
                   title={`Quick log: ${q.label}`}
                   onClick={() => {
@@ -124,11 +124,11 @@ export function ScreenLog({ onCmdK }: ScreenProps) {
           </div>
 
           {/* Filter chips */}
-          <div className="filter-bar" style={{ borderBottom: "none", padding: "8px 0 16px 0" }}>
+          <div className="cadence-filter-bar" style={{ borderBottom: "none", padding: "8px 0 16px 0" }}>
             {FILTERS.map((f) => (
               <button
                 key={f.value}
-                className={`chip ${filter === f.value ? "active" : ""}`}
+                className={`cadence-chip ${filter === f.value ? "is-active" : ""}`}
                 onClick={() => setFilter(f.value)}
               >
                 {f.label}
@@ -137,7 +137,7 @@ export function ScreenLog({ onCmdK }: ScreenProps) {
           </div>
 
           {/* Day-grouped log */}
-          <div className="card" style={{ overflow: "hidden" }}>
+          <div className="cadence-card" style={{ overflow: "hidden" }}>
             {Array.from(groups.entries()).map(([dayKey, events]) => {
               const date = new Date(dayKey);
               return (
@@ -153,26 +153,26 @@ export function ScreenLog({ onCmdK }: ScreenProps) {
                       gap: 10,
                     }}
                   >
-                    <span className="h-eyebrow">{relativeDay(date)}</span>
-                    <span className="text-3 fz-11">{FMT.longDate(date)}</span>
-                    <span className="text-3 fz-11 right" style={{ marginLeft: "auto" }}>
+                    <span className="cadence-h-eyebrow">{relativeDay(date)}</span>
+                    <span className="cadence-text-3 cadence-fz-11">{FMT.longDate(date)}</span>
+                    <span className="cadence-text-3 cadence-fz-11 cadence-right" style={{ marginLeft: "auto" }}>
                       {events.length} events
                     </span>
                   </div>
                   {events.map((e) => {
                     const meta = LOG_KIND_META[e.kind];
                     return (
-                      <div className="log-row" key={e.id}>
-                        <span className="tm">{FMT.time(e.date)}</span>
-                        <div className="ic" style={{ background: meta.color + "22", color: meta.color, borderColor: meta.color + "44" }}>
+                      <div className="cadence-log-row" key={e.id}>
+                        <span className="cadence-tm">{FMT.time(e.date)}</span>
+                        <div className="cadence-ic" style={{ background: meta.color + "22", color: meta.color, borderColor: meta.color + "44" }}>
                           <Icon name={meta.icon} />
                         </div>
-                        <div className="body">
-                          <div className="ttl">{e.title}</div>
-                          <div className="sub">{e.detail}</div>
+                        <div className="cadence-body">
+                          <div className="cadence-ttl">{e.title}</div>
+                          <div className="cadence-sub">{e.detail}</div>
                         </div>
-                        <div className="meta">{e.metric ?? meta.label}</div>
-                        <button className="icon-btn" aria-label="more">
+                        <div className="cadence-meta">{e.metric ?? meta.label}</div>
+                        <button className="cadence-icon-btn" aria-label="more">
                           <Icon name="chevron" />
                         </button>
                       </div>
@@ -182,22 +182,22 @@ export function ScreenLog({ onCmdK }: ScreenProps) {
               );
             })}
             {visible.length === 0 && (
-              <div className="card-pad text-3 fz-13" style={{ textAlign: "center" }}>
+              <div className="cadence-card-pad cadence-text-3 cadence-fz-13" style={{ textAlign: "center" }}>
                 No events match this filter.
               </div>
             )}
           </div>
 
           {/* Counts breakdown */}
-          <div className="row gap-12 mt-20">
+          <div className="cadence-row cadence-gap-12 cadence-mt-20">
             {(Object.keys(LOG_KIND_META) as LogKind[]).map((k) => {
               const n = LOG_EVENTS.filter((e) => e.kind === k).length;
               if (n === 0) return null;
               const meta = LOG_KIND_META[k];
               return (
-                <div key={k} className="row gap-6 fz-12 text-3">
+                <div key={k} className="cadence-row cadence-gap-6 cadence-fz-12 cadence-text-3">
                   <span style={{ width: 6, height: 6, borderRadius: 999, background: meta.color }} />
-                  {meta.label} <span className="mono" style={{ color: "var(--ink-2)", fontWeight: 600 }}>{n}</span>
+                  {meta.label} <span className="cadence-mono" style={{ color: "var(--ink-2)", fontWeight: 600 }}>{n}</span>
                 </div>
               );
             })}
