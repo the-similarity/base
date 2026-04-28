@@ -24,7 +24,6 @@ export type ScreenId =
   | "today"
   | "rhymes"
   | "log"
-  | "goals"
   | "sources"
   | "labs";
 

@@ -54,12 +54,6 @@ const GROUPS: NavGroup[] = [
     ],
   },
   {
-    label: "Plan",
-    items: [
-      { id: "goals", name: "Goals", icon: "flag" },
-    ],
-  },
-  {
     label: "System",
     items: [
       { id: "sources", name: "Sources", icon: "plug" },

@@ -24,7 +24,6 @@
  *   - LABS[]                       — 9 long-term biomarkers + 5 historical draws
  *   - SOURCES[]                    — connected wearable cards
  *   - LOG_EVENTS[]                 — chronological log entries (last 7 days)
- *   - GOALS[]                      — long-horizon marathon / DL / BF goals
  *   - TAGGED_PERIODS[]             — illness/travel/training/normal periods
  *
  * Realism notes (per spec):
@@ -549,80 +548,6 @@ export const LAB_DATES = [
   "2025-04-08",
   "2025-09-22",
   "2026-03-12",
-];
-
-// =====================================================================
-// Goals — long-horizon outcomes with projected completion
-// =====================================================================
-
-export interface Goal {
-  id: string;
-  name: string;
-  metric: string;
-  target: string;
-  current: string;
-  due: string;
-  progress: number; // 0-1
-  trend: "ahead" | "ontrack" | "behind";
-  projection: string; // human-readable "projected hit Sep 2026"
-}
-
-export const GOALS: Goal[] = [
-  {
-    id: "marathon",
-    name: "Marathon Sub-3:30",
-    metric: "Long-run pace",
-    target: "4:55/km @ 32km",
-    current: "5:08/km @ 28km",
-    due: "Oct 18, 2026",
-    progress: 0.62,
-    trend: "ontrack",
-    projection: "On track for Oct 18",
-  },
-  {
-    id: "deadlift",
-    name: "Deadlift 180kg",
-    metric: "1RM",
-    target: "180 kg",
-    current: "162 kg",
-    due: "Dec 31, 2026",
-    progress: 0.78,
-    trend: "ahead",
-    projection: "Projected Nov 14 (5wk early)",
-  },
-  {
-    id: "bodyfat",
-    name: "Body fat 12%",
-    metric: "DEXA / Inbody",
-    target: "12%",
-    current: "14.2%",
-    due: "Aug 1, 2026",
-    progress: 0.55,
-    trend: "behind",
-    projection: "Behind by ~3 weeks",
-  },
-  {
-    id: "longevity",
-    name: "Longevity score top decile",
-    metric: "Composite biomarker percentile",
-    target: "Top 10%",
-    current: "Top 22%",
-    due: "Dec 31, 2026",
-    progress: 0.6,
-    trend: "ontrack",
-    projection: "On track if HRV holds",
-  },
-  {
-    id: "vo2",
-    name: "VO2 max 55 ml/kg/min",
-    metric: "Lab measured",
-    target: "55",
-    current: "51.4",
-    due: "Jun 30, 2026",
-    progress: 0.71,
-    trend: "ontrack",
-    projection: "On track for Jun 30",
-  },
 ];
 
 // =====================================================================
