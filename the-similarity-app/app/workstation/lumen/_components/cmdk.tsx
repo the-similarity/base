@@ -1,9 +1,11 @@
 /**
  * Lumen command palette — Cmd+K modal with grouped results + arrow nav.
  *
- * Items are grouped under "Navigate" (one entry per Lumen screen) and
- * "Actions" (open external app routes, theme/tweaks toggles). The
- * filter is a case-insensitive substring match on the item label only.
+ * The Lumen route is single-screen so the palette is intentionally
+ * sparse: a "Workspace" group with theme + tweaks toggles and an
+ * escape hatch into the standalone /workstation route. There is no
+ * "Navigate" group anymore — there is nowhere to navigate to within
+ * /workstation/lumen.
  *
  * Keyboard:
  *   - Esc closes
@@ -26,7 +28,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import { Icon } from "./icons";
-import type { ScreenId } from "./screen-types";
 import type { TweakState } from "./tweaks";
 
 interface PaletteItem {
@@ -42,25 +43,23 @@ interface PaletteItem {
 export interface CmdKProps {
   open: boolean;
   onClose: () => void;
-  onNavigate: (id: ScreenId) => void;
   setTweaks?: Dispatch<SetStateAction<TweakState>>;
 }
 
-export function CmdK({ open, onClose, onNavigate, setTweaks }: CmdKProps) {
+export function CmdK({ open, onClose, setTweaks }: CmdKProps) {
   // Early-return when closed so React unmounts the body and its state
   // disappears. The next open() will mount a fresh CmdKBody, giving us a
   // pristine query/active state without any explicit reset.
   if (!open) return null;
-  return <CmdKBody onClose={onClose} onNavigate={onNavigate} setTweaks={setTweaks} />;
+  return <CmdKBody onClose={onClose} setTweaks={setTweaks} />;
 }
 
 interface CmdKBodyProps {
   onClose: () => void;
-  onNavigate: (id: ScreenId) => void;
   setTweaks?: Dispatch<SetStateAction<TweakState>>;
 }
 
-function CmdKBody({ onClose, onNavigate, setTweaks }: CmdKBodyProps) {
+function CmdKBody({ onClose, setTweaks }: CmdKBodyProps) {
   const [q, setQ] = useState("");
   const [active, setActive] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -73,38 +72,44 @@ function CmdKBody({ onClose, onNavigate, setTweaks }: CmdKBodyProps) {
     return () => clearTimeout(t);
   }, []);
 
-  // Open an absolute URL in a new tab. Used by the "Actions" group for
-  // routes that live outside /workstation/lumen.
-  const openExternal = (href: string) => {
-    if (typeof window !== "undefined") {
-      window.open(href, "_blank", "noopener,noreferrer");
-    }
-  };
-
   // Tweaks are optional — defensive default so the palette still works
   // if the parent forgets to pass `setTweaks`.
   const toggleTheme = () => {
     if (setTweaks) setTweaks((t) => ({ ...t, dark: !t.dark }));
   };
 
+  // Open the standalone Workstation route (the non-Lumen view) in the
+  // current tab. This is the escape hatch from the Lumen chrome —
+  // useful when a power user wants the full keyboard-shortcut surface
+  // that the standalone view exposes.
+  const openStandaloneWorkstation = () => {
+    if (typeof window !== "undefined") {
+      window.open("/workstation", "_self");
+    }
+  };
+
   const items: PaletteItem[] = [
-    { g: "Navigate", label: "Retrieve", icon: "target", run: () => onNavigate("retrieve"), kbd: "G R" },
-    { g: "Navigate", label: "Runs", icon: "list", run: () => onNavigate("runs"), kbd: "G N" },
-    { g: "Navigate", label: "Compare", icon: "grid", run: () => onNavigate("compare"), kbd: "G C" },
-    { g: "Navigate", label: "Reviews", icon: "note", run: () => onNavigate("reviews"), kbd: "G V" },
-    { g: "Navigate", label: "Dashboard", icon: "pie", run: () => onNavigate("dashboard"), kbd: "G D" },
-    { g: "Navigate", label: "Strategy", icon: "trend", run: () => onNavigate("strategy"), kbd: "G S" },
-    { g: "Navigate", label: "Cadence", icon: "flow", run: () => onNavigate("cadence"), kbd: "G F" },
-    { g: "Navigate", label: "Case Studies", icon: "book", run: () => onNavigate("case-studies"), kbd: "G K" },
-    { g: "Navigate", label: "Reports", icon: "receipt", run: () => onNavigate("reports"), kbd: "G P" },
-    { g: "Actions", label: "Open full workstation", icon: "link", run: () => openExternal("/workstation") },
-    { g: "Actions", label: "View runs in finance app", icon: "list", run: () => openExternal("/finance") },
-    { g: "Actions", label: "Toggle theme", icon: "sparkle", run: toggleTheme },
-    { g: "Actions", label: "Toggle tweaks panel", icon: "settings", run: () => {
-      // Tweaks panel collapse/expand is owned by the panel itself —
-      // surface this entry as a discoverability hint. Clicking the
-      // panel's own button is still the primary affordance.
-    } },
+    {
+      g: "Workspace",
+      label: "Toggle theme",
+      icon: "sparkle",
+      run: toggleTheme,
+    },
+    {
+      g: "Workspace",
+      // Discoverability hint — the actual collapse/expand affordance
+      // lives on the floating tweaks tab; this entry is just here so
+      // a Cmd+K user can find it.
+      label: "Toggle tweaks panel",
+      icon: "settings",
+      run: () => {},
+    },
+    {
+      g: "Workspace",
+      label: "Open full workstation in standalone view",
+      icon: "link",
+      run: openStandaloneWorkstation,
+    },
   ];
 
   const filtered = items.filter((i) =>
@@ -123,7 +128,7 @@ function CmdKBody({ onClose, onNavigate, setTweaks }: CmdKBodyProps) {
         <input
           ref={inputRef}
           className="lumen-cmdk-input"
-          placeholder="Type a command, search a screen, or jump to a route…"
+          placeholder="Type a command…"
           value={q}
           onChange={(e) => {
             setQ(e.target.value);
