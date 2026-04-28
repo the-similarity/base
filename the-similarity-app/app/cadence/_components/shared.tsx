@@ -4,8 +4,12 @@
  * Pill / SectionHead / Topbar / SegControl / PropRow / SourceLogo.
  *
  * These are intentionally thin wrappers around the page-scoped CSS classes
- * (.pill, .topbar, .section-head, etc.) — they do not own visual logic
- * beyond what the stylesheet defines.
+ * (.cadence-pill, .cadence-topbar, .cadence-section-head, etc.) — they do
+ * not own visual logic beyond what the stylesheet defines.
+ *
+ * All className strings here are `cadence-` prefixed. Anything un-prefixed
+ * would collide with rules in `app/globals.css` and break the layout (see
+ * styles.tsx for the full collision rationale).
  */
 import type { ReactNode, CSSProperties } from "react";
 import { Icon } from "./icons";
@@ -24,9 +28,12 @@ export interface PillProps {
 }
 
 export function Pill({ tone = "default", children, dot = false, style }: PillProps) {
+  // The default tone is the bare `.cadence-pill` rule; any other tone gets
+  // a `cadence-pill-<tone>` modifier that overrides background/color.
+  const toneClass = tone === "default" ? "" : `cadence-pill-${tone}`;
   return (
-    <span className={`pill ${tone === "default" ? "" : tone}`} style={style}>
-      {dot && <span className="dot" />}
+    <span className={`cadence-pill ${toneClass}`} style={style}>
+      {dot && <span className="cadence-dot" />}
       {children}
     </span>
   );
@@ -44,10 +51,10 @@ export interface SectionHeadProps {
 
 export function SectionHead({ title, sub, actions }: SectionHeadProps) {
   return (
-    <div className="section-head">
-      <div className="title">{title}</div>
-      {sub && <div className="sub">{sub}</div>}
-      {actions && <div className="actions">{actions}</div>}
+    <div className="cadence-section-head">
+      <div className="cadence-title">{title}</div>
+      {sub && <div className="cadence-sub">{sub}</div>}
+      {actions && <div className="cadence-actions">{actions}</div>}
     </div>
   );
 }
@@ -64,28 +71,28 @@ export interface TopbarProps {
 
 export function Topbar({ crumbs = [], actions, onCmdK }: TopbarProps) {
   return (
-    <div className="topbar">
-      <div className="crumbs">
+    <div className="cadence-topbar">
+      <div className="cadence-crumbs">
         {crumbs.map((c, i) => (
           // Using index-as-key is fine here because crumbs are stable per screen.
           <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-            {i > 0 && <span className="sep">/</span>}
-            <span className={i === crumbs.length - 1 ? "here" : ""}>{c}</span>
+            {i > 0 && <span className="cadence-sep">/</span>}
+            <span className={i === crumbs.length - 1 ? "cadence-here" : ""}>{c}</span>
           </span>
         ))}
       </div>
-      <div className="top-actions">
+      <div className="cadence-top-actions">
         <button
-          className="btn ghost"
+          className="cadence-btn cadence-btn-ghost"
           onClick={onCmdK}
           style={{ height: 28, paddingRight: 6 }}
         >
-          <Icon name="search" /> Search <span className="kbd">⌘K</span>
+          <Icon name="search" /> Search <span className="cadence-kbd">⌘K</span>
         </button>
-        <button className="icon-btn" title="Notifications">
+        <button className="cadence-icon-btn" title="Notifications">
           <Icon name="bell" />
         </button>
-        <button className="icon-btn" title="Refresh">
+        <button className="cadence-icon-btn" title="Refresh">
           <Icon name="refresh" />
         </button>
         {actions}
@@ -108,14 +115,14 @@ export interface SegControlProps {
 
 export function SegControl({ value, options, onChange }: SegControlProps) {
   return (
-    <div className="seg">
+    <div className="cadence-seg">
       {options.map((o) => {
         const v = typeof o === "object" ? o.value : o;
         const l = typeof o === "object" ? o.label : o;
         return (
           <button
             key={v}
-            className={value === v ? "active" : ""}
+            className={value === v ? "is-active" : ""}
             onClick={() => onChange(v)}
           >
             {l}
@@ -137,13 +144,18 @@ export interface PropRowProps {
 }
 
 export function PropRow({ icon, label, children }: PropRowProps) {
+  // NOTE: .cadence-prop-row / .cadence-k / .cadence-v are not currently
+  // styled in styles.tsx — this component is presently unused but kept as
+  // the styled equivalent so future detail panels can drop it in. Class
+  // names are still cadence-* prefixed to prevent collisions if/when
+  // styles.tsx grows rules for them.
   return (
-    <div className="prop-row">
-      <div className="k">
+    <div className="cadence-prop-row">
+      <div className="cadence-k">
         {icon && <Icon name={icon} />}
         {label}
       </div>
-      <div className="v">{children}</div>
+      <div className="cadence-v">{children}</div>
     </div>
   );
 }
@@ -161,7 +173,7 @@ export interface SourceLogoProps {
 export function SourceLogo({ color, mark, size = 36 }: SourceLogoProps) {
   return (
     <div
-      className="source-logo"
+      className="cadence-source-logo"
       style={{
         background: color,
         width: size,

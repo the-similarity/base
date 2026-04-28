@@ -772,11 +772,12 @@ export const CADENCE_CSS = `
   box-shadow: 0 1px 2px rgba(0,0,0,0.06);
 }
 
-/* sparkline color helpers */
-.cadence-app .cadence-spark-pos path.line { stroke: var(--pos); }
-.cadence-app .cadence-spark-pos path.fill { fill: var(--pos); fill-opacity: 0.10; }
-.cadence-app .cadence-spark-neg path.line { stroke: var(--neg); }
-.cadence-app .cadence-spark-neg path.fill { fill: var(--neg); fill-opacity: 0.10; }
+/* sparkline color helpers — `.cadence-line` / `.cadence-fill` are
+   applied by Sparkline (charts.tsx) on the inner path elements. */
+.cadence-app .cadence-spark-pos path.cadence-line { stroke: var(--pos); }
+.cadence-app .cadence-spark-pos path.cadence-fill { fill: var(--pos); fill-opacity: 0.10; }
+.cadence-app .cadence-spark-neg path.cadence-line { stroke: var(--neg); }
+.cadence-app .cadence-spark-neg path.cadence-fill { fill: var(--neg); fill-opacity: 0.10; }
 
 /* fade-in for screens */
 .cadence-app .cadence-screen-fade {

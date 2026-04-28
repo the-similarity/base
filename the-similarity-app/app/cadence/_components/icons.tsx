@@ -294,9 +294,11 @@ export interface IconProps {
 
 /**
  * Renders a 20x20 stroke icon. `name` falls back to nothing if unknown so
- * a typo doesn't crash the render — it just shows an empty SVG. The "ico"
- * class applies the size/opacity rules from the page-scoped stylesheet
- * (see styles.tsx) so every icon site can layout-shift consistently.
+ * a typo doesn't crash the render — it just shows an empty SVG. The
+ * `cadence-ico` class applies the size/opacity rules from the page-scoped
+ * stylesheet (see styles.tsx) so every icon site can layout-shift
+ * consistently. The class is `cadence-` prefixed to avoid collision with
+ * any global `.ico` rule from `app/globals.css`.
  */
 export function Icon({ name, className = "", style = {} }: IconProps) {
   return (
@@ -307,7 +309,7 @@ export function Icon({ name, className = "", style = {} }: IconProps) {
       strokeWidth="1.5"
       strokeLinecap="round"
       strokeLinejoin="round"
-      className={`ico ${className}`}
+      className={`cadence-ico ${className}`}
       style={style}
     >
       {iconMap[name] || null}
