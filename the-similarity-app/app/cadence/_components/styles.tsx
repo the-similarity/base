@@ -119,11 +119,11 @@ export const CADENCE_CSS = `
 }
 
 /* ============ app shell ============
-   `.cadence-app-shell` (formerly `.app`) wraps sidebar + main. The rename
-   is THE bugfix for the empty-main-panel problem: the global `.app`
-   selector in app/globals.css set `grid-template-rows: 44px 1fr 26px`,
-   which combined with our `grid-template-columns: 220px 1fr` to push the
-   main panel into a 44px-tall first row. */
+   .cadence-app-shell (formerly .app) wraps sidebar + main. The rename is
+   THE bugfix for the empty-main-panel problem: the global .app selector
+   in app/globals.css set grid-template-rows: 44px 1fr 26px, which
+   combined with our grid-template-columns: 220px 1fr to push the main
+   panel into a 44px-tall first row. */
 .cadence-app .cadence-app-shell {
   position: relative; z-index: 1;
   height: 100vh;
@@ -772,8 +772,8 @@ export const CADENCE_CSS = `
   box-shadow: 0 1px 2px rgba(0,0,0,0.06);
 }
 
-/* sparkline color helpers — `.cadence-line` / `.cadence-fill` are
-   applied by Sparkline (charts.tsx) on the inner path elements. */
+/* sparkline color helpers — .cadence-line / .cadence-fill are applied
+   by Sparkline (charts.tsx) on the inner path elements. */
 .cadence-app .cadence-spark-pos path.cadence-line { stroke: var(--pos); }
 .cadence-app .cadence-spark-pos path.cadence-fill { fill: var(--pos); fill-opacity: 0.10; }
 .cadence-app .cadence-spark-neg path.cadence-line { stroke: var(--neg); }
