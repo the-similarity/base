@@ -95,8 +95,11 @@ export default function CadencePage() {
     const p = painterlyRef.current;
     if (p) {
       // The "paper" preset is a flat color, not a gradient; the underlying
-      // CSS handles the noise overlay either way.
-      p.style.background = BACKGROUNDS[tweaks.background] || BACKGROUNDS.bloom;
+      // CSS handles the noise overlay either way. The lookup is total over
+      // TweakState["background"] so no fallback is needed (and an old
+      // BACKGROUNDS.bloom fallback was a renamed-key leftover that broke
+      // tsc --noEmit + next build).
+      p.style.background = BACKGROUNDS[tweaks.background];
     }
   }, [tweaks]);
 
