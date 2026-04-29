@@ -7,7 +7,7 @@ import os
 from dataclasses import replace
 from pathlib import Path
 
-from .config import find_repo_root, load_config, write_default_config
+from .config import config_path, find_repo_root, load_config, write_default_config
 from .doctor import run_doctor
 from .fleet import (
     build_slots,
@@ -39,7 +39,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "init":
         path = write_default_config(repo_root, force=args.force)
-        print(f"Wrote {path}")
+        print_init_followup(path)
         return 0
 
     cfg = load_config(repo_root)
@@ -221,6 +221,40 @@ def add_skip_doctor(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--skip-doctor", action="store_true", help="Skip preflight checks.")
 
 
+def _show_agentfleet_init_in_onboarding() -> bool:
+    """True when ``agentfleet.toml`` is missing in the current git repo (first-time)."""
+
+    current = Path.cwd().resolve()
+    for candidate in [current, *current.parents]:
+        if (candidate / ".git").exists():
+            return not config_path(candidate).exists()
+    return True
+
+
+INIT_AI_AGENT_PROMPT = """Configure AgentFleet for this repository.
+
+1. Create or update agentfleet.toml.
+2. Keep the default fleet at 2 Codex agents and 2 Claude agents unless this repo needs something else.
+3. Inspect the project and add [[preview.services]] for the local services needed to preview work.
+4. For each preview service set name, dir, port_base, command using {port}, and env values if needed.
+5. Mark the browser-facing service with primary = true.
+6. Run `agentfleet doctor` and explain any failures.
+7. If this is frontend-only, backend-only, Docker-only, mobile, or multi-service, configure the closest useful setup and explain the tradeoff."""
+
+
+def print_init_followup(written: Path) -> None:
+    """Print README-aligned instructions after ``agentfleet init`` writes the config."""
+
+    print(f"Wrote {written}")
+    print()
+    print(
+        'Give this checklist to your AI agent (same block as "Give This To Your AI Agent" in the '
+        "AgentFleet README), or edit agentfleet.toml yourself in the project root."
+    )
+    print()
+    print(INIT_AI_AGENT_PROMPT)
+
+
 def print_onboarding() -> None:
     """Print a compact orientation screen for first-time CLI usage."""
 
@@ -236,8 +270,9 @@ def print_onboarding() -> None:
     BOLD = "\033[1m"
     RESET = "\033[0m"
 
-    print(
-        rf"""
+    init_line = f"  {WHITE}agentfleet init{RESET}\n" if _show_agentfleet_init_in_onboarding() else ""
+
+    head = rf"""
 {CYAN}            |             |              |
            )_)           )_)            )_)
           )___)         )___)          )___)
@@ -254,10 +289,11 @@ def print_onboarding() -> None:
         |___/{RESET}
 
 {GRAY}AgentFleet: run coding agents in isolated git worktrees.{RESET}
+"""
 
+    tail = rf"""
 {GREEN}{BOLD}Start here:{RESET}
-  {WHITE}agentfleet init{RESET}
-  {WHITE}agentfleet doctor{RESET}
+{init_line}  {WHITE}agentfleet doctor{RESET}
   {WHITE}agentfleet setup{RESET}
   {WHITE}agentfleet launch {MAGENTA}--terminal{RESET} {WHITE}ghostty-splits {MAGENTA}--ghostty-size{RESET} {WHITE}180x50{RESET}
   {WHITE}agentfleet preview{RESET}
@@ -285,7 +321,8 @@ def print_onboarding() -> None:
 
 {DIM}Run `agentfleet --help` or `agentfleet <command> --help` for details.{RESET}
 """
-    )
+
+    print(head + tail)
 
 
 def maybe_print_update_notice() -> None:
@@ -362,7 +399,7 @@ def maybe_doctor(
 
     if getattr(args, "skip_doctor", False):
         return
-    code = run_doctor(cfg, slots, check_preview=check_preview)
+    code = run_doctor(cfg, slots, check_preview=check_preview, quiet=True)
     if code != 0:
         raise SystemExit(code)
 

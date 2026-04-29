@@ -35,7 +35,11 @@ def start_preview(cfg: FleetConfig, slots: list[AgentSlot], install_deps: bool =
     """Start configured preview services and serve the dashboard until interrupted."""
 
     if not cfg.preview.configured:
-        print("Preview is not configured. Run `agentfleet init` and fill [[preview.services]].")
+        print(
+            "Preview is not configured: add [[preview.services]] in agentfleet.toml "
+            "(repo root). See the README \"Give This To Your AI Agent\" checklist, or run "
+            "`agentfleet doctor` after editing."
+        )
         return 1
 
     preview_slots = build_preview_slots(cfg, slots)
