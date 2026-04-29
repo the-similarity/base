@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 from dataclasses import replace
 from pathlib import Path
 
@@ -17,6 +18,7 @@ from .fleet import (
     setup_fleet,
 )
 from .models import AgentSlot, FleetConfig
+from .npm_pkg import cached_npm_latest_version, installed_version, is_newer, run_npm_upgrade
 from .preview import print_saved_preview_state, start_preview, stop_previews
 
 
@@ -27,7 +29,11 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     if args.command is None:
         print_onboarding()
+        maybe_print_update_notice()
         return 0
+
+    if args.command == "upgrade":
+        return run_npm_upgrade(dry_run=getattr(args, "dry_run", False))
 
     repo_root = find_repo_root()
 
@@ -189,6 +195,16 @@ def build_parser() -> argparse.ArgumentParser:
     tasks.add_argument("--out", type=Path, default=None)
     tasks.add_argument("--force", action="store_true")
 
+    upgrade = subcommands.add_parser(
+        "upgrade",
+        help="Reinstall the global npm package to the latest release (requires npm).",
+    )
+    upgrade.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Print the npm command that would run instead of executing it.",
+    )
+
     return parser
 
 
@@ -265,10 +281,32 @@ def print_onboarding() -> None:
   {WHITE}agentfleet stop{RESET}
   {WHITE}agentfleet clean{RESET}
   {WHITE}agentfleet tasks {MAGENTA}--out{RESET} {WHITE}agentfleet-tasks.yaml{RESET}
+  {WHITE}agentfleet upgrade{RESET}            {GRAY}npm global install to latest{RESET}
 
 {DIM}Run `agentfleet --help` or `agentfleet <command> --help` for details.{RESET}
 """
     )
+
+
+def maybe_print_update_notice() -> None:
+    """If the npm registry has a newer release, print a short upgrade hint."""
+
+    if os.environ.get("AGENTFLEET_NO_UPDATE_CHECK"):
+        return
+    current = installed_version()
+    latest = cached_npm_latest_version()
+    if not latest or not is_newer(latest, current):
+        return
+    yellow = "\033[38;5;220m"
+    white = "\033[38;5;255m"
+    dim = "\033[2m"
+    reset = "\033[0m"
+    print()
+    print(f"{yellow}Update available on npm:{reset} {white}{latest}{reset} (installed: {dim}{current}{reset}).")
+    print("Upgrade with:")
+    print(f"  {dim}npm install -g @buyan14/agentfleet@latest{reset}")
+    print(f"  {dim}agentfleet upgrade{reset}")
+    print(f"{dim}Disable this check: AGENTFLEET_NO_UPDATE_CHECK=1{reset}")
 
 
 def selected_slots(cfg: FleetConfig, args: argparse.Namespace) -> list[AgentSlot]:
