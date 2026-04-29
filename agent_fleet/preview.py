@@ -6,6 +6,7 @@ import html
 import http.server
 import json
 import os
+import shlex
 import signal
 import shutil
 import socket
@@ -54,17 +55,18 @@ def start_preview(cfg: FleetConfig, slots: list[AgentSlot], install_deps: bool =
     state_root = cfg.resolved_state_root()
     state_root.mkdir(parents=True, exist_ok=True)
 
-    processes: list[subprocess.Popen[str]] = []
+    tracked: list[tuple[subprocess.Popen[str], str]] = []
     try:
         for preview in preview_slots:
-            processes.extend(start_preview_processes(cfg, preview, install_deps))
+            tracked.extend(start_preview_processes(cfg, preview, install_deps))
+        processes = [proc for proc, _ in tracked]
         write_state(cfg, preview_slots, processes)
         dashboard_path = write_dashboard(cfg, preview_slots)
         server = start_dashboard_server(dashboard_path.parent, cfg.preview.dashboard_port)
         print_summary(cfg, preview_slots)
-        wait_forever(processes, server)
+        wait_forever(tracked, server)
     finally:
-        for proc in processes:
+        for proc, _ in tracked:
             stop_process(proc.pid)
         clear_state(cfg)
     return 0
@@ -212,10 +214,14 @@ def port_is_free(port: int) -> bool:
 
 def start_preview_processes(
     cfg: FleetConfig, preview: PreviewSlot, install_deps: bool
-) -> list[subprocess.Popen[str]]:
-    """Start the configured service commands for one preview slot."""
+) -> list[tuple[subprocess.Popen[str], str]]:
+    """Start the configured service commands for one preview slot.
 
-    processes: list[subprocess.Popen[str]] = []
+    Each item is ``(process, summary)`` where ``summary`` identifies the slot,
+    service, and argv used for clearer errors when the child exits (e.g. 127).
+    """
+
+    launched: list[tuple[subprocess.Popen[str], str]] = []
     for service in preview.services:
         service.log.parent.mkdir(parents=True, exist_ok=True)
         if install_deps and service.install_if_missing and service.install_command:
@@ -229,18 +235,25 @@ def start_preview_processes(
         for key, value in service.env.items():
             env[key] = render_service_template(value, preview, service)
 
+        argv = split_command(render_service_template(service.command, preview, service))
+        cmd_repr = shlex.join(argv)
+        summary = f"{preview.slot.label}:{service.name}: {cmd_repr}"
+
         log_handle = service.log.open("w", encoding="utf-8")
-        processes.append(
-            subprocess.Popen(
-                split_command(render_service_template(service.command, preview, service)),
-                cwd=service.directory,
-                env=env,
-                stdout=log_handle,
-                stderr=subprocess.STDOUT,
-                text=True,
+        launched.append(
+            (
+                subprocess.Popen(
+                    argv,
+                    cwd=service.directory,
+                    env=env,
+                    stdout=log_handle,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                ),
+                summary,
             )
         )
-    return processes
+    return launched
 
 
 def render_command(template: str, preview: PreviewSlot) -> str:
@@ -277,8 +290,6 @@ def render_service_template(template: str, preview: PreviewSlot, service: Runtim
 
 def split_command(command: str) -> list[str]:
     """Split a shell-like command template into argv."""
-
-    import shlex
 
     return shlex.split(command)
 
@@ -690,15 +701,25 @@ def print_summary(cfg: FleetConfig, previews: list[PreviewSlot]) -> None:
 
 
 def wait_forever(
-    processes: list[subprocess.Popen[str]], server: http.server.ThreadingHTTPServer
+    tracked: list[tuple[subprocess.Popen[str], str]],
+    server: http.server.ThreadingHTTPServer,
 ) -> None:
     """Wait until interrupted or a child preview exits."""
 
     try:
         while True:
-            for proc in processes:
+            for proc, summary in tracked:
                 if proc.poll() is not None:
-                    raise SystemExit(f"Preview process exited early with code {proc.returncode}.")
+                    rc = proc.returncode
+                    hint = ""
+                    if rc == 127:
+                        hint = (
+                            "\nUsually exit 127 means the executable was not found (empty PATH vs your shell, "
+                            "or use `python3` instead of `python`, or ensure `npm`/`uvicorn` are on PATH)."
+                        )
+                    raise SystemExit(
+                        f"Preview process exited early with code {rc}.{hint}\n  {summary}"
+                    )
             time.sleep(1)
     except KeyboardInterrupt:
         print("\nStopping preview fleet...")
