@@ -106,10 +106,23 @@ jobs:
       - name: Ruff format check
         run: ruff format --check the_similarity/
 
+  harness-check:
+    name: Agent Harness Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Validate agent harness docs
+        run: python scripts/check_agent_harness.py
+
   # ── Stage 2: Review Agent ─────────────────────────────────────────
   review-agent:
     name: Review Agent
-    needs: [python-tests, data-tests, frontend-tests, python-lint]
+    needs: [python-tests, data-tests, frontend-tests, python-lint, harness-check]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

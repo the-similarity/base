@@ -56,7 +56,7 @@ class TestSlidingDotProduct:
         """At position where ts matches query exactly, dot product should be
         maximised and close to np.dot(query, query)."""
         rng = np.random.default_rng(1)
-        n, m = 100, 20
+        n = 100
         ts = rng.standard_normal(n)
         q = ts[30:50].copy()  # take slice, embed it back
 
