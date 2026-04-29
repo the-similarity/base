@@ -900,11 +900,13 @@ def wait_forever(
                     hint = ""
                     if rc == 127:
                         hint = (
-                            "\nUsually exit 127 means the first command on PATH was not found (e.g. ``npm`` "
-                            "when Node was installed via nvm/fnm — the IDE often has a shorter PATH than your shell). "
-                            "Run ``which npm`` in a normal terminal, then add that directory under "
-                            "``[preview] path_prepend`` in agentfleet.toml (or start the IDE from a login shell so "
-                            "``PATH`` matches ``where you run agentfleet``)."
+                            "\nExit 127: a program on PATH was not found. "
+                            "If the failure is ``npm``/``python`` itself, add that binary's directory to "
+                            "``[preview] path_prepend`` (from ``which npm`` / ``which python``). "
+                            "If the command is ``npm run ...`` but the log shows ``next``/``vite``: command not found, "
+                            "Node deps are missing in that **worktree's** service directory — run ``npm install`` there, "
+                            "or set ``install_command`` + ``install_if_missing`` on that ``[[preview.services]]`` block. "
+                            "Read the *.log paths printed above for the exact line."
                         )
                     elif rc not in (0, None):
                         hint = (
