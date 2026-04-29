@@ -218,11 +218,6 @@ def print_onboarding() -> None:
 
 AgentFleet: run coding agents in isolated git worktrees.
 
-If you installed with npm, you are already using the published package.
-If you run agentfleet inside a repo that ships its own agent_fleet/ folder,
-Python may load that copy instead of npm. Rename that folder or run from
-elsewhere if you want the global install.
-
 Start here:
   agentfleet init
   agentfleet doctor
