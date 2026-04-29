@@ -208,44 +208,66 @@ def add_skip_doctor(parser: argparse.ArgumentParser) -> None:
 def print_onboarding() -> None:
     """Print a compact orientation screen for first-time CLI usage."""
 
+    # ANSI color codes
+    CYAN = "\033[38;5;51m"  # bright cyan — ships
+    BLUE = "\033[38;5;39m"  # ocean blue — waves
+    YELLOW = "\033[38;5;220m"  # gold — title
+    GREEN = "\033[38;5;120m"  # soft green — section headers
+    GRAY = "\033[38;5;245m"  # muted — descriptions
+    WHITE = "\033[38;5;255m"  # bright — commands
+    MAGENTA = "\033[38;5;213m"  # accent — flags
+    DIM = "\033[2m"
+    BOLD = "\033[1m"
+    RESET = "\033[0m"
+
     print(
-        r"""    ___                    __  ______          __
-   /   |  ____ ____  ____ / /_/ ____/___  ___ / /_
-  / /| | / __ `/ _ \/ __ `/ __/ /_  / _ \/ _ `/ __/
- / ___ |/ /_/ /  __/ /_/ / /_/ __/ /  __/  __/ /_
-/_/  |_|\__, /\___/\__,_/\__/_/    \___/\___/\__/
-       /____/
+        rf"""
+{CYAN}            |             |              |
+           )_)           )_)            )_)
+          )___)         )___)          )___)
+         )____)        )____)         )____)
+       __|____|______|____|________|____|__{RESET}
+   {BLUE}~~~~\                                  /~~~~
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~{RESET}
 
-AgentFleet: run coding agents in isolated git worktrees.
+{YELLOW}{BOLD}    _                    _   _____ _           _
+   / \   __ _  ___ _ __ | |_|  ___| | ___  ___| |_
+  / _ \ / _` |/ _ \ '_ \| __| |_  | |/ _ \/ _ \ __|
+ / ___ \ (_| |  __/ | | | |_|  _| | |  __/  __/ |_
+/_/   \_\__, |\___|_| |_|\__|_|   |_|\___|\___|\__|
+        |___/{RESET}
 
-Start here:
-  agentfleet init
-  agentfleet doctor
-  agentfleet setup
-  agentfleet launch --terminal ghostty-splits --ghostty-size 180x50
-  agentfleet preview
+{GRAY}AgentFleet: run coding agents in isolated git worktrees.{RESET}
 
-Launch terminals (install the matching app first; see agentfleet launch --help):
-  --terminal ghostty-splits   one Ghostty window with native split panes
-  --terminal ghostty          separate Ghostty windows
-  --terminal tmux             tmux session, panes by default
-  --terminal iterm            iTerm windows/tabs
-  --terminal print            print commands only
+{GREEN}{BOLD}Start here:{RESET}
+  {WHITE}agentfleet init{RESET}
+  {WHITE}agentfleet doctor{RESET}
+  {WHITE}agentfleet setup{RESET}
+  {WHITE}agentfleet launch {MAGENTA}--terminal{RESET} {WHITE}ghostty-splits {MAGENTA}--ghostty-size{RESET} {WHITE}180x50{RESET}
+  {WHITE}agentfleet preview{RESET}
 
-Ghostty sizing:
-  --ghostty-size 180x50       set initial columns x rows for Ghostty windows
+{GREEN}{BOLD}Launch terminals{RESET} {GRAY}(install the matching app first; see agentfleet launch --help):{RESET}
+  {MAGENTA}--terminal ghostty-splits{RESET}   {GRAY}one Ghostty window with native split panes{RESET}
+  {MAGENTA}--terminal ghostty{RESET}          {GRAY}separate Ghostty windows{RESET}
+  {MAGENTA}--terminal tmux{RESET}             {GRAY}tmux session, panes by default{RESET}
+  {MAGENTA}--terminal iterm{RESET}            {GRAY}iTerm windows/tabs{RESET}
+  {MAGENTA}--terminal print{RESET}            {GRAY}print commands only{RESET}
 
-Agent CLIs (defaults; override command= in agentfleet.toml if you use others):
-  claude    npm install -g @anthropic-ai/claude-code   https://code.claude.com/docs/en/setup
-  codex     npm install -g @openai/codex             https://developers.openai.com/codex/cli
+{GREEN}{BOLD}Ghostty sizing:{RESET}
+  {MAGENTA}--ghostty-size 180x50{RESET}       {GRAY}set initial columns x rows for Ghostty windows{RESET}
 
-Other useful commands:
-  agentfleet status
-  agentfleet stop
-  agentfleet clean
-  agentfleet tasks --out agentfleet-tasks.yaml
+{GREEN}{BOLD}Agent CLIs{RESET} {GRAY}(defaults; override command= in agentfleet.toml if you use others):{RESET}
+  {CYAN}claude{RESET}    {WHITE}npm install -g @anthropic-ai/claude-code{RESET}   {DIM}https://code.claude.com/docs/en/setup{RESET}
+  {CYAN}codex{RESET}     {WHITE}npm install -g @openai/codex{RESET}              {DIM}https://developers.openai.com/codex/cli{RESET}
 
-Run `agentfleet --help` or `agentfleet <command> --help` for details."""
+{GREEN}{BOLD}Other useful commands:{RESET}
+  {WHITE}agentfleet status{RESET}
+  {WHITE}agentfleet stop{RESET}
+  {WHITE}agentfleet clean{RESET}
+  {WHITE}agentfleet tasks {MAGENTA}--out{RESET} {WHITE}agentfleet-tasks.yaml{RESET}
+
+{DIM}Run `agentfleet --help` or `agentfleet <command> --help` for details.{RESET}
+"""
     )
 
 
