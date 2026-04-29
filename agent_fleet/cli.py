@@ -272,8 +272,11 @@ def print_onboarding() -> None:
     # Inner width between double-line box characters (must match every row).
     inner_w = 62
 
-    def _center_plain(raw: str) -> str:
-        """Center trimmed ASCII within ``inner_w`` columns (no ANSI inside)."""
+    # Extra leading-space trim for mast/hull art only (waves use the same bias).
+    _ship_bias_left = 2
+
+    def _center_plain(raw: str, *, shift_left: int = 0) -> str:
+        """Place trimmed ASCII in ``inner_w`` columns; ``shift_left`` nudges art left."""
 
         t = raw.rstrip()
         if not t:
@@ -281,7 +284,11 @@ def print_onboarding() -> None:
         if len(t) >= inner_w:
             return t[:inner_w]
         pad = inner_w - len(t)
-        left = pad // 2
+        left = pad // 2 - shift_left
+        if left < 0:
+            left = 0
+        elif left > pad:
+            left = pad
         return " " * left + t + " " * (inner_w - len(t) - left)
 
     # Ship + waves (trimmed block is centered as a whole; fixes prior 61-col wave row).
@@ -312,7 +319,7 @@ def print_onboarding() -> None:
     print()
     print(f"{CYAN}╔{'═' * inner_w}╗{RESET}")
     for i, raw in enumerate(ship_lines):
-        row = _center_plain(raw)
+        row = _center_plain(raw, shift_left=_ship_bias_left)
         if i >= 5:
             print(f"{CYAN}║{BLUE}{row}{RESET}{CYAN}║{RESET}")
         else:
