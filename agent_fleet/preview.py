@@ -34,12 +34,6 @@ ALL_ROUTE_SUGGESTIONS = [
     "/api/health",
 ]
 
-# First-row chips target the SPA preview iframe (`ui_url`): product surfaces only.
-PREVIEW_ROUTE_CHIPS = ["/dashboard", "/login", "/admin", "/settings"]
-
-# Second row opens backend origin (`api_url`): OpenAPI/OpenAPI-health style probes only.
-BACKEND_ROUTE_CHIPS = ["/", "/health", "/docs", "/api/health"]
-
 # Skip heavy or irrelevant dirs when scanning one level for nested ``.venv``/``venv``.
 PREVIEW_CHILD_SCAN_SKIP = frozenset(
     {
@@ -570,8 +564,6 @@ def render_card(preview: PreviewSlot, slot_index: int) -> str:
     log_anchor = f"/logs/#log-slot-{slot_index}"
     quick = route_quick_select_html(ALL_ROUTE_SUGGESTIONS)
     dl = route_datalist_html(dl_id, ALL_ROUTE_SUGGESTIONS)
-    prev_chips = route_chips_html(PREVIEW_ROUTE_CHIPS)
-    api_chips = api_route_chips_html(preview, BACKEND_ROUTE_CHIPS)
     return f"""<article class="card" id="{html.escape(slot.label)}" data-preview-card data-preview-label="{html.escape(slot.label)}">
   <div class="meta">
     <div class="title">
@@ -588,14 +580,6 @@ def render_card(preview: PreviewSlot, slot_index: int) -> str:
         <div class="route-input-wrap">{quick}<input class="route-input" data-route-input list="{html.escape(dl_id)}" value="/" placeholder="/dashboard" autocomplete="off" spellcheck="false" aria-label="{html.escape(slot.label)} preview path"></div>
         <button class="mini-btn primary" data-apply-route type="button">Apply</button>
         <button class="mini-btn" data-reset-route type="button">Reset</button>
-      </div>
-      <div class="route-sub">
-        <div class="label">Preview</div>
-        <div class="route-chips">{prev_chips}</div>
-      </div>
-      <div class="route-sub">
-        <div class="label">Backend API</div>
-        <div class="route-chips">{api_chips}</div>
       </div>
       <div class="current-url mono-trace" data-current-url>{preview.ui_url}</div>
       {dl}
@@ -798,15 +782,6 @@ def render_sidebar(active_page: str) -> str:
 </aside>"""
 
 
-def route_chips_html(routes: list[str]) -> str:
-    """Render clickable chips for SPA preview iframe routes (same origin as iframe)."""
-
-    return "".join(
-        f'<button class="route-chip" data-route-chip="{html.escape(route)}" type="button">{html.escape(route)}</button>'
-        for route in routes
-    )
-
-
 def route_datalist_html(list_id: str, routes: list[str]) -> str:
     """Return a ``<datalist>`` for ``<input list=…>`` (server-rendered avoids JS timing flakes)."""
 
@@ -822,24 +797,6 @@ def route_quick_select_html(routes: list[str]) -> str:
     return (
         f'<select class="route-quick" data-route-quick aria-label="Suggested path">{opts}</select>'
     )
-
-
-def api_route_chips_html(preview: PreviewSlot, routes_list: list[str]) -> str:
-    """Chip row that opens backend origin URLs in a new tab (does not steer the iframe)."""
-
-    base = preview.api_url.rstrip("/")
-    return "".join(
-        f'<button type="button" class="route-chip route-chip-api" data-api-route-chip '
-        f'data-api-base="{html.escape(base)}" data-api-route="{html.escape(route)}">'
-        f"{html.escape(route)}</button>"
-        for route in routes_list
-    )
-
-
-def route_chips(routes: list[str]) -> str:
-    """Render endpoint chips used by preview cards."""
-
-    return route_chips_html(routes)
 
 
 def ensure_recovered_assets(dashboard_dir: Path) -> None:
@@ -954,7 +911,7 @@ aside .nav-btn.is-active {
 .dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; margin-top: 4px; background: var(--accent); }
 .dot.warn { background: #c89a4a; }
 .button-row, .agent-links, .review-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-.pill, .side-btn, .mini-btn, .route-chip {
+.pill, .side-btn, .mini-btn {
   font-family: inherit;
   cursor: pointer;
   border: 1px solid var(--line);
@@ -1016,11 +973,6 @@ main { padding: 16px 18px 20px; }
 }
 .route-input { flex: 1 1 160px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 12.5px; }
 .route-input:focus-visible, .route-quick:focus-visible { outline: 2px solid rgba(91,138,114,0.45); outline-offset: 1px; }
-.route-sub { display: grid; grid-template-columns: 88px 1fr; gap: 10px; align-items: start; }
-.route-sub .label { padding-top: 3px; }
-.route-chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
-.route-chip { font-size: 12px; padding: 6px 11px; border-radius: 999px; box-shadow: none; }
-.route-chip-api { background: #f3f6f4; border-color: rgba(61,102,80,0.2); color: #2d4a3a; }
 .current-url {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 11px;
@@ -1078,19 +1030,6 @@ FALLBACK_DASHBOARD_JS = """
       });
     }
     card.addEventListener("click", (event) => {
-      const apiChip = event.target.closest("[data-api-route-chip]");
-      if (apiChip) {
-        let base = String(apiChip.dataset.apiBase || "").trim();
-        while (base.endsWith("/")) base = base.slice(0, -1);
-        let path = String(apiChip.dataset.apiRoute || "/");
-        if (!path.startsWith("/")) path = `/${path}`;
-        window.open(base + path, "_blank", "noopener,noreferrer");
-        event.preventDefault();
-        event.stopPropagation();
-        return;
-      }
-      const chip = event.target.closest("[data-route-chip]");
-      if (chip && input) { input.value = chip.dataset.routeChip; localStorage.setItem(key("route", label), norm(input.value)); syncCard(card); }
       if (event.target.matches("[data-apply-route]") && input) { localStorage.setItem(key("route", label), norm(input.value)); syncCard(card); }
       if (event.target.matches("[data-reset-route]") && input) { input.value = "/"; localStorage.setItem(key("route", label), "/"); syncCard(card); }
     });
