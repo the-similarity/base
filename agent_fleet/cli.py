@@ -242,17 +242,32 @@ INIT_AI_AGENT_PROMPT = """Configure AgentFleet for this repository.
 7. If this is frontend-only, backend-only, Docker-only, mobile, or multi-service, configure the closest useful setup and explain the tradeoff."""
 
 
+
+def _print_prompt_box(body: str) -> None:
+    """Surround plain multi-line text with unicode box chars (narrow layout, no ansi in ``body``)."""
+
+    gray = "\033[38;5;245m"
+    reset = "\033[0m"
+    lines = body.strip().split("\n")
+    w = max(len(line) for line in lines)
+    rule = "─" * (w + 2)
+    print(f"{gray}┌{rule}┐{reset}")
+    for line in lines:
+        print(f"{gray}│{reset} {line.ljust(w)} {gray}│{reset}")
+    print(f"{gray}└{rule}┘{reset}")
+
+
 def print_init_followup(written: Path) -> None:
     """Print README-aligned instructions after ``agentfleet init`` writes the config."""
 
     print(f"Wrote {written}")
     print()
     print(
-        'Give this checklist to your AI agent (same block as "Give This To Your AI Agent" in the '
-        "AgentFleet README), or edit agentfleet.toml yourself in the project root."
+        "Give this checklist to your AI agent or edit agentfleet.toml yourself in the project "
+        'root (see README "Give This To Your AI Agent").'
     )
     print()
-    print(INIT_AI_AGENT_PROMPT)
+    _print_prompt_box(INIT_AI_AGENT_PROMPT)
 
 
 def print_onboarding() -> None:
