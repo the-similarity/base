@@ -269,33 +269,63 @@ def print_onboarding() -> None:
     BOLD = "\033[1m"
     RESET = "\033[0m"
 
+    # Inner width between double-line box characters (must match every row).
+    inner_w = 62
+
+    def _center_plain(raw: str) -> str:
+        """Center trimmed ASCII within ``inner_w`` columns (no ANSI inside)."""
+
+        t = raw.rstrip()
+        if not t:
+            return " " * inner_w
+        if len(t) >= inner_w:
+            return t[:inner_w]
+        pad = inner_w - len(t)
+        left = pad // 2
+        return " " * left + t + " " * (inner_w - len(t) - left)
+
+    # Ship + waves (trimmed block is centered as a whole; fixes prior 61-col wave row).
+    ship_lines = [
+        "              |             |              |                  ",
+        "             )_)           )_)            )_)                 ",
+        "            )___)         )___)          )___)                ",
+        "           )____)        )____)         )____)                ",
+        "         __|____|______|____|________|____|__                 ",
+        r"   ~~~~\                                  /~~~~               ",
+        "    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~                 ",
+    ]
+    title_lines = [
+        "    _                    _   _____ _           _         ",
+        r"   / \   __ _  ___ _ __ | |_|  ___| | ___  ___| |_       ",
+        r"  / _ \ / _` |/ _ \ '_ \| __| |_  | |/ _ \/ _ \ __|      ",
+        r" / ___ \ (_| |  __/ | | | |_|  _| | |  __/  __/ |_       ",
+        r"/_/   \_\__, |\___|_| |_|\__|_|   |_|\___|\___|\__|      ",
+        "        |___/                                            ",
+    ]
+
     init_prefix = (
         f"{BLUE}│{RESET}   {WHITE}agentfleet init{RESET}\n"
         if _show_agentfleet_init_in_onboarding()
         else ""
     )
 
+    print()
+    print(f"{CYAN}╔{'═' * inner_w}╗{RESET}")
+    for i, raw in enumerate(ship_lines):
+        row = _center_plain(raw)
+        if i >= 5:
+            print(f"{CYAN}║{BLUE}{row}{RESET}{CYAN}║{RESET}")
+        else:
+            print(f"{CYAN}║{row}║{RESET}")
+    print(f"{CYAN}║{' ' * inner_w}║{RESET}")
+    for raw in title_lines:
+        row = _center_plain(raw)
+        print(f"{CYAN}║{YELLOW}{BOLD}{row}{RESET}{CYAN}║{RESET}")
+    print(f"{CYAN}╚{'═' * inner_w}╝{RESET}")
+    print()
+    print(f"{GRAY}AgentFleet: run coding agents in isolated git worktrees.{RESET}")
     print(
         rf"""
-{CYAN}╔══════════════════════════════════════════════════════════════╗
-║              |             |              |                  ║
-║             )_)           )_)            )_)                 ║
-║            )___)         )___)          )___)                ║
-║           )____)        )____)         )____)                ║
-║         __|____|______|____|________|____|__                 ║
-║   {BLUE}~~~~\                                  /~~~~{CYAN}              ║
-║    {BLUE}~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~{CYAN}                 ║
-║                                                              ║
-║{YELLOW}{BOLD}    _                    _   _____ _           _         {CYAN}     ║
-║{YELLOW}{BOLD}   / \   __ _  ___ _ __ | |_|  ___| | ___  ___| |_       {CYAN}     ║
-║{YELLOW}{BOLD}  / _ \ / _` |/ _ \ '_ \| __| |_  | |/ _ \/ _ \ __|      {CYAN}     ║
-║{YELLOW}{BOLD} / ___ \ (_| |  __/ | | | |_|  _| | |  __/  __/ |_       {CYAN}     ║
-║{YELLOW}{BOLD}/_/   \_\__, |\___|_| |_|\__|_|   |_|\___|\___|\__|      {CYAN}     ║
-║{YELLOW}{BOLD}        |___/                                            {CYAN}     ║
-╚══════════════════════════════════════════════════════════════╝{RESET}
-
-{GRAY}AgentFleet: run coding agents in isolated git worktrees.{RESET}
-
 {BLUE}┌──────────────────────────────────────────────────────────────────────────────┐{RESET}
 {BLUE}│{RESET} {GREEN}{BOLD}Start here:{RESET}
 {init_prefix}{BLUE}│{RESET}   {WHITE}agentfleet doctor{RESET}
