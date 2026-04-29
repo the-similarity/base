@@ -9,7 +9,6 @@ import os
 import shlex
 import shutil
 import signal
-import shutil
 import socket
 import subprocess
 import threading
@@ -480,11 +479,68 @@ def split_command(command: str) -> list[str]:
     return shlex.split(command)
 
 
+def _ensure_dashboard_log_symlink(dashboard_dir: Path, log_dir: Path) -> None:
+    """Expose ``state_root/logs`` as ``/log_files/…`` URLs for the static file server."""
+
+    link = dashboard_dir / "log_files"
+    try:
+        if link.is_symlink() or link.is_file():
+            link.unlink()
+        elif link.exists() and not link.is_symlink():
+            return
+    except OSError:
+        return
+    if link.exists():
+        return
+    try:
+        rel = os.path.relpath(log_dir.resolve(), dashboard_dir.resolve())
+        link.symlink_to(rel, target_is_directory=True)
+    except OSError:
+        # Windows without dev mode symlink privilege, etc.
+        pass
+
+
+def _render_logs_page_body(payload: dict[str, object]) -> str:
+    """HTML for ``/logs/``: anchored groups with links into ``/log_files/<basename>.log``."""
+
+    previews = payload.get("previews") or []
+    chunks: list[str] = []
+    for entry in previews:
+        if not isinstance(entry, dict):
+            continue
+        label = entry.get("label") or ""
+        slot = entry.get("slot") or 0
+        anchor = f"log-slot-{slot}"
+        chunks.append(f'<section class="log-group" id="{html.escape(anchor)}">')
+        chunks.append(f'<h3 class="panel-title">{html.escape(str(label))}</h3>')
+        chunks.append('<ul class="log-link-list">')
+        for svc in entry.get("services") or []:
+            if not isinstance(svc, dict):
+                continue
+            name = html.escape(str(svc.get("name") or "service"))
+            log_path = str(svc.get("log") or "")
+            basename = Path(log_path).name
+            if not basename:
+                chunks.append(f"<li><span>No log path for {name}</span></li>")
+                continue
+            href = f"/log_files/{html.escape(basename)}"
+            chunks.append(
+                f'<li><a class="pill" href="{href}" target="_blank" rel="noreferrer">Open {name} log</a></li>'
+            )
+        chunks.append("</ul></section>")
+    if not chunks:
+        chunks.append('<p class="page-copy">No preview services yet.</p>')
+    return "\n".join(chunks)
+
+
 def write_dashboard(cfg: FleetConfig, previews: list[PreviewSlot]) -> Path:
     """Write the recovered multi-page preview fleet dashboard."""
 
     dashboard_dir = cfg.resolved_state_root() / "dashboard"
     dashboard_dir.mkdir(parents=True, exist_ok=True)
+    log_dir = cfg.resolved_state_root() / "logs"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    _ensure_dashboard_log_symlink(dashboard_dir, log_dir)
     ensure_recovered_assets(dashboard_dir)
     payload = preview_payload(cfg, previews)
     dashboard_path = dashboard_dir / "index.html"
@@ -493,8 +549,8 @@ def write_dashboard(cfg: FleetConfig, previews: list[PreviewSlot]) -> Path:
     return dashboard_path
 
 
-def render_card(preview: PreviewSlot) -> str:
-    """Render one recovered preview review card."""
+def render_card(preview: PreviewSlot, slot_index: int) -> str:
+    """Render one recovered preview card."""
 
     slot = preview.slot
     service_links = "".join(
@@ -502,16 +558,14 @@ def render_card(preview: PreviewSlot) -> str:
         f'{html.escape(service.name)}:{service.port}</a>'
         for service in preview.services
     )
-    service_rows = "".join(
-        f'<div class="label">{html.escape(service.name)}</div><code>{html.escape(str(service.log))}</code>'
-        for service in preview.services
-    )
+    log_anchor = f"/logs/#log-slot-{slot_index}"
     return f"""<article class="card" id="{html.escape(slot.label)}" data-preview-card data-preview-label="{html.escape(slot.label)}">
   <div class="meta">
     <div class="title">
       <strong>{html.escape(slot.label)}</strong>
       <div class="agent-links">
         <a class="pill accent" data-open-link href="{preview.ui_url}" target="_blank" rel="noreferrer">open preview</a>
+        <a class="pill" href="{html.escape(log_anchor)}">logs</a>
         {service_links}
       </div>
     </div>
@@ -525,6 +579,7 @@ def render_card(preview: PreviewSlot) -> str:
       <div class="route-chips">{route_chips(ROUTES[:4])}</div>
       <div class="current-url" data-current-url>{preview.ui_url}</div>
     </div>
+    <!-- Review UI disabled: use Tickets page when re-enabled.
     <div class="review-row">
       <div class="label">Review</div>
       <select class="status-select" data-status aria-label="{html.escape(slot.label)} status">
@@ -535,10 +590,10 @@ def render_card(preview: PreviewSlot) -> str:
       </select>
       <input class="notes-input" data-notes placeholder="note / ticket / what to check" aria-label="{html.escape(slot.label)} notes">
     </div>
+    -->
     <div class="meta-grid">
       <div class="label">Branch</div><code>{html.escape(slot.branch)}</code>
       <div class="label">Worktree</div><code>{html.escape(str(slot.path))}</code>
-      {service_rows}
     </div>
   </div>
   <iframe src="{preview.ui_url}" loading="lazy"></iframe>
@@ -584,12 +639,12 @@ def render_preview_page(
 ) -> str:
     """Render the recovered Agent Previews page."""
 
-    cards = "\n".join(render_card(preview) for preview in previews)
+    cards = "\n".join(render_card(preview, i) for i, preview in enumerate(previews, start=1))
     content = f"""
           <div class="page-head">
             <div>
               <h2 class="page-title">Agent Previews</h2>
-              <p class="page-copy">Review each worktree on its own localhost port. Tickets, exports, commands, and settings live on their own pages.</p>
+              <p class="page-copy">Open each worktree on its own localhost port. Service logs live on <a href="/logs/">Logs</a>. Commands and settings have their own pages.</p>
             </div>
             <div class="grid-controls" data-grid-controls>
               <button class="side-btn" data-grid-mode="auto" type="button">Auto grid</button>
@@ -613,16 +668,15 @@ def write_secondary_pages(cfg: FleetConfig, dashboard_dir: Path, payload: dict[s
         if stale_dir.exists():
             shutil.rmtree(stale_dir)
 
+    # Review-focused pages — re-enable when the review UI ships again:
+    # "tickets": ("Tickets & Reviews", '<div class="review-board" data-review-board></div>', "..."),
+    # "exports": ("Linear Export", '<div class="section-card">...</div>', "..."),
+
     pages = {
-        "tickets": (
-            "Tickets & Reviews",
-            '<div class="review-board" data-review-board></div>',
-            "Approve, block, and annotate agent work from one place.",
-        ),
-        "exports": (
-            "Linear Export",
-            '<div class="section-card"><div class="panel-title">Export review packet</div><p class="small-copy">Copy/paste this packet into Linear, GitHub, or a release note.</p><textarea class="export-box" data-export-box spellcheck="false"></textarea><div class="button-row"><button class="side-btn primary" data-refresh-export type="button">Refresh export</button><button class="side-btn" data-copy-export type="button">Copy</button></div></div>',
-            "Turn local review state into a portable handoff.",
+        "logs": (
+            "Service logs",
+            _render_logs_page_body(payload),
+            "Stdout/stderr for each preview service opens as raw ``.log`` files (same files on disk under your state ``logs`` directory).",
         ),
         "commands": (
             "Fleet Commands",
@@ -694,8 +748,9 @@ def render_sidebar(active_page: str) -> str:
 
     nav = [
         ("previews", "/", "Agent Previews"),
-        ("tickets", "/tickets/", "Tickets & Reviews"),
-        ("exports", "/exports/", "Linear Export"),
+        ("logs", "/logs/", "Logs"),
+        # ("tickets", "/tickets/", "Tickets & Reviews"),
+        # ("exports", "/exports/", "Linear Export"),
         ("commands", "/commands/", "Fleet Commands"),
         ("settings", "/settings/", "Settings"),
     ]
@@ -708,11 +763,13 @@ def render_sidebar(active_page: str) -> str:
     <div class="brand-kicker">AgentFleet</div>
     <h1>Preview Fleet</h1>
   </div>
-  <p class="sidebar-copy">Local-only review for multi-agent worktrees across any project stack.</p>
+  <p class="sidebar-copy">Local-only multi-agent worktrees across any project stack.</p>
   <div class="nav-list">{links}</div>
   <div class="stat-grid">
     <div class="stat"><div class="stat-label">Agents</div><div class="stat-value" data-count-total>0</div></div>
+    <!-- Review stat disabled with review UI:
     <div class="stat"><div class="stat-label">Approved</div><div class="stat-value" data-count-approved>0</div></div>
+    -->
   </div>
   <div class="legend">
     <div class="legend-row"><span class="dot"></span><span>Services run on configured localhost ports.</span></div>
@@ -772,24 +829,19 @@ FALLBACK_DASHBOARD_JS = """
   const norm = (route) => { const r = String(route || "/").trim(); return !r || r === "/" ? "/" : r.startsWith("/") || /^https?:/.test(r) ? r : `/${r}`; };
   const url = (base, route) => /^https?:/.test(route) ? route : `${base}${route === "/" ? "" : route}`;
   const find = (label) => previews.find((p) => p.label === label);
-  const syncStats = () => { const total = $("[data-count-total]"); if (total) total.textContent = previews.length; const approved = previews.filter((p) => localStorage.getItem(key("status", p.label)) === "approved").length; const node = $("[data-count-approved]"); if (node) node.textContent = approved; };
+  const syncStats = () => { const total = $("[data-count-total]"); if (total) total.textContent = previews.length; };
   const syncCard = (card) => { const p = find(card.dataset.previewLabel); if (!p) return; const route = norm(localStorage.getItem(key("route", p.label)) || "/"); const next = url(p.uiUrl, route); const frame = $("iframe", card); const link = $("[data-open-link]", card); const current = $("[data-current-url]", card); if (frame) frame.src = next; if (link) link.href = next; if (current) current.textContent = next; };
   $$("[data-preview-card]").forEach((card) => {
     const label = card.dataset.previewLabel;
     const input = $("[data-route-input]", card);
-    const status = $("[data-status]", card);
-    const notes = $("[data-notes]", card);
+    // Review dashboard (status/notes) commented out — restore when Tickets UI returns.
     if (input) input.value = localStorage.getItem(key("route", label)) || "/";
-    if (status) status.value = localStorage.getItem(key("status", label)) || "reviewing";
-    if (notes) notes.value = localStorage.getItem(key("notes", label)) || "";
     card.addEventListener("click", (event) => {
       const chip = event.target.closest("[data-route-chip]");
       if (chip && input) { input.value = chip.dataset.routeChip; localStorage.setItem(key("route", label), norm(input.value)); syncCard(card); }
       if (event.target.matches("[data-apply-route]") && input) { localStorage.setItem(key("route", label), norm(input.value)); syncCard(card); }
       if (event.target.matches("[data-reset-route]") && input) { input.value = "/"; localStorage.setItem(key("route", label), "/"); syncCard(card); }
     });
-    if (status) status.addEventListener("change", () => { localStorage.setItem(key("status", label), status.value); syncStats(); });
-    if (notes) notes.addEventListener("input", () => localStorage.setItem(key("notes", label), notes.value));
     syncCard(card);
   });
   const list = $("#route-recommendations"); if (list) list.innerHTML = routes.map((r) => `<option value="${r}"></option>`).join("");
@@ -799,6 +851,10 @@ FALLBACK_DASHBOARD_JS = """
 
 
 EXTRA_DASHBOARD_CSS = """
+
+.log-link-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.log-group { margin-bottom: 20px; }
+body[data-page="logs"] .log-group:last-child { margin-bottom: 0; }
 
 body[data-page="previews"] main { padding: 12px; }
 body[data-page="previews"] .page { width: 100%; max-width: none; margin: 0; }
@@ -876,12 +932,12 @@ def print_summary(cfg: FleetConfig, previews: list[PreviewSlot]) -> None:
 
     dashboard_url = f"http://localhost:{cfg.preview.dashboard_port}"
     print(f"\nDashboard -> {dashboard_url}")
+    print(f"  Logs page -> {dashboard_url}/logs/")
     for preview in previews:
         service_summary = " | ".join(f"{service.name}: {service.url}" for service in preview.services)
         print(f"  {preview.slot.label}: {preview.ui_url}")
         if service_summary:
             print(f"    services: {service_summary}")
-        print(f"    logs: {', '.join(str(service.log) for service in preview.services)}")
     webbrowser.open(dashboard_url)
     print("\nPress Ctrl+C to stop previews.")
 
@@ -906,11 +962,11 @@ def wait_forever(
                             "If the command is ``npm run ...`` but the log shows ``next``/``vite``: command not found, "
                             "Node deps are missing in that **worktree's** service directory — run ``npm install`` there, "
                             "or set ``install_command`` + ``install_if_missing`` on that ``[[preview.services]]`` block. "
-                            "Read the *.log paths printed above for the exact line."
+                            "See the Logs page or state ``logs/*.log`` for the exact line."
                         )
                     elif rc not in (0, None):
                         hint = (
-                            "\nStderr was merged into the service *.log paths printed above "
+                            "\nStderr was merged into the service *.log files (Logs page / state logs dir). "
                             "(often missing deps or wrong interpreter: fix your env, "
                             "or set ``preview.path_prepend`` in agentfleet.toml to the ``bin`` directory you use locally)."
                         )
@@ -998,7 +1054,6 @@ def print_saved_preview_state(cfg: FleetConfig) -> None:
                 "    services: "
                 + " | ".join(f"{service.get('name')}: {service.get('url')}" for service in services)
             )
-            print("    logs: " + ", ".join(str(service.get("log")) for service in services))
 
 
 def stop_process(pid: int) -> None:
