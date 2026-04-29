@@ -900,8 +900,11 @@ def wait_forever(
                     hint = ""
                     if rc == 127:
                         hint = (
-                            "\nUsually exit 127 means the executable was not found (empty PATH vs your shell, "
-                            "or use `python3` instead of `python`, or ensure `npm`/`uvicorn` are on PATH)."
+                            "\nUsually exit 127 means the first command on PATH was not found (e.g. ``npm`` "
+                            "when Node was installed via nvm/fnm — the IDE often has a shorter PATH than your shell). "
+                            "Run ``which npm`` in a normal terminal, then add that directory under "
+                            "``[preview] path_prepend`` in agentfleet.toml (or start the IDE from a login shell so "
+                            "``PATH`` matches ``where you run agentfleet``)."
                         )
                     elif rc not in (0, None):
                         hint = (

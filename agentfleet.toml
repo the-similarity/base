@@ -16,8 +16,9 @@ branch_prefix = "claude/task"
 
 [preview]
 dashboard_port = 3999
-# Uncomment to force extra PATH entries before auto-discovery (repo/worktree .venv, Poetry, nested dirs):
-# path_prepend = [ "{repo_root}/custom/.venv/bin" ]
+# Uncomment to force extra PATH entries before auto-discovery (repo/worktree .venv, Poetry, nested dirs).
+# If `npm` exits 127 in the IDE, add the directory from `which npm` (often nvm/fnm or Homebrew), e.g.:
+# path_prepend = [ "/opt/homebrew/bin" ]
 
 # Next.js frontend — browser-facing. Each agent gets port_base + offset (3000, 3001, ...).
 [[preview.services]]
