@@ -16,24 +16,26 @@ branch_prefix = "claude/task"
 
 [preview]
 dashboard_port = 3999
-# Uncomment to force extra PATH entries before auto-discovery (repo/worktree .venv, Poetry, nested dirs).
-# If `npm` exits 127 in the IDE, add the directory from `which npm` (often nvm/fnm or Homebrew), e.g.:
-# path_prepend = [ "/opt/homebrew/bin" ]
+# No repo-local .venv or Poetry env exists; uvicorn lives in the user's
+# miniconda3 install, which agentfleet's auto-discovery can't infer.
+path_prepend = ["/opt/homebrew/bin", "/Users/buyantogtokh/miniconda3/bin"]
 
-# Next.js frontend — browser-facing. Each agent gets port_base + offset (3000, 3001, ...).
+# Next.js UI — browser-facing surface.
 [[preview.services]]
-name = "web"
+name = "frontend"
 dir = "the-similarity-app"
 port_base = 3000
 command = "npm run dev -- --port {port}"
+install_command = "npm install"
+install_if_missing = "node_modules"
 primary = true
 
 [preview.services.env]
 NEXT_PUBLIC_THE_SIMILARITY_API_URL = "http://127.0.0.1:8000"
 
-# FastAPI backend — uses `{repo_root}/.venv/bin` when preview adds it to PATH (run `pip install -e .` in that venv).
+# FastAPI backend — drives the frontend's data calls.
 [[preview.services]]
-name = "api"
+name = "backend"
 dir = "the-similarity-api"
 port_base = 8000
 command = "python -m uvicorn app.main:app --host 127.0.0.1 --port {port} --reload"
