@@ -16,6 +16,7 @@ import webbrowser
 from pathlib import Path
 
 from .commands import run
+from .handoff_prompt import INIT_AI_AGENT_PROMPT, print_prompt_box
 from .models import AgentSlot, FleetConfig, PreviewConfig, PreviewServiceConfig, PreviewSlot, RuntimePreviewService
 
 STATE_FILE = "preview-processes.json"
@@ -36,10 +37,12 @@ def start_preview(cfg: FleetConfig, slots: list[AgentSlot], install_deps: bool =
 
     if not cfg.preview.configured:
         print(
-            "Preview is not configured: add [[preview.services]] in agentfleet.toml "
-            "(repo root). See the README \"Give This To Your AI Agent\" checklist, or run "
-            "`agentfleet doctor` after editing."
+            "Preview is not configured: add [[preview.services]] in agentfleet.toml (repo root)."
         )
+        print()
+        print("Give this checklist to your AI agent:")
+        print()
+        print_prompt_box(INIT_AI_AGENT_PROMPT)
         return 1
 
     preview_slots = build_preview_slots(cfg, slots)
