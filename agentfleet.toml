@@ -1,0 +1,40 @@
+project_name = "14"
+worktree_root = "/Users/buyantogtokh/Projects"
+base_ref = "origin/main"
+
+[[agents]]
+kind = "codex"
+count = 2
+command = "codex"
+branch_prefix = "codex/task"
+
+[[agents]]
+kind = "claude"
+count = 2
+command = "claude"
+branch_prefix = "claude/task"
+
+[preview]
+dashboard_port = 3999
+
+# Next.js frontend — browser-facing. Each agent gets port_base + offset (3000, 3001, ...).
+[[preview.services]]
+name = "web"
+dir = "the-similarity-app"
+port_base = 3000
+command = "npm run dev -- --port {port}"
+primary = true
+
+[preview.services.env]
+NEXT_PUBLIC_THE_SIMILARITY_API_URL = "http://127.0.0.1:8000"
+
+# FastAPI backend — serves data/search/platform routes consumed by the frontend.
+[[preview.services]]
+name = "api"
+dir = "the-similarity-api"
+port_base = 8000
+command = "python3 -m uvicorn app.main:app --host 127.0.0.1 --port {port} --reload"
+
+[preview.services.env]
+PYTHONPATH = "/Users/buyantogtokh/Projects/14"
+THE_SIMILARITY_DATA_ROOT = "/Users/buyantogtokh/Projects/14/the-similarity-data"
