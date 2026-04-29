@@ -16,6 +16,8 @@ branch_prefix = "claude/task"
 
 [preview]
 dashboard_port = 3999
+# Uncomment to force extra PATH entries before auto-discovery (repo/worktree .venv, Poetry, nested dirs):
+# path_prepend = [ "{repo_root}/custom/.venv/bin" ]
 
 # Next.js frontend — browser-facing. Each agent gets port_base + offset (3000, 3001, ...).
 [[preview.services]]
@@ -28,13 +30,13 @@ primary = true
 [preview.services.env]
 NEXT_PUBLIC_THE_SIMILARITY_API_URL = "http://127.0.0.1:8000"
 
-# FastAPI backend — serves data/search/platform routes consumed by the frontend.
+# FastAPI backend — uses `{repo_root}/.venv/bin` when preview adds it to PATH (run `pip install -e .` in that venv).
 [[preview.services]]
 name = "api"
 dir = "the-similarity-api"
 port_base = 8000
-command = "python3 -m uvicorn app.main:app --host 127.0.0.1 --port {port} --reload"
+command = "python -m uvicorn app.main:app --host 127.0.0.1 --port {port} --reload"
 
 [preview.services.env]
-PYTHONPATH = "/Users/buyantogtokh/Projects/14"
-THE_SIMILARITY_DATA_ROOT = "/Users/buyantogtokh/Projects/14/the-similarity-data"
+PYTHONPATH = "{repo_root}"
+THE_SIMILARITY_DATA_ROOT = "{repo_root}/the-similarity-data"

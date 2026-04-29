@@ -55,6 +55,10 @@ class PreviewConfig:
     New projects should prefer ``services`` because it supports frontend-only,
     API-only, mobile companion servers, Docker Compose stacks, and arbitrary
     multi-service apps. The legacy API/UI fields remain for older configs.
+
+    ``path_prepend`` adds directory entries (usually ``.../bin``) to the front of
+    ``PATH`` for every preview subprocess, before automatic venv discovery.
+    Use template strings ``{repo_root}`` and ``{worktree}`` for portable paths.
     """
 
     dashboard_port: int = 3999
@@ -68,6 +72,7 @@ class PreviewConfig:
     data_dir: str = ""
     install_command: str = "npm install"
     install_if_missing: str = "node_modules"
+    path_prepend: tuple[str, ...] = field(default_factory=tuple)
     services: tuple[PreviewServiceConfig, ...] = field(default_factory=tuple)
 
     @property

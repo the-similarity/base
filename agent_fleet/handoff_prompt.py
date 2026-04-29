@@ -7,9 +7,12 @@ INIT_AI_AGENT_PROMPT = """Configure AgentFleet for this repository.
 2. Keep the default fleet at 2 Codex agents and 2 Claude agents unless this repo needs something else.
 3. Inspect the project and add [[preview.services]] for the local services needed to preview work.
 4. For each preview service set name, dir, port_base, command using {port}, and env values if needed.
+   If Python/preview commands resolve to the wrong interpreter, add preview.path_prepend = ["{repo_root}/.venv/bin"]
+   or another bin directory AgentFleet cannot infer (auto-discovery tries repo/worktree .venv, Poetry envs at the repo root, and nested .venv one level deep).
 5. Mark the browser-facing service with primary = true.
 6. Run `agentfleet doctor` and explain any failures.
-7. If this is frontend-only, backend-only, Docker-only, mobile, or multi-service, configure the closest useful setup and explain the tradeoff."""
+7. If this is frontend-only, backend-only, Docker-only, mobile, or multi-service, configure the closest
+useful setup and explain the tradeoff."""
 
 
 def print_prompt_box(body: str) -> None:

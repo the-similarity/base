@@ -123,6 +123,9 @@ def parse_preview(row: object, fallback: PreviewConfig) -> PreviewConfig:
     if not isinstance(row, dict):
         raise SystemExit("agentfleet.toml: preview must be a table.")
     services = parse_preview_services(row.get("services", []))
+    path_prepend = parse_path_prepend_entries(
+        row.get("path_prepend") or row.get("path_extra"), fallback.path_prepend
+    )
     return PreviewConfig(
         dashboard_port=int(row.get("dashboard_port", fallback.dashboard_port)),
         api_base_port=int(row.get("api_base_port", fallback.api_base_port)),
@@ -135,8 +138,24 @@ def parse_preview(row: object, fallback: PreviewConfig) -> PreviewConfig:
         data_dir=str_or_fallback(row.get("data_dir"), fallback.data_dir),
         install_command=str_or_fallback(row.get("install_command"), fallback.install_command),
         install_if_missing=str_or_fallback(row.get("install_if_missing"), fallback.install_if_missing),
+        path_prepend=path_prepend,
         services=tuple(services),
     )
+
+
+def parse_path_prepend_entries(rows: object, fallback: tuple[str, ...]) -> tuple[str, ...]:
+    """Parse ``[preview.path_prepend]`` (list of PATH directory strings)."""
+
+    if rows in (None, ""):
+        return fallback
+    if not isinstance(rows, list):
+        raise SystemExit("agentfleet.toml: preview.path_prepend must be an array of strings.")
+    resolved: list[str] = []
+    for entry in rows:
+        text = str(entry).strip()
+        if text:
+            resolved.append(text)
+    return tuple(resolved)
 
 
 def parse_preview_services(rows: object) -> list[PreviewServiceConfig]:

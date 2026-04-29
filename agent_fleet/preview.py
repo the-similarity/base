@@ -7,6 +7,7 @@ import http.server
 import json
 import os
 import shlex
+import shutil
 import signal
 import shutil
 import socket
@@ -31,6 +32,22 @@ ROUTES = [
     "/admin",
     "/settings",
 ]
+
+# Skip heavy or irrelevant dirs when scanning one level for nested ``.venv``/``venv``.
+PREVIEW_CHILD_SCAN_SKIP = frozenset(
+    {
+        "node_modules",
+        "dist",
+        "build",
+        ".git",
+        ".next",
+        ".nuxt",
+        "target",
+        "vendor",
+        "__pycache__",
+        ".tox",
+    }
+)
 
 
 def start_preview(cfg: FleetConfig, slots: list[AgentSlot], install_deps: bool = True) -> int:
@@ -212,6 +229,142 @@ def port_is_free(port: int) -> bool:
     return True
 
 
+def _venv_exe_dir_name() -> str:
+    """Return ``bin`` / ``Scripts`` for virtual environments on this OS."""
+
+    return "Scripts" if os.name == "nt" else "bin"
+
+
+def _venv_script_dirs_under(base: Path) -> list[Path]:
+    """Return sibling ``.venv/<bin>`` and ``venv/<bin>`` when present."""
+
+    leaf = Path(_venv_exe_dir_name())
+    found: list[Path] = []
+    for stem in (".venv", "venv"):
+        cand = (base / stem / leaf).resolve()
+        if cand.is_dir():
+            found.append(cand)
+    return found
+
+
+def _pyproject_declares_poetry(repo_root: Path) -> bool:
+    path = repo_root / "pyproject.toml"
+    if not path.is_file():
+        return False
+    try:
+        head = path.read_text(encoding="utf-8")[:24000]
+    except OSError:
+        return False
+    return "[tool.poetry]" in head
+
+
+def _poetry_venv_exe_dir(repo_root: Path) -> Path | None:
+    """Resolve ``poetry env info -p``/``bin`` when Poetry manages the env at repo root."""
+
+    if shutil.which("poetry") is None:
+        return None
+    if not _pyproject_declares_poetry(repo_root):
+        return None
+    rr = repo_root.resolve()
+    try:
+        completed = subprocess.run(
+            ["poetry", "env", "info", "-p"],
+            cwd=rr,
+            capture_output=True,
+            text=True,
+            timeout=15,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    if completed.returncode != 0:
+        return None
+    text = (completed.stdout or "").strip()
+    if not text:
+        return None
+    venv_home = Path(text.splitlines()[0].strip())
+    exe_dir = venv_home / _venv_exe_dir_name()
+    return exe_dir.resolve() if exe_dir.is_dir() else None
+
+
+def _child_subproject_venv_dirs(root: Path, *, max_dirs: int) -> list[Path]:
+    """Find ``<subdir>/.venv/(bin|Scripts)`` for immediate children only."""
+
+    accumulated: list[Path] = []
+    try:
+        names = sorted(p for p in root.iterdir() if p.is_dir())
+    except OSError:
+        return accumulated
+    n = 0
+    for child in names:
+        if child.name.startswith(".") or child.name in PREVIEW_CHILD_SCAN_SKIP:
+            continue
+        accumulated.extend(_venv_script_dirs_under(child.resolve()))
+        n += 1
+        if n >= max_dirs:
+            break
+    return accumulated
+
+
+def discover_preview_path_prefixes(
+    repo_root: Path, worktree: Path, configured_prepend: tuple[str, ...]
+) -> list[str]:
+    """Build ordered PATH prefixes so ``python``/``pip`` resolve to project envs anywhere.
+
+    Order:
+    1. Optional ``[preview] path_prepend`` entries (supports ``{repo_root}``, ``{worktree}``).
+    2. ``repo_root`` ``.venv`` / ``venv`` script dirs.
+    3. Poetry-managed venv scripts for Poetry ``pyproject`` at repo root (if ``poetry`` is on PATH).
+    4. Same for ``worktree`` (agents often duplicate layout).
+    5. Nested envs inside one subdirectory under ``repo_root`` and ``worktree`` (e.g. ``backend/.venv``).
+
+    Dedup preserves first-seen precedence.
+    """
+
+    rr = repo_root.resolve()
+    wt = worktree.resolve()
+    ordered: list[str] = []
+    seen: set[str] = set()
+
+    def push(path: Path) -> None:
+        try:
+            key = str(path.resolve())
+        except OSError:
+            return
+        if key not in seen and path.is_dir():
+            seen.add(key)
+            ordered.append(key)
+
+    for tmpl in configured_prepend:
+        try:
+            rendered = tmpl.format(repo_root=str(rr), worktree=str(wt)).strip()
+        except KeyError as exc:
+            raise SystemExit(
+                f"agentfleet.toml: preview.path_prepend has unknown {{{exc.args[0]}}} "
+                '(only "repo_root" and "worktree" are expanded).'
+            ) from exc
+        if rendered:
+            push(Path(rendered).expanduser())
+
+    for exe in _venv_script_dirs_under(rr):
+        push(exe)
+
+    poetry_exe = _poetry_venv_exe_dir(rr)
+    if poetry_exe is not None:
+        push(poetry_exe)
+
+    for exe in _venv_script_dirs_under(wt):
+        push(exe)
+
+    for exe in _child_subproject_venv_dirs(rr, max_dirs=48):
+        push(exe)
+
+    for exe in _child_subproject_venv_dirs(wt, max_dirs=48):
+        push(exe)
+
+    return ordered
+
+
 def start_preview_processes(
     cfg: FleetConfig, preview: PreviewSlot, install_deps: bool
 ) -> list[tuple[subprocess.Popen[str], str]]:
@@ -221,6 +374,12 @@ def start_preview_processes(
     service, and argv used for clearer errors when the child exits (e.g. 127).
     """
 
+    path_prefixes = discover_preview_path_prefixes(
+        cfg.repo_root,
+        preview.slot.path,
+        cfg.preview.path_prepend,
+    )
+
     launched: list[tuple[subprocess.Popen[str], str]] = []
     for service in preview.services:
         service.log.parent.mkdir(parents=True, exist_ok=True)
@@ -228,14 +387,26 @@ def start_preview_processes(
             missing = service.directory / service.install_if_missing
             if not missing.exists():
                 print(f"[{preview.slot.label}:{service.name}] installing dependencies...")
-                run(split_command(render_service_template(service.install_command, preview, service)), cwd=service.directory)
+                run(
+                    split_command(
+                        render_service_template(
+                            service.install_command, preview, service, repo_root=cfg.repo_root
+                        )
+                    ),
+                    cwd=service.directory,
+                )
 
         env = os.environ.copy()
+        if path_prefixes:
+            sep = os.pathsep
+            env["PATH"] = sep.join((*path_prefixes, env.get("PATH", "")))
         env["PYTHONPATH"] = str(preview.slot.path)
         for key, value in service.env.items():
-            env[key] = render_service_template(value, preview, service)
+            env[key] = render_service_template(value, preview, service, repo_root=cfg.repo_root)
 
-        argv = split_command(render_service_template(service.command, preview, service))
+        argv = split_command(
+            render_service_template(service.command, preview, service, repo_root=cfg.repo_root)
+        )
         cmd_repr = shlex.join(argv)
         summary = f"{preview.slot.label}:{service.name}: {cmd_repr}"
 
@@ -272,20 +443,35 @@ def render_command(template: str, preview: PreviewSlot) -> str:
     )
 
 
-def render_service_template(template: str, preview: PreviewSlot, service: RuntimePreviewService) -> str:
-    """Render a service command or env template."""
+def render_service_template(
+    template: str,
+    preview: PreviewSlot,
+    service: RuntimePreviewService,
+    *,
+    repo_root: Path | None = None,
+) -> str:
+    """Render a service command or env template.
 
-    return template.format(
-        api_port=preview.api_port,
-        ui_port=preview.ui_port,
-        api_url=preview.api_url,
-        ui_url=preview.ui_url,
-        port=service.port,
-        service_port=service.port,
-        service_url=service.url,
-        service_name=service.name,
-        worktree=preview.slot.path,
-    )
+    Optional ``{repo_root}`` is filled with the git repository root (absolute path) when
+    ``repo_root=`` is passed and the placeholder appears in ``template`` — use it for
+    ``PYTHONPATH``/data dirs. Preview also prepends typical virtualenv ``bin`` dirs
+    (``.venv``, Poetry, nested packages) when found so ``python``/``npm`` resolve like in a dev shell.
+    """
+
+    mapping: dict[str, object] = {
+        "api_port": preview.api_port,
+        "ui_port": preview.ui_port,
+        "api_url": preview.api_url,
+        "ui_url": preview.ui_url,
+        "port": service.port,
+        "service_port": service.port,
+        "service_url": service.url,
+        "service_name": service.name,
+        "worktree": preview.slot.path,
+    }
+    if repo_root is not None and "{repo_root}" in template:
+        mapping["repo_root"] = str(repo_root.resolve())
+    return template.format(**mapping)
 
 
 def split_command(command: str) -> list[str]:
@@ -716,6 +902,12 @@ def wait_forever(
                         hint = (
                             "\nUsually exit 127 means the executable was not found (empty PATH vs your shell, "
                             "or use `python3` instead of `python`, or ensure `npm`/`uvicorn` are on PATH)."
+                        )
+                    elif rc not in (0, None):
+                        hint = (
+                            "\nStderr was merged into the service *.log paths printed above "
+                            "(often missing deps or wrong interpreter: fix your env, "
+                            "or set ``preview.path_prepend`` in agentfleet.toml to the ``bin`` directory you use locally)."
                         )
                     raise SystemExit(
                         f"Preview process exited early with code {rc}.{hint}\n  {summary}"
