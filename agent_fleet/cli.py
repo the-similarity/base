@@ -258,7 +258,6 @@ def print_init_followup(written: Path) -> None:
 def print_onboarding() -> None:
     """Print a compact orientation screen for first-time CLI usage."""
 
-    # ANSI color codes
     CYAN = "\033[38;5;51m"  # bright cyan — ships
     BLUE = "\033[38;5;39m"  # ocean blue — waves
     YELLOW = "\033[38;5;220m"  # gold — title
@@ -270,59 +269,65 @@ def print_onboarding() -> None:
     BOLD = "\033[1m"
     RESET = "\033[0m"
 
-    init_line = f"  {WHITE}agentfleet init{RESET}\n" if _show_agentfleet_init_in_onboarding() else ""
+    init_prefix = (
+        f"{BLUE}│{RESET}   {WHITE}agentfleet init{RESET}\n"
+        if _show_agentfleet_init_in_onboarding()
+        else ""
+    )
 
-    head = rf"""
-{CYAN}            |             |              |
-           )_)           )_)            )_)
-          )___)         )___)          )___)
-         )____)        )____)         )____)
-       __|____|______|____|________|____|__{RESET}
-   {BLUE}~~~~\                                  /~~~~
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~{RESET}
-
-{YELLOW}{BOLD}    _                    _   _____ _           _
-   / \   __ _  ___ _ __ | |_|  ___| | ___  ___| |_
-  / _ \ / _` |/ _ \ '_ \| __| |_  | |/ _ \/ _ \ __|
- / ___ \ (_| |  __/ | | | |_|  _| | |  __/  __/ |_
-/_/   \_\__, |\___|_| |_|\__|_|   |_|\___|\___|\__|
-        |___/{RESET}
+    print(
+        rf"""
+{CYAN}╔══════════════════════════════════════════════════════════════╗
+║              |             |              |                  ║
+║             )_)           )_)            )_)                 ║
+║            )___)         )___)          )___)                ║
+║           )____)        )____)         )____)                ║
+║         __|____|______|____|________|____|__                 ║
+║   {BLUE}~~~~\                                  /~~~~{CYAN}              ║
+║    {BLUE}~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~{CYAN}                 ║
+║                                                              ║
+║{YELLOW}{BOLD}    _                    _   _____ _           _         {CYAN}     ║
+║{YELLOW}{BOLD}   / \   __ _  ___ _ __ | |_|  ___| | ___  ___| |_       {CYAN}     ║
+║{YELLOW}{BOLD}  / _ \ / _` |/ _ \ '_ \| __| |_  | |/ _ \/ _ \ __|      {CYAN}     ║
+║{YELLOW}{BOLD} / ___ \ (_| |  __/ | | | |_|  _| | |  __/  __/ |_       {CYAN}     ║
+║{YELLOW}{BOLD}/_/   \_\__, |\___|_| |_|\__|_|   |_|\___|\___|\__|      {CYAN}     ║
+║{YELLOW}{BOLD}        |___/                                            {CYAN}     ║
+╚══════════════════════════════════════════════════════════════╝{RESET}
 
 {GRAY}AgentFleet: run coding agents in isolated git worktrees.{RESET}
-"""
 
-    tail = rf"""
-{GREEN}{BOLD}Start here:{RESET}
-{init_line}  {WHITE}agentfleet doctor{RESET}
-  {WHITE}agentfleet setup{RESET}
-  {WHITE}agentfleet launch {MAGENTA}--terminal{RESET} {WHITE}ghostty-splits {MAGENTA}--ghostty-size{RESET} {WHITE}180x50{RESET}
-  {WHITE}agentfleet preview{RESET}
-
-{GREEN}{BOLD}Launch terminals{RESET} {GRAY}(install the matching app first; see agentfleet launch --help):{RESET}
-  {MAGENTA}--terminal ghostty-splits{RESET}   {GRAY}one Ghostty window with native split panes{RESET}
-  {MAGENTA}--terminal ghostty{RESET}          {GRAY}separate Ghostty windows{RESET}
-  {MAGENTA}--terminal tmux{RESET}             {GRAY}tmux session, panes by default{RESET}
-  {MAGENTA}--terminal iterm{RESET}            {GRAY}iTerm windows/tabs{RESET}
-  {MAGENTA}--terminal print{RESET}            {GRAY}print commands only{RESET}
-
-{GREEN}{BOLD}Ghostty sizing:{RESET}
-  {MAGENTA}--ghostty-size 180x50{RESET}       {GRAY}set initial columns x rows for Ghostty windows{RESET}
-
-{GREEN}{BOLD}Agent CLIs{RESET} {GRAY}(defaults; override command= in agentfleet.toml if you use others):{RESET}
-  {CYAN}claude{RESET}    {WHITE}npm install -g @anthropic-ai/claude-code{RESET}   {DIM}https://code.claude.com/docs/en/setup{RESET}
-  {CYAN}codex{RESET}     {WHITE}npm install -g @openai/codex{RESET}              {DIM}https://developers.openai.com/codex/cli{RESET}
-
-{GREEN}{BOLD}Other useful commands:{RESET}
-  {WHITE}agentfleet status{RESET}
-  {WHITE}agentfleet stop{RESET}
-  {WHITE}agentfleet clean{RESET}
-  {WHITE}agentfleet tasks {MAGENTA}--out{RESET} {WHITE}agentfleet-tasks.yaml{RESET}
-  {WHITE}agentfleet upgrade{RESET}            {GRAY}npm global install to latest{RESET}
+{BLUE}┌──────────────────────────────────────────────────────────────────────────────┐{RESET}
+{BLUE}│{RESET} {GREEN}{BOLD}Start here:{RESET}
+{init_prefix}{BLUE}│{RESET}   {WHITE}agentfleet doctor{RESET}
+{BLUE}│{RESET}   {WHITE}agentfleet setup{RESET}
+{BLUE}│{RESET}   {WHITE}agentfleet launch {MAGENTA}--terminal{RESET} {WHITE}ghostty-splits {MAGENTA}--ghostty-size{RESET} {WHITE}180x50{RESET}
+{BLUE}│{RESET}   {WHITE}agentfleet preview{RESET}
+{BLUE}│{RESET}
+{BLUE}│{RESET} {GREEN}{BOLD}Launch terminals{RESET} {GRAY}(install the matching app first; see agentfleet launch --help):{RESET}
+{BLUE}│{RESET}   {MAGENTA}--terminal ghostty-splits{RESET}   {GRAY}one Ghostty window with native split panes{RESET}
+{BLUE}│{RESET}   {MAGENTA}--terminal ghostty{RESET}          {GRAY}separate Ghostty windows{RESET}
+{BLUE}│{RESET}   {MAGENTA}--terminal tmux{RESET}             {GRAY}tmux session, panes by default{RESET}
+{BLUE}│{RESET}   {MAGENTA}--terminal iterm{RESET}            {GRAY}iTerm windows/tabs{RESET}
+{BLUE}│{RESET}   {MAGENTA}--terminal print{RESET}            {GRAY}print commands only{RESET}
+{BLUE}│{RESET}
+{BLUE}│{RESET} {GREEN}{BOLD}Ghostty sizing:{RESET}
+{BLUE}│{RESET}   {MAGENTA}--ghostty-size 180x50{RESET}       {GRAY}set initial columns x rows for Ghostty windows{RESET}
+{BLUE}│{RESET}
+{BLUE}│{RESET} {GREEN}{BOLD}Agent CLIs{RESET} {GRAY}(defaults; override command= in agentfleet.toml if you use others):{RESET}
+{BLUE}│{RESET}   {CYAN}claude{RESET}    {WHITE}npm install -g @anthropic-ai/claude-code{RESET}   {DIM}https://code.claude.com/docs/en/setup{RESET}
+{BLUE}│{RESET}   {CYAN}codex{RESET}     {WHITE}npm install -g @openai/codex{RESET}              {DIM}https://developers.openai.com/codex/cli{RESET}
+{BLUE}│{RESET}
+{BLUE}│{RESET} {GREEN}{BOLD}Other useful commands:{RESET}
+{BLUE}│{RESET}   {WHITE}agentfleet status{RESET}
+{BLUE}│{RESET}   {WHITE}agentfleet stop{RESET}
+{BLUE}│{RESET}   {WHITE}agentfleet clean{RESET}
+{BLUE}│{RESET}   {WHITE}agentfleet tasks {MAGENTA}--out{RESET} {WHITE}agentfleet-tasks.yaml{RESET}
+{BLUE}│{RESET}   {WHITE}agentfleet upgrade{RESET}            {GRAY}npm global install to latest{RESET}
+{BLUE}└──────────────────────────────────────────────────────────────────────────────┘{RESET}
 
 {DIM}Run `agentfleet --help` or `agentfleet <command> --help` for details.{RESET}
 """
-
-    print(head + tail)
+    )
 
 
 def maybe_print_update_notice() -> None:
