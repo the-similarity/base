@@ -120,7 +120,22 @@ def build_parser() -> argparse.ArgumentParser:
     add_skip_doctor(setup)
     setup.add_argument("--link-node-modules", action="store_true", help="Symlink frontend node_modules when safe.")
 
-    launch = subcommands.add_parser("launch", help="Create worktrees and open agents.")
+    launch = subcommands.add_parser(
+        "launch",
+        help="Create worktrees and open agents.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=(
+            "Terminal backends must be installed locally:\n"
+            "  tmux          e.g. brew install tmux (Linux: use your package manager)\n"
+            "  iterm         iTerm2 on macOS, e.g. brew install --cask iterm2\n"
+            "  ghostty       Ghostty, e.g. brew install --cask ghostty (ghostty-splits uses the same app)\n"
+            "  auto          uses tmux when it is on PATH, otherwise print-only\n"
+            "\n"
+            "Default agent commands in agentfleet.toml are claude and codex. Install the CLIs, then run doctor:\n"
+            "  claude        npm install -g @anthropic-ai/claude-code  (see https://code.claude.com/docs/en/setup)\n"
+            "  codex         npm install -g @openai/codex  (see https://developers.openai.com/codex/cli)\n"
+        ),
+    )
     add_count_args(launch)
     add_skip_doctor(launch)
     launch.add_argument("--link-node-modules", action="store_true", help="Symlink frontend node_modules when safe.")
@@ -203,6 +218,11 @@ def print_onboarding() -> None:
 
 AgentFleet: run coding agents in isolated git worktrees.
 
+If you installed with npm, you are already using the published package.
+If you run agentfleet inside a repo that ships its own agent_fleet/ folder,
+Python may load that copy instead of npm. Rename that folder or run from
+elsewhere if you want the global install.
+
 Start here:
   agentfleet init
   agentfleet doctor
@@ -210,7 +230,7 @@ Start here:
   agentfleet launch --terminal ghostty-splits --ghostty-size 180x50
   agentfleet preview
 
-Launch terminals:
+Launch terminals (install the matching app first; see agentfleet launch --help):
   --terminal ghostty-splits   one Ghostty window with native split panes
   --terminal ghostty          separate Ghostty windows
   --terminal tmux             tmux session, panes by default
@@ -219,6 +239,10 @@ Launch terminals:
 
 Ghostty sizing:
   --ghostty-size 180x50       set initial columns x rows for Ghostty windows
+
+Agent CLIs (defaults; override command= in agentfleet.toml if you use others):
+  claude    npm install -g @anthropic-ai/claude-code   https://code.claude.com/docs/en/setup
+  codex     npm install -g @openai/codex             https://developers.openai.com/codex/cli
 
 Other useful commands:
   agentfleet status
