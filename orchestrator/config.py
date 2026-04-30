@@ -1,7 +1,7 @@
 """
 Orchestrator configuration.
 
-Controls concurrency, retry policy, and claude CLI defaults.
+Controls concurrency, retry policy, and worker CLI defaults.
 """
 
 from dataclasses import dataclass, field
@@ -15,6 +15,9 @@ RESULTS_DIR = REPO_ROOT / "orchestrator" / "results"
 # ── Claude CLI binary ──────────────────────────────────────────────
 CLAUDE_BIN = "claude"
 
+# ── Codex CLI binary ───────────────────────────────────────────────
+CODEX_BIN = "codex"
+
 
 @dataclass
 class OrchestratorConfig:
@@ -22,9 +25,9 @@ class OrchestratorConfig:
     Tunable knobs for the orchestrator.
 
     max_parallel: How many worktree agents run simultaneously.
-                  Each agent is a separate claude CLI process with its own
+                  Each agent is a separate worker CLI process with its own
                   git worktree. Memory cost is ~100MB per worktree (working
-                  tree files) + ~200MB per claude process.
+                  tree files) plus the worker process.
                   Safe range: 3-10. Beyond 10, git object-store lock contention
                   and API rate limits become the bottleneck.
 
@@ -36,8 +39,12 @@ class OrchestratorConfig:
                      Most tasks should complete in 10-15 min. Set higher for
                      large refactors.
 
-    model:        Claude model to use for worker agents. Sonnet is the default
-                  for throughput. Switch to opus for complex architectural work.
+    model:        Claude model to use for Claude worker agents. Sonnet is the
+                  default for throughput. Switch to opus for complex
+                  architectural work.
+
+    codex_model:  Optional Codex model override. Leave unset to use the user's
+                  Codex CLI profile default.
 
     permission_mode: Claude CLI permission mode. "bypassPermissions" lets agents
                      run without interactive approval. Only safe in sandboxed
@@ -48,7 +55,13 @@ class OrchestratorConfig:
     max_retries: int = 1
     timeout_minutes: int = 30
     model: str = "sonnet"
+    codex_model: str | None = None
     permission_mode: str = "bypassPermissions"
+    codex_sandbox: str = "workspace-write"
+    codex_worktree_root: Path = REPO_ROOT.parent / ".similarity-worktrees"
 
-    # Extra CLI flags passed to every claude invocation
+    # Extra CLI flags passed to every Claude invocation
     extra_flags: list[str] = field(default_factory=list)
+
+    # Extra CLI flags passed to every Codex invocation
+    codex_extra_flags: list[str] = field(default_factory=list)

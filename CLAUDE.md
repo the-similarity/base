@@ -45,6 +45,9 @@ Autonomous task execution pipeline. Three modes:
 cp orchestrator/tasks.example.yaml orchestrator/tasks.yaml
 python orchestrator/run.py
 
+# Mixed agents: add `agent: claude` or `agent: codex` per task
+python orchestrator/run.py --max-parallel 6
+
 # Autonomous: discovers tasks from GitHub issues, codebase TODOs, and a planner agent
 python orchestrator/run.py --auto
 
@@ -55,7 +58,10 @@ python orchestrator/run.py --auto --loop 30
 Options:
 ```bash
 --max-parallel 10           # concurrent worktree agents (default: 5)
+--agent codex               # default agent for discovered/unlabeled tasks
 --model opus                # use opus for complex tasks
+--codex-model gpt-5.4       # optional Codex model override
+--codex-worktree-root PATH  # where Codex-created worktrees live
 --sources issues,codebase   # pick discovery sources (issues, codebase, planner)
 --dry-run                   # preview without executing
 ```
@@ -66,6 +72,13 @@ Discovery sources (`--auto`):
 3. **Planner agent** — Claude analyzes the repo and proposes up to 5 tasks
 
 Pipeline: discover → worktree agents → commit + PR → pr-gate (tests + lint + review-agent) → auto-merge → branch-reaper cleanup. Results in `orchestrator/results/`.
+
+## Agent Harness
+Agent-first operating docs live in `docs/agent-harness/`. Use this as the
+progressive-disclosure layer for harness work: operating model, legibility
+surfaces, golden principles, quality scorecard, and execution plans. Run
+`python scripts/check_agent_harness.py` before PRs that change harness docs,
+orchestrator behavior, agent workflow, or execution-plan structure.
 
 ## Active Worktrees (persistent)
 | Directory | Scope | What goes here |

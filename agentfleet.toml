@@ -1,0 +1,45 @@
+project_name = "14"
+worktree_root = "/Users/buyantogtokh/Projects"
+base_ref = "origin/main"
+
+[[agents]]
+kind = "codex"
+count = 2
+command = "codex"
+branch_prefix = "codex/task"
+
+[[agents]]
+kind = "claude"
+count = 2
+command = "claude"
+branch_prefix = "claude/task"
+
+[preview]
+dashboard_port = 3999
+# No repo-local .venv or Poetry env exists; uvicorn lives in the user's
+# miniconda3 install, which agentfleet's auto-discovery can't infer.
+path_prepend = ["/opt/homebrew/bin", "/Users/buyantogtokh/miniconda3/bin"]
+
+# Next.js UI — browser-facing surface.
+[[preview.services]]
+name = "frontend"
+dir = "the-similarity-app"
+port_base = 3000
+command = "npm run dev -- --port {port}"
+install_command = "npm install"
+install_if_missing = "node_modules"
+primary = true
+
+[preview.services.env]
+NEXT_PUBLIC_THE_SIMILARITY_API_URL = "http://127.0.0.1:8000"
+
+# FastAPI backend — drives the frontend's data calls.
+[[preview.services]]
+name = "backend"
+dir = "the-similarity-api"
+port_base = 8000
+command = "python -m uvicorn app.main:app --host 127.0.0.1 --port {port} --reload"
+
+[preview.services.env]
+PYTHONPATH = "{repo_root}"
+THE_SIMILARITY_DATA_ROOT = "{repo_root}/the-similarity-data"

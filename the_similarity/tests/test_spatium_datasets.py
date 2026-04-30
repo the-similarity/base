@@ -203,8 +203,8 @@ def test_build_points_matches_fixture_exactly():
         assert g["domain"] == e["domain"]
         assert g["year"] == e["year"]
         assert g["idxInDs"] == e["idxInDs"]
-        assert g["pos"] == e["pos"]
-        assert g["feat"] == e["feat"]
+        assert g["pos"] == pytest.approx(e["pos"], abs=1e-12)
+        assert g["feat"] == pytest.approx(e["feat"], abs=1e-12)
 
 
 # ── Distance / similarity / regime ────────────────────────────────

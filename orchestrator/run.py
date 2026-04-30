@@ -2,7 +2,7 @@
 """
 Autonomous orchestrator for The Similarity.
 
-Reads tasks from a YAML file, spawns parallel claude CLI sessions in
+Reads tasks from a YAML file, spawns parallel Claude or Codex CLI sessions in
 isolated git worktrees, tracks progress, retries on failure, and
 reports results.
 
@@ -13,8 +13,8 @@ Usage:
     python orchestrator/run.py --dry-run                # print what would run
 
 Each task gets:
-    1. Its own git worktree (claude --worktree)
-    2. A full claude session with bypassPermissions
+    1. Its own git worktree
+    2. A full worker session with autonomous permissions
     3. Auto-commit, push, and PR creation
     4. pr-gate.yml handles review-agent + auto-merge
 
@@ -25,16 +25,17 @@ The PR pipeline handles quality gates.
 import argparse
 import asyncio
 import json
+import subprocess
 import sys
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
 
 import yaml
 
-from config import CLAUDE_BIN, RESULTS_DIR, TASKS_FILE, OrchestratorConfig
+from config import CLAUDE_BIN, CODEX_BIN, RESULTS_DIR, TASKS_FILE, OrchestratorConfig
 
 
 # ── Task model ──────────────────────────────────────────────────────
@@ -48,6 +49,11 @@ class TaskStatus(str, Enum):
     RETRYING = "retrying"
 
 
+class AgentKind(str, Enum):
+    CLAUDE = "claude"
+    CODEX = "codex"
+
+
 @dataclass
 class Task:
     """
@@ -55,7 +61,8 @@ class Task:
 
     id:      Unique slug used for branch naming (e.g. "add-moving-average").
     title:   Human-readable title for the PR.
-    prompt:  Full prompt sent to the claude CLI. Should be self-contained —
+    agent:   Worker CLI to run: "claude" or "codex".
+    prompt:  Full prompt sent to the worker CLI. Should be self-contained —
              the agent has no context beyond this prompt + the repo.
     status:  Tracks lifecycle. Only the orchestrator mutates this.
     attempt: Current attempt number (0-indexed). Incremented on retry.
@@ -67,6 +74,7 @@ class Task:
     id: str
     title: str
     prompt: str
+    agent: AgentKind = AgentKind.CLAUDE
     status: TaskStatus = TaskStatus.PENDING
     attempt: int = 0
     error: str = ""
@@ -80,6 +88,11 @@ class Task:
         return f"auto/{self.id}"
 
     @property
+    def worktree_dir_name(self) -> str:
+        """Filesystem-safe directory name for explicit worktree workers."""
+        return self.branch_name.replace("/", "-")
+
+    @property
     def duration_seconds(self) -> float:
         if self.start_time and self.end_time:
             return self.end_time - self.start_time
@@ -89,7 +102,7 @@ class Task:
 # ── Task file parsing ───────────────────────────────────────────────
 
 
-def load_tasks(path: Path) -> list[Task]:
+def load_tasks(path: Path, default_agent: AgentKind = AgentKind.CLAUDE) -> list[Task]:
     """
     Parse tasks.yaml into Task objects.
 
@@ -110,12 +123,13 @@ def load_tasks(path: Path) -> list[Task]:
                 id=entry["id"],
                 title=entry["title"],
                 prompt=entry["prompt"],
+                agent=AgentKind(entry.get("agent", default_agent.value)),
             )
         )
     return tasks
 
 
-# ── Build the claude CLI command ────────────────────────────────────
+# ── Build worker CLI commands ───────────────────────────────────────
 
 
 # System prompt injected into every worker agent. Gives it the
@@ -155,13 +169,9 @@ Do NOT ask for human input — you are fully autonomous.
 """
 
 
-def build_command(task: Task, cfg: OrchestratorConfig) -> list[str]:
+def build_prompt(task: Task) -> str:
     """
-    Build the claude CLI command for a task.
-
-    Uses --worktree for automatic git worktree isolation,
-    --print for non-interactive mode, and --permission-mode
-    for autonomous operation.
+    Build the user-facing task prompt.
 
     On retry, the previous error is appended to the prompt
     so the agent can learn from the failure.
@@ -173,7 +183,26 @@ def build_command(task: Task, cfg: OrchestratorConfig) -> list[str]:
             f"{task.error}\n\n"
             f"Fix the issues above and try again."
         )
+    return prompt
 
+
+def build_command(task: Task, cfg: OrchestratorConfig) -> list[str]:
+    """Build the worker CLI command for a task."""
+    if task.agent == AgentKind.CLAUDE:
+        return build_claude_command(task, cfg)
+    if task.agent == AgentKind.CODEX:
+        return build_codex_command(task, cfg)
+    raise ValueError(f"Unsupported agent: {task.agent}")
+
+
+def build_claude_command(task: Task, cfg: OrchestratorConfig) -> list[str]:
+    """
+    Build the Claude CLI command for a task.
+
+    Uses --worktree for automatic git worktree isolation, --print for
+    non-interactive mode, and --permission-mode for autonomous operation.
+    """
+    prompt = build_prompt(task)
     cmd = [
         CLAUDE_BIN,
         "--print",
@@ -185,6 +214,86 @@ def build_command(task: Task, cfg: OrchestratorConfig) -> list[str]:
         prompt,
     ]
     return cmd
+
+
+def build_codex_command(task: Task, cfg: OrchestratorConfig) -> list[str]:
+    """
+    Build the Codex CLI command for a task.
+
+    Codex does not provide Claude's `--worktree` flag, so the orchestrator
+    creates the git worktree explicitly before launching this command.
+    """
+    prompt = f"{WORKER_SYSTEM_PROMPT}\n\nTASK:\n{build_prompt(task)}"
+    cmd = [
+        CODEX_BIN,
+        "exec",
+        "--full-auto",
+        "--sandbox",
+        cfg.codex_sandbox,
+        "-C",
+        str(codex_worktree_path(task, cfg)),
+    ]
+    if cfg.codex_model:
+        cmd.extend(["--model", cfg.codex_model])
+    cmd.extend(cfg.codex_extra_flags)
+    cmd.append(prompt)
+    return cmd
+
+
+def codex_worktree_path(task: Task, cfg: OrchestratorConfig) -> Path:
+    """Return the explicit git worktree path used by Codex workers."""
+    return cfg.codex_worktree_root / task.worktree_dir_name
+
+
+def prepare_task_worktree(task: Task, cfg: OrchestratorConfig) -> None:
+    """
+    Ensure the task has an isolated worktree before launching the worker.
+
+    Claude workers use Claude CLI's built-in `--worktree`. Codex workers need
+    an explicit git worktree because Codex CLI runs inside a given directory.
+    """
+    if task.agent != AgentKind.CODEX:
+        return
+
+    worktree_path = codex_worktree_path(task, cfg)
+    if worktree_path.exists():
+        return
+
+    cfg.codex_worktree_root.mkdir(parents=True, exist_ok=True)
+    branch_exists = _git_branch_exists(task.branch_name)
+    if branch_exists:
+        cmd = ["git", "worktree", "add", str(worktree_path), task.branch_name]
+    else:
+        cmd = [
+            "git",
+            "worktree",
+            "add",
+            "-b",
+            task.branch_name,
+            str(worktree_path),
+            "origin/main",
+        ]
+
+    result = subprocess.run(
+        cmd,
+        capture_output=True,
+        text=True,
+        cwd=str(Path(__file__).resolve().parent.parent),
+        timeout=60,
+    )
+    if result.returncode != 0:
+        detail = (result.stderr or result.stdout).strip()
+        raise RuntimeError(f"Failed to create Codex worktree: {detail}")
+
+
+def _git_branch_exists(branch_name: str) -> bool:
+    """Return whether a local branch already exists."""
+    result = subprocess.run(
+        ["git", "show-ref", "--verify", "--quiet", f"refs/heads/{branch_name}"],
+        cwd=str(Path(__file__).resolve().parent.parent),
+        timeout=30,
+    )
+    return result.returncode == 0
 
 
 # ── Run a single task ───────────────────────────────────────────────
@@ -202,17 +311,19 @@ async def run_task(task: Task, cfg: OrchestratorConfig, sem: asyncio.Semaphore) 
     async with sem:
         task.status = TaskStatus.RUNNING
         task.start_time = time.time()
-        print(f"  [{task.id}] Starting (attempt {task.attempt + 1})...")
+        print(f"  [{task.id}] Starting {task.agent.value} (attempt {task.attempt + 1})...")
 
-        cmd = build_command(task, cfg)
         timeout_sec = cfg.timeout_minutes * 60
 
         try:
+            prepare_task_worktree(task, cfg)
+            cmd = build_command(task, cfg)
             proc = await asyncio.create_subprocess_exec(
                 *cmd,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
-                # Run from repo root so --worktree can find .git
+                # Run from repo root so Claude --worktree can find .git.
+                # Codex also receives an explicit -C worktree path.
                 cwd=str(Path(__file__).resolve().parent.parent),
             )
 
@@ -241,8 +352,8 @@ async def run_task(task: Task, cfg: OrchestratorConfig, sem: asyncio.Semaphore) 
         task.end_time = time.time()
         duration = task.duration_seconds
 
-        # Determine success: check for PR URL in output
-        # claude CLI with --print outputs the full response as text
+        # Determine success: check for PR URL in output.
+        # Non-interactive worker CLIs output the final response as text.
         if proc.returncode == 0:
             # Try to extract PR URL from output
             pr_url = _extract_pr_url(stdout)
@@ -271,7 +382,7 @@ async def run_task(task: Task, cfg: OrchestratorConfig, sem: asyncio.Semaphore) 
 
 def _extract_pr_url(output: str) -> str:
     """
-    Extract a GitHub PR URL from claude's output.
+    Extract a GitHub PR URL from worker output.
 
     Looks for patterns like:
         https://github.com/<org>/<repo>/pull/<number>
@@ -371,7 +482,7 @@ def print_summary(results: list[Task]) -> None:
         print(f"  [{icon}] {t.id} ({dur}) — {pr}")
 
     if failed:
-        print(f"\n  Failed tasks:")
+        print("\n  Failed tasks:")
         for t in failed:
             print(f"    - {t.id}: {t.error[:200]}")
 
@@ -408,7 +519,7 @@ def print_summary(results: list[Task]) -> None:
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Autonomous orchestrator — spawns parallel claude worktree agents"
+        description="Autonomous orchestrator — spawns parallel Claude/Codex worktree agents"
     )
 
     # ── Task source (mutually exclusive) ──
@@ -454,6 +565,25 @@ def main():
         help="Claude model (default: sonnet)",
     )
     parser.add_argument(
+        "--codex-model",
+        type=str,
+        default=None,
+        help="Codex model override (default: Codex CLI profile default)",
+    )
+    parser.add_argument(
+        "--agent",
+        type=str,
+        choices=[AgentKind.CLAUDE.value, AgentKind.CODEX.value],
+        default=AgentKind.CLAUDE.value,
+        help="Default agent for discovered tasks or tasks without an agent field",
+    )
+    parser.add_argument(
+        "--codex-worktree-root",
+        type=Path,
+        default=None,
+        help="Directory for Codex-created worktrees",
+    )
+    parser.add_argument(
         "--timeout",
         type=int,
         default=None,
@@ -478,6 +608,10 @@ def main():
         cfg.max_parallel = args.max_parallel
     if args.model is not None:
         cfg.model = args.model
+    if args.codex_model is not None:
+        cfg.codex_model = args.codex_model
+    if args.codex_worktree_root is not None:
+        cfg.codex_worktree_root = args.codex_worktree_root
     if args.timeout is not None:
         cfg.timeout_minutes = args.timeout
     if args.retries is not None:
@@ -492,10 +626,10 @@ def main():
         if not tasks_path.exists():
             print(f"ERROR: Tasks file not found: {tasks_path}")
             print(f"Create one at {TASKS_FILE} — see tasks.example.yaml for format.")
-            print(f"Or use --auto for autonomous task discovery.")
+            print("Or use --auto for autonomous task discovery.")
             sys.exit(1)
 
-        tasks = load_tasks(tasks_path)
+        tasks = load_tasks(tasks_path, default_agent=AgentKind(args.agent))
         if not tasks:
             print("No tasks found in file.")
             sys.exit(0)
@@ -520,7 +654,7 @@ def _run_auto(args, cfg: OrchestratorConfig):
         loop_minutes = args.loop
         print(f"Autonomous loop mode: every {loop_minutes} minutes")
         print(f"Sources: {', '.join(sources)}")
-        print(f"Press Ctrl+C to stop\n")
+        print("Press Ctrl+C to stop\n")
 
         cycle = 0
         while True:
@@ -535,7 +669,12 @@ def _run_auto(args, cfg: OrchestratorConfig):
             task_dicts = asyncio.run(discover_all(cfg, sources))
             if task_dicts:
                 tasks = [
-                    Task(id=t["id"], title=t["title"], prompt=t["prompt"])
+                    Task(
+                        id=t["id"],
+                        title=t["title"],
+                        prompt=t["prompt"],
+                        agent=AgentKind(t.get("agent", args.agent)),
+                    )
                     for t in task_dicts
                 ]
                 if args.dry_run:
@@ -557,7 +696,12 @@ def _run_auto(args, cfg: OrchestratorConfig):
             sys.exit(0)
 
         tasks = [
-            Task(id=t["id"], title=t["title"], prompt=t["prompt"])
+            Task(
+                id=t["id"],
+                title=t["title"],
+                prompt=t["prompt"],
+                agent=AgentKind(t.get("agent", args.agent)),
+            )
             for t in task_dicts
         ]
         _execute_tasks(tasks, cfg, args.dry_run)
@@ -582,9 +726,23 @@ def _print_dry_run(tasks: list[Task], cfg: OrchestratorConfig):
     for t in tasks:
         cmd = build_command(t, cfg)
         print(f"  [{t.id}] {t.title}")
+        print(f"    agent: {t.agent.value}")
         print(f"    branch: {t.branch_name}")
-        print(f"    cmd: {' '.join(cmd[:8])}...")
+        if t.agent == AgentKind.CODEX:
+            print(f"    worktree: {codex_worktree_path(t, cfg)}")
+        preview = [_preview_arg(arg) for arg in cmd[:-1]]
+        preview.append("<prompt>")
+        print(f"    cmd: {' '.join(preview)}")
         print()
+
+
+def _preview_arg(arg: str) -> str:
+    """Compact long command arguments for dry-run output."""
+    if "\n" in arg:
+        return "<multiline>"
+    if len(arg) > 120:
+        return f"{arg[:117]}..."
+    return arg
 
 
 def _git_pull():
