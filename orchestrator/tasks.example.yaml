@@ -5,18 +5,24 @@
 #   # edit tasks.yaml with your actual tasks
 #   python orchestrator/run.py
 #
-# Each task spawns an isolated claude CLI session in its own git worktree.
+# Each task spawns an isolated Claude or Codex CLI session in its own git worktree.
 # The agent commits, pushes, and opens a PR autonomously.
 # pr-gate.yml then runs tests + review-agent + auto-merge.
 #
 # Fields:
 #   id:     Unique slug — used as branch name (auto/<id>)
+#   agent:  Worker CLI: claude or codex. Omit to use --agent/default claude.
 #   title:  PR title (keep under 70 chars)
 #   prompt: Full task description. Be specific — the agent has no context
 #           beyond this prompt and the repo's CLAUDE.md.
+#
+# To run three Codex and three Claude workers, define six tasks with three
+# `agent: codex` entries and three `agent: claude` entries, then run:
+#   python orchestrator/run.py --max-parallel 6
 
 tasks:
   - id: add-rsi-method
+    agent: claude
     title: "feat: add RSI-based similarity method"
     prompt: |
       Add a Relative Strength Index (RSI) based similarity method to the engine.
@@ -36,6 +42,7 @@ tasks:
       4. Commit, push, and open a PR.
 
   - id: fix-scorer-nan-handling
+    agent: codex
     title: "fix: handle NaN scores in dynamic weight renormalization"
     prompt: |
       In `the_similarity/core/scorer.py`, the dynamic weight renormalization
@@ -49,6 +56,7 @@ tasks:
       5. Commit, push, and open a PR.
 
   - id: add-config-validation
+    agent: claude
     title: "feat: add config validation on load"
     prompt: |
       Add validation to `the_similarity/config.py` so that invalid

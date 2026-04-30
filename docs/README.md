@@ -11,4 +11,6 @@ Structured project documentation.
 - `design/`: UI and design language documentation
 - `theory/`: conceptual and mathematical framing
 - `planning/`: historical plans plus current deferred work tracking
+- `agent-harness/`: agent operating model, execution plans, scorecards, and
+  harness validation
 - `tutorials/`: notebooks and guided walkthroughs

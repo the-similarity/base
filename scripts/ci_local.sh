@@ -83,6 +83,11 @@ echo
 echo "── ruff check the_similarity/ ─────────────────────────────────"
 ruff check the_similarity/
 
+# ── Harness docs — keep agent operating context mechanically legible ────────
+echo
+echo "── agent harness check ────────────────────────────────────────"
+python scripts/check_agent_harness.py
+
 # ── Engine tests ────────────────────────────────────────────────────────────
 echo
 echo "── pytest the_similarity/tests/ ───────────────────────────────"
@@ -100,6 +105,7 @@ cat <<'BANNER'
 ║   CI-equivalent:                                                 ║
 ║     pip install -e . && pip install pytest ruff                  ║
 ║     ruff check the_similarity/                                   ║
+║     python scripts/check_agent_harness.py                        ║
 ║     python -m pytest the_similarity/tests/ -v --tb=short         ║
 ║                                                                  ║
 ╚══════════════════════════════════════════════════════════════════╝
