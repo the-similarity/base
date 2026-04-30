@@ -37,6 +37,11 @@ from scipy.stats import pearsonr
 
 from the_similarity.config import Config
 from the_similarity.core.normalizer import METHOD_NORM_DEFAULTS, normalize
+from the_similarity.core.latent_regime import (
+    LatentRegimeState,
+    infer_latent_regime,
+    regime_probability_similarity,
+)
 from the_similarity.core.regime import tag_regime
 from the_similarity.core.scorer import MatchResult, ScoreBreakdown, compute_confidence
 from the_similarity.core.windower import sliding_windows, window_indices
@@ -106,6 +111,8 @@ class CandidateWindow:
     transform_beta: NDArray[np.float64] | None = None
     transform_r2: float = 0.0
     regime: str | None = None
+    latent_regime: LatentRegimeState | None = None
+    latent_regime_similarity: float | None = None
 
 
 def score_dtw(
@@ -190,6 +197,9 @@ def find_matches(
 
     query_shape = normalize(query, config.normalization)
     query_shape_len = len(query_shape)
+    query_latent_regime = (
+        infer_latent_regime(query) if config.latent_regime_enabled else None
+    )
 
     radius = config.dtw_sakoe_chiba_radius
     if radius is None:
@@ -254,6 +264,7 @@ def find_matches(
             candidate.base_rank_score = candidate.prefilter_score * 100.0
         # Initialize confidence score. Will be overwritten by Tier 2 if configured.
         candidate.confidence_score = compute_confidence(candidate.breakdown, config)
+        _apply_latent_regime_adjustment(candidate, query_latent_regime, config)
 
     if progress_fn is not None:
         best_so_far = max(candidates, key=lambda c: c.confidence_score)
@@ -290,6 +301,7 @@ def find_matches(
         # Update composite scores including the newly added Tier2 breakdown scores
         for candidate in rerank_pool:
             candidate.confidence_score = compute_confidence(candidate.breakdown, config)
+            _apply_latent_regime_adjustment(candidate, query_latent_regime, config)
 
     # --- Build results ---
     candidates.sort(key=lambda c: c.confidence_score, reverse=True)
@@ -325,9 +337,36 @@ def find_matches(
                 transform_beta=candidate.transform_beta,
                 transform_r2=candidate.transform_r2,
                 regime=candidate.regime,
+                latent_regime_probabilities=(
+                    candidate.latent_regime.probabilities
+                    if candidate.latent_regime is not None
+                    else None
+                ),
+                latent_regime_similarity=candidate.latent_regime_similarity,
             )
         )
     return results
+
+
+def _apply_latent_regime_adjustment(
+    candidate: CandidateWindow,
+    query_latent_regime: LatentRegimeState | None,
+    config: Config,
+) -> None:
+    """Discount scores for candidates whose soft regime differs from the query."""
+    if query_latent_regime is None or not config.latent_regime_enabled:
+        return
+
+    if candidate.latent_regime is None:
+        candidate.latent_regime = infer_latent_regime(candidate.raw_series)
+        candidate.regime = candidate.latent_regime.dominant_regime
+
+    similarity = regime_probability_similarity(query_latent_regime, candidate.latent_regime)
+    candidate.latent_regime_similarity = similarity
+
+    keep = 1.0 - config.latent_regime_weight + config.latent_regime_weight * similarity
+    candidate.base_rank_score *= keep
+    candidate.confidence_score *= keep
 
 
 def _collect_candidates(

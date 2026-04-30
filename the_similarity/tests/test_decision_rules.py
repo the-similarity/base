@@ -16,6 +16,7 @@ import numpy as np
 from the_similarity.core.decision_rules import (
     CalibrationAwareStrategy,
     DecisionRuleConfig,
+    DynamicSizingPolicy,
     ReviewSummary,
     evaluate_with_trust,
     summarise_review,
@@ -283,6 +284,49 @@ def test_position_size_scales_with_trust_and_confidence():
     assert out_high[0].position_size > out_low[0].position_size
     # Size is always within [min, max] when trusted.
     assert cfg.min_position_size <= out_high[0].position_size <= cfg.max_position_size
+
+
+def test_dynamic_sizing_policy_reduces_size_when_variance_is_high():
+    matches = [_make_match(score=95.0) for _ in range(20)]
+    low_var_forecast = _forecast(p50_end=0.08, spread=0.02)
+    high_var_forecast = _forecast(p50_end=0.08, spread=0.02)
+    high_var_forecast.all_paths = np.vstack(
+        [
+            np.linspace(0, 0.20, high_var_forecast.bars),
+            np.linspace(0, -0.12, high_var_forecast.bars),
+            np.linspace(0, 0.08, high_var_forecast.bars),
+        ]
+    )
+    cfg = DecisionRuleConfig(
+        entry_percentile=25,
+        entry_threshold=0.005,
+        min_position_size=0.0,
+        max_position_size=1.0,
+        dynamic_sizing_policy=DynamicSizingPolicy(
+            action_grid=(0.0, 0.25, 0.50, 0.75, 1.0),
+            risk_aversion=8.0,
+            turnover_penalty=0.0,
+        ),
+    )
+
+    low = evaluate_with_trust(
+        strategy=_always_long_strategy(),
+        matches=matches,
+        history=_history(),
+        forecast=low_var_forecast,
+        calibration_report=_good_calibration(),
+        decision_config=cfg,
+    )
+    high = evaluate_with_trust(
+        strategy=_always_long_strategy(),
+        matches=matches,
+        history=_history(),
+        forecast=high_var_forecast,
+        calibration_report=_good_calibration(),
+        decision_config=cfg,
+    )
+
+    assert low[0].position_size >= high[0].position_size
 
 
 # ---------------------------------------------------------------------------
