@@ -38,6 +38,11 @@ from the_similarity.finance.presets import (
     get_preset,
     list_presets,
 )
+from the_similarity.finance.regime_slice import (
+    info_sharpe_by_regime,
+    label_growth_inflation,
+    label_volatility_liquidity,
+)
 from the_similarity.finance.review import ReviewArtifact, ReviewStatus
 from the_similarity.finance.risk_flags import detect_risk_flags
 from the_similarity.finance.signal_summary import generate_signal_summary
@@ -52,6 +57,9 @@ __all__ = [
     "detect_risk_flags",
     "generate_signal_summary",
     "get_preset",
+    "info_sharpe_by_regime",
+    "label_growth_inflation",
+    "label_volatility_liquidity",
     "list_presets",
     "run_benchmark",
     "run_sweep",
