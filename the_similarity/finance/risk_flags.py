@@ -28,6 +28,8 @@ from __future__ import annotations
 
 from typing import Any, Dict, List
 
+from the_similarity.finance.calibration import mean_calibration_error
+
 # -------------------------------------------------------------------------
 # Flag constants — importable by consumers who want to check for specific
 # flags by name rather than by string literal.
@@ -81,7 +83,7 @@ def detect_risk_flags(report_summary: Dict[str, Any]) -> List[str]:
         - ``n_trials`` (int): total trial count (alternative to computing
           from valid + skipped).
         - ``calibration`` (dict or float): either a dict with per-quantile
-          calibration errors or a single mean calibration error.
+          observed coverage rates or a single mean calibration error.
         - ``hit_rate`` (float): fraction of trials where the P50 forecast
           direction was correct.
         - ``max_drawdown`` (float): peak-to-trough drawdown.
@@ -116,20 +118,9 @@ def detect_risk_flags(report_summary: Dict[str, Any]) -> List[str]:
     # -- poor calibration --------------------------------------------------
     calibration = report_summary.get("calibration")
     if calibration is not None:
-        if isinstance(calibration, dict):
-            # Per-quantile calibration dict — compute mean absolute error.
-            # Each value is the absolute deviation: |empirical - nominal|.
-            cal_values = [
-                v for v in calibration.values() if isinstance(v, (int, float))
-            ]
-            if cal_values:
-                mean_cal_error = sum(abs(v) for v in cal_values) / len(cal_values)
-                if mean_cal_error > MAX_CALIBRATION_ERROR:
-                    flags.append(POOR_CALIBRATION)
-        elif isinstance(calibration, (int, float)):
-            # Scalar mean calibration error directly.
-            if abs(calibration) > MAX_CALIBRATION_ERROR:
-                flags.append(POOR_CALIBRATION)
+        cal_error = mean_calibration_error(calibration)
+        if cal_error is not None and cal_error > MAX_CALIBRATION_ERROR:
+            flags.append(POOR_CALIBRATION)
 
     # -- low hit rate ------------------------------------------------------
     hit_rate = report_summary.get("hit_rate")

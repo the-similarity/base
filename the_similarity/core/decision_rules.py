@@ -42,6 +42,7 @@ from numpy.typing import NDArray
 
 from the_similarity.core.projector import Forecast
 from the_similarity.core.ensemble import EnsembleForecast
+from the_similarity.core.dynamic_sizing import DynamicSizingPolicy, SizingState
 from the_similarity.core.scorer import MatchResult
 from the_similarity.core.strategy import (
     Signal,
@@ -128,6 +129,9 @@ class DecisionRuleConfig:
         veto_on_distrust: If True (default), a ``trust=False`` decision
             replaces any LONG/SHORT signal with FLAT. If False, the
             signal is preserved but ``position_size`` is set to 0.
+        dynamic_sizing_policy: Optional finite-action policy. When present,
+            trusted signals use the policy's utility maximization instead of
+            the legacy linear trust-confidence size formula.
     """
 
     entry_percentile: int = 25
@@ -135,6 +139,10 @@ class DecisionRuleConfig:
     min_position_size: float = 0.1
     max_position_size: float = 1.0
     veto_on_distrust: bool = True
+    dynamic_sizing_policy: DynamicSizingPolicy | None = None
+    current_position_size: float = 0.0
+    drawdown: float = 0.0
+    calibration_error: float = 0.0
 
 
 # ---------------------------------------------------------------------------
@@ -232,6 +240,8 @@ def evaluate_with_trust(
             confidence=sig.confidence,
             threshold_met=threshold_met,
             decision_config=decision_config,
+            signal_type=sig.signal_type,
+            forecast=forecast,
         )
 
         # Apply the veto policy: trust failure OR threshold failure
@@ -463,6 +473,8 @@ def _compute_position_size(
     confidence: float,
     threshold_met: bool,
     decision_config: DecisionRuleConfig,
+    signal_type: SignalType = SignalType.FLAT,
+    forecast: Forecast | EnsembleForecast | None = None,
 ) -> float:
     """Scale position size by trust score * (confidence/100).
 
@@ -477,6 +489,22 @@ def _compute_position_size(
     """
     if not trust.trust or not threshold_met:
         return 0.0
+
+    if decision_config.dynamic_sizing_policy is not None:
+        decision = decision_config.dynamic_sizing_policy.choose_size(
+            signal_type=signal_type,
+            forecast=forecast,
+            state=SizingState(
+                trust_score=trust.score,
+                confidence=confidence,
+                current_position_size=decision_config.current_position_size,
+                drawdown=decision_config.drawdown,
+                calibration_error=decision_config.calibration_error,
+            ),
+            min_position_size=decision_config.min_position_size,
+            max_position_size=decision_config.max_position_size,
+        )
+        return decision.size
 
     conf01 = max(0.0, min(1.0, float(confidence) / 100.0))
     raw = (
@@ -499,7 +527,9 @@ __all__ = [
     "CalibrationAwareSignal",
     "CalibrationAwareStrategy",
     "DecisionRuleConfig",
+    "DynamicSizingPolicy",
     "ReviewSummary",
+    "SizingState",
     "evaluate_with_trust",
     "summarise_review",
 ]

@@ -249,6 +249,16 @@ class TestRiskFlagDetection:
         flags = detect_risk_flags({"calibration": 0.20})
         assert POOR_CALIBRATION in flags
 
+    def test_observed_calibration_dict_no_flag_when_close_to_nominal(self):
+        """Observed coverage dict is compared against percentile-implied coverage."""
+        flags = detect_risk_flags({"calibration": {"10": 0.12, "50": 0.48, "90": 0.88}})
+        assert POOR_CALIBRATION not in flags
+
+    def test_observed_calibration_dict_flags_when_far_from_nominal(self):
+        """Observed coverage dict triggers when mean absolute error is too large."""
+        flags = detect_risk_flags({"calibration": {"10": 0.40, "50": 0.80, "90": 0.99}})
+        assert POOR_CALIBRATION in flags
+
     def test_low_hit_rate(self):
         """Triggers when hit_rate < 0.5."""
         flags = detect_risk_flags({"hit_rate": 0.45})
@@ -361,12 +371,19 @@ class TestSignalSummary:
         assert "poor" in s
 
     def test_calibration_dict_grade(self):
-        """Calibration as dict computes mean for grading."""
+        """Calibration as dict computes error against nominal percentiles."""
         s = generate_signal_summary(
-            {}, {"calibration": {"p10": 0.02, "p50": 0.01, "p90": 0.03}}
+            {}, {"calibration": {"p10": 0.12, "p50": 0.51, "p90": 0.88}}
         )
         # Mean = 0.02 -> excellent
         assert "excellent" in s
+
+    def test_miscalibrated_observed_dict_grade(self):
+        """Poor observed percentile coverage grades as poor."""
+        s = generate_signal_summary(
+            {}, {"calibration": {"10": 0.40, "50": 0.80, "90": 0.99}}
+        )
+        assert "poor" in s
 
     def test_hit_rate_formatting(self):
         """Hit rate formats as percentage without decimal."""

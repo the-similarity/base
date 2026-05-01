@@ -12,10 +12,9 @@
 
 import { DashboardDataSchema, SearchResponseSchema } from "./schemas";
 import { getMockDashboardData } from "./mock-data";
+import { normalizeApiBaseUrl, resolveApiBaseUrl } from "./api-base";
 import type { LensScores, AnalogMatch, ConePoint } from "./data";
 import type { CatalogItem, DatasetSeries, OhlcData, DashboardData, SearchRequest, SearchResponse, ScoreBreakdown, ForecastResult } from "./types";
-
-const apiBaseUrl = process.env.NEXT_PUBLIC_THE_SIMILARITY_API_URL ?? process.env.THE_SIMILARITY_API_URL ?? "";
 
 /**
  * Check if the API backend is reachable. Used by the workstation to decide
@@ -23,11 +22,12 @@ const apiBaseUrl = process.env.NEXT_PUBLIC_THE_SIMILARITY_API_URL ?? process.env
  * Timeout: 2 seconds to avoid blocking the UI on slow/dead backends.
  */
 export async function isApiAvailable(): Promise<boolean> {
+  const apiBaseUrl = resolveApiBaseUrl();
   if (!apiBaseUrl) return false;
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 2000);
-    const res = await fetch(`${normalizeBaseUrl(apiBaseUrl)}/healthz`, {
+    const res = await fetch(`${normalizeApiBaseUrl(apiBaseUrl)}/healthz`, {
       signal: controller.signal,
     });
     clearTimeout(timeout);
@@ -220,17 +220,14 @@ export function mapForecastToCone(
   return cone;
 }
 
-function normalizeBaseUrl(value: string) {
-  return value.replace(/\/+$/, "");
-}
-
 export async function getDashboardData(): Promise<DashboardData> {
+  const apiBaseUrl = resolveApiBaseUrl();
   if (!apiBaseUrl) {
     return getMockDashboardData("mock");
   }
 
   try {
-    const response = await fetch(`${normalizeBaseUrl(apiBaseUrl)}/dashboard`, {
+    const response = await fetch(`${normalizeApiBaseUrl(apiBaseUrl)}/dashboard`, {
       headers: { Accept: "application/json" },
       cache: "no-store",
     });
@@ -263,8 +260,9 @@ export async function getDashboardData(): Promise<DashboardData> {
  * function).
  */
 export async function fetchCatalog(): Promise<CatalogItem[]> {
+  const apiBaseUrl = resolveApiBaseUrl();
   if (!apiBaseUrl) return [];
-  const response = await fetch(`${normalizeBaseUrl(apiBaseUrl)}/catalog`, {
+  const response = await fetch(`${normalizeApiBaseUrl(apiBaseUrl)}/catalog`, {
     headers: { Accept: "application/json" },
     cache: "no-store",
   });
@@ -295,8 +293,9 @@ export async function fetchSeries(
   timeframe: string,
   column = "close",
 ): Promise<DatasetSeries> {
+  const apiBaseUrl = resolveApiBaseUrl();
   if (!apiBaseUrl) throw new Error("API not configured");
-  const url = `${normalizeBaseUrl(apiBaseUrl)}/datasets/${assetClass}/${symbol}/${timeframe}/series?column=${column}`;
+  const url = `${normalizeApiBaseUrl(apiBaseUrl)}/datasets/${assetClass}/${symbol}/${timeframe}/series?column=${column}`;
   const response = await fetch(url, {
     headers: { Accept: "application/json" },
     cache: "no-store",
@@ -317,8 +316,9 @@ export async function fetchOhlc(
   symbol: string,
   timeframe: string,
 ): Promise<OhlcData> {
+  const apiBaseUrl = resolveApiBaseUrl();
   if (!apiBaseUrl) throw new Error("API not configured");
-  const url = `${normalizeBaseUrl(apiBaseUrl)}/datasets/${assetClass}/${symbol}/${timeframe}/ohlc`;
+  const url = `${normalizeApiBaseUrl(apiBaseUrl)}/datasets/${assetClass}/${symbol}/${timeframe}/ohlc`;
   const response = await fetch(url, {
     headers: { Accept: "application/json" },
     cache: "no-store",
@@ -341,7 +341,9 @@ export async function searchApi(
   request: SearchRequest,
   signal?: AbortSignal,
 ): Promise<SearchResponse> {
-  const response = await fetch(`${normalizeBaseUrl(apiBaseUrl)}/search`, {
+  const apiBaseUrl = resolveApiBaseUrl();
+  if (!apiBaseUrl) throw new Error("API not configured");
+  const response = await fetch(`${normalizeApiBaseUrl(apiBaseUrl)}/search`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
