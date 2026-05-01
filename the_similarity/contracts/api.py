@@ -211,6 +211,16 @@ class SearchRequest(ApiContract):
     The two required fields are query_values and history_values.
     All other fields are optional overrides that default to
     Config values in the engine.
+
+    Cross-timeframe mode:
+        Set ``timeframes`` to a non-empty list of pandas frequency strings
+        (e.g. ``["5m", "15m", "1h", "4h"]``) to run
+        ``the_similarity.cross_timeframe_search`` against the history
+        resampled to each timeframe. ``history_dates`` MUST be supplied
+        in this mode — the engine has no way to resample raw values
+        without a DatetimeIndex. The query is rescaled per-timeframe via
+        linear interpolation so it spans the same temporal duration at
+        each resolution.
     """
 
     query_values: Annotated[list[float], Field(min_length=2)]  # Pattern to search for
@@ -229,6 +239,14 @@ class SearchRequest(ApiContract):
     active_methods: list[str] = Field(default_factory=list)  # Scoring methods to use
     percentiles: list[int] = Field(default_factory=list)  # Forecast percentiles
     weights: dict[str, float] = Field(default_factory=dict)  # Method weight overrides
+    # Cross-timeframe pattern matching (optional). When non-empty the
+    # service routes to ``cross_timeframe_search`` instead of ``search``.
+    # Each entry must be a pandas-compatible frequency string.
+    timeframes: list[str] = Field(default_factory=list)
+    # ISO-8601 timestamps paired 1:1 with ``history_values``. Required when
+    # ``timeframes`` is non-empty so the engine can resample the history
+    # to each target timeframe via a DatetimeIndex.
+    history_dates: list[str] = Field(default_factory=list)
 
 
 class ReliabilityBucketResponse(ApiContract):

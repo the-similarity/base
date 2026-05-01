@@ -359,10 +359,24 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
     len: number;
     k: number;
     horizon: number;
+    timeframes: string[];
   } | null>(null);
   const [searchedAnalogs, setSearchedAnalogs] = useState<AnalogMatch[] | null>(null);
   const [searchedCone, setSearchedCone] = useState<ConePoint[] | null>(null);
   const [lastRunAt, setLastRunAt] = useState<Date | null>(null);
+  /*
+   * Cross-timeframe selection.
+   *
+   * Each entry is a pandas-compatible frequency code (e.g. "5min", "1h",
+   * "4h", "1D") that the backend will resample the loaded history to
+   * before searching. An empty array preserves the existing single-
+   * timeframe behavior — the chip selector below toggles entries on/off
+   * and re-runs go through the cross-timeframe branch in
+   * `the-similarity-api/app/services.py::execute_search` whenever the
+   * array is non-empty. Local state (no localStorage) so each session
+   * starts back at single-timeframe by default.
+   */
+  const [selectedTimeframes, setSelectedTimeframes] = useState<string[]>([]);
 
   /*
    * Ticking "now" for the relative last-run label.
@@ -858,6 +872,11 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
       len: windowState.len,
       k: settings.kAnalogs || 6,
       horizon: settings.horizon || 60,
+      // Freeze the timeframe selection at search-start so a chip toggle
+      // mid-flight can't change which engine path the result was
+      // produced by. The dirty indicator below uses this to show a
+      // pending-search dot when the user changes the selection.
+      timeframes: [...selectedTimeframes],
     };
 
     // Cancel any in-flight search; the new one supersedes it.
@@ -872,11 +891,22 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
       try {
         const queryValues = loadedValues.slice(snapshot.start, snapshot.start + snapshot.len);
         if (queryValues.length >= 2) {
+          // Cross-timeframe needs paired ISO dates so the engine can
+          // build a DatetimeIndex for resampling. We only attach the
+          // timeframes/historyDates fields when the user actually
+          // selected at least one alternate resolution AND we have
+          // dates on hand — otherwise the request stays on the
+          // single-timeframe path (preserving the prior behavior).
+          const wantsCrossTf =
+            snapshot.timeframes.length > 0 && loadedDates.length === loadedValues.length;
           const result = await searchApi({
             queryValues,
             historyValues: loadedValues,
             topK: snapshot.k,
             forwardBars: snapshot.horizon,
+            ...(wantsCrossTf
+              ? { timeframes: snapshot.timeframes, historyDates: loadedDates }
+              : {}),
           }, controller.signal);
 
           if (controller.signal.aborted) {
@@ -933,7 +963,7 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
     } finally {
       setSearching(false);
     }
-  }, [isOnline, loadedValues, loadedDates, loadedSeries, windowState.start, windowState.len, settings.kAnalogs, settings.horizon]);
+  }, [isOnline, loadedValues, loadedDates, loadedSeries, windowState.start, windowState.len, settings.kAnalogs, settings.horizon, selectedTimeframes]);
 
   /*
    * Live ref to the latest runSearch closure.
@@ -1385,7 +1415,9 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
     || lastSearch.start !== windowState.start
     || lastSearch.len !== windowState.len
     || lastSearch.k !== currentK
-    || lastSearch.horizon !== currentHorizon;
+    || lastSearch.horizon !== currentHorizon
+    || lastSearch.timeframes.length !== selectedTimeframes.length
+    || lastSearch.timeframes.some((tf, i) => tf !== selectedTimeframes[i]);
 
   // Composite lenses = mean across the EFFECTIVE analog set.
   // When the user has pinned analogs, these are just the pinned ones —
@@ -2076,6 +2108,69 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
                 </button>
               ))}
             </div>
+            {/* ── Cross-timeframe selector ─────────────────────────────
+                Toggle chips that pick which alternate resolutions the
+                backend should resample the loaded history to before
+                searching. Each label is a pandas frequency code so we
+                send it to the API as-is.
+
+                Default = none selected, which preserves the old
+                single-timeframe path entirely (no `timeframes` field on
+                the request). When the user toggles one or more on, the
+                next search runs through `cross_timeframe_search` —
+                meaning a 20-bar query at 1h can match against, say, a
+                40-bar window of 5-minute history that spans the same
+                temporal duration.
+
+                We only enable the row when `loadedDates` is aligned
+                with `loadedValues`; without the date axis the backend
+                cannot resample. The whole row is hidden in that case
+                rather than rendered disabled — a quiet "this dataset
+                doesn't support cross-timeframe" rather than a
+                disabled-button mystery. */}
+            {loadedDates.length === loadedValues.length && loadedValues.length > 0 && (
+              <>
+                <span
+                  className="label ws-search-row__label ws-search-row__label--secondary"
+                  title="Resample history to additional timeframes for cross-resolution analogues"
+                >
+                  TFs
+                </span>
+                <div
+                  className="ws-horizon"
+                  role="group"
+                  aria-label="Cross-timeframe selection (resample history to these resolutions)"
+                >
+                  {["5min", "15min", "1h", "4h", "1D"].map(tf => {
+                    const active = selectedTimeframes.includes(tf);
+                    return (
+                      <button
+                        key={tf}
+                        type="button"
+                        role="checkbox"
+                        aria-checked={active}
+                        className="ws-horizon__btn"
+                        data-active={active ? "true" : undefined}
+                        onClick={() =>
+                          setSelectedTimeframes(prev =>
+                            prev.includes(tf)
+                              ? prev.filter(t => t !== tf)
+                              : [...prev, tf],
+                          )
+                        }
+                        title={
+                          active
+                            ? `Stop resampling history to ${tf}`
+                            : `Also search history resampled to ${tf}`
+                        }
+                      >
+                        {tf}
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
+            )}
             {/*
              * View-range clip hint.
              *

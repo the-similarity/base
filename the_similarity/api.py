@@ -406,6 +406,7 @@ def cross_timeframe_search(
     min_window: int = 10,
     overlap_threshold: float = 0.5,
     feature_store=None,
+    forward_bars: int = 50,
     **kwargs,
 ) -> SearchResults:
     """Search for patterns across multiple timeframes.
@@ -487,7 +488,28 @@ def cross_timeframe_search(
         except Exception:
             continue
 
-        # Tag each match with its source timeframe
+        # Populate ``forward_window`` per-match against the *resampled*
+        # history. The match indices live in resampled coordinates, so
+        # any later projection that uses the original (non-resampled)
+        # history would slice the wrong region. Running ``_project``
+        # here freezes a forward window into each match in cumulative-
+        # return space, which is timeframe-agnostic and can be merged
+        # safely with windows from other resolutions downstream.
+        try:
+            _project(
+                matches=results.matches,
+                history=resampled.values,
+                forward_bars=forward_bars,
+            )
+        except Exception:
+            # Projection is a best-effort enrichment — a failure here
+            # (e.g. all matches landed at the tail of the resampled
+            # history) shouldn't kill the whole search. Matches without
+            # a forward_window are simply dropped from the cone later.
+            pass
+
+        # Tag each match with its source timeframe so downstream
+        # consumers can attribute matches to their resolution.
         for match in results.matches:
             match.source_timeframe = tf
 

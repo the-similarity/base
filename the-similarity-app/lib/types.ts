@@ -217,4 +217,21 @@ export type SearchRequest = {
   activeMethods?: string[];
   percentiles?: number[];
   weights?: Record<string, number>;
+  /**
+   * Cross-timeframe pattern matching. When non-empty the backend
+   * runs `cross_timeframe_search`: history is resampled to each
+   * pandas frequency code (e.g. "5min", "15min", "1h", "4h") and the
+   * query window is rescaled per-timeframe so it covers the same
+   * temporal duration at every resolution. Matches across all
+   * resolutions are merged + deduped.
+   *
+   * Leave empty (or omit) for the default single-timeframe path.
+   */
+  timeframes?: string[];
+  /**
+   * ISO-8601 timestamps paired 1:1 with `historyValues`. REQUIRED
+   * when `timeframes` is non-empty — the backend cannot build a
+   * DatetimeIndex for resampling without these.
+   */
+  historyDates?: string[];
 };
