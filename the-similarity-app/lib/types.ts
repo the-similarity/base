@@ -183,6 +183,8 @@ export type CatalogItem = {
 
 export type DatasetSeries = {
   datasetId: string;
+  sourceTimeframe?: string | null;
+  timeframe?: string | null;
   column: string;
   values: number[];
   dates: string[];
@@ -191,6 +193,8 @@ export type DatasetSeries = {
 
 export type OhlcData = {
   datasetId: string;
+  sourceTimeframe?: string | null;
+  timeframe?: string | null;
   open: number[];
   high: number[];
   low: number[];

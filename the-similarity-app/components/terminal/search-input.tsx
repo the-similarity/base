@@ -38,10 +38,16 @@ const PROGRESS_STAGES = [
   { label: "Enriching Tier 2...", duration: 0 }, // runs until results arrive
 ];
 
+function normalizeCustomTimeframe(value: string): string | undefined {
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
 export function SearchSidebar() {
   const { state, dispatch } = useTerminal();
   const [catalog, setCatalog] = useState<CatalogItem[]>([]);
   const [selectedDataset, setSelectedDataset] = useState<string>("");
+  const [customTimeframe, setCustomTimeframe] = useState("");
   const [querySize, setQuerySize] = useState(60);
   const [filterText, setFilterText] = useState("");
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(["crypto", "stocks"]));
@@ -153,9 +159,11 @@ export function SearchSidebar() {
     startProgressSimulation();
 
     try {
+      const targetTimeframe = normalizeCustomTimeframe(customTimeframe);
+      const datasetOptions = targetTimeframe ? { targetTimeframe } : undefined;
       const [series, ohlc] = await Promise.all([
-        fetchSeries(assetClass, symbol, timeframe),
-        fetchOhlc(assetClass, symbol, timeframe).catch(() => null),
+        fetchSeries(assetClass, symbol, timeframe, "close", datasetOptions),
+        fetchOhlc(assetClass, symbol, timeframe, datasetOptions).catch(() => null),
       ]);
 
       if (ohlc) {
@@ -193,7 +201,7 @@ export function SearchSidebar() {
       if (err instanceof Error && err.name === "AbortError") return;
       dispatch({ type: "SET_ERROR", error: err instanceof Error ? err.message : "Search failed." });
     }
-  }, [selectedDataset, querySize, state.activeMethods, dispatch, startProgressSimulation, finishProgress, clearProgress]);
+  }, [selectedDataset, customTimeframe, querySize, state.activeMethods, dispatch, startProgressSimulation, finishProgress, clearProgress]);
 
   // ── Custom query range search (triggered by chart selection) ──
   const handleCustomSearch = useCallback(async () => {
@@ -324,6 +332,24 @@ export function SearchSidebar() {
 
       {/* Controls */}
       <div className="search-sidebar__controls">
+        <div className="search-sidebar__control-group">
+          <label className="search-sidebar__label" htmlFor="custom-timeframe">
+            Timeframe
+            <span className="search-sidebar__label-value">
+              {normalizeCustomTimeframe(customTimeframe)?.toUpperCase() ?? "Native"}
+            </span>
+          </label>
+          <input
+            id="custom-timeframe"
+            type="text"
+            className="search-sidebar__filter-input"
+            placeholder="Native, 1h, 45m, 1d"
+            value={customTimeframe}
+            onChange={(e) => setCustomTimeframe(e.target.value)}
+            disabled={!selectedDataset || state.loading}
+          />
+        </div>
+
         <div className="search-sidebar__control-group">
           <label className="search-sidebar__label">
             Query window

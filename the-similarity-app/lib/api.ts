@@ -16,6 +16,11 @@ import { normalizeApiBaseUrl, resolveApiBaseUrl } from "./api-base";
 import type { LensScores, AnalogMatch, ConePoint } from "./data";
 import type { CatalogItem, DatasetSeries, OhlcData, DashboardData, SearchRequest, SearchResponse, ScoreBreakdown, ForecastResult } from "./types";
 
+export type DatasetFetchOptions = {
+  targetTimeframe?: string;
+  includeIncomplete?: boolean;
+};
+
 /**
  * Check if the API backend is reachable. Used by the workstation to decide
  * whether to use real data or the synthetic fallback.
@@ -338,10 +343,14 @@ export async function fetchSeries(
   symbol: string,
   timeframe: string,
   column = "close",
+  options: DatasetFetchOptions = {},
 ): Promise<DatasetSeries> {
   const apiBaseUrl = resolveApiBaseUrl();
   if (!apiBaseUrl) throw new Error("API not configured");
-  const url = `${normalizeApiBaseUrl(apiBaseUrl)}/datasets/${assetClass}/${symbol}/${timeframe}/series?column=${column}`;
+  const url = buildDatasetDataUrl(apiBaseUrl, assetClass, symbol, timeframe, "series", {
+    ...options,
+    column,
+  });
   const response = await fetch(url, {
     headers: { Accept: "application/json" },
     cache: "no-store",
@@ -350,6 +359,8 @@ export async function fetchSeries(
   const json = await response.json();
   return {
     datasetId: json.dataset_id,
+    sourceTimeframe: (json.source_timeframe as string | null | undefined) ?? null,
+    timeframe: (json.timeframe as string | null | undefined) ?? timeframe,
     column: json.column,
     values: json.values,
     dates: json.dates ?? [],
@@ -361,10 +372,11 @@ export async function fetchOhlc(
   assetClass: string,
   symbol: string,
   timeframe: string,
+  options: DatasetFetchOptions = {},
 ): Promise<OhlcData> {
   const apiBaseUrl = resolveApiBaseUrl();
   if (!apiBaseUrl) throw new Error("API not configured");
-  const url = `${normalizeApiBaseUrl(apiBaseUrl)}/datasets/${assetClass}/${symbol}/${timeframe}/ohlc`;
+  const url = buildDatasetDataUrl(apiBaseUrl, assetClass, symbol, timeframe, "ohlc", options);
   const response = await fetch(url, {
     headers: { Accept: "application/json" },
     cache: "no-store",
@@ -373,6 +385,8 @@ export async function fetchOhlc(
   const json = await response.json();
   return {
     datasetId: json.dataset_id,
+    sourceTimeframe: (json.source_timeframe as string | null | undefined) ?? null,
+    timeframe: (json.timeframe as string | null | undefined) ?? timeframe,
     open: json.open,
     high: json.high,
     low: json.low,
@@ -381,6 +395,32 @@ export async function fetchOhlc(
     dates: json.dates ?? [],
     rowCount: json.row_count,
   };
+}
+
+export function buildDatasetDataUrl(
+  apiBaseUrl: string,
+  assetClass: string,
+  symbol: string,
+  timeframe: string,
+  kind: "series" | "ohlc",
+  options: DatasetFetchOptions & { column?: string } = {},
+): string {
+  const params = new URLSearchParams();
+  if (kind === "series") {
+    params.set("column", options.column ?? "close");
+  }
+
+  const target = options.targetTimeframe?.trim();
+  if (target) {
+    params.set("target_timeframe", target);
+  }
+  if (options.includeIncomplete) {
+    params.set("include_incomplete", "true");
+  }
+
+  const path = `/datasets/${assetClass}/${symbol}/${timeframe}/${kind}`;
+  const query = params.toString();
+  return `${normalizeApiBaseUrl(apiBaseUrl)}${path}${query ? `?${query}` : ""}`;
 }
 
 export async function searchApi(

@@ -12,6 +12,7 @@ This package provides:
 
 Modules
 -------
+- ``candles`` — Build coarser OHLCV candles from finer native bars.
 - ``benchmark`` — Single-run benchmark CLI and runner.
 - ``sweep`` — Cartesian-product sweep across symbols x window_sizes x seeds.
 - ``review`` — ReviewArtifact and ReviewStatus for review lifecycle.
@@ -31,6 +32,13 @@ CLI usage::
 """
 
 from the_similarity.finance.benchmark import run_benchmark
+from the_similarity.finance.candles import (
+    CandleBuildResult,
+    CandleBuildStats,
+    build_candles,
+    infer_source_timeframe,
+    parse_timeframe,
+)
 from the_similarity.finance.presets import (
     MACRO_US_CORREIA_2015,
     FeaturePreset,
@@ -54,13 +62,18 @@ __all__ = [
     "MacroVariable",
     "ReviewArtifact",
     "ReviewStatus",
+    "CandleBuildResult",
+    "CandleBuildStats",
+    "build_candles",
     "detect_risk_flags",
     "generate_signal_summary",
     "get_preset",
+    "infer_source_timeframe",
     "info_sharpe_by_regime",
     "label_growth_inflation",
     "label_volatility_liquidity",
     "list_presets",
+    "parse_timeframe",
     "run_benchmark",
     "run_sweep",
 ]
