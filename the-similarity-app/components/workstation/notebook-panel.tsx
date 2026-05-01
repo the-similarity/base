@@ -100,11 +100,13 @@ export function NotebookPanel({
    */
   const onKeyDown = useCallback(
     (e: KeyboardEvent<HTMLTextAreaElement>) => {
-      if (
-        e.key === "Enter" &&
-        !e.shiftKey &&
-        !(e.nativeEvent as KeyboardEvent).isComposing
-      ) {
+      // ``isComposing`` lives on the native event (DOM KeyboardEvent),
+      // not the synthetic React event. We read it via ``e.nativeEvent``
+      // so an in-progress IME composition (CJK input) doesn't
+      // accidentally submit when the user presses Enter to confirm a
+      // candidate.
+      const composing = (e.nativeEvent as { isComposing?: boolean }).isComposing;
+      if (e.key === "Enter" && !e.shiftKey && !composing) {
         e.preventDefault();
         submit();
       }
