@@ -31,16 +31,36 @@ CLI usage::
 """
 
 from the_similarity.finance.benchmark import run_benchmark
+from the_similarity.finance.presets import (
+    MACRO_US_CORREIA_2015,
+    FeaturePreset,
+    MacroVariable,
+    get_preset,
+    list_presets,
+)
+from the_similarity.finance.regime_slice import (
+    info_sharpe_by_regime,
+    label_growth_inflation,
+    label_volatility_liquidity,
+)
 from the_similarity.finance.review import ReviewArtifact, ReviewStatus
 from the_similarity.finance.risk_flags import detect_risk_flags
 from the_similarity.finance.signal_summary import generate_signal_summary
 from the_similarity.finance.sweep import run_sweep
 
 __all__ = [
+    "MACRO_US_CORREIA_2015",
+    "FeaturePreset",
+    "MacroVariable",
     "ReviewArtifact",
     "ReviewStatus",
     "detect_risk_flags",
     "generate_signal_summary",
+    "get_preset",
+    "info_sharpe_by_regime",
+    "label_growth_inflation",
+    "label_volatility_liquidity",
+    "list_presets",
     "run_benchmark",
     "run_sweep",
 ]
