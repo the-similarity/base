@@ -147,6 +147,8 @@ class MatchResult:
 
     # --- Market regime context ---
     regime: str | None = None  # e.g., "trending_up", "high_vol"
+    latent_regime_probabilities: dict[str, float] | None = None
+    latent_regime_similarity: float | None = None
 
     # --- Forward window for projection ---
     # The values that actually occurred AFTER this match ended.

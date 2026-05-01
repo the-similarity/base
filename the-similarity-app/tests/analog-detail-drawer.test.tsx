@@ -160,6 +160,42 @@ describe("AnalogDetailDrawer", () => {
     expect(onUseAsQuery).toHaveBeenCalledWith(a);
   });
 
+  it("sends the selected run label when saving an analog", () => {
+    const onSaveGoodrun = vi.fn().mockResolvedValue(undefined);
+    const a = makeAnalog({
+      scoreBreakdown: {
+        dtw: 0.9,
+        pearsonWarped: 0.8,
+        bempedelisR2: 0.7,
+        bempedelisSmoothness: 0.7,
+        koopman: 0.85,
+        waveletSpectrum: 0.6,
+        emd: 0.4,
+        tda: 0.3,
+        transferEntropy: 0.2,
+      },
+    });
+    render(
+      <AnalogDetailDrawer
+        analog={a}
+        open={true}
+        pinned={false}
+        onClose={() => {}}
+        onTogglePin={() => {}}
+        onUseAsQuery={() => {}}
+        onSaveGoodrun={onSaveGoodrun}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /save to goodrun/i }));
+    fireEvent.click(screen.getByRole("button", { name: /save almost good/i }));
+    fireEvent.click(screen.getByRole("button", { name: /save badrun/i }));
+
+    expect(onSaveGoodrun).toHaveBeenNthCalledWith(1, a, "goodrun");
+    expect(onSaveGoodrun).toHaveBeenNthCalledWith(2, a, "almost_good");
+    expect(onSaveGoodrun).toHaveBeenNthCalledWith(3, a, "badrun");
+  });
+
   it("renders 9 lens rows when open with an analog", () => {
     const { container } = render(
       <AnalogDetailDrawer

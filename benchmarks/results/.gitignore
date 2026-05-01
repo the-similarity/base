@@ -1,0 +1,12 @@
+# Keep the directory but ignore most run output.
+# The committed raw.jsonl ships only the SMOKE rows from a small
+# synthetic dataset so Agent B's report layer has fixtures to test
+# against. The runner appends to raw.jsonl, and resume support
+# guarantees existing rows are not re-scored — so a local sweep on
+# top of these smoke rows is safe; the user can stage/discard the
+# extra rows as they choose. Other JSONL files in this directory
+# (e.g. the user's own per-experiment outputs) stay untracked.
+*.jsonl
+!.gitignore
+!.gitkeep
+!raw.jsonl

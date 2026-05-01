@@ -182,6 +182,37 @@ class Config:
     koopman_blend_weight: float = 0.0
 
     # -------------------------------------------------------------------------
+    # Latent regime weighting
+    # -------------------------------------------------------------------------
+    # latent_regime_enabled: when True, the matcher estimates soft regime
+    # probabilities for the query and each candidate window, then discounts
+    # candidates whose latent state distribution is far from the query's. This
+    # is deliberately optional so existing retrieval behavior is unchanged by
+    # default.
+    # latent_regime_weight: maximum fraction of the match score controlled by
+    # latent-regime compatibility. 0.15 means an incompatible candidate can lose
+    # up to 15% of its score, while a compatible one keeps the original score.
+    latent_regime_enabled: bool = False
+    latent_regime_weight: float = 0.15
+
+    # -------------------------------------------------------------------------
+    # Robust ambiguity forecast cones
+    # -------------------------------------------------------------------------
+    # robust_ambiguity_enabled: when True, ensemble forecasts include an
+    # entropy-tilted adverse distribution over historical forward paths. This
+    # makes cones more conservative when analog outcomes contain large downside
+    # disagreement.
+    # robust_ambiguity_radius: larger values tilt probability mass more strongly
+    # toward adverse terminal outcomes.
+    # robust_ambiguity_weight: blend weight assigned to the adverse cone in
+    # ensemble_project. Defaults to 0 so enabling diagnostics can expose the
+    # robust cone without changing the blended forecast unless explicitly
+    # requested.
+    robust_ambiguity_enabled: bool = False
+    robust_ambiguity_radius: float = 1.5
+    robust_ambiguity_weight: float = 0.0
+
+    # -------------------------------------------------------------------------
     # Experimental feature flags
     # -------------------------------------------------------------------------
     # All experimental flags default to OFF so that `Config()` produces
@@ -234,6 +265,25 @@ class Config:
             # from a previous experiment cannot accidentally influence scoring.
             self.jepa_weight = 0.0
 
+        if not isinstance(self.latent_regime_weight, (int, float)):
+            raise TypeError(
+                "latent_regime_weight must be a number, got "
+                f"{type(self.latent_regime_weight).__name__}"
+            )
+        if not (0.0 <= self.latent_regime_weight <= 1.0):
+            raise ValueError(
+                "latent_regime_weight must be in [0.0, 1.0], got "
+                f"{self.latent_regime_weight}"
+            )
+        for field_name in ("robust_ambiguity_radius", "robust_ambiguity_weight"):
+            value = getattr(self, field_name)
+            if not isinstance(value, (int, float)):
+                raise TypeError(
+                    f"{field_name} must be a number, got {type(value).__name__}"
+                )
+            if value < 0.0:
+                raise ValueError(f"{field_name} must be non-negative, got {value}")
+
     # -------------------------------------------------------------------------
     # Feature flag introspection
     # -------------------------------------------------------------------------
@@ -249,4 +299,9 @@ class Config:
             "jepa_enabled": self.jepa_enabled,
             "jepa_weight": self.jepa_weight,
             "jepa_embedding_path": self.jepa_embedding_path,
+            "latent_regime_enabled": self.latent_regime_enabled,
+            "latent_regime_weight": self.latent_regime_weight,
+            "robust_ambiguity_enabled": self.robust_ambiguity_enabled,
+            "robust_ambiguity_radius": self.robust_ambiguity_radius,
+            "robust_ambiguity_weight": self.robust_ambiguity_weight,
         }

@@ -27,6 +27,10 @@ import numpy as np
 from numpy.typing import NDArray
 
 from the_similarity.config import Config
+from the_similarity.core.latent_regime import (
+    infer_latent_regime,
+    regime_probability_similarity,
+)
 from the_similarity.core.scorer import MatchResult
 from the_similarity.core.regime import tag_regime
 
@@ -69,6 +73,23 @@ class ConformalResult:
 
 
 @dataclass
+class RobustAmbiguityResult:
+    """Entropy-tilted adverse forecast distribution.
+
+    ``path_weights`` are reweighted toward historically adverse outcomes. For a
+    positive median forecast, "adverse" means lower terminal returns; for a
+    negative median forecast, it means higher terminal returns. The result is a
+    conservative companion cone, not a replacement for calibrated conformal
+    intervals.
+    """
+
+    curves: dict[int, NDArray[np.float64]]
+    path_weights: NDArray[np.float64]
+    ambiguity_radius: float
+    adverse_direction: int
+
+
+@dataclass
 class EnsembleForecast:
     """Combined ensemble forecast from all methods."""
 
@@ -78,6 +99,7 @@ class EnsembleForecast:
     monte_carlo: MonteCarloResult | None = None
     regime_conditional: RegimeConditionalResult | None = None
     conformal: ConformalResult | None = None
+    robust_ambiguity: RobustAmbiguityResult | None = None
     component_weights: dict[str, float] = field(default_factory=dict)
 
 
@@ -208,6 +230,7 @@ def regime_conditional_forecast(
     forward_bars: int = 50,
     percentiles: list[int] | None = None,
     soft_weight: float = 0.5,
+    use_latent_regime: bool = False,
 ) -> RegimeConditionalResult:
     """Project forward using only regime-compatible matches.
 
@@ -233,6 +256,7 @@ def regime_conditional_forecast(
 
     query_regime = tag_regime(query)
     compatible_regimes = _REGIME_COMPAT.get(query_regime, {query_regime})
+    query_latent = infer_latent_regime(query) if use_latent_regime else None
 
     paths: list[NDArray[np.float64]] = []
     weights: list[float] = []
@@ -252,13 +276,25 @@ def regime_conditional_forecast(
         w = max(match.confidence_score, 1e-6)
 
         # Regime weighting
-        match_regime = match.regime or "unknown"
-        if match_regime in compatible_regimes:
-            n_used += 1
+        if query_latent is not None:
+            match_probs = match.latent_regime_probabilities
+            if match_probs is None:
+                regime_series = (
+                    match.matched_series if match.matched_series is not None else returns
+                )
+                match_probs = infer_latent_regime(regime_series).probabilities
+            compatibility = regime_probability_similarity(query_latent, match_probs)
+            w *= (1.0 - soft_weight) + soft_weight * compatibility
+            if compatibility >= 0.5:
+                n_used += 1
         else:
-            w *= 1.0 - soft_weight
-            if w < 1e-8:
-                continue
+            match_regime = match.regime or "unknown"
+            if match_regime in compatible_regimes:
+                n_used += 1
+            else:
+                w *= 1.0 - soft_weight
+                if w < 1e-8:
+                    continue
 
         paths.append(returns)
         weights.append(w)
@@ -292,6 +328,71 @@ def regime_conditional_forecast(
         curves=curves,
         all_paths=paths_arr,
         weights=weights_arr,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Robust ambiguity forecast
+# ---------------------------------------------------------------------------
+
+
+def robust_ambiguity_forecast(
+    paths: NDArray[np.float64],
+    weights: NDArray[np.float64],
+    forward_bars: int,
+    percentiles: list[int],
+    ambiguity_radius: float = 1.5,
+) -> RobustAmbiguityResult:
+    """Build an adverse probability-tilted cone from historical paths.
+
+    The tilt is entropy-style: weights are multiplied by
+    ``exp(radius * adverse_score)`` and renormalized. ``radius=0`` reproduces
+    the original weighted empirical distribution.
+    """
+    if len(paths) == 0:
+        empty = np.zeros(forward_bars)
+        return RobustAmbiguityResult(
+            curves={p: empty.copy() for p in percentiles},
+            path_weights=np.array([], dtype=np.float64),
+            ambiguity_radius=ambiguity_radius,
+            adverse_direction=1,
+        )
+
+    paths_arr = np.asarray(paths, dtype=np.float64)
+    weights_arr = np.asarray(weights, dtype=np.float64)
+    if len(weights_arr) != len(paths_arr) or float(np.sum(weights_arr)) <= 0.0:
+        weights_arr = np.full(len(paths_arr), 1.0 / len(paths_arr))
+    else:
+        weights_arr = weights_arr / np.sum(weights_arr)
+
+    terminal = paths_arr[:, -1]
+    median_terminal = float(_weighted_quantile(terminal, weights_arr, 0.5))
+    adverse_direction = 1 if median_terminal >= 0.0 else -1
+    adverse_score = -adverse_direction * terminal
+    score_std = float(np.std(adverse_score))
+    if score_std > 1e-12:
+        adverse_score = (adverse_score - float(np.mean(adverse_score))) / score_std
+    else:
+        adverse_score = np.zeros_like(adverse_score)
+
+    tilted = weights_arr * np.exp(float(ambiguity_radius) * adverse_score)
+    if float(np.sum(tilted)) <= 0.0:
+        tilted = weights_arr
+    else:
+        tilted = tilted / np.sum(tilted)
+
+    curves: dict[int, NDArray[np.float64]] = {}
+    for p in percentiles:
+        curve = np.zeros(forward_bars)
+        for bar in range(forward_bars):
+            curve[bar] = _weighted_quantile(paths_arr[:, bar], tilted, p / 100.0)
+        curves[p] = curve
+
+    return RobustAmbiguityResult(
+        curves=curves,
+        path_weights=tilted,
+        ambiguity_radius=ambiguity_radius,
+        adverse_direction=adverse_direction,
     )
 
 
@@ -445,13 +546,21 @@ def ensemble_forecast(
     if percentiles is None:
         percentiles = config.percentiles if config else [10, 25, 50, 75, 90]
 
+    robust_requested = bool(config and config.robust_ambiguity_enabled)
+    robust_weight = (
+        float(config.robust_ambiguity_weight)
+        if robust_requested and config is not None
+        else 0.0
+    )
+
     # Normalize blend weights mathematically
-    total_w = mc_weight + regime_weight + historical_weight
+    total_w = mc_weight + regime_weight + historical_weight + robust_weight
     if total_w <= 0:
         total_w = 1.0
     mc_w = mc_weight / total_w
     regime_w = regime_weight / total_w
     hist_w = historical_weight / total_w
+    robust_w = robust_weight / total_w
 
     # 1. Historical projection (existing simple projector)
     from the_similarity.core.projector import project as _project
@@ -468,6 +577,16 @@ def ensemble_forecast(
         seed,
     )
 
+    robust_result = None
+    if robust_requested:
+        robust_result = robust_ambiguity_forecast(
+            hist_forecast.all_paths,
+            hist_forecast.weights,
+            forward_bars,
+            percentiles,
+            ambiguity_radius=float(config.robust_ambiguity_radius),
+        )
+
     # 3. Regime-conditional extension (if query provided)
     regime_result = None
     if query is not None:
@@ -478,6 +597,7 @@ def ensemble_forecast(
             forward_bars,
             percentiles,
             regime_soft_weight,
+            use_latent_regime=bool(config and config.latent_regime_enabled),
         )
         # If no regime matches, fall back to historical weight redistribution
         # This occurs if we constrain conditions so tightly that 0 matches pass.
@@ -500,6 +620,10 @@ def ensemble_forecast(
             effective_hist_w = hist_w + regime_w
             blended = effective_hist_w * h_curve + mc_w * mc_curve
 
+        if robust_result is not None and robust_w > 0:
+            robust_curve = robust_result.curves.get(p, np.zeros(forward_bars))
+            blended = blended + robust_w * robust_curve
+
         blended_curves[p] = blended
 
     # 4. Conformal prediction intervals calculated on the final blended P50
@@ -518,10 +642,12 @@ def ensemble_forecast(
         monte_carlo=mc_result,
         regime_conditional=regime_result,
         conformal=conformal_result,
+        robust_ambiguity=robust_result,
         component_weights={
             "historical": hist_w,
             "monte_carlo": mc_w,
             "regime_conditional": regime_w,
+            "robust_ambiguity": robust_w,
         },
     )
 

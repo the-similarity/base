@@ -12,11 +12,14 @@ from the_similarity.core.ensemble import (
     RegimeConditionalResult,
     ConformalResult,
     EnsembleForecast,
+    RobustAmbiguityResult,
     monte_carlo_forecast,
     regime_conditional_forecast,
     conformal_prediction_intervals,
     ensemble_forecast,
+    robust_ambiguity_forecast,
 )
+from the_similarity.config import Config
 from the_similarity.core.scorer import MatchResult
 
 
@@ -321,6 +324,52 @@ class TestConformalPrediction:
         midpoint = (result.lower + result.upper) / 2
         # Midpoint should be close to base (not exact due to adaptive scaling)
         assert np.corrcoef(midpoint, base)[0, 1] > 0.5
+
+
+# ---------------------------------------------------------------------------
+# Robust ambiguity tests
+# ---------------------------------------------------------------------------
+
+
+class TestRobustAmbiguity:
+    def test_tilts_positive_forecast_toward_lower_returns(self):
+        paths = np.array(
+            [
+                np.linspace(0, 0.08, 20),
+                np.linspace(0, 0.05, 20),
+                np.linspace(0, -0.06, 20),
+            ],
+            dtype=np.float64,
+        )
+        weights = np.ones(3) / 3
+
+        result = robust_ambiguity_forecast(
+            paths,
+            weights,
+            forward_bars=20,
+            percentiles=[50],
+            ambiguity_radius=2.0,
+        )
+
+        assert isinstance(result, RobustAmbiguityResult)
+        assert result.curves[50][-1] < np.median(paths[:, -1])
+        assert result.path_weights[2] > weights[2]
+
+    def test_ensemble_exposes_robust_component_when_enabled(self):
+        history, matches = _make_test_setup()
+        result = ensemble_forecast(
+            matches,
+            history,
+            query=history[:60],
+            forward_bars=30,
+            config=Config(
+                robust_ambiguity_enabled=True,
+                robust_ambiguity_weight=0.2,
+            ),
+        )
+
+        assert result.robust_ambiguity is not None
+        assert result.component_weights["robust_ambiguity"] > 0
 
 
 # ---------------------------------------------------------------------------
