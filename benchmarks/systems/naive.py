@@ -76,4 +76,8 @@ class SeasonalNaive:
         p10 = p50 - band
         p90 = p50 + band
 
-        return Forecast(p10=p10.astype(np.float64), p50=p50.astype(np.float64), p90=p90.astype(np.float64))
+        return Forecast(
+            p10=p10.astype(np.float64),
+            p50=p50.astype(np.float64),
+            p90=p90.astype(np.float64),
+        )

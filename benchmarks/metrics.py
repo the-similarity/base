@@ -116,7 +116,9 @@ def crps(forecast: Forecast, actual: np.ndarray) -> float:
     return float(np.mean(per_bar))
 
 
-def mase(forecast: Forecast, actual: np.ndarray, train: np.ndarray, seasonality: int) -> float:
+def mase(
+    forecast: Forecast, actual: np.ndarray, train: np.ndarray, seasonality: int
+) -> float:
     """Mean absolute scaled error using seasonal-naive train MAE as the scale.
 
     Formula:

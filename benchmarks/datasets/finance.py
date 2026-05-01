@@ -31,7 +31,9 @@ from benchmarks.core import Dataset
 # package lives at ``<root>/benchmarks/datasets/finance.py`` so two
 # parents up = the repo root that also contains the_similarity-data/.
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
-_SPY_PARQUET = _PROJECT_ROOT / "the-similarity-data" / "data" / "stocks" / "spy" / "1d.parquet"
+_SPY_PARQUET = (
+    _PROJECT_ROOT / "the-similarity-data" / "data" / "stocks" / "spy" / "1d.parquet"
+)
 
 # Trading week is the meaningful seasonality for daily equities; 5 is
 # what most published equity benchmarks use for MASE on daily bars.
@@ -51,12 +53,18 @@ def _load_spy_close() -> np.ndarray | None:
     # Tolerate either a "timestamp" or "date" column — both have appeared
     # across data-repo schema revisions.
     date_col = next((c for c in ("timestamp", "date", "Date") if c in df.columns), None)
-    close_col = next((c for c in ("close", "Close", "adj_close") if c in df.columns), None)
+    close_col = next(
+        (c for c in ("close", "Close", "adj_close") if c in df.columns), None
+    )
     if close_col is None:
         return None
     if date_col is not None:
         df = df.sort_values(date_col)
-    closes = pd.to_numeric(df[close_col], errors="coerce").dropna().to_numpy(dtype=np.float64)
+    closes = (
+        pd.to_numeric(df[close_col], errors="coerce")
+        .dropna()
+        .to_numpy(dtype=np.float64)
+    )
     if len(closes) < 100:
         # Too short to be a useful benchmark series; treat as missing.
         return None

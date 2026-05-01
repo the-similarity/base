@@ -273,7 +273,11 @@ class TestRunner:
         out = []
         for sid in ("S1", "S2"):
             t = np.arange(120)
-            values = 100.0 + 0.5 * np.sin(2 * np.pi * t / 7) + 0.05 * rng.standard_normal(120)
+            values = (
+                100.0
+                + 0.5 * np.sin(2 * np.pi * t / 7)
+                + 0.05 * rng.standard_normal(120)
+            )
             out.append(
                 Dataset(
                     name="synthetic",
@@ -321,7 +325,9 @@ class TestRunner:
             # adapter produced a bad forecast or a metric leaked NaN
             # for non-degenerate input.
             for metric_key in ("mae", "smape", "crps", "mase", "coverage_p10_p90"):
-                assert np.isfinite(row[metric_key]), f"{row['system']}.{metric_key} not finite"
+                assert np.isfinite(row[metric_key]), (
+                    f"{row['system']}.{metric_key} not finite"
+                )
             assert row["query_ms"] >= 0.0
             assert row["peak_mb"] >= 0.0
 
