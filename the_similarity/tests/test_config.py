@@ -64,6 +64,11 @@ class TestFeatureFlags:
             "jepa_enabled",
             "jepa_weight",
             "jepa_embedding_path",
+            "latent_regime_enabled",
+            "latent_regime_weight",
+            "robust_ambiguity_enabled",
+            "robust_ambiguity_radius",
+            "robust_ambiguity_weight",
         }
 
     def test_feature_flags_default_values(self):
@@ -72,17 +77,32 @@ class TestFeatureFlags:
         assert flags["jepa_enabled"] is False
         assert flags["jepa_weight"] == 0.0
         assert flags["jepa_embedding_path"] is None
+        assert flags["latent_regime_enabled"] is False
+        assert flags["latent_regime_weight"] == 0.15
+        assert flags["robust_ambiguity_enabled"] is False
+        assert flags["robust_ambiguity_radius"] == 1.5
+        assert flags["robust_ambiguity_weight"] == 0.0
 
     def test_feature_flags_enabled_values(self):
         cfg = Config(
             jepa_enabled=True,
             jepa_weight=0.15,
             jepa_embedding_path="/tmp/jepa.h5",
+            latent_regime_enabled=True,
+            latent_regime_weight=0.25,
+            robust_ambiguity_enabled=True,
+            robust_ambiguity_radius=2.0,
+            robust_ambiguity_weight=0.2,
         )
         flags = cfg.feature_flags()
         assert flags["jepa_enabled"] is True
         assert flags["jepa_weight"] == 0.15
         assert flags["jepa_embedding_path"] == "/tmp/jepa.h5"
+        assert flags["latent_regime_enabled"] is True
+        assert flags["latent_regime_weight"] == 0.25
+        assert flags["robust_ambiguity_enabled"] is True
+        assert flags["robust_ambiguity_radius"] == 2.0
+        assert flags["robust_ambiguity_weight"] == 0.2
 
 
 class TestJepaValidation:

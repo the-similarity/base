@@ -19,11 +19,9 @@
  */
 
 import type { ScoreBreakdownRaw } from "./data";
+import { normalizeApiBaseUrl, resolveApiBaseUrl } from "./api-base";
 
-const apiBaseUrl =
-  process.env.NEXT_PUBLIC_THE_SIMILARITY_API_URL ??
-  process.env.THE_SIMILARITY_API_URL ??
-  "";
+export type GoodrunLabel = "goodrun" | "almost_good" | "badrun";
 
 /**
  * Strip a trailing slash so callers can safely concatenate
@@ -32,7 +30,7 @@ const apiBaseUrl =
  * that module's public surface just for a two-line util.
  */
 function normalize(value: string): string {
-  return value.endsWith("/") ? value.slice(0, -1) : value;
+  return normalizeApiBaseUrl(value);
 }
 
 /**
@@ -108,6 +106,7 @@ export async function saveGoodrun(
   payload: GoodrunCreatePayload,
   signal?: AbortSignal,
 ): Promise<GoodrunRecord> {
+  const apiBaseUrl = resolveApiBaseUrl();
   if (!apiBaseUrl) {
     throw new Error("API base URL not configured — cannot save goodrun");
   }
@@ -131,6 +130,7 @@ export async function saveGoodrun(
 export async function listGoodruns(
   options: { dataset?: string; limit?: number; signal?: AbortSignal } = {},
 ): Promise<GoodrunRecord[]> {
+  const apiBaseUrl = resolveApiBaseUrl();
   if (!apiBaseUrl) return [];
   const params = new URLSearchParams();
   if (options.dataset) params.set("dataset", options.dataset);

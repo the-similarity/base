@@ -20,6 +20,7 @@
  */
 
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
+import Link from "next/link";
 import {
   SERIES, LENS_DEFS, findAnalogs, buildCone, computeCalibrationMetrics,
   fmtDate, fmtDateShort, fmtPct,
@@ -30,7 +31,7 @@ import {
   isApiAvailable, fetchCatalog, fetchSeries, fetchOhlc, searchApi,
   mapMatchesToAnalogs, mapForecastToCone, mapScoreBreakdownToLenses,
 } from "../../lib/api";
-import { saveGoodrun, newGoodrunId, type GoodrunCreatePayload } from "../../lib/goodruns";
+import { saveGoodrun, newGoodrunId, type GoodrunCreatePayload, type GoodrunLabel } from "../../lib/goodruns";
 import type { CatalogItem, OhlcData } from "../../lib/types";
 import {
   parseUrlState,
@@ -1534,7 +1535,7 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
    *     search that produced the analog, they should save before
    *     dragging the window.
    */
-  const handleSaveGoodrun = useCallback(async (analog: AnalogMatch) => {
+  const handleSaveGoodrun = useCallback(async (analog: AnalogMatch, label: GoodrunLabel) => {
     if (!analog.scoreBreakdown) {
       // Defensive — the drawer's disabled state should prevent this.
       throw new Error("Analog has no engine score breakdown; cannot save goodrun.");
@@ -1572,7 +1573,7 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
       match_after_values: [...analog.after],
       lens_breakdown: analog.scoreBreakdown,
       composite: Number.isFinite(analog.composite) ? analog.composite : null,
-      note: null,
+      note: label,
     };
     await saveGoodrun(payload);
   }, [activeDataset, currentHorizon, loadedSeries, windowState.start, windowState.len]);
@@ -2644,12 +2645,12 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
                         score will appear automatically once the engine has
                         accumulated at least 30 runs against this dataset.
                       </p>
-                      <a
+                      <Link
                         href="/finance/reviews"
                         className="trust-panel__cta"
                       >
                         Trigger backtest sweep &rarr;
-                      </a>
+                      </Link>
                     </div>
                   </div>
                 )}

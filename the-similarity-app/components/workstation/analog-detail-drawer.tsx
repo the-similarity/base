@@ -33,6 +33,7 @@ import { useEffect, useState } from "react";
 
 import type { AnalogMatch, LensScores } from "../../lib/data";
 import { LENS_DEFS, fmtDate, fmtPct } from "../../lib/data";
+import type { GoodrunLabel } from "../../lib/goodruns";
 import { Sparkline } from "./sparkline";
 
 export interface AnalogDetailDrawerProps {
@@ -64,7 +65,23 @@ export interface AnalogDetailDrawerProps {
    * state machine for the button (idle / saving / saved / error) lives
    * in the drawer because it's UI-local.
    */
-  onSaveGoodrun?: (analog: AnalogMatch) => Promise<void>;
+  onSaveGoodrun?: (analog: AnalogMatch, label: GoodrunLabel) => Promise<void>;
+}
+
+type SaveState = "idle" | "saving" | "saved" | "error";
+
+const GOODRUN_SAVE_OPTIONS: { label: GoodrunLabel; text: string }[] = [
+  { label: "goodrun", text: "Save to goodrun" },
+  { label: "almost_good", text: "Save almost good" },
+  { label: "badrun", text: "Save badrun" },
+];
+
+function initialSaveStates(): Record<GoodrunLabel, SaveState> {
+  return {
+    goodrun: "idle",
+    almost_good: "idle",
+    badrun: "idle",
+  };
 }
 
 /**
@@ -156,48 +173,63 @@ export function AnalogDetailDrawer({
    * Also resets when the drawer closes — re-opening should not show a
    * stale "Saved ✓" that no longer corresponds to a visible save action.
    */
-  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
-  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saveStates, setSaveStates] = useState<Record<GoodrunLabel, SaveState>>(initialSaveStates);
+  const [saveErrors, setSaveErrors] = useState<Partial<Record<GoodrunLabel, string>>>({});
 
   useEffect(() => {
-    setSaveState("idle");
-    setSaveError(null);
+    setSaveStates(initialSaveStates());
+    setSaveErrors({});
   }, [analog?.id, open]);
 
   useEffect(() => {
-    if (saveState !== "saved") return;
-    const handle = window.setTimeout(() => setSaveState("idle"), 2000);
+    const savedLabels = GOODRUN_SAVE_OPTIONS
+      .filter(option => saveStates[option.label] === "saved")
+      .map(option => option.label);
+    if (!savedLabels.length) return;
+    const handle = window.setTimeout(() => {
+      setSaveStates(prev => {
+        const next = { ...prev };
+        for (const label of savedLabels) {
+          if (next[label] === "saved") next[label] = "idle";
+        }
+        return next;
+      });
+    }, 2000);
     return () => window.clearTimeout(handle);
-  }, [saveState]);
+  }, [saveStates]);
 
   const hasBreakdown = analog?.scoreBreakdown != null;
   // Hide the save action entirely when the host didn't pass a handler.
   // That way tests and non-workstation mounts of the drawer (if any)
   // don't have a no-op button littering the footer.
   const canShowSave = typeof onSaveGoodrun === "function";
-  const saveDisabled =
-    !analog || !hasBreakdown || saveState === "saving" || saveState === "saved";
+  function saveDisabled(label: GoodrunLabel) {
+    const state = saveStates[label];
+    return !analog || !hasBreakdown || state === "saving" || state === "saved";
+  }
 
-  async function handleSave() {
+  async function handleSave(label: GoodrunLabel) {
     if (!analog || !onSaveGoodrun) return;
-    setSaveState("saving");
-    setSaveError(null);
+    setSaveStates(prev => ({ ...prev, [label]: "saving" }));
+    setSaveErrors(prev => ({ ...prev, [label]: undefined }));
     try {
-      await onSaveGoodrun(analog);
-      setSaveState("saved");
+      await onSaveGoodrun(analog, label);
+      setSaveStates(prev => ({ ...prev, [label]: "saved" }));
     } catch (err) {
-      setSaveState("error");
-      setSaveError(err instanceof Error ? err.message : "save failed");
+      setSaveStates(prev => ({ ...prev, [label]: "error" }));
+      setSaveErrors(prev => ({ ...prev, [label]: err instanceof Error ? err.message : "save failed" }));
     }
   }
 
-  const saveLabel = (() => {
-    if (saveState === "saving") return "Saving…";
-    if (saveState === "saved") return "Saved ✓";
-    if (saveState === "error") return "Retry save";
-    return "Save to goodrun";
-  })();
-  const saveTitle = (() => {
+  function saveButtonText(label: GoodrunLabel, text: string) {
+    const state = saveStates[label];
+    if (state === "saving") return "Saving...";
+    if (state === "saved") return "Saved";
+    if (state === "error") return "Retry save";
+    return text;
+  }
+
+  function saveTitle(label: GoodrunLabel) {
     if (!hasBreakdown) {
       // Explain why the button is inert — a synthetic/offline analog has
       // no engine math-name breakdown to persist, which is the whole
@@ -205,9 +237,9 @@ export function AnalogDetailDrawer({
       // defeat the purpose.
       return "Save requires the live API — synthetic analogs have no engine score breakdown.";
     }
-    if (saveState === "error" && saveError) return `Last attempt failed: ${saveError}`;
-    return "Persist this match with its raw engine score breakdown (dtw, koopman, etc.)";
-  })();
+    if (saveStates[label] === "error" && saveErrors[label]) return `Last attempt failed: ${saveErrors[label]}`;
+    return `Persist this match as ${label} with its raw engine score breakdown.`;
+  }
   // Rank 0..5 → palette color. We clamp to 0..5 because the multi-analog
   // palette only defines six slots (--c-analog-1..6); ranks above that
   // fall back to the strong ink color via the CSS rule.
@@ -383,18 +415,19 @@ export function AnalogDetailDrawer({
         >
           Find similar analogs
         </button>
-        {canShowSave && (
+        {canShowSave && GOODRUN_SAVE_OPTIONS.map(option => (
           <button
+            key={option.label}
             type="button"
             className="adrawer__action"
-            onClick={handleSave}
-            disabled={saveDisabled}
-            data-state={saveState}
-            title={saveTitle}
+            onClick={() => handleSave(option.label)}
+            disabled={saveDisabled(option.label)}
+            data-state={saveStates[option.label]}
+            title={saveTitle(option.label)}
           >
-            {saveLabel}
+            {saveButtonText(option.label, option.text)}
           </button>
-        )}
+        ))}
         <button
           type="button"
           className="adrawer__action adrawer__action--ghost"

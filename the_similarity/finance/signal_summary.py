@@ -16,6 +16,8 @@ from __future__ import annotations
 
 from typing import Any, Dict
 
+from the_similarity.finance.calibration import mean_calibration_error
+
 
 def _calibration_grade(calibration: Any) -> str:
     """Convert a calibration metric into a human-readable grade.
@@ -30,21 +32,12 @@ def _calibration_grade(calibration: Any) -> str:
     ----------
     calibration:
         Either a float (mean calibration error) or a dict with
-        per-quantile errors. If dict, the mean absolute value is used.
+        per-quantile observed coverage rates. If dict, the expected coverage is
+        derived from the percentile key and compared with the observed value.
         Returns ``"N/A"`` for None or non-numeric values.
     """
-    if calibration is None:
-        return "N/A"
-
-    # Handle per-quantile calibration dict.
-    if isinstance(calibration, dict):
-        values = [v for v in calibration.values() if isinstance(v, (int, float))]
-        if not values:
-            return "N/A"
-        cal_error = sum(abs(v) for v in values) / len(values)
-    elif isinstance(calibration, (int, float)):
-        cal_error = abs(calibration)
-    else:
+    cal_error = mean_calibration_error(calibration)
+    if cal_error is None:
         return "N/A"
 
     # Grading thresholds aligned with risk_flags.MAX_CALIBRATION_ERROR = 0.15.
