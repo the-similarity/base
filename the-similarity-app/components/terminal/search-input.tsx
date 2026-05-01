@@ -1,7 +1,13 @@
 "use client";
 import { useState, useRef, useCallback, useEffect } from "react";
 import { useTerminal } from "../../lib/terminal-context";
-import { fetchCatalog, fetchSeries, fetchOhlc, searchApi } from "../../lib/api";
+import {
+  fetchCatalog,
+  fetchSeries,
+  fetchOhlc,
+  searchApi,
+  withForwardWindowsFromSeries,
+} from "../../lib/api";
 import type { CatalogItem } from "../../lib/types";
 
 function formatSymbol(item: CatalogItem): string {
@@ -175,12 +181,13 @@ export function SearchSidebar() {
         },
         controller.signal,
       );
+      const responseWithForward = withForwardWindowsFromSeries(response, series.values, 200);
 
-      const topScore = response.matches.length > 0
-        ? response.matches[0].confidenceScore
+      const topScore = responseWithForward.matches.length > 0
+        ? responseWithForward.matches[0].confidenceScore
         : 0;
       finishProgress(topScore);
-      dispatch({ type: "SET_SEARCH_RESPONSE", response });
+      dispatch({ type: "SET_SEARCH_RESPONSE", response: responseWithForward });
     } catch (err: unknown) {
       clearProgress();
       if (err instanceof Error && err.name === "AbortError") return;
@@ -222,12 +229,13 @@ export function SearchSidebar() {
         },
         controller.signal,
       );
+      const responseWithForward = withForwardWindowsFromSeries(response, ohlc.close, 200);
 
-      const topScore = response.matches.length > 0
-        ? response.matches[0].confidenceScore
+      const topScore = responseWithForward.matches.length > 0
+        ? responseWithForward.matches[0].confidenceScore
         : 0;
       finishProgress(topScore);
-      dispatch({ type: "SET_SEARCH_RESPONSE", response });
+      dispatch({ type: "SET_SEARCH_RESPONSE", response: responseWithForward });
     } catch (err: unknown) {
       clearProgress();
       if (err instanceof Error && err.name === "AbortError") return;
