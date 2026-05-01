@@ -196,6 +196,21 @@ class Config:
     latent_regime_weight: float = 0.15
 
     # -------------------------------------------------------------------------
+    # Empirical goodrun/badrun retrieval rules
+    # -------------------------------------------------------------------------
+    # These are small, bounded score adjustments derived from the saved
+    # goodrun/almost_good/badrun database. They are heuristics, not trained
+    # model weights: the current labeled sample is still small and gold-heavy.
+    # The strongest early pattern is that high DTW alone can be a trap when
+    # Pearson/carry support is weak, while good runs tend to keep stronger
+    # Koopman + transfer-entropy agreement.
+    empirical_label_rules_enabled: bool = True
+    dtw_trap_penalty: float = 0.12
+    carry_alignment_boost: float = 0.06
+    direction_mismatch_penalty: float = 0.08
+    direction_mismatch_min_abs_return: float = 0.02
+
+    # -------------------------------------------------------------------------
     # Robust ambiguity forecast cones
     # -------------------------------------------------------------------------
     # robust_ambiguity_enabled: when True, ensemble forecasts include an
@@ -275,6 +290,27 @@ class Config:
                 "latent_regime_weight must be in [0.0, 1.0], got "
                 f"{self.latent_regime_weight}"
             )
+        for field_name in (
+            "dtw_trap_penalty",
+            "carry_alignment_boost",
+            "direction_mismatch_penalty",
+            "direction_mismatch_min_abs_return",
+        ):
+            value = getattr(self, field_name)
+            if not isinstance(value, (int, float)):
+                raise TypeError(
+                    f"{field_name} must be a number, got {type(value).__name__}"
+                )
+            if value < 0.0:
+                raise ValueError(f"{field_name} must be non-negative, got {value}")
+        for field_name in (
+            "dtw_trap_penalty",
+            "carry_alignment_boost",
+            "direction_mismatch_penalty",
+        ):
+            value = getattr(self, field_name)
+            if value > 1.0:
+                raise ValueError(f"{field_name} must be <= 1.0, got {value}")
         for field_name in ("robust_ambiguity_radius", "robust_ambiguity_weight"):
             value = getattr(self, field_name)
             if not isinstance(value, (int, float)):
@@ -301,6 +337,11 @@ class Config:
             "jepa_embedding_path": self.jepa_embedding_path,
             "latent_regime_enabled": self.latent_regime_enabled,
             "latent_regime_weight": self.latent_regime_weight,
+            "empirical_label_rules_enabled": self.empirical_label_rules_enabled,
+            "dtw_trap_penalty": self.dtw_trap_penalty,
+            "carry_alignment_boost": self.carry_alignment_boost,
+            "direction_mismatch_penalty": self.direction_mismatch_penalty,
+            "direction_mismatch_min_abs_return": self.direction_mismatch_min_abs_return,
             "robust_ambiguity_enabled": self.robust_ambiguity_enabled,
             "robust_ambiguity_radius": self.robust_ambiguity_radius,
             "robust_ambiguity_weight": self.robust_ambiguity_weight,

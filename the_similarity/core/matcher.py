@@ -264,6 +264,7 @@ def find_matches(
             candidate.base_rank_score = candidate.prefilter_score * 100.0
         # Initialize confidence score. Will be overwritten by Tier 2 if configured.
         candidate.confidence_score = compute_confidence(candidate.breakdown, config)
+        _apply_direction_consistency_adjustment(candidate, query, config)
         _apply_latent_regime_adjustment(candidate, query_latent_regime, config)
 
     if progress_fn is not None:
@@ -301,6 +302,7 @@ def find_matches(
         # Update composite scores including the newly added Tier2 breakdown scores
         for candidate in rerank_pool:
             candidate.confidence_score = compute_confidence(candidate.breakdown, config)
+            _apply_direction_consistency_adjustment(candidate, query, config)
             _apply_latent_regime_adjustment(candidate, query_latent_regime, config)
 
     # --- Build results ---
@@ -367,6 +369,44 @@ def _apply_latent_regime_adjustment(
     keep = 1.0 - config.latent_regime_weight + config.latent_regime_weight * similarity
     candidate.base_rank_score *= keep
     candidate.confidence_score *= keep
+
+
+def _apply_direction_consistency_adjustment(
+    candidate: CandidateWindow,
+    query: NDArray[np.float64],
+    config: Config,
+) -> None:
+    """Discount candidates whose window direction contradicts the query.
+
+    Saved badruns showed several high-shape candidates whose match-window
+    direction disagreed with the query move. Tiny near-flat moves are ignored
+    so chop does not get over-penalized.
+    """
+    if not config.empirical_label_rules_enabled:
+        return
+
+    query_ret = _window_return(query)
+    candidate_ret = _window_return(candidate.raw_series)
+    threshold = config.direction_mismatch_min_abs_return
+    if abs(query_ret) < threshold or abs(candidate_ret) < threshold:
+        return
+    if np.sign(query_ret) == np.sign(candidate_ret):
+        return
+
+    keep = 1.0 - config.direction_mismatch_penalty
+    candidate.base_rank_score *= keep
+    candidate.confidence_score *= keep
+
+
+def _window_return(values: NDArray[np.float64]) -> float:
+    """Return simple start-to-end return, guarding bad/flat inputs."""
+    if len(values) < 2:
+        return 0.0
+    start = float(values[0])
+    end = float(values[-1])
+    if not np.isfinite(start) or not np.isfinite(end) or start == 0.0:
+        return 0.0
+    return end / start - 1.0
 
 
 def _collect_candidates(

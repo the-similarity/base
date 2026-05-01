@@ -56,3 +56,24 @@ def test_bempedelis_reranking_populates_transform_details():
     assert best.score_breakdown.bempedelis_smoothness >= 0
     assert best.transform_alpha is not None
     assert best.transform_beta is not None
+
+
+def test_direction_mismatch_penalty_demotes_opposite_trend():
+    query = np.linspace(100.0, 120.0, 40)
+    history = np.concatenate(
+        [
+            np.linspace(120.0, 100.0, 40),
+            np.linspace(100.0, 120.0, 40),
+            np.linspace(80.0, 85.0, 40),
+        ]
+    )
+    config = Config(
+        active_methods=["dtw", "pearson_warped"],
+        tier1_candidates=None,
+        tier2_candidates=None,
+        stride=40,
+        direction_mismatch_penalty=0.5,
+    )
+    matches = find_matches(query=query, history=history, top_k=2, config=config)
+    assert matches
+    assert matches[0].start_idx == 40
