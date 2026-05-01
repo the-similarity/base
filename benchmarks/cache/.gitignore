@@ -1,0 +1,4 @@
+# Ignore everything inside the benchmark cache except this file.
+# Cached M4/NN5 CSVs are large + reproducible (downloaded on first run).
+*
+!.gitignore
