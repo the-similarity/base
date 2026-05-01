@@ -1,5 +1,6 @@
 from the_similarity.core.scorer import ScoreBreakdown, compute_confidence
 from the_similarity.config import Config
+import pytest
 
 
 def test_dtw_and_pearson_only():
@@ -85,3 +86,61 @@ def test_inactive_metrics_can_be_enabled_explicitly():
     score = compute_confidence(breakdown, config)
     expected = 100.0 * ((0.07 * 1.0) + (0.20 * 0.5)) / (0.07 + 0.20)
     assert abs(score - expected) < 0.01
+
+
+def test_empirical_dtw_trap_penalizes_shape_without_carry():
+    """High DTW alone should not outrank weak carry/regime support."""
+    breakdown = ScoreBreakdown(
+        dtw=0.97,
+        pearson_warped=0.58,
+        koopman=0.84,
+        wavelet_spectrum=0.03,
+        transfer_entropy=0.18,
+    )
+    config = Config(
+        weights={
+            "dtw": 0.25,
+            "pearson_warped": 0.25,
+            "koopman": 0.25,
+            "wavelet_spectrum": 0.15,
+            "transfer_entropy": 0.10,
+        },
+        active_methods=[
+            "dtw",
+            "pearson_warped",
+            "koopman",
+            "wavelet_spectrum",
+            "transfer_entropy",
+        ],
+    )
+    adjusted = compute_confidence(breakdown, config)
+    baseline = compute_confidence(
+        breakdown,
+        Config(
+            weights=config.weights,
+            active_methods=config.active_methods,
+            empirical_label_rules_enabled=False,
+        ),
+    )
+    assert adjusted < baseline
+    assert adjusted == pytest.approx(baseline * 0.84)
+
+
+def test_empirical_carry_alignment_boosts_koopman_and_transfer_entropy():
+    breakdown = ScoreBreakdown(
+        dtw=0.93,
+        pearson_warped=0.64,
+        koopman=0.88,
+        transfer_entropy=0.34,
+    )
+    config = Config(active_methods=["dtw", "pearson_warped", "koopman", "transfer_entropy"])
+    adjusted = compute_confidence(breakdown, config)
+    baseline = compute_confidence(
+        breakdown,
+        Config(
+            active_methods=config.active_methods,
+            empirical_label_rules_enabled=False,
+        ),
+    )
+    assert adjusted > baseline
+    assert adjusted == pytest.approx(baseline * 1.08)

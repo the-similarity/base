@@ -213,5 +213,51 @@ def compute_confidence(
         for field_name in active_fields
     )
 
-    # Step 4: Scale to [0, 100] for human readability and clamp
-    return float(np.clip(raw * 100, 0, 100))
+    # Step 4: Apply small empirical adjustments learned from curated
+    # goodrun/almost_good/badrun labels, then scale to [0, 100].
+    adjusted = _apply_empirical_label_rules(raw, breakdown, config, set(active_fields))
+    return float(np.clip(adjusted * 100, 0, 100))
+
+
+def _apply_empirical_label_rules(
+    raw_score: float,
+    breakdown: ScoreBreakdown,
+    config: Config,
+    active_fields: set[str],
+) -> float:
+    """Bounded post-score heuristics from saved goodrun/badrun labels.
+
+    Current evidence is intentionally treated as weak supervision. The label
+    set suggests two robust-enough rules:
+    - High DTW with weak Pearson/carry often marks a visual shape trap.
+    - Strong Koopman plus transfer entropy deserves a modest carry boost.
+    """
+    if not config.empirical_label_rules_enabled:
+        return raw_score
+
+    score = raw_score
+
+    has_dtw_trap_inputs = {"dtw", "pearson_warped", "transfer_entropy"} <= active_fields
+    if (
+        has_dtw_trap_inputs
+        and breakdown.dtw >= 0.94
+        and breakdown.pearson_warped <= 0.62
+        and breakdown.transfer_entropy <= 0.24
+    ):
+        penalty = config.dtw_trap_penalty
+        if "wavelet_spectrum" in active_fields and breakdown.wavelet_spectrum <= 0.08:
+            penalty = min(1.0, penalty + 0.04)
+        score *= 1.0 - penalty
+
+    has_carry_inputs = {"koopman", "transfer_entropy"} <= active_fields
+    if (
+        has_carry_inputs
+        and breakdown.koopman >= 0.86
+        and breakdown.transfer_entropy >= 0.30
+    ):
+        boost = config.carry_alignment_boost
+        if "pearson_warped" in active_fields and breakdown.pearson_warped >= 0.63:
+            boost += 0.02
+        score *= 1.0 + boost
+
+    return float(np.clip(score, 0.0, 1.0))

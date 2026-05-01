@@ -66,6 +66,11 @@ class TestFeatureFlags:
             "jepa_embedding_path",
             "latent_regime_enabled",
             "latent_regime_weight",
+            "empirical_label_rules_enabled",
+            "dtw_trap_penalty",
+            "carry_alignment_boost",
+            "direction_mismatch_penalty",
+            "direction_mismatch_min_abs_return",
             "robust_ambiguity_enabled",
             "robust_ambiguity_radius",
             "robust_ambiguity_weight",
@@ -79,6 +84,11 @@ class TestFeatureFlags:
         assert flags["jepa_embedding_path"] is None
         assert flags["latent_regime_enabled"] is False
         assert flags["latent_regime_weight"] == 0.15
+        assert flags["empirical_label_rules_enabled"] is True
+        assert flags["dtw_trap_penalty"] == 0.12
+        assert flags["carry_alignment_boost"] == 0.06
+        assert flags["direction_mismatch_penalty"] == 0.08
+        assert flags["direction_mismatch_min_abs_return"] == 0.02
         assert flags["robust_ambiguity_enabled"] is False
         assert flags["robust_ambiguity_radius"] == 1.5
         assert flags["robust_ambiguity_weight"] == 0.0
@@ -90,6 +100,11 @@ class TestFeatureFlags:
             jepa_embedding_path="/tmp/jepa.h5",
             latent_regime_enabled=True,
             latent_regime_weight=0.25,
+            empirical_label_rules_enabled=False,
+            dtw_trap_penalty=0.2,
+            carry_alignment_boost=0.1,
+            direction_mismatch_penalty=0.15,
+            direction_mismatch_min_abs_return=0.03,
             robust_ambiguity_enabled=True,
             robust_ambiguity_radius=2.0,
             robust_ambiguity_weight=0.2,
@@ -100,6 +115,11 @@ class TestFeatureFlags:
         assert flags["jepa_embedding_path"] == "/tmp/jepa.h5"
         assert flags["latent_regime_enabled"] is True
         assert flags["latent_regime_weight"] == 0.25
+        assert flags["empirical_label_rules_enabled"] is False
+        assert flags["dtw_trap_penalty"] == 0.2
+        assert flags["carry_alignment_boost"] == 0.1
+        assert flags["direction_mismatch_penalty"] == 0.15
+        assert flags["direction_mismatch_min_abs_return"] == 0.03
         assert flags["robust_ambiguity_enabled"] is True
         assert flags["robust_ambiguity_radius"] == 2.0
         assert flags["robust_ambiguity_weight"] == 0.2
