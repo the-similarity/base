@@ -134,9 +134,7 @@ _PUBLIC_MODELS: frozenset[str] = frozenset(
 )
 
 
-def get_chronos_mase(
-    dataset: str, model: str = "chronos-t5-small"
-) -> float | None:
+def get_chronos_mase(dataset: str, model: str = "chronos-t5-small") -> float | None:
     """Return the published Chronos MASE for ``(dataset, model)``.
 
     Args:

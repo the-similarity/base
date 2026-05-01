@@ -66,9 +66,7 @@ class TestChronosPublished:
     def test_default_model_is_chronos_t5_small(self) -> None:
         # The convenience default should hit the small model so callers
         # who omit the kwarg get a stable, cheapest-baseline number.
-        explicit = chronos_published.get_chronos_mase(
-            "nn5_daily", "chronos-t5-small"
-        )
+        explicit = chronos_published.get_chronos_mase("nn5_daily", "chronos-t5-small")
         default = chronos_published.get_chronos_mase("nn5_daily")
         assert explicit == default
 
@@ -78,18 +76,13 @@ class TestChronosPublished:
         assert chronos_published.get_chronos_mase("not_a_real_dataset") is None
 
     def test_unknown_model_returns_none(self) -> None:
-        assert (
-            chronos_published.get_chronos_mase("nn5_daily", "gpt-99-xxxl")
-            is None
-        )
+        assert chronos_published.get_chronos_mase("nn5_daily", "gpt-99-xxxl") is None
 
     def test_sentinel_keys_do_not_leak_through(self) -> None:
         # The internal _regime / _source_table sentinels are strings.
         # If a caller types model="_regime" we must still return None,
         # not the regime label.
-        assert (
-            chronos_published.get_chronos_mase("nn5_daily", "_regime") is None
-        )
+        assert chronos_published.get_chronos_mase("nn5_daily", "_regime") is None
 
     def test_list_supported_datasets_is_alphabetical(self) -> None:
         ds = chronos_published.list_supported_datasets()
@@ -325,9 +318,7 @@ class TestBuildReport:
         # would see 110.0 instead.
         assert "120.0" in md
 
-    def test_chronos_row_appears_for_nn5_daily(
-        self, tmp_path: Path
-    ) -> None:
+    def test_chronos_row_appears_for_nn5_daily(self, tmp_path: Path) -> None:
         raw = tmp_path / "raw.jsonl"
         _write_synthetic_jsonl(raw)
         md = report.build_report(raw)
@@ -336,9 +327,7 @@ class TestBuildReport:
         # Published MASE for nn5_daily/small = 0.169.
         assert "0.169" in md
 
-    def test_chronos_row_omitted_for_unknown_dataset(
-        self, tmp_path: Path
-    ) -> None:
+    def test_chronos_row_omitted_for_unknown_dataset(self, tmp_path: Path) -> None:
         # SPY-style synthetic dataset not in the Chronos paper.
         raw = tmp_path / "raw.jsonl"
         with raw.open("w", encoding="utf-8") as fh:
@@ -400,9 +389,7 @@ class TestBuildReport:
         md = report.build_report(tmp_path / "missing.jsonl")
         assert "_No results in raw.jsonl yet._" in md
 
-    def test_malformed_jsonl_raises_with_line_number(
-        self, tmp_path: Path
-    ) -> None:
+    def test_malformed_jsonl_raises_with_line_number(self, tmp_path: Path) -> None:
         raw = tmp_path / "raw.jsonl"
         raw.write_text("not json at all\n", encoding="utf-8")
         with pytest.raises(ValueError, match=r":1:"):

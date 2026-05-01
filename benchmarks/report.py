@@ -149,10 +149,7 @@ def _load_jsonl(path: Path) -> list[dict[str, Any]]:
                 raise ValueError(msg) from exc
             missing = required - obj.keys()
             if missing:
-                msg = (
-                    f"{path}:{lineno}: missing required keys: "
-                    f"{sorted(missing)}"
-                )
+                msg = f"{path}:{lineno}: missing required keys: {sorted(missing)}"
                 raise ValueError(msg)
             rows.append(obj)
     return rows
@@ -227,9 +224,7 @@ def _format_cell(key: str, value: float) -> str:
     return _FMT[key].format(value)
 
 
-def _best_indices(
-    column_values: Sequence[float], rule: str
-) -> set[int]:
+def _best_indices(column_values: Sequence[float], rule: str) -> set[int]:
     """Return the row indices whose value should be bolded for this column.
 
     ``rule`` is one of:
@@ -239,9 +234,7 @@ def _best_indices(
     NaN entries are never selected. Ties (within 1e-12 absolute) are
     all selected so a renderer can bold every winner.
     """
-    valid = [
-        (i, v) for i, v in enumerate(column_values) if not _is_nan(v)
-    ]
+    valid = [(i, v) for i, v in enumerate(column_values) if not _is_nan(v)]
     if not valid:
         return set()
     if rule == "lower":
@@ -384,26 +377,20 @@ def build_report(
 
     # Group rows by (dataset, horizon). Sorted so the document is
     # deterministic across machines.
-    groups: dict[tuple[str, int], list[Mapping[str, Any]]] = defaultdict(
-        list
-    )
+    groups: dict[tuple[str, int], list[Mapping[str, Any]]] = defaultdict(list)
     for row in loaded:
         key = (str(row["dataset"]), int(row["horizon"]))
         groups[key].append(row)
 
-    for (dataset, horizon) in sorted(groups.keys()):
+    for dataset, horizon in sorted(groups.keys()):
         agg = _aggregate_group(groups[(dataset, horizon)])
         # Resolve the Chronos reference for this dataset, if any.
         chronos_value = get_chronos_mase(dataset, "chronos-t5-small")
         chronos_label: str | None = None
         if chronos_value is not None:
             regime = get_chronos_regime(dataset) or "unknown"
-            regime_label = (
-                "zero-shot" if regime == "zero_shot" else "in-domain"
-            )
-            chronos_label = (
-                f"Chronos-T5-small (published, {regime_label})"
-            )
+            regime_label = "zero-shot" if regime == "zero_shot" else "in-domain"
+            chronos_label = f"Chronos-T5-small (published, {regime_label})"
         out.append(
             _render_table(
                 dataset=dataset,
@@ -423,8 +410,7 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="python -m benchmarks.report",
         description=(
-            "Render benchmarks/results/raw.jsonl into a Markdown "
-            "comparison report."
+            "Render benchmarks/results/raw.jsonl into a Markdown comparison report."
         ),
     )
     parser.add_argument(
