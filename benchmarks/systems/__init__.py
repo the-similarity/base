@@ -29,14 +29,17 @@ ALL_SYSTEMS: dict[str, Callable[[], System]] = {
     "engine": TheSimilarity,
 }
 
-# STUMPY is an optional dep — register the adapter only if it imports.
-# Tests that exercise the matrix-profile path skip themselves cleanly
-# when the lib is unavailable, mirroring the runner's behaviour here.
+# STUMPY is an optional dep — register the adapter only if it imports
+# AND its numba/LLVM backing actually loads. On macOS in particular,
+# stumpy raises OSError (not ImportError) when its llvmlite shared lib
+# is unresolvable, so the guard catches both.
 try:  # pragma: no cover - import guard
+    import stumpy as _stumpy  # noqa: F401  - probe import + numba load
+
     from benchmarks.systems.matrix_profile import MatrixProfile
 
     ALL_SYSTEMS["matrix_profile"] = MatrixProfile
-except ImportError:  # pragma: no cover
+except (ImportError, OSError):  # pragma: no cover
     MatrixProfile = None  # type: ignore[assignment,misc]
 
 __all__ = ["ALL_SYSTEMS", "SeasonalNaive", "TheSimilarity", "MatrixProfile"]
