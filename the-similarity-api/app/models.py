@@ -67,6 +67,11 @@ class DatasetSeriesResponse(BaseModel):
     Used by the search UI to populate the history_values field.
     """
     dataset_id: str                              # e.g., "equity/AAPL/1d"
+    # ``source_timeframe`` is the parquet/native timeframe from the URL.
+    # ``timeframe`` is the effective timeframe returned to the client. They
+    # differ when the API generates coarser candles at request time.
+    source_timeframe: str | None = None
+    timeframe: str | None = None
     column: str                                  # Which column was extracted
     values: list[float]                          # The price/value array
     dates: list[str] = Field(default_factory=list)  # ISO timestamps, if available
@@ -81,6 +86,8 @@ class OhlcResponse(BaseModel):
     for sources that don't provide it.
     """
     dataset_id: str
+    source_timeframe: str | None = None
+    timeframe: str | None = None
     open: list[float]
     high: list[float]
     low: list[float]

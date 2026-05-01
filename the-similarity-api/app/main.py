@@ -98,17 +98,26 @@ def get_dataset_series(
     column: str = "close",
     start: str | None = None,
     end: str | None = None,
+    target_timeframe: str | None = None,
+    include_incomplete: bool = False,
 ) -> DatasetSeriesResponse:
     dataset_id = f"{asset_class}/{symbol}/{timeframe}"
     try:
         values, dates = load_series(
-            dataset_id, column=column, start_date=start, end_date=end
+            dataset_id,
+            column=column,
+            start_date=start,
+            end_date=end,
+            target_timeframe=target_timeframe,
+            include_incomplete=include_incomplete,
         )
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
     return DatasetSeriesResponse(
         dataset_id=dataset_id,
+        source_timeframe=timeframe,
+        timeframe=target_timeframe or timeframe,
         column=column,
         values=values,
         dates=dates,
@@ -126,15 +135,25 @@ def get_dataset_ohlc(
     timeframe: str,
     start: str | None = None,
     end: str | None = None,
+    target_timeframe: str | None = None,
+    include_incomplete: bool = False,
 ) -> OhlcResponse:
     dataset_id = f"{asset_class}/{symbol}/{timeframe}"
     try:
-        data = load_ohlc(dataset_id, start_date=start, end_date=end)
+        data = load_ohlc(
+            dataset_id,
+            start_date=start,
+            end_date=end,
+            target_timeframe=target_timeframe,
+            include_incomplete=include_incomplete,
+        )
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
     return OhlcResponse(
         dataset_id=dataset_id,
+        source_timeframe=timeframe,
+        timeframe=target_timeframe or timeframe,
         open=data["open"],
         high=data["high"],
         low=data["low"],

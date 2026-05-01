@@ -33,6 +33,8 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from the_similarity.finance.candles import build_candles
+
 logger = logging.getLogger(__name__)
 
 # Maximum number of data points to return. If a dataset has more bars,
@@ -295,6 +297,8 @@ def load_series(
     start_date: str | None = None,
     end_date: str | None = None,
     max_points: int = MAX_HISTORY_POINTS,
+    target_timeframe: str | None = None,
+    include_incomplete: bool = False,
 ) -> tuple[list[float], list[str]]:
     """Load a single price column from a dataset.
 
@@ -307,8 +311,9 @@ def load_series(
     3. Sort by timestamp (if available)
     4. Apply date range filter (if specified)
     5. Remove dead bars
-    6. Truncate to max_points (keep most recent)
-    7. Extract the requested column as float64
+    6. Optionally build a coarser target timeframe candle set
+    7. Truncate to max_points (keep most recent)
+    8. Extract the requested column as float64
 
     Args:
         dataset_id: Dataset identifier ("asset_class/symbol/timeframe").
@@ -316,6 +321,11 @@ def load_series(
         start_date: ISO date string for start filter (inclusive).
         end_date: ISO date string for end filter (inclusive).
         max_points: Maximum number of data points to return.
+        target_timeframe: Optional coarser timeframe to construct from the
+            dataset's native timeframe before extracting the column.
+        include_incomplete: Keep partial generated candles. Defaults to False
+            because the search engine should not treat a half-built bucket as a
+            complete market state.
 
     Returns:
         Tuple of (values, dates) where values are floats and dates are
@@ -331,11 +341,6 @@ def load_series(
     except Exception as exc:
         raise ValueError(f"Failed to read parquet for {dataset_id}: {exc}") from exc
 
-    if column not in df.columns:
-        raise ValueError(
-            f"Column '{column}' not found in {dataset_id}. Available: {list(df.columns)}"
-        )
-
     # Sort + filter by timestamp if the column exists
     if "timestamp" in df.columns:
         df = df.sort_values("timestamp")
@@ -346,6 +351,19 @@ def load_series(
 
     # Remove dead bars before truncation so we don't waste slots on junk data
     df = _drop_dead_bars(df, dataset_id)
+
+    if target_timeframe:
+        df = _build_target_timeframe(
+            df,
+            dataset_id=dataset_id,
+            target_timeframe=target_timeframe,
+            include_incomplete=include_incomplete,
+        )
+
+    if column not in df.columns:
+        raise ValueError(
+            f"Column '{column}' not found in {dataset_id}. Available: {list(df.columns)}"
+        )
 
     # Truncate to max_points, keeping the MOST RECENT data.
     # Rationale: recent data is nearly always more relevant for pattern matching
@@ -372,11 +390,14 @@ def load_ohlc(
     start_date: str | None = None,
     end_date: str | None = None,
     max_points: int = MAX_HISTORY_POINTS,
+    target_timeframe: str | None = None,
+    include_incomplete: bool = False,
 ) -> dict[str, list]:
     """Load OHLC + volume data from a dataset for candlestick charts.
 
-    Similar to load_series() but returns all four OHLC columns plus
-    volume and dates.
+    Similar to load_series() but returns all four OHLC columns plus volume and
+    dates. If ``target_timeframe`` is provided, the source parquet is treated as
+    the native timeframe and coarser candles are generated in memory.
 
     Returns:
         Dict with keys: open, high, low, close, volume, dates.
@@ -407,6 +428,14 @@ def load_ohlc(
 
     df = _drop_dead_bars(df, dataset_id)
 
+    if target_timeframe:
+        df = _build_target_timeframe(
+            df,
+            dataset_id=dataset_id,
+            target_timeframe=target_timeframe,
+            include_incomplete=include_incomplete,
+        )
+
     if len(df) > max_points:
         df = df.tail(max_points)
 
@@ -422,3 +451,42 @@ def load_ohlc(
         [ts.isoformat() for ts in df["timestamp"]] if "timestamp" in df.columns else []
     )
     return result
+
+
+def _build_target_timeframe(
+    df: pd.DataFrame,
+    *,
+    dataset_id: str,
+    target_timeframe: str,
+    include_incomplete: bool,
+) -> pd.DataFrame:
+    """Construct request-time candles for an already-validated dataset.
+
+    The dataset ID is the API's source of truth for native timeframe. For
+    example, ``crypto/BTCUSD/5m`` can generate ``1h`` by grouping twelve native
+    rows. We intentionally reject datasets without timestamps because candle
+    boundaries are temporal, not row-count based.
+    """
+
+    if "timestamp" not in df.columns:
+        raise ValueError(f"Cannot build {target_timeframe} candles without timestamps")
+
+    parts = dataset_id.split("/")
+    if len(parts) != 3:
+        raise ValueError(f"Invalid dataset ID format: {dataset_id}")
+    asset_class, _symbol, source_timeframe = parts
+    market = "24/7" if asset_class.lower() == "crypto" else "session"
+
+    # Most parquet timestamps are UTC. For non-crypto intraday data we anchor
+    # buckets to 09:30 UTC by default because this API layer does not yet carry
+    # exchange/timezone metadata. Ingestion should eventually provide the exact
+    # session calendar; until then, callers still get deterministic alignment.
+    session_start = None if market == "24/7" else "09:30"
+    return build_candles(
+        df,
+        target_timeframe=target_timeframe,
+        source_timeframe=source_timeframe,
+        market=market,
+        session_start=session_start,
+        include_incomplete=include_incomplete,
+    )
