@@ -91,6 +91,35 @@ def project(
     weights: list[float] = []
 
     for match in matches:
+        # Reuse a pre-populated forward window when one is already attached
+        # to the match. This is the cross-timeframe path: matches arrive
+        # with ``forward_window`` already filled in cumulative-return space
+        # against their *source* (resampled) history. Re-slicing ``history``
+        # with their indices would silently mix coordinate systems and
+        # produce a corrupt forecast cone. Forward windows that aren't the
+        # right length are still resized to match ``forward_bars`` so all
+        # paths align bar-for-bar before percentile aggregation.
+        existing = getattr(match, "forward_window", None)
+        if existing is not None and len(existing) > 0:
+            existing_arr = np.asarray(existing, dtype=np.float64)
+            if len(existing_arr) >= forward_bars:
+                returns = existing_arr[:forward_bars]
+            else:
+                # Pad shorter windows with their terminal value so the
+                # forecast cone stays defined for all bars without
+                # spuriously snapping back to zero.
+                pad_value = float(existing_arr[-1])
+                returns = np.concatenate(
+                    [
+                        existing_arr,
+                        np.full(forward_bars - len(existing_arr), pad_value),
+                    ]
+                )
+            match.forward_window = returns
+            paths.append(returns)
+            weights.append(match.confidence_score)
+            continue
+
         # The forward window starts immediately after the match ends
         future_start = match.end_idx
         future_end = future_start + forward_bars
