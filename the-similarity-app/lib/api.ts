@@ -220,6 +220,52 @@ export function mapForecastToCone(
   return cone;
 }
 
+/**
+ * Rebuild match forward windows from the full loaded series when the UI has
+ * more bars than the backend search payload could safely expose.
+ *
+ * The backend search endpoint intentionally receives only the pre-query
+ * history for custom/past-window searches, so it can rank analogs without
+ * seeing the selected query's future. Once ranking is complete, the browser
+ * already has the full chart series and can display what happened after each
+ * historical analog. Values remain centered cumulative returns, matching the
+ * backend `forward_window` contract.
+ */
+export function withForwardWindowsFromSeries(
+  response: SearchResponse,
+  seriesValues: number[],
+  forwardBars: number,
+): SearchResponse {
+  if (forwardBars <= 0 || seriesValues.length === 0 || response.matches.length === 0) {
+    return response;
+  }
+
+  return {
+    ...response,
+    matches: response.matches.map((match) => {
+      const anchorIndex = match.endIdx - 1;
+      if (anchorIndex < 0 || anchorIndex >= seriesValues.length) {
+        return match;
+      }
+
+      const anchor = seriesValues[anchorIndex];
+      if (!Number.isFinite(anchor) || anchor === 0) {
+        return match;
+      }
+
+      const future = seriesValues.slice(match.endIdx, match.endIdx + forwardBars);
+      if (future.length === 0) {
+        return match;
+      }
+
+      return {
+        ...match,
+        forwardWindow: future.map((value) => (value - anchor) / anchor),
+      };
+    }),
+  };
+}
+
 export async function getDashboardData(): Promise<DashboardData> {
   const apiBaseUrl = resolveApiBaseUrl();
   if (!apiBaseUrl) {
