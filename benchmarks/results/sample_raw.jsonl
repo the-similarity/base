@@ -1,0 +1,14 @@
+{"dataset": "nn5_daily", "series_id": "S1", "system": "the_similarity", "horizon": 7, "mae": 0.42, "smape": 11.3, "crps": 0.31, "mase": 0.18, "coverage_p10_p90": 0.81, "query_ms": 22.4, "peak_mb": 105.3}
+{"dataset": "nn5_daily", "series_id": "S2", "system": "the_similarity", "horizon": 7, "mae": 0.55, "smape": 13.1, "crps": 0.42, "mase": 0.21, "coverage_p10_p90": 0.79, "query_ms": 24.1, "peak_mb": 108.7}
+{"dataset": "nn5_daily", "series_id": "S3", "system": "the_similarity", "horizon": 7, "mae": 0.48, "smape": 12.5, "crps": 0.38, "mase": 0.20, "coverage_p10_p90": 0.80, "query_ms": 23.6, "peak_mb": 112.0}
+{"dataset": "nn5_daily", "series_id": "S1", "system": "seasonal_naive", "horizon": 7, "mae": 0.71, "smape": 19.2, "crps": 0.62, "mase": 0.42, "coverage_p10_p90": 0.55, "query_ms": 0.4, "peak_mb": 4.1}
+{"dataset": "nn5_daily", "series_id": "S2", "system": "seasonal_naive", "horizon": 7, "mae": 0.83, "smape": 21.5, "crps": 0.71, "mase": 0.45, "coverage_p10_p90": 0.60, "query_ms": 0.5, "peak_mb": 4.3}
+{"dataset": "nn5_daily", "series_id": "S3", "system": "seasonal_naive", "horizon": 7, "mae": 0.78, "smape": 20.4, "crps": 0.68, "mase": 0.43, "coverage_p10_p90": 0.58, "query_ms": 0.6, "peak_mb": 4.5}
+{"dataset": "m4_daily", "series_id": "D1", "system": "the_similarity", "horizon": 14, "mae": 12.3, "smape": 4.2, "crps": 9.8, "mase": 2.91, "coverage_p10_p90": 0.78, "query_ms": 31.2, "peak_mb": 145.0}
+{"dataset": "m4_daily", "series_id": "D2", "system": "the_similarity", "horizon": 14, "mae": 14.1, "smape": 5.0, "crps": 10.5, "mase": 3.05, "coverage_p10_p90": 0.81, "query_ms": 33.1, "peak_mb": 152.0}
+{"dataset": "m4_daily", "series_id": "D3", "system": "the_similarity", "horizon": 14, "mae": 13.0, "smape": 4.6, "crps": 10.0, "mase": 2.98, "coverage_p10_p90": 0.79, "query_ms": 32.0, "peak_mb": 148.0}
+{"dataset": "m4_daily", "series_id": "D1", "system": "seasonal_naive", "horizon": 14, "mae": 18.5, "smape": 6.8, "crps": 14.1, "mase": 3.51, "coverage_p10_p90": 0.62, "query_ms": 0.5, "peak_mb": 4.0}
+{"dataset": "m4_daily", "series_id": "D2", "system": "seasonal_naive", "horizon": 14, "mae": 20.1, "smape": 7.4, "crps": 15.0, "mase": 3.62, "coverage_p10_p90": 0.65, "query_ms": 0.6, "peak_mb": 4.1}
+{"dataset": "m4_daily", "series_id": "D3", "system": "seasonal_naive", "horizon": 14, "mae": 19.3, "smape": 7.0, "crps": 14.5, "mase": 3.55, "coverage_p10_p90": 0.63, "query_ms": 0.5, "peak_mb": 4.2}
+{"dataset": "spy_daily", "series_id": "SPY", "system": "the_similarity", "horizon": 5, "mae": 1.84, "smape": 0.42, "crps": 1.42, "mase": 0.91, "coverage_p10_p90": 0.80, "query_ms": 18.2, "peak_mb": 92.0}
+{"dataset": "spy_daily", "series_id": "SPY", "system": "seasonal_naive", "horizon": 5, "mae": 2.41, "smape": 0.55, "crps": 1.95, "mase": 1.18, "coverage_p10_p90": 0.40, "query_ms": 0.3, "peak_mb": 3.8}
