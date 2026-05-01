@@ -157,3 +157,127 @@ export function newGoodrunId(): string {
   const rand = Math.floor(Math.random() * 36 ** 4).toString(36).padStart(4, "0");
   return `goodrun-${ms}-${rand}`;
 }
+
+// ── Local mirror ──────────────────────────────────────────────────────
+//
+// Why a local mirror exists
+// -------------------------
+// The workstation's "Saved runs" left-rail panel needs the user's history
+// of saved runs to be present immediately on mount, even when the API is
+// offline (which is the demo-mode default for many deploys). Hitting
+// ``listGoodruns()`` on every mount is fine when the API is up but
+// produces an empty rail for any client without a configured backend —
+// the artifact loop ("save run, see it again tomorrow") collapses.
+//
+// The mirror writes a copy of every successful save into localStorage,
+// so the rail can render history offline. When the API is online,
+// callers merge API + local with API winning on id collisions (the
+// API record is the source of truth for shape; the local copy is just
+// an opportunistic cache).
+//
+// What's stored
+// -------------
+// The mirror persists the full {@link GoodrunRecord} returned by the
+// server (so we never have to reconstruct ``saved_at``, ``composite``,
+// ``lens_breakdown``, etc.). Single-user assumption: no per-user keying.
+// If we add multi-user later, the storage key takes a userId suffix.
+//
+// Failure mode
+// ------------
+// All localStorage access is try/catch — quota / SSR / private mode all
+// degrade silently. The mirror is opportunistic; losing it is acceptable
+// because the API is the durable record. The workstation's UI must work
+// with mirror = [].
+
+/** localStorage key for the mirror. Single bucket for the whole list. */
+export const GOODRUNS_LOCAL_KEY = "ts-goodruns-local";
+
+/**
+ * Soft cap on cached records. Older entries trim first. This is a
+ * cache, not the durable store, so a low cap is fine — clients with
+ * more saved runs than this should be reading from the API.
+ */
+export const GOODRUNS_LOCAL_MAX = 50;
+
+/**
+ * Read the local mirror, newest first. Returns ``[]`` for any failure.
+ *
+ * Uses {@link GoodrunRecord} as the persisted shape so the rail can
+ * render straight from this without a separate adapter — the wire
+ * format and the cache format are identical by design.
+ */
+export function listLocalGoodruns(): GoodrunRecord[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(GOODRUNS_LOCAL_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(isGoodrunRecord);
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Insert (or update) a record in the local mirror. Idempotent on
+ * {@link GoodrunRecord.id}: a second save with the same id replaces
+ * the previous entry rather than duplicating it. Order: newest first.
+ *
+ * Returns the resulting list so callers can update their UI state in
+ * one go without re-reading.
+ */
+export function saveLocalGoodrun(record: GoodrunRecord): GoodrunRecord[] {
+  const existing = listLocalGoodruns().filter((r) => r.id !== record.id);
+  const next = [record, ...existing].slice(0, GOODRUNS_LOCAL_MAX);
+  writeLocalGoodruns(next);
+  return next;
+}
+
+/**
+ * Remove a record from the local mirror by id. No-op when not present.
+ * The remote ``/goodruns`` record (if any) is unaffected — callers must
+ * separately call a delete API to remove the durable copy. Right now
+ * there is no such API; the local mirror is the only place a user can
+ * "forget" a run from the UI.
+ */
+export function removeLocalGoodrun(id: string): GoodrunRecord[] {
+  const next = listLocalGoodruns().filter((r) => r.id !== id);
+  writeLocalGoodruns(next);
+  return next;
+}
+
+/**
+ * Replace the whole mirror. Exposed for completeness and for tests;
+ * the workstation only ever calls {@link saveLocalGoodrun} and
+ * {@link removeLocalGoodrun}.
+ */
+export function writeLocalGoodruns(records: GoodrunRecord[]): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(GOODRUNS_LOCAL_KEY, JSON.stringify(records));
+  } catch {
+    // Quota / disabled / private mode — accept the loss.
+  }
+}
+
+/**
+ * Type-guard for a parsed record matching {@link GoodrunRecord}. Used
+ * to filter out corrupted entries on read; the shape of a single bad
+ * record must not poison the whole list.
+ */
+function isGoodrunRecord(v: unknown): v is GoodrunRecord {
+  if (!v || typeof v !== "object") return false;
+  const o = v as Record<string, unknown>;
+  return (
+    typeof o.id === "string" &&
+    typeof o.saved_at === "string" &&
+    typeof o.dataset === "string" &&
+    typeof o.horizon === "number" &&
+    typeof o.match_id === "string" &&
+    typeof o.query === "object" &&
+    typeof o.match === "object" &&
+    Array.isArray(o.match_after_values) &&
+    typeof o.lens_breakdown === "object"
+  );
+}
