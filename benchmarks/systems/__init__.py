@@ -22,24 +22,19 @@ from collections.abc import Callable
 
 from benchmarks.core import System
 from benchmarks.systems.engine import TheSimilarity
+
+# MatrixProfile now ships a numpy MASS fallback, so it loads
+# unconditionally — STUMPY is preferred at runtime when available, but
+# its absence no longer disables the adapter. Keeping the import at
+# module top-level (not lazy) makes the adapter discoverable in tests
+# and CLI on every platform.
+from benchmarks.systems.matrix_profile import MatrixProfile
 from benchmarks.systems.naive import SeasonalNaive
 
 ALL_SYSTEMS: dict[str, Callable[[], System]] = {
     "naive": SeasonalNaive,
+    "matrix_profile": MatrixProfile,
     "engine": TheSimilarity,
 }
 
-# STUMPY is an optional dep — register the adapter only if it imports
-# AND its numba/LLVM backing actually loads. On macOS in particular,
-# stumpy raises OSError (not ImportError) when its llvmlite shared lib
-# is unresolvable, so the guard catches both.
-try:  # pragma: no cover - import guard
-    import stumpy as _stumpy  # noqa: F401  - probe import + numba load
-
-    from benchmarks.systems.matrix_profile import MatrixProfile
-
-    ALL_SYSTEMS["matrix_profile"] = MatrixProfile
-except (ImportError, OSError):  # pragma: no cover
-    MatrixProfile = None  # type: ignore[assignment,misc]
-
-__all__ = ["ALL_SYSTEMS", "SeasonalNaive", "TheSimilarity", "MatrixProfile"]
+__all__ = ["ALL_SYSTEMS", "MatrixProfile", "SeasonalNaive", "TheSimilarity"]
