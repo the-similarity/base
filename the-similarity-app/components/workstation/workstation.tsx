@@ -31,7 +31,23 @@ import {
   isApiAvailable, fetchCatalog, fetchSeries, fetchOhlc, searchApi,
   mapMatchesToAnalogs, mapForecastToCone, mapScoreBreakdownToLenses,
 } from "../../lib/api";
-import { saveGoodrun, newGoodrunId, type GoodrunCreatePayload, type GoodrunLabel } from "../../lib/goodruns";
+import {
+  saveGoodrun,
+  listGoodruns,
+  listLocalGoodruns,
+  saveLocalGoodrun,
+  removeLocalGoodrun,
+  newGoodrunId,
+  type GoodrunCreatePayload,
+  type GoodrunLabel,
+  type GoodrunRecord,
+} from "../../lib/goodruns";
+import {
+  listEntries as listNotebookEntries,
+  addEntry as addNotebookEntry,
+  removeEntry as removeNotebookEntry,
+  type NotebookEntry,
+} from "../../lib/notebook";
 import type { CatalogItem, OhlcData } from "../../lib/types";
 import {
   parseUrlState,
@@ -44,6 +60,78 @@ import { LensRadar } from "./lens-radar";
 import { LensBars } from "./lens-bars";
 import { Sparkline } from "./sparkline";
 import { AnalogDetailDrawer } from "./analog-detail-drawer";
+import { NotebookPanel } from "./notebook-panel";
+import { SavedRunsPanel } from "./saved-runs-panel";
+
+/**
+ * localStorage key for the last-query snapshot.
+ *
+ * Stores the dataset + window + view-range the user was last on so the
+ * workstation can re-open in mid-thought instead of resetting to the
+ * default SPY 1d. URL params still win (share-links must be honored
+ * exactly), and individual fields are honored independently — a saved
+ * snapshot with only a dataset and no window won't paste old indices
+ * onto a different series.
+ *
+ * The shape is intentionally narrow: only the things a returning user
+ * would expect to find restored. ``settings.kAnalogs`` / ``horizon`` /
+ * ``theme`` already persist via ``ts-settings``; pinned analogs persist
+ * via ``ts-pinned:<query-key>`` and rehydrate after the first search.
+ */
+const LAST_QUERY_KEY = "ts-last-query";
+
+/**
+ * Persisted last-query shape. All fields optional so a partial write
+ * (e.g. dataset chosen but window not yet adjusted) decodes cleanly,
+ * and so a future addition can land without breaking existing reads.
+ */
+interface LastQuery {
+  dataset?: string;
+  windowStart?: number;
+  windowLen?: number;
+  viewStart?: number;
+  viewEnd?: number;
+}
+
+/**
+ * Read the last-query snapshot from localStorage. Returns ``{}`` for
+ * any failure (SSR, missing key, malformed JSON). The workstation
+ * treats this as a hint, not a contract — every field is optional and
+ * URL/defaults can override or fill gaps.
+ */
+function readLastQuery(): LastQuery {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = window.localStorage.getItem(LAST_QUERY_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") return {};
+    const out: LastQuery = {};
+    const o = parsed as Record<string, unknown>;
+    if (typeof o.dataset === "string") out.dataset = o.dataset;
+    if (typeof o.windowStart === "number") out.windowStart = o.windowStart | 0;
+    if (typeof o.windowLen === "number") out.windowLen = o.windowLen | 0;
+    if (typeof o.viewStart === "number") out.viewStart = o.viewStart | 0;
+    if (typeof o.viewEnd === "number") out.viewEnd = o.viewEnd | 0;
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * Write the last-query snapshot. Failures (quota, disabled storage)
+ * degrade silently — losing the snapshot is acceptable; crashing the
+ * workstation is not.
+ */
+function writeLastQuery(q: LastQuery): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(LAST_QUERY_KEY, JSON.stringify(q));
+  } catch {
+    // Accept the loss.
+  }
+}
 
 /** Settings shape passed from the app shell */
 export interface WorkstationSettings {
@@ -297,21 +385,35 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
    */
   const urlStateRef = useRef<WorkstationUrlState>(readInitialUrlState());
 
+  /*
+   * Last-query snapshot captured at mount.
+   *
+   * Read once via lazy ref so subsequent useState initializers can
+   * defer to it WITHOUT triggering a re-read on every render. Same
+   * priority pattern as urlStateRef: URL > lastQuery > defaults. We
+   * keep the snapshot in a ref because this snapshot is intent-at-
+   * mount; the durable copy is rewritten whenever (dataset, window,
+   * view) changes — see the persistence effect further down.
+   */
+  const lastQueryRef = useRef<LastQuery>(readLastQuery());
+
   // ── Data source state ──────────────────────────────────────────────
   const [isOnline, setIsOnline] = useState<boolean | null>(null); // null = checking
   const [catalog, setCatalog] = useState<CatalogItem[]>([]);
   /*
-   * Active dataset — URL override takes precedence over the default.
+   * Active dataset — URL > lastQuery > default.
    *
-   * If the share-link carries `?ds=...`, we initialize with it so the
-   * catalog-load effect fires against the right dataset immediately,
-   * sparing the user a flash-of-default-spy before the override applies.
-   * When the URL dataset doesn't exist in the catalog (checked after
-   * /catalog resolves), we fall back silently — see the catalog-ready
-   * effect below.
+   * If the share-link carries `?ds=...` it wins (share-links must restore
+   * exactly). Otherwise, restore the last dataset the user was on so
+   * reopening picks up mid-thought. Falls back to SPY 1d only when both
+   * are absent. Catalog-ready effect later silently downgrades to a
+   * known dataset if the restored one no longer exists in the catalog.
    */
   const [activeDataset, setActiveDataset] = useState(
-    () => urlStateRef.current.dataset ?? "stocks/spy/1d",
+    () =>
+      urlStateRef.current.dataset ??
+      lastQueryRef.current.dataset ??
+      "stocks/spy/1d",
   );
   const [loadedSeries, setLoadedSeries] = useState<DataPoint[]>(SERIES);
   const [loadedDates, setLoadedDates] = useState<string[]>([]);
@@ -417,18 +519,41 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
    * debounced URL-writer effect below), not a reactive input.
    */
   const [windowState, setWindowState] = useState(() => {
+    // Priority: URL > lastQuery > sensible default. We only honor the
+    // lastQuery indices when the LAST dataset matches the dataset we're
+    // restoring to — applying old indices to a different series would
+    // produce gibberish (mismatched bar positions). When dataset has
+    // changed, the post-series-load effect resets indices anyway.
     const u = urlStateRef.current;
-    const qs = u.queryStart;
-    const ql = u.queryLen;
-    if (qs !== undefined && ql !== undefined) {
-      return { start: qs, len: ql };
+    const lq = lastQueryRef.current;
+    if (u.queryStart !== undefined && u.queryLen !== undefined) {
+      return { start: u.queryStart, len: u.queryLen };
+    }
+    if (
+      lq.dataset !== undefined &&
+      lq.windowStart !== undefined &&
+      lq.windowLen !== undefined &&
+      lq.dataset ===
+        (urlStateRef.current.dataset ?? lq.dataset)
+    ) {
+      return { start: lq.windowStart, len: lq.windowLen };
     }
     return { start: Math.max(0, N - 240), len: 120 };
   });
   const [viewRange, setViewRange] = useState(() => {
     const u = urlStateRef.current;
+    const lq = lastQueryRef.current;
     if (u.viewStart !== undefined && u.viewEnd !== undefined) {
       return { start: u.viewStart, end: u.viewEnd };
+    }
+    if (
+      lq.dataset !== undefined &&
+      lq.viewStart !== undefined &&
+      lq.viewEnd !== undefined &&
+      lq.dataset ===
+        (urlStateRef.current.dataset ?? lq.dataset)
+    ) {
+      return { start: lq.viewStart, end: lq.viewEnd };
     }
     return { start: Math.max(0, N - 900), end: Math.max(0, N - 30) };
   });
@@ -466,6 +591,39 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
   const [hoverAnalog, setHoverAnalog] = useState<string | null>(null);
   const [crosshairIdx, setCrosshairIdx] = useState<number | null>(null);
   const [trustOpen, setTrustOpen] = useState(false);
+
+  /*
+   * Notebook entries — durable left-rail observations the user attaches
+   * to a query window. Hydrated synchronously from localStorage on
+   * mount so the panel renders populated on first paint (avoids the
+   * empty-state flash that would happen with a useEffect-based load).
+   *
+   * We don't watch storage events from other tabs: the workstation is
+   * intentionally single-tab; cross-tab sync would just race against
+   * itself when both tabs are visible.
+   */
+  const [notebookEntries, setNotebookEntries] = useState<NotebookEntry[]>(
+    () => listNotebookEntries(),
+  );
+
+  /*
+   * Saved-runs list shown in the left rail. Source of truth merges:
+   *   - The local mirror (always present, fast, works offline) — read
+   *     synchronously on mount so the rail is populated immediately.
+   *   - The remote ``/goodruns`` API (durable, may be empty when offline) —
+   *     fetched once after the API health-check resolves; on success we
+   *     merge with the local mirror, API records winning on id collisions
+   *     because the API is the durable record of truth.
+   *
+   * Save flow: ``handleSaveGoodrun`` POSTs to the API, then writes the
+   * returned record into the local mirror, then prepends it to this
+   * state. Failure of either layer doesn't block the other — local
+   * mirror writes are wrapped, and a remote save failure is bubbled to
+   * the drawer's error path (see existing handler).
+   */
+  const [savedRuns, setSavedRuns] = useState<GoodrunRecord[]>(() =>
+    listLocalGoodruns(),
+  );
   /*
    * Chart-settings popover. Opened by the gear button sitting opposite
    * the Fast/Candle toggle in the chart mode row. Keeps chart-only
@@ -729,6 +887,100 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
     settings.theme,
     pinned,
   ]);
+
+  /*
+   * Persist the last-query snapshot — the dataset + window + view that
+   * the user is currently looking at — to localStorage. On the next
+   * mount this is read by ``readLastQuery()`` and used to rehydrate the
+   * three useState initializers, so a returning user lands back where
+   * they were instead of at the default SPY 1d.
+   *
+   * Why a separate effect from the URL writer:
+   *   - The URL writer drops dataset = default and many other "default
+   *     means omit" fields so share-links stay short. The last-query
+   *     snapshot has the OPPOSITE rule: ALWAYS persist the dataset, even
+   *     if it's currently the default — without it, switching to SPY
+   *     and reopening would erase the previous dataset entirely.
+   *   - Debounce is the same 400ms (matches drag/click cadence; keeps
+   *     storage writes off the hot path).
+   *   - Pinned analogs are NOT included here. They already persist per
+   *     query under ``ts-pinned:<key>`` and rehydrate after the first
+   *     search; duplicating that into this snapshot would break the
+   *     per-query isolation guarantee.
+   */
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const id = window.setTimeout(() => {
+      writeLastQuery({
+        dataset: activeDataset,
+        windowStart: windowState.start,
+        windowLen: windowState.len,
+        viewStart: viewRange.start,
+        viewEnd: viewRange.end,
+      });
+    }, 400);
+    return () => window.clearTimeout(id);
+  }, [
+    activeDataset,
+    windowState.start,
+    windowState.len,
+    viewRange.start,
+    viewRange.end,
+  ]);
+
+  /*
+   * Saved-runs API hydration.
+   *
+   * Local mirror was read synchronously into state in the useState
+   * initializer above, so the rail already has data on first paint.
+   * After ``isApiAvailable`` resolves true, we additionally fetch the
+   * durable list from ``/goodruns`` and merge — API records win on id
+   * collisions, so a record present in both shows the API's shape.
+   *
+   * Records returned by the API but not in the local mirror are
+   * back-filled into the local mirror so the next mount has them
+   * available offline. We don't bound the back-fill explicitly: the
+   * mirror's own cap (GOODRUNS_LOCAL_MAX) trims it.
+   *
+   * No retry / no polling: this fires once on the isOnline transition
+   * to true. If the user wants fresh server data after that, they save
+   * a new run (which writes through both layers) or reload.
+   */
+  useEffect(() => {
+    if (isOnline !== true) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const remote = await listGoodruns();
+        if (cancelled) return;
+        setSavedRuns((prev) => {
+          // Build merged list: API records win on id collisions, local-only
+          // records preserved (so a save made offline doesn't disappear).
+          const byId = new Map<string, GoodrunRecord>();
+          for (const r of prev) byId.set(r.id, r);
+          for (const r of remote) byId.set(r.id, r); // API wins
+          // Newest first — sort by saved_at descending. Falls back to
+          // string comparison; saved_at is ISO so lex order = chrono.
+          const merged = Array.from(byId.values()).sort((a, b) =>
+            a.saved_at < b.saved_at ? 1 : a.saved_at > b.saved_at ? -1 : 0,
+          );
+          // Back-fill the local mirror with API records we didn't have.
+          // Iterates the API list (typically small) and skips records
+          // already in the local mirror to avoid redundant writes.
+          const localIds = new Set(prev.map((r) => r.id));
+          for (const r of remote) {
+            if (!localIds.has(r.id)) saveLocalGoodrun(r);
+          }
+          return merged;
+        });
+      } catch {
+        // Remote fetch failed — local mirror is already showing; nothing to do.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isOnline]);
 
   // ── Check API availability on mount ────────────────────────────────
   useEffect(() => {
@@ -1626,8 +1878,92 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
       composite: Number.isFinite(analog.composite) ? analog.composite : null,
       note: label,
     };
-    await saveGoodrun(payload);
+    const record = await saveGoodrun(payload);
+    /*
+     * Mirror the saved record into localStorage and prepend it to the
+     * left-rail saved-runs panel. This is what makes "save then come
+     * back tomorrow and see it" work — without the local mirror, the
+     * record only lives on the API and the rail wouldn't show it
+     * until a fresh ``listGoodruns`` fetch (which only fires on the
+     * isOnline transition, not on every save).
+     *
+     * Idempotent on id, so a retry of the same save replaces rather
+     * than duplicating the row in the rail.
+     */
+    saveLocalGoodrun(record);
+    setSavedRuns((prev) => {
+      const without = prev.filter((r) => r.id !== record.id);
+      return [record, ...without];
+    });
   }, [activeDataset, currentHorizon, loadedSeries, windowState.start, windowState.len]);
+
+  /*
+   * Notebook handlers.
+   *
+   * onAdd  — captures the CURRENT dataset + window so the entry knows
+   *          where it was written. Restoring it later puts the user
+   *          back at the same indices.
+   * onDelete — removes locally; there is no remote notebook layer.
+   * onRestore — switches the workstation's dataset to the entry's
+   *          dataset (if different) and sets the window indices. The
+   *          post-series-load effect will validate the indices fit
+   *          the loaded series; if they don't, the window resets
+   *          gracefully (this matches existing dataset-switch behavior).
+   */
+  const handleNotebookAdd = useCallback(
+    (text: string) => {
+      const next = addNotebookEntry({
+        text,
+        dataset: activeDataset,
+        windowStart: windowState.start,
+        windowEnd: windowState.start + windowState.len,
+      });
+      setNotebookEntries(next);
+    },
+    [activeDataset, windowState.start, windowState.len],
+  );
+  const handleNotebookDelete = useCallback((id: string) => {
+    setNotebookEntries(removeNotebookEntry(id));
+  }, []);
+  const handleNotebookRestore = useCallback((entry: NotebookEntry) => {
+    if (entry.dataset && entry.dataset !== "") {
+      setActiveDataset(entry.dataset);
+    }
+    setWindowState({
+      start: entry.windowStart,
+      len: Math.max(1, entry.windowEnd - entry.windowStart),
+    });
+  }, []);
+
+  /*
+   * Saved-runs handlers.
+   *
+   * onRestore — set dataset + window indices from the saved query
+   *           window. The pin-load effect (keyed by
+   *           ``ts-pinned:<dataset>:<start>:<len>``) will then
+   *           rehydrate any pinned analogs the user had set when
+   *           they originally saved this run, closing the
+   *           "save then come back and continue" loop.
+   * onDelete — removes from the local mirror only. The durable API
+   *           record is unaffected because there is no remote
+   *           delete endpoint yet; "forget" here means "stop showing
+   *           in my rail," not "erase from the system."
+   */
+  const handleSavedRunRestore = useCallback((record: GoodrunRecord) => {
+    if (record.dataset) setActiveDataset(record.dataset);
+    const start = record.query.start_idx;
+    const end = record.query.end_idx;
+    if (
+      Number.isFinite(start) &&
+      Number.isFinite(end) &&
+      end > start
+    ) {
+      setWindowState({ start, len: end - start });
+    }
+  }, []);
+  const handleSavedRunDelete = useCallback((id: string) => {
+    setSavedRuns(removeLocalGoodrun(id));
+  }, []);
 
   // Query metadata for sidebar
   const queryMeta = useMemo(() => {
@@ -1998,15 +2334,30 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
           </div>
         </div>
 
-        <div className="side__section">
-          <div className="side__header"><span className="label">Notebook</span></div>
-          <div style={{ fontSize: 12, color: "var(--ink-2)", lineHeight: 1.55 }}>
-            <em className="serif" style={{ fontSize: 13 }}>Nine lenses agree</em> that late-&apos;18 Q4 and
-            pre-GFC &apos;07 carry the most structural weight in this query&apos;s analog set.
-            The cone tightens sharply in week 3 &mdash;
-            <span className="mono" style={{ fontSize: 11 }}> dispersion drops 34%</span>.
-          </div>
-        </div>
+        {/*
+         * Saved runs — durable goodrun history. Click a row to restore
+         * the dataset + window the user was on when they saved.
+         * Source merges API records (when online) with the local
+         * mirror; the merge happens in the saved-runs hydration effect.
+         */}
+        <SavedRunsPanel
+          records={savedRuns}
+          onRestore={handleSavedRunRestore}
+          onDelete={handleSavedRunDelete}
+        />
+
+        {/*
+         * Notebook — durable free-text observations attached to a
+         * dataset + window. Replaces the previously hardcoded prose
+         * paragraph; the user actually writes here now, and the
+         * notes survive sessions.
+         */}
+        <NotebookPanel
+          entries={notebookEntries}
+          onAdd={handleNotebookAdd}
+          onDelete={handleNotebookDelete}
+          onRestore={handleNotebookRestore}
+        />
       </aside>
 
       {/* ── MAIN ─────────────────────────────────────────────── */}
