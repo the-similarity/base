@@ -1226,6 +1226,40 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
   );
 
   /*
+   * Hoisted so every display surface can read the current top-K/horizon.
+   * Horizon changes are a view concern after a search has landed: the
+   * ranked analogs stay fixed, while their visible continuation is rebuilt
+   * from loadedSeries below.
+   */
+  const currentK = settings.kAnalogs || 6;
+  const currentHorizon = settings.horizon || 60;
+
+  /*
+   * Analog continuations at the current horizon.
+   *
+   * API searches may have been run at a shorter horizon, and the backend
+   * only returns the forward window it was asked for. For chart display we
+   * can safely rebuild "what happened after this historical match" from the
+   * already-loaded full series because ranking is already complete. This is
+   * the path that keeps Lumen and the standard workstation drawing forward
+   * analog lines when the user grows Horizon from 60 to 90/120/etc.
+   */
+  const analogsAtCurrentHorizon: AnalogMatch[] = useMemo(() => {
+    if (loadedSeries.length === 0 || analogs.length === 0) return analogs;
+    return analogs.map((a) => {
+      const anchorIdx = a.startIdx + a.priceWindow.length;
+      const afterExt = loadedSeries
+        .slice(anchorIdx, anchorIdx + currentHorizon)
+        .map(dp => dp.p);
+      const anchor = a.priceWindow[a.priceWindow.length - 1] ?? 0;
+      const afterReturn = afterExt.length > 0 && anchor !== 0
+        ? afterExt[afterExt.length - 1] / anchor - 1
+        : a.afterReturn;
+      return { ...a, after: afterExt, afterReturn };
+    });
+  }, [analogs, loadedSeries, currentHorizon]);
+
+  /*
    * Resolve the currently-inspected analog.
    *
    * We look up by id on each render rather than caching the analog itself,
@@ -1275,21 +1309,13 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
    * memos that depend on `effectiveAnalogs` don't thrash on every render.
    */
   const effectiveAnalogs: AnalogMatch[] = useMemo(() => {
-    if (pinned.size === 0) return analogs;
-    const filtered = analogs.filter(a => pinned.has(a.id));
+    if (pinned.size === 0) return analogsAtCurrentHorizon;
+    const filtered = analogsAtCurrentHorizon.filter(a => pinned.has(a.id));
     // Degrade: a non-empty pin set that resolved to zero results falls
     // back to the full set so the UI doesn't blank out. The banner will
     // tell the user the pins didn't match any current analogs.
-    return filtered.length > 0 ? filtered : analogs;
-  }, [analogs, pinned]);
-
-  /*
-   * Hoisted so the cone useMemo below can read the current horizon/K
-   * without a TDZ reference. These are cheap derivations of `settings`
-   * and are read by the view-range effect and isDirty below as well.
-   */
-  const currentK = settings.kAnalogs || 6;
-  const currentHorizon = settings.horizon || 60;
+    return filtered.length > 0 ? filtered : analogsAtCurrentHorizon;
+  }, [analogsAtCurrentHorizon, pinned]);
 
   /*
    * Forecast cone — always recomputed client-side from analogs.
@@ -1328,14 +1354,7 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
     }
     const queryLastIdx = windowState.start + windowState.len - 1;
     const queryLastPrice = loadedSeries[queryLastIdx]?.p ?? 1;
-    const extended = effectiveAnalogs.map(a => {
-      const anchorIdx = a.startIdx + a.priceWindow.length;
-      const afterExt = loadedSeries
-        .slice(anchorIdx, anchorIdx + currentHorizon)
-        .map(dp => dp.p);
-      return { ...a, after: afterExt };
-    });
-    return buildCone(extended, currentHorizon, queryLastPrice);
+    return buildCone(effectiveAnalogs, currentHorizon, queryLastPrice);
   }, [
     effectiveAnalogs,
     isOnline,
@@ -1516,7 +1535,7 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
   const analogOverlays = useMemo((): AnalogOverlay[] => {
     const visibleIds = new Set(activeAnalogIds);
     if (hoverAnalog) visibleIds.add(hoverAnalog);
-    return analogs
+    return analogsAtCurrentHorizon
       // We iterate with the ORIGINAL index so each overlay carries its
       // stable top-K rank. If we filtered first, the user-visible
       // subset would renumber (rank-3-only becomes "rank 0" in the
@@ -1525,7 +1544,7 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
       // render red).
       .map((a, originalIdx) => ({ ...a, pinned: pinned.has(a.id), rank: originalIdx }))
       .filter(a => visibleIds.has(a.id));
-  }, [analogs, activeAnalogIds, hoverAnalog, pinned]);
+  }, [analogsAtCurrentHorizon, activeAnalogIds, hoverAnalog, pinned]);
 
   const togglePin = (id: string) => {
     setPinned(prev => {
