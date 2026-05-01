@@ -526,6 +526,8 @@ def _resolve_series(
 
 
 def execute_search(request: SearchRequest) -> SearchResponse:
+    from fastapi import HTTPException
+
     try:
         query_values = _resolve_series(
             getattr(request, "query_values", None),
@@ -542,8 +544,6 @@ def execute_search(request: SearchRequest) -> SearchResponse:
             "history",
         )
     except ValueError as exc:
-        from fastapi import HTTPException
-
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     search_kwargs: dict[str, Any] = {}
@@ -558,14 +558,61 @@ def execute_search(request: SearchRequest) -> SearchResponse:
     if request.active_methods:
         search_kwargs["active_methods"] = request.active_methods
 
-    results = the_similarity.search(
-        query=query_values,
-        history=history_values,
-        top_k=request.top_k,
-        weights=request.weights or None,
-        exclude_self=request.exclude_self,
-        **search_kwargs,
-    )
+    # ── Cross-timeframe branch ─────────────────────────────────────────
+    # When the caller supplies a non-empty timeframes list, we need a
+    # DatetimeIndex on the history so the engine can resample. The dates
+    # come from request.history_dates (1:1 with history_values) and must
+    # be present + the same length as the values array.
+    if request.timeframes:
+        if not request.history_dates:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "history_dates is required when timeframes is set "
+                    "(cross-timeframe search needs a DatetimeIndex to resample)"
+                ),
+            )
+        if len(request.history_dates) != len(history_values):
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"history_dates length ({len(request.history_dates)}) "
+                    f"must equal history_values length ({len(history_values)})"
+                ),
+            )
+
+        try:
+            history_dates_np = np.array(request.history_dates, dtype="datetime64[ns]")
+        except (ValueError, TypeError) as exc:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Failed to parse history_dates as ISO timestamps: {exc}",
+            ) from exc
+
+        # cross_timeframe_search resamples history per-timeframe, scales
+        # the query window proportionally via np.interp, and merges +
+        # dedupes matches across the union. Each match carries a
+        # source_timeframe tag we ignore at the API surface today.
+        from the_similarity.io.loader import TimeSeries
+
+        history_ts = TimeSeries(values=history_values, dates=history_dates_np)
+        results = the_similarity.cross_timeframe_search(
+            query=query_values,
+            history=history_ts,
+            timeframes=request.timeframes,
+            top_k=request.top_k,
+            forward_bars=request.forward_bars,
+            **search_kwargs,
+        )
+    else:
+        results = the_similarity.search(
+            query=query_values,
+            history=history_values,
+            top_k=request.top_k,
+            weights=request.weights or None,
+            exclude_self=request.exclude_self,
+            **search_kwargs,
+        )
 
     forecast = the_similarity.project(
         matches=results,
