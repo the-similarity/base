@@ -198,15 +198,11 @@ class TestMatrixProfile:
     """Smoke test on a 200-bar series with an embedded motif."""
 
     def test_smoke_embedded_motif(self):
-        # STUMPY relies on numba + llvmlite. On platforms where the
-        # native libs cannot be loaded the import raises OSError (not
-        # ImportError), so we catch both. The skip mirrors what
-        # benchmarks/systems/__init__.py does at registration time.
-        try:
-            import stumpy  # noqa: F401  # probe load of numba/llvmlite
-            from benchmarks.systems.matrix_profile import MatrixProfile
-        except (ImportError, OSError):  # pragma: no cover - env-dependent
-            pytest.skip("STUMPY unavailable in this environment")
+        # MatrixProfile now ships a numpy MASS fallback so it works on
+        # platforms where STUMPY's numba/llvmlite stack is broken (e.g.
+        # macOS conda envs missing libllvmlite.dylib). The adapter
+        # picks the fastest available implementation at call time.
+        from benchmarks.systems.matrix_profile import MatrixProfile
 
         # Construct a series where the LAST 20 bars match an earlier
         # sinusoidal motif starting at index 50. The MP forecaster
