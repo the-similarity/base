@@ -218,21 +218,24 @@ def _find_lint_errors() -> str:
 # ── Source 3: Planner agent ─────────────────────────────────────────
 
 
-PLANNER_PROMPT = """\
+PLANNER_PROMPT_TEMPLATE = """\
 You are a senior engineer analyzing The Similarity codebase to find high-value tasks.
 
-Look at:
-- Recent git log (last 20 commits) for momentum and context
-- Open issues or known gaps
-- Code quality: any modules that are thin, untested, or have stale patterns
-- The project's CLAUDE.md for architecture and current state
+## Recent git log (last 20 commits)
+{git_log}
+
+## CLAUDE.md (architecture + current state)
+{claude_md}
+
+## Your task
+Analyze the above context and propose up to 5 high-value, well-scoped tasks.
 
 Output ONLY a JSON array of task objects. Each task:
-{
+{{
   "id": "kebab-case-slug",
   "title": "type: short PR title",
   "prompt": "Full detailed prompt for an autonomous agent..."
-}
+}}
 
 Rules:
 - Max 5 tasks. Quality over quantity.
@@ -244,36 +247,71 @@ Rules:
 """
 
 
+def _build_planner_prompt() -> str:
+    """Build the planner prompt with git log and CLAUDE.md pre-injected.
+
+    Pre-populating context avoids tool calls entirely, so the subprocess
+    never hangs waiting for interactive permission approvals.
+    """
+    import subprocess as _sp
+
+    try:
+        git_log = _sp.check_output(
+            ["git", "log", "--oneline", "-20"],
+            cwd=str(REPO_ROOT), text=True, timeout=10,
+        )
+    except Exception:
+        git_log = "(git log unavailable)"
+
+    claude_md_path = REPO_ROOT / "CLAUDE.md"
+    try:
+        claude_md = claude_md_path.read_text(encoding="utf-8")[:4000]
+    except Exception:
+        claude_md = "(CLAUDE.md unavailable)"
+
+    return PLANNER_PROMPT_TEMPLATE.format(git_log=git_log, claude_md=claude_md)
+
+
 async def discover_from_planner(cfg: OrchestratorConfig) -> list[dict]:
     """
     Ask Claude to analyze the repo and propose tasks.
 
     Runs claude CLI in --print mode (no worktree needed — read-only analysis).
-    Parses the JSON output into task dicts.
+    Context (git log, CLAUDE.md) is pre-injected into the prompt so the
+    subprocess never needs tool calls, avoiding interactive approval hangs.
     """
+    prompt = _build_planner_prompt()
+
+    # Run from /tmp so claude doesn't auto-load the repo's CLAUDE.md,
+    # which would trigger multi-turn git/file tool calls that hang on
+    # permission prompts. All needed context is pre-injected into the prompt.
+    # Disallow all tools — claude must answer from injected context alone.
     cmd = [
         CLAUDE_BIN,
         "--print",
         "--model", cfg.model,
-        "--permission-mode", "bypassPermissions",
         "--output-format", "json",
-        PLANNER_PROMPT,
+        "--disallowedTools", "Bash,Edit,Write,Read,Glob,Grep,WebSearch,WebFetch",
     ]
 
     try:
         proc = await asyncio.create_subprocess_exec(
             *cmd,
+            stdin=asyncio.subprocess.PIPE,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
-            cwd=str(REPO_ROOT),
+            cwd="/tmp",  # neutral cwd — prevents repo CLAUDE.md auto-load
         )
-        stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=120)
+        stdout, stderr = await asyncio.wait_for(
+            proc.communicate(input=prompt.encode()), timeout=120
+        )
     except (asyncio.TimeoutError, Exception) as e:
-        print(f"  [discover] Planner agent failed: {e}")
+        print(f"  [discover] Planner agent failed ({type(e).__name__}): {e}")
         return []
 
     if proc.returncode != 0:
-        print(f"  [discover] Planner agent exited {proc.returncode}")
+        err = stderr.decode(errors="replace").strip()
+        print(f"  [discover] Planner agent exited {proc.returncode}: {err[:200]}")
         return []
 
     # Parse JSON from claude's output

@@ -46,9 +46,10 @@ class OrchestratorConfig:
     codex_model:  Optional Codex model override. Leave unset to use the user's
                   Codex CLI profile default.
 
-    permission_mode: Claude CLI permission mode. "bypassPermissions" lets agents
-                     run without interactive approval. Only safe in sandboxed
-                     repos — this is a local dev repo, so it's fine.
+    permission_mode: Claude CLI permission mode. "dontAsk" auto-approves all
+                     tool calls without interactive prompts and works under
+                     root (unlike "bypassPermissions" which maps to
+                     --dangerously-skip-permissions and is blocked for root).
     """
 
     max_parallel: int = 5
@@ -56,7 +57,7 @@ class OrchestratorConfig:
     timeout_minutes: int = 30
     model: str = "sonnet"
     codex_model: str | None = None
-    permission_mode: str = "bypassPermissions"
+    permission_mode: str = "dontAsk"
     codex_sandbox: str = "workspace-write"
     codex_worktree_root: Path = REPO_ROOT.parent / ".similarity-worktrees"
 
