@@ -17,6 +17,7 @@ import {
   formatBarCount,
   parseIsoOrNull,
   isStale,
+  normalizeGeneratedTimeframe,
   formatShortDate,
   formatUpdatedAt,
   offlineSyntheticCatalog,
@@ -96,6 +97,30 @@ describe("parseIsoOrNull", () => {
 
   it("returns null for garbage input (no 'Invalid Date' leak)", () => {
     expect(parseIsoOrNull("not-a-date")).toBeNull();
+  });
+});
+
+describe("normalizeGeneratedTimeframe", () => {
+  it("returns null for native / blank input", () => {
+    expect(normalizeGeneratedTimeframe("")).toBeNull();
+    expect(normalizeGeneratedTimeframe("   ")).toBeNull();
+    expect(normalizeGeneratedTimeframe("native")).toBeNull();
+    expect(normalizeGeneratedTimeframe("NATIVE")).toBeNull();
+  });
+
+  it("canonicalizes fixed minute/hour/day/week timeframes", () => {
+    expect(normalizeGeneratedTimeframe("45m")).toBe("45m");
+    expect(normalizeGeneratedTimeframe("2 H")).toBe("2h");
+    expect(normalizeGeneratedTimeframe("d")).toBe("1d");
+    expect(normalizeGeneratedTimeframe("1W")).toBe("1w");
+  });
+
+  it("rejects unsupported or non-positive values", () => {
+    expect(normalizeGeneratedTimeframe("0m")).toBeNull();
+    expect(normalizeGeneratedTimeframe("-1h")).toBeNull();
+    expect(normalizeGeneratedTimeframe("1M")).toBeNull();
+    expect(normalizeGeneratedTimeframe("1mo")).toBeNull();
+    expect(normalizeGeneratedTimeframe("banana")).toBeNull();
   });
 });
 

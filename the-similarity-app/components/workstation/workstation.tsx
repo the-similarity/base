@@ -163,6 +163,35 @@ export function isStale(
 }
 
 /**
+ * Normalize a user-entered generated timeframe for API requests.
+ *
+ * Workstation/Lumen treat blank input and "native" as "use the parquet's
+ * stored timeframe". Non-empty values are trimmed and canonicalized to the
+ * backend candle builder's fixed-duration grammar:
+ *   - minutes/hours/days/weeks: 5m, 45m, 1h, 4h, 1d, 1w
+ *   - a missing count means 1, so "h" becomes "1h"
+ *
+ * Calendar months are intentionally not accepted here because the engine's
+ * candle builder only supports fixed durations. Returning null for invalid
+ * input keeps the UI on the native dataset instead of sending a doomed
+ * request on every keystroke; the placeholder tells the user the accepted
+ * shape.
+ */
+export function normalizeGeneratedTimeframe(value: string): string | null {
+  const raw = value.trim();
+  if (!raw) return null;
+  if (raw.toLowerCase() === "native") return null;
+
+  const match = raw.match(/^(\d+)?\s*([mhdwHDW])$/);
+  if (!match) return null;
+  const count = Number.parseInt(match[1] ?? "1", 10);
+  if (!Number.isFinite(count) || count <= 0) return null;
+
+  const unit = match[2].toLowerCase();
+  return `${count}${unit}`;
+}
+
+/**
  * Format a short ISO date as "YYYY-MM-DD" (or "—" if null).
  *
  * The dropdown item cards render a compact `startDate → endDate` range
@@ -329,6 +358,19 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
   // Scoped to the dropdown panel — closing the dropdown resets it so
   // re-opening always starts fresh.
   const [datasetSearch, setDatasetSearch] = useState("");
+  /*
+   * Optional request-time candle timeframe for Workstation/Lumen.
+   *
+   * The selected dataset remains the source parquet (for example
+   * stocks/spy/5m). When this input normalizes to a coarser timeframe
+   * (for example 1h), the API loads `/series` and `/ohlc` with
+   * `target_timeframe=1h`, causing the backend candle builder to
+   * aggregate candles in memory for this request. This is deliberately
+   * not catalog state and not parquet persistence: users can experiment
+   * with any valid fixed timeframe without mutating the data registry.
+   */
+  const [generatedTimeframeInput, setGeneratedTimeframeInput] = useState("");
+  const generatedTimeframe = normalizeGeneratedTimeframe(generatedTimeframeInput);
 
   // ── Search state ───────────────────────────────────────────────────
   const [searching, setSearching] = useState(false);
@@ -761,6 +803,12 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
       const parts = activeDataset.split("/");
       if (parts.length !== 3) return;
       const [assetClass, symbol, timeframe] = parts;
+      // If the user asks for the native timeframe explicitly (or enters
+      // an invalid partial value while typing), omit target_timeframe so
+      // the backend reads the parquet directly.
+      const requestedTimeframe = generatedTimeframe && generatedTimeframe !== timeframe
+        ? { targetTimeframe: generatedTimeframe }
+        : {};
 
       try {
         // Fetch series + OHLC in parallel. OHLC is best-effort: if the
@@ -768,8 +816,8 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
         // render as a line. `Promise.allSettled` keeps the failure
         // isolated so the line view still loads.
         const [seriesRes, ohlcRes] = await Promise.allSettled([
-          fetchSeries(assetClass, symbol, timeframe),
-          fetchOhlc(assetClass, symbol, timeframe),
+          fetchSeries(assetClass, symbol, timeframe, "close", requestedTimeframe),
+          fetchOhlc(assetClass, symbol, timeframe, requestedTimeframe),
         ]);
         if (cancelled) return;
         if (seriesRes.status !== "fulfilled") throw seriesRes.reason;
@@ -820,7 +868,7 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
     }
     load();
     return () => { cancelled = true; };
-  }, [isOnline, activeDataset]);
+  }, [isOnline, activeDataset, generatedTimeframe]);
 
   /*
    * Unified manual-search entry point.
@@ -1075,8 +1123,9 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
    */
   const pinKey = useMemo(() => {
     if (!lastSearch) return null;
-    return `ts-pinned:${activeDataset}:${lastSearch.start}:${lastSearch.len}`;
-  }, [activeDataset, lastSearch]);
+    const tfScope = generatedTimeframe ?? "native";
+    return `ts-pinned:${activeDataset}:${tfScope}:${lastSearch.start}:${lastSearch.len}`;
+  }, [activeDataset, generatedTimeframe, lastSearch]);
 
   /*
    * Load persisted pin set on key change.
@@ -1609,9 +1658,15 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
   // Dataset label for display
   const datasetLabel = useMemo(() => {
     const parts = activeDataset.split("/");
-    if (parts.length === 3) return `${parts[1].toUpperCase()} \u00B7 ${parts[2]}`;
+    if (parts.length === 3) {
+      const nativeTimeframe = parts[2];
+      const displayedTimeframe = generatedTimeframe && generatedTimeframe !== nativeTimeframe
+        ? generatedTimeframe
+        : nativeTimeframe;
+      return `${parts[1].toUpperCase()} \u00B7 ${displayedTimeframe}`;
+    }
     return "SPX \u00B7 daily";
-  }, [activeDataset]);
+  }, [activeDataset, generatedTimeframe]);
 
   // Catalog source for the dropdown.
   //
@@ -1648,6 +1703,7 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
       ) ?? null
     );
   }, [dropdownCatalog, activeDataset]);
+  const nativeDatasetTimeframe = activeDataset.split("/")[2] ?? "1d";
 
   // ── Banner visibility logic ────────────────────────────────────────
   // Offline banner: API is confirmed down (isOnline === false). We avoid
@@ -1899,6 +1955,48 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
               </div>
             </div>
           )}
+          <div className="tf-builder" aria-label="Generated candle timeframe">
+            <div className="tf-builder__header">
+              <span className="label">TFs</span>
+              <span className="mono">
+                {generatedTimeframe && generatedTimeframe !== nativeDatasetTimeframe
+                  ? `generated ${generatedTimeframe}`
+                  : `native ${nativeDatasetTimeframe}`}
+              </span>
+            </div>
+            <div className="tf-builder__presets" role="group" aria-label="Timeframe presets">
+              {["", "15m", "30m", "1h", "4h", "1d"].map(tf => {
+                const isNative = tf === "";
+                const active = isNative
+                  ? !generatedTimeframe || generatedTimeframe === nativeDatasetTimeframe
+                  : generatedTimeframe === tf;
+                return (
+                  <button
+                    key={tf || "native"}
+                    type="button"
+                    className="tf-builder__btn"
+                    data-active={active ? "true" : undefined}
+                    onClick={() => setGeneratedTimeframeInput(tf)}
+                    title={
+                      isNative
+                        ? `Use stored ${nativeDatasetTimeframe} parquet candles`
+                        : `Build ${tf} candles from the stored ${nativeDatasetTimeframe} parquet`
+                    }
+                  >
+                    {isNative ? "Native" : tf}
+                  </button>
+                );
+              })}
+            </div>
+            <input
+              type="text"
+              className="tf-builder__input"
+              value={generatedTimeframeInput}
+              onChange={e => setGeneratedTimeframeInput(e.target.value)}
+              placeholder="Custom TF, e.g. 45m or 2h"
+              aria-label="Custom generated candle timeframe"
+            />
+          </div>
         </div>
 
         <div className="side__section">

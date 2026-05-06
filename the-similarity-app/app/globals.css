@@ -2939,6 +2939,71 @@ input, select, textarea { font: inherit; color: inherit; }
   flex: 0 0 auto;
 }
 
+/* Generated timeframe builder for Workstation/Lumen.
+
+   This control does not select a different catalog dataset. It keeps the
+   current source parquet and asks the API to aggregate request-time candles
+   with `target_timeframe`. That distinction is why the status line says
+   "native 5m" or "generated 1h" instead of pretending a generated TF is a
+   saved catalog entry. */
+.tf-builder {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.tf-builder__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+.tf-builder__header .mono {
+  font-size: 10px;
+  color: var(--ink-3);
+  letter-spacing: .04em;
+}
+.tf-builder__presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.tf-builder__btn {
+  font-family: var(--mono, ui-monospace, SFMono-Regular, monospace);
+  font-size: 10.5px;
+  letter-spacing: .04em;
+  padding: 4px 7px;
+  border: 1px solid var(--rule, #d9d6ce);
+  border-radius: 2px;
+  background: var(--bg);
+  color: var(--ink-2);
+  cursor: pointer;
+  font-variant-numeric: tabular-nums;
+}
+.tf-builder__btn:hover:not([data-active="true"]) {
+  background: var(--bg-hover);
+}
+.tf-builder__btn[data-active="true"] {
+  background: var(--ink);
+  color: var(--bg);
+  border-color: var(--ink);
+}
+.tf-builder__input {
+  width: 100%;
+  border: 1px solid var(--rule, #d9d6ce);
+  border-radius: 3px;
+  background: var(--surface-1, #fff);
+  color: var(--ink);
+  font-family: var(--mono, ui-monospace, SFMono-Regular, monospace);
+  font-size: 11px;
+  padding: 6px 8px;
+  min-height: 30px;
+}
+.tf-builder__input:focus-visible {
+  border-color: var(--ink-3);
+  outline: none;
+}
+
 /* Popover panel that opens when the trigger is clicked. We use a
    simple in-flow block (not position:absolute) so it doesn't overflow
    the scroll container of the sidebar — users at 768-1023px see it
