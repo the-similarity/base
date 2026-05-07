@@ -172,7 +172,7 @@ export default function FinanceReviewsPage() {
                   <th className="portfolio-table__th">Trust</th>
                   <th className="portfolio-table__th">Status</th>
                   <th className="portfolio-table__th">Date</th>
-                  <th className="portfolio-table__th">Signal</th>
+                  <th className="portfolio-table__th">Pattern</th>
                 </tr>
               </thead>
               <tbody>

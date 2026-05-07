@@ -276,16 +276,16 @@ export function DecideSurface() {
     <div className="surface">
       <div className="surface__eyebrow">
         <span className="label label-ink">06 &middot; Decide</span>
-        <span className="label">Signal ledger</span>
+        <span className="label">Research ledger</span>
       </div>
-      <h1 className="surface__title">From <em>analog</em> to action &mdash; with a receipt.</h1>
+      <h1 className="surface__title">From <em>analog</em> to research note &mdash; with a receipt.</h1>
       <p className="surface__lede">
-        Every signal is bound to the query, the analog set, and the lens readings that produced it.
+        Every research note is bound to the query, the analog set, and the lens readings that produced it.
         A receipt you can show a PM, a CIO, or a regulator.
       </p>
       <div className="ledger">
         <div className="ledger__head">
-          <span>Date</span><span>Signal</span><span>Horizon</span><span>Trust</span><span>Return</span><span>Status</span>
+          <span>Date</span><span>Note</span><span>Horizon</span><span>Trust</span><span>Return</span><span>Status</span>
         </div>
         {signals.map(s => (
           <div key={s[1]} className="ledger__row">

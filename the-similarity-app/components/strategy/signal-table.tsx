@@ -32,7 +32,7 @@ export function SignalTable({ signals }: SignalTableProps) {
         <div className="strategy-empty">
           <div className="strategy-empty-icon">&#x25C9;</div>
           <div className="strategy-empty-text">
-            Select a strategy and apply configuration to generate signals
+            Select a strategy and apply configuration to run a backtest
           </div>
         </div>
       </div>
@@ -42,9 +42,9 @@ export function SignalTable({ signals }: SignalTableProps) {
   return (
     <div className="strategy-signals">
       <div className="strategy-signals-header">
-        <span className="strategy-signals-title">Signal Preview</span>
+        <span className="strategy-signals-title">Match Preview</span>
         <span className="strategy-signals-count">
-          {signals.length} signal{signals.length !== 1 ? "s" : ""}
+          {signals.length} match{signals.length !== 1 ? "es" : ""}
         </span>
       </div>
 
