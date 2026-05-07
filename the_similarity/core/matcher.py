@@ -363,7 +363,9 @@ def _apply_latent_regime_adjustment(
         candidate.latent_regime = infer_latent_regime(candidate.raw_series)
         candidate.regime = candidate.latent_regime.dominant_regime
 
-    similarity = regime_probability_similarity(query_latent_regime, candidate.latent_regime)
+    similarity = regime_probability_similarity(
+        query_latent_regime, candidate.latent_regime
+    )
     candidate.latent_regime_similarity = similarity
 
     keep = 1.0 - config.latent_regime_weight + config.latent_regime_weight * similarity

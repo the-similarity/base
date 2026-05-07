@@ -131,9 +131,9 @@ def _rank_results(results: list[GeneratorResult]) -> list[GeneratorResult]:
     sorted_results = sorted(
         results,
         key=lambda r: (
-            r.error is not None,      # False (0) < True (1) — errors go last
-            -r.fidelity_score,        # Negate for descending sort
-            r.utility_gap,            # Ascending — lower gap is better
+            r.error is not None,  # False (0) < True (1) — errors go last
+            -r.fidelity_score,  # Negate for descending sort
+            r.utility_gap,  # Ascending — lower gap is better
         ),
     )
     for i, r in enumerate(sorted_results, start=1):
@@ -162,6 +162,7 @@ def _resolve_generator(name: str) -> Any:
     # Try copula — may not exist yet (Agent 1 is adding it in parallel).
     try:
         from the_similarity.synthetic.copula import GaussianCopulaGenerator  # type: ignore[import-not-found]
+
         _REGISTRY["gaussian_copula"] = lambda: GaussianCopulaGenerator()
     except ImportError:
         pass
@@ -235,6 +236,7 @@ def compare_generators(
 
             try:
                 from the_similarity.synthetic.fidelity import FidelityScorecard
+
                 fidelity_report = FidelityScorecard().evaluate(real, synth)
                 fidelity_score = fidelity_report.overall_score
             except ImportError:
@@ -242,6 +244,7 @@ def compare_generators(
 
             try:
                 from the_similarity.synthetic.privacy import PrivacyScorecard
+
                 privacy_report = PrivacyScorecard().evaluate(real, synth)
                 privacy_score = privacy_report.overall_score
             except ImportError:
@@ -249,6 +252,7 @@ def compare_generators(
 
             try:
                 from the_similarity.synthetic.utility import UtilityScorecard
+
                 utility_report = UtilityScorecard().evaluate(real, synth)
                 utility_gap = utility_report.transfer_gap
             except ImportError:

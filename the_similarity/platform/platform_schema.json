@@ -16,7 +16,8 @@
         "eval",
         "finance",
         "events",
-        "nl_ts"
+        "nl_ts",
+        "setup_scan"
       ]
     },
     "RunStatus": {

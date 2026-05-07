@@ -78,7 +78,7 @@ export function BacktestMetrics({ data }: BacktestMetricsProps) {
 
         <div className="strategy-metric-card">
           <div className="strategy-metric-value neutral">{data.totalSignals}</div>
-          <div className="strategy-metric-label">Total Signals</div>
+          <div className="strategy-metric-label">Total Matches</div>
         </div>
 
         <div className="strategy-metric-card">

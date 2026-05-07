@@ -97,8 +97,18 @@ class TestExtractNarrativeFeatures:
         """Two 'up' events should yield trend direction = +1."""
         seq = _make_sequence(
             [
-                {"event_type": "earnings", "intensity": 0.5, "duration": 10, "direction": "up"},
-                {"event_type": "technology", "intensity": 0.6, "duration": 15, "direction": "up"},
+                {
+                    "event_type": "earnings",
+                    "intensity": 0.5,
+                    "duration": 10,
+                    "direction": "up",
+                },
+                {
+                    "event_type": "technology",
+                    "intensity": 0.6,
+                    "duration": 15,
+                    "direction": "up",
+                },
             ]
         )
         vec = extract_narrative_features(seq)

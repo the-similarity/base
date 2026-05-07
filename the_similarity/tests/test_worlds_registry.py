@@ -182,9 +182,7 @@ class TestRegisterScenarioPreset:
     def test_missing_scenario_raises(self, registry: RunRegistry) -> None:
         """FileNotFoundError when the scenario file does not exist."""
         with pytest.raises(FileNotFoundError):
-            register_scenario_preset(
-                "/nonexistent/scenario.json", registry=registry
-            )
+            register_scenario_preset("/nonexistent/scenario.json", registry=registry)
 
 
 # ---------------------------------------------------------------------------
@@ -211,9 +209,7 @@ class TestSyncAllPresets:
         scenarios = registry.list_scenarios()
         assert len(scenarios) == 3
 
-    def test_idempotent_sync(
-        self, tmp_path: Path, registry: RunRegistry
-    ) -> None:
+    def test_idempotent_sync(self, tmp_path: Path, registry: RunRegistry) -> None:
         """Re-syncing the same directory does not create duplicates."""
         _write_scenario_json(tmp_path, name="idempotent_test")
 

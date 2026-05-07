@@ -74,7 +74,9 @@ class TestDecomposeEmd:
         """A multi-component signal should decompose into >= 2 IMFs."""
         sig = _composite_signal(200)
         imfs = decompose_emd(sig, max_imfs=6)
-        assert len(imfs) >= 2, f"Expected >= 2 IMFs for composite signal, got {len(imfs)}"
+        assert len(imfs) >= 2, (
+            f"Expected >= 2 IMFs for composite signal, got {len(imfs)}"
+        )
 
 
 # ---------------------------------------------------------------------------

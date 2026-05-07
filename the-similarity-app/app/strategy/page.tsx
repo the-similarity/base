@@ -43,7 +43,7 @@ const templates: StrategyTemplate[] = [
     id: "momentum",
     icon: "\u2197",
     name: "Momentum",
-    description: "Ride strong trends using pattern continuation signals",
+    description: "Research trend continuation using historical pattern matches",
     params: ["High confidence", "Trend-following", "Wide stops"],
     defaults: { minConfidence: 72, forecastThreshold: 0.035, maxSignals: 5 },
     weights: {
@@ -55,7 +55,7 @@ const templates: StrategyTemplate[] = [
     id: "mean-reversion",
     icon: "\u21C4",
     name: "Mean Reversion",
-    description: "Fade extremes when patterns suggest price snapback",
+    description: "Research extremes where past patterns reverted to mean",
     params: ["Tight stops", "Counter-trend", "High frequency"],
     defaults: { minConfidence: 65, forecastThreshold: 0.020, maxSignals: 8 },
     weights: {
@@ -67,7 +67,7 @@ const templates: StrategyTemplate[] = [
     id: "breakout",
     icon: "\u26A1",
     name: "Breakout",
-    description: "Detect range compression and capture explosive moves",
+    description: "Research range compression and historical breakout matches",
     params: ["Low frequency", "Large targets", "Regime-aware"],
     defaults: { minConfidence: 80, forecastThreshold: 0.050, maxSignals: 3 },
     weights: {
@@ -243,7 +243,7 @@ export default function StrategyPage() {
                   format={(v) => v.toFixed(3)}
                 />
                 <ParamSlider
-                  label="Max Signals"
+                  label="Max Matches"
                   value={maxSignals}
                   min={1}
                   max={10}
@@ -282,7 +282,7 @@ export default function StrategyPage() {
               </div>
 
               <button className="strategy-apply-btn" onClick={handleApply}>
-                Apply &amp; Generate Signals
+                Apply &amp; Run Backtest
               </button>
             </div>
 

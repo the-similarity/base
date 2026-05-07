@@ -24,10 +24,18 @@ Scaling and Normalization:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
 
 import numpy as np
 
 from the_similarity.config import Config
+
+
+if TYPE_CHECKING:
+    # Imported only for type hints — avoids the circular import that
+    # would happen at module load (registry imports contracts which
+    # would otherwise be free to import this module).
+    from the_similarity.platform.registry import RunRegistry
 
 
 @dataclass
@@ -261,3 +269,89 @@ def _apply_empirical_label_rules(
         score *= 1.0 + boost
 
     return float(np.clip(score, 0.0, 1.0))
+
+
+# ---------------------------------------------------------------------------
+# Personalized setup scanner v1 — goodrun aggregation helper.
+#
+# Worktree A's job (per ``vision/personalized_setup_scanner.md``) is to
+# persist thumbs-up/down feedback against a user's setups so v2 can
+# train the goodrun filter on real human labels. v1 doesn't yet feed
+# this signal into ``compute_confidence`` — that's a deliberate scope
+# boundary. The helper below aggregates feedback rows into a simple
+# net score the API surface or analytics dashboards can read.
+#
+# Why not in registry.py: the aggregation is a *scoring* concern, not
+# a persistence concern. registry.py owns CRUD; scorer.py owns "how
+# does feedback collapse into a confidence shift." Splitting them
+# keeps v2's training pipeline clean — it imports ``compute_goodrun_score``
+# without dragging the SQLite layer into model code.
+#
+# Existing goodrun infrastructure (``the-similarity-api/app/goodruns.py``,
+# PRs #283/#284/#287) lives behind the API. This helper does NOT touch
+# that DB — it operates over the multi-tenant ``feedback`` table the
+# scanner persists to. v2 will reconcile the two surfaces; v1 keeps
+# them additive.
+# ---------------------------------------------------------------------------
+
+
+def compute_goodrun_score(
+    registry: "RunRegistry",
+    user_id: str,
+    setup_id: str | None = None,
+) -> dict:
+    """Aggregate thumbs feedback into a per-user (or per-setup) goodrun snapshot.
+
+    Pure function over registry rows — does not mutate the registry,
+    does not touch the legacy ``the-similarity-api/app/goodruns.py``
+    surface. Computes:
+
+    - ``thumbs_up``: count of ``thumb == "up"`` rows
+    - ``thumbs_down``: count of ``thumb == "down"`` rows
+    - ``total``: sum of the above
+    - ``net_score``: ``(thumbs_up - thumbs_down) / max(1, total)`` in
+      ``[-1.0, 1.0]``. Returns ``0.0`` when ``total == 0`` (no signal,
+      not "neutral with high confidence").
+    - ``alert_*`` / ``analog_*`` keys: per-kind breakdown so callers
+      can weight live alerts and onboarding analogs differently.
+
+    Parameters
+    ----------
+    registry:
+        Live :class:`RunRegistry` with the v1 setups/feedback tables.
+    user_id:
+        Multi-tenant scope; required.
+    setup_id:
+        When supplied, restrict the aggregation to one setup. ``None``
+        aggregates across every setup the user owns.
+
+    Returns
+    -------
+    Dict with the keys above. Always returns a dict (never raises on an
+    empty feedback set) so callers can chart "0 of 0" cleanly.
+    """
+    rows = registry.list_feedback(user_id=user_id, setup_id=setup_id, limit=10_000)
+    thumbs_up = sum(1 for f in rows if f.thumb == "up")
+    thumbs_down = sum(1 for f in rows if f.thumb == "down")
+    total = thumbs_up + thumbs_down
+    net = (thumbs_up - thumbs_down) / total if total > 0 else 0.0
+
+    alert_rows = [f for f in rows if f.kind == "alert"]
+    analog_rows = [f for f in rows if f.kind == "analog"]
+    alert_up = sum(1 for f in alert_rows if f.thumb == "up")
+    alert_down = sum(1 for f in alert_rows if f.thumb == "down")
+    analog_up = sum(1 for f in analog_rows if f.thumb == "up")
+    analog_down = sum(1 for f in analog_rows if f.thumb == "down")
+
+    return {
+        "user_id": user_id,
+        "setup_id": setup_id,
+        "thumbs_up": thumbs_up,
+        "thumbs_down": thumbs_down,
+        "total": total,
+        "net_score": float(net),
+        "alert_thumbs_up": alert_up,
+        "alert_thumbs_down": alert_down,
+        "analog_thumbs_up": analog_up,
+        "analog_thumbs_down": analog_down,
+    }

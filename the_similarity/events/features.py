@@ -26,14 +26,14 @@ import numpy as np
 # ── Canonical event-type vocabulary ──────────────────────────────────────
 # Order matters — index in this list == one-hot position.
 EVENT_TYPES: list[str] = [
-    "rate_decision",       # 0  — central-bank rate moves
-    "economic_data",       # 1  — GDP, CPI, NFP, etc.
-    "geopolitical",        # 2  — wars, sanctions, elections
-    "earnings",            # 3  — corporate earnings releases
-    "policy",              # 4  — fiscal policy, regulation
-    "natural_disaster",    # 5  — earthquakes, hurricanes, pandemics
-    "market_crash",        # 6  — flash crashes, circuit breakers
-    "other",               # 7  — catch-all
+    "rate_decision",  # 0  — central-bank rate moves
+    "economic_data",  # 1  — GDP, CPI, NFP, etc.
+    "geopolitical",  # 2  — wars, sanctions, elections
+    "earnings",  # 3  — corporate earnings releases
+    "policy",  # 4  — fiscal policy, regulation
+    "natural_disaster",  # 5  — earthquakes, hurricanes, pandemics
+    "market_crash",  # 6  — flash crashes, circuit breakers
+    "other",  # 7  — catch-all
 ]
 
 FEATURE_DIM: int = 14  # total length of the output vector

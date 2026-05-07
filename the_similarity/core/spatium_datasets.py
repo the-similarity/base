@@ -160,7 +160,9 @@ DATASETS: Tuple[Dataset, ...] = (
     Dataset("gold", "Gold (XAU)", "commod.", 0xE2A846, "slow-momentum", (1975, 2025)),
     Dataset("oil", "Brent crude", "commod.", 0xBF7D3A, "regime-switch", (1986, 2025)),
     Dataset("cpi", "US CPI YoY", "macro", 0xD47676, "long-cycle", (1960, 2025)),
-    Dataset("flu", "Influenza-like·US", "epi", 0x5FB88A, "seasonal-spike", (2000, 2025)),
+    Dataset(
+        "flu", "Influenza-like·US", "epi", 0x5FB88A, "seasonal-spike", (2000, 2025)
+    ),
     Dataset(
         "trends",
         "Google Trends ‘recession’",
@@ -169,8 +171,22 @@ DATASETS: Tuple[Dataset, ...] = (
         "burst-decay",
         (2004, 2025),
     ),
-    Dataset("power", "Grid demand · PJM", "energy", 0x80D0C7, "seasonal-smooth", (2005, 2025)),
-    Dataset("tulip", "Tulip index · 1636", "history", 0xC48A6A, "bubble-collapse", (1634, 1637)),
+    Dataset(
+        "power",
+        "Grid demand · PJM",
+        "energy",
+        0x80D0C7,
+        "seasonal-smooth",
+        (2005, 2025),
+    ),
+    Dataset(
+        "tulip",
+        "Tulip index · 1636",
+        "history",
+        0xC48A6A,
+        "bubble-collapse",
+        (1634, 1637),
+    ),
 )
 
 
@@ -468,7 +484,9 @@ def _density_count(density: int) -> int:
     return (15, 32, 60)[density]
 
 
-def _domain_center(domain: str, canonical_index: int | None) -> Tuple[float, float, float]:
+def _domain_center(
+    domain: str, canonical_index: int | None
+) -> Tuple[float, float, float]:
     """Return the ring-centre coordinate for ``domain``.
 
     * Canonical domains (those in ``DOMAIN_ORDER``) use their fixed
@@ -662,7 +680,9 @@ def to_export_dict(result: BuildResult, *, include_series: bool = False) -> dict
     }
 
 
-def write_fixture(path: Path, density: int = 0, *, include_series: bool = False) -> Path:
+def write_fixture(
+    path: Path, density: int = 0, *, include_series: bool = False
+) -> Path:
     """Write a canonical fixture JSON to ``path`` and return the path.
 
     Used by the CLI (``python -m the_similarity.core.spatium_datasets``)
@@ -673,7 +693,9 @@ def write_fixture(path: Path, density: int = 0, *, include_series: bool = False)
     path.parent.mkdir(parents=True, exist_ok=True)
     # ``sort_keys=True`` stabilises field order across Python versions;
     # ``indent=2`` matches the TS exporter.
-    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    path.write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
     return path
 
 
@@ -685,10 +707,14 @@ def _cli(argv: Iterable[str] | None = None) -> int:
     """
     import argparse
 
-    parser = argparse.ArgumentParser(description="Emit Spatium point cloud fixture JSON.")
+    parser = argparse.ArgumentParser(
+        description="Emit Spatium point cloud fixture JSON."
+    )
     parser.add_argument("--density", type=int, default=0, choices=(0, 1, 2))
     parser.add_argument("--out", required=True, type=Path)
-    parser.add_argument("--series", action="store_true", help="include raw series in output")
+    parser.add_argument(
+        "--series", action="store_true", help="include raw series in output"
+    )
     args = parser.parse_args(list(argv) if argv is not None else None)
     write_fixture(args.out, density=args.density, include_series=args.series)
     print(f"wrote {args.out}")

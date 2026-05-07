@@ -280,7 +280,9 @@ def regime_conditional_forecast(
             match_probs = match.latent_regime_probabilities
             if match_probs is None:
                 regime_series = (
-                    match.matched_series if match.matched_series is not None else returns
+                    match.matched_series
+                    if match.matched_series is not None
+                    else returns
                 )
                 match_probs = infer_latent_regime(regime_series).probabilities
             compatibility = regime_probability_similarity(query_latent, match_probs)

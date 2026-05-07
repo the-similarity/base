@@ -21,10 +21,10 @@ export default function RhymesPage() {
   );
   const history = useMemo(() => buildHistoryFromEntries(entries, avg), [entries, avg]);
 
-  if (history.length < 7) return <EmptyState have={history.length} onCompose={openComposer} />;
-
   const pairs = useMemo(() => findTopRhymes(history, 3), [history]);
   const archetypes = useMemo(() => detectArchetypes(history), [history]);
+
+  if (history.length < 7) return <EmptyState have={history.length} onCompose={openComposer} />;
 
   const top = pairs[0];
 

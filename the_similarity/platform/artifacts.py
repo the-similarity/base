@@ -111,6 +111,13 @@ class RunKind(str, Enum):
     NL_TS:
         A natural-language-to-time-series pillar run (textual prompt
         -> synthetic trajectory or retrieval index).
+    SETUP_SCAN:
+        A personalized setup scanner run — sweeps a user-defined setup
+        across the cross-instrument universe (~36 instruments: top
+        crypto + FX + gold). Produced by
+        :mod:`the_similarity.core.scanner`. Config carries the
+        owning ``user_id`` and ``setup_id``; summary carries the top-N
+        ranked analogs and per-instrument cone snapshots.
 
     Adding new kinds is an additive change: older readers using
     ``RunKind(str)`` construction will raise ``ValueError`` for
@@ -127,6 +134,7 @@ class RunKind(str, Enum):
     FINANCE = "finance"
     EVENTS = "events"
     NL_TS = "nl_ts"
+    SETUP_SCAN = "setup_scan"
 
 
 # ---------------------------------------------------------------------------

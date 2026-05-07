@@ -103,9 +103,7 @@ def retrieve_analogues(
         window_events = [
             e
             for e in sorted_hist
-            if current_start
-            <= datetime.fromisoformat(e["timestamp"])
-            < current_end
+            if current_start <= datetime.fromisoformat(e["timestamp"]) < current_end
         ]
         if window_events:
             centroid = _compute_centroid(window_events)

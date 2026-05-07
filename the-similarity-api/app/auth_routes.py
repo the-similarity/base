@@ -162,10 +162,10 @@ def revoke_api_key(
     user: User = Depends(get_current_user),
     auth: AuthManager = Depends(get_auth_manager),
 ) -> Response:
-    """Revoke an API key."""
-    # Verify the key belongs to the user
-    keys = auth.list_api_keys(user.id)
-    if not any(k.id == key_id for k in keys):
+    """Revoke an API key. 404 if the key does not exist or is not owned by the user."""
+    # Ownership is enforced at the DB layer: revoke_api_key requires both
+    # user_id and key_id. Returns False (→ 404) for cross-tenant attempts as
+    # well as missing keys, so we don't leak whether another tenant owns it.
+    if not auth.revoke_api_key(user.id, key_id):
         raise HTTPException(status_code=404, detail="API key not found")
-    auth.revoke_api_key(key_id)
     return Response(status_code=204)

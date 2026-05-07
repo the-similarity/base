@@ -133,7 +133,9 @@ def test_empirical_carry_alignment_boosts_koopman_and_transfer_entropy():
         koopman=0.88,
         transfer_entropy=0.34,
     )
-    config = Config(active_methods=["dtw", "pearson_warped", "koopman", "transfer_entropy"])
+    config = Config(
+        active_methods=["dtw", "pearson_warped", "koopman", "transfer_entropy"]
+    )
     adjusted = compute_confidence(breakdown, config)
     baseline = compute_confidence(
         breakdown,

@@ -264,9 +264,7 @@ class StateService:
                 try:
                     # Over-fetch and filter by target_kind.
                     candidates = self._index.nearest(source_id, k=k * 10)
-                    return [
-                        c for c in candidates if c.get("kind") == target_kind
-                    ][:k]
+                    return [c for c in candidates if c.get("kind") == target_kind][:k]
                 except Exception:
                     pass
             return []
@@ -324,13 +322,15 @@ class StateService:
             y = float(idx_in_kind // cols)
             z = kind_offsets[kind]
 
-            result.append({
-                "run_id": run["run_id"],
-                "kind": kind,
-                "x": x,
-                "y": y,
-                "z": z,
-                "label": run["label"],
-            })
+            result.append(
+                {
+                    "run_id": run["run_id"],
+                    "kind": kind,
+                    "x": x,
+                    "y": y,
+                    "z": z,
+                    "label": run["label"],
+                }
+            )
 
         return result

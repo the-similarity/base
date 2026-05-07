@@ -1,0 +1,82 @@
+.panel {
+  display: grid;
+  gap: 10px;
+}
+
+.controls {
+  display: grid;
+  gap: 8px;
+}
+
+.field {
+  display: grid;
+  gap: 5px;
+}
+
+.input,
+.select {
+  width: 100%;
+  height: 32px;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-md);
+  background: var(--bg-inset);
+  color: var(--ink);
+  padding: 0 9px;
+  font-size: 12px;
+}
+
+.actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.button {
+  min-height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius-md);
+  background: var(--bg-elevated);
+  color: var(--ink);
+  font-size: 11.5px;
+  font-weight: 600;
+  transition: border-color 120ms ease, background 120ms ease;
+}
+
+.button:hover {
+  border-color: var(--rule-focus);
+  background: var(--bg-hover);
+}
+
+.buttonPrimary {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--bg-card);
+}
+
+.summary {
+  display: grid;
+  gap: 4px;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-md);
+  padding: 8px;
+  background: var(--bg-inset);
+  color: var(--ink-2);
+  font-size: 11.5px;
+}
+
+.summary strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.status {
+  min-height: 15px;
+  color: var(--ink-3);
+  font-family: var(--mono);
+  font-size: 10px;
+}
+
