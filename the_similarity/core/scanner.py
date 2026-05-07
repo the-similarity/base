@@ -62,8 +62,7 @@ import logging
 import time
 import urllib.error
 import urllib.request
-from datetime import datetime, timezone
-from typing import Callable, List, Optional, Sequence
+from typing import Callable, Optional, Sequence
 
 import numpy as np
 from numpy.typing import NDArray

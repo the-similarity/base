@@ -21,7 +21,6 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from the_similarity.config import Config
 from the_similarity.core.scanner import (
     UNIVERSE_CRYPTO,
     UNIVERSE_DEFAULT,
