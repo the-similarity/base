@@ -160,6 +160,10 @@ _DEFAULT_PILLAR_FOR_KIND: Dict[RunKind, str] = {
     RunKind.FINANCE: "finance",
     RunKind.EVENTS: "events",
     RunKind.NL_TS: "nl_ts",
+    # The personalized setup scanner is a finance-pillar feature — its
+    # universe is finance instruments and its outputs (alerts, cones)
+    # surface in the finance workstation.
+    RunKind.SETUP_SCAN: "finance",
 }
 
 
@@ -676,6 +680,296 @@ class DatasetSpec:
 
 
 # ---------------------------------------------------------------------------
+# Setup scanner v1 — Setup, Feedback, ScanResult
+# ---------------------------------------------------------------------------
+#
+# These three dataclasses are the contract Worktrees B (delivery), C
+# (frontend), and D (public surfaces) mock against. The shape is frozen
+# for v1 — additive changes only. See
+# ``vision/setup_scanner_schema_contract.md`` for the wire-level
+# specification.
+
+
+@dataclass
+class Setup:
+    """A user-defined chart region that drives the cross-instrument scanner.
+
+    A setup is owned by exactly one ``user_id`` (string FK; the users
+    table itself lives in the API surface, not the engine — we trust the
+    caller to supply a non-empty user identifier). The ``region_series``
+    is the actual price series the scanner uses as the query window —
+    persisting the values (not just indices) keeps the setup stable when
+    upstream data sources repaginate or rebuild their indices.
+
+    Lifecycle
+    ---------
+    Setups are mutable until first scanned, then immutable. The caller
+    is responsible for stamping ``created_at`` once at insert and
+    bumping ``updated_at`` on every meaningful edit.
+
+    Fields
+    ------
+    id:
+        Stable opaque ID — caller-supplied (e.g.
+        ``"setup-<ulid>"``). Idempotent on re-insert via the registry's
+        upsert.
+    user_id:
+        Multi-tenant FK. Must be non-empty.
+    name:
+        Human display name (``"BTC daily double-bottom"``).
+    instrument:
+        Symbol the region was drawn on (``"BTCUSDT"``,
+        ``"XAUUSD"``).
+    timeframe:
+        Bar size (``"1h"``, ``"4h"``, ``"1d"``).
+    region_start_ts / region_end_ts:
+        ISO-8601 UTC bounds of the window (inclusive start, exclusive
+        end), useful for UI display and audit trails.
+    region_series:
+        Float list of close prices (or whatever the user dragged over)
+        — the scanner's query window. Length matches the bar count
+        between ``region_start_ts`` and ``region_end_ts``.
+    created_at / updated_at:
+        ISO-8601 UTC.
+    """
+
+    id: str
+    user_id: str
+    name: str
+    instrument: str
+    timeframe: str
+    region_start_ts: str
+    region_end_ts: str
+    region_series: list = field(default_factory=list)
+    created_at: str = ""
+    updated_at: str = ""
+
+    def to_dict(self) -> Dict[str, Any]:
+        """JSON-safe dict — straight pass-through; ``region_series`` is a list."""
+        return {
+            "id": self.id,
+            "user_id": self.user_id,
+            "name": self.name,
+            "instrument": self.instrument,
+            "timeframe": self.timeframe,
+            "region_start_ts": self.region_start_ts,
+            "region_end_ts": self.region_end_ts,
+            "region_series": list(self.region_series),
+            "created_at": self.created_at,
+            "updated_at": self.updated_at,
+        }
+
+    @classmethod
+    def from_dict(cls, d: Dict[str, Any]) -> "Setup":
+        """Reconstruct from a JSON-decoded dict. Unknown keys ignored."""
+        return cls(
+            id=d["id"],
+            user_id=d["user_id"],
+            name=d["name"],
+            instrument=d["instrument"],
+            timeframe=d["timeframe"],
+            region_start_ts=d["region_start_ts"],
+            region_end_ts=d["region_end_ts"],
+            region_series=list(d.get("region_series", []) or []),
+            created_at=d.get("created_at", ""),
+            updated_at=d.get("updated_at", ""),
+        )
+
+
+@dataclass
+class Feedback:
+    """Thumbs-up/down feedback the user gave on an alert or analog.
+
+    Persisted from day 1 even when v1 doesn't compute on it — this is
+    the goodrun feedback moat per
+    ``vision/personalized_setup_scanner.md``. v2 will aggregate these
+    rows to derive a per-user goodrun filter.
+
+    Either ``alert_id`` or ``analog_id`` is set (not both); the
+    ``kind`` field disambiguates which surface produced the feedback.
+    Both are kept as plain strings — the alert/analog rows live in
+    other surfaces (alerts in the API, analogs in scan runs) and the
+    engine doesn't need to model them to record feedback.
+
+    Fields
+    ------
+    id:
+        Caller-supplied opaque ID (e.g. ``"feedback-<ulid>"``).
+    user_id:
+        Multi-tenant FK. Must match the ``setup_id``'s owner.
+    setup_id:
+        FK to :class:`Setup.id`. Cascade-deletes with the setup.
+    alert_id:
+        FK-shaped string referencing the alert this feedback is for.
+        ``None`` when ``kind == "analog"``.
+    analog_id:
+        FK-shaped string referencing the analog this feedback is for.
+        ``None`` when ``kind == "alert"``.
+    kind:
+        Discriminator — ``"alert"`` or ``"analog"``.
+    thumb:
+        ``"up"`` or ``"down"``.
+    free_text:
+        Optional free-form note (max ~1KB; not enforced here, but the
+        API layer should clamp).
+    created_at:
+        ISO-8601 UTC.
+    """
+
+    id: str
+    user_id: str
+    setup_id: str
+    kind: str
+    thumb: str
+    alert_id: Optional[str] = None
+    analog_id: Optional[str] = None
+    free_text: Optional[str] = None
+    created_at: str = ""
+
+    def to_dict(self) -> Dict[str, Any]:
+        """JSON-safe dict — every field passes through unchanged."""
+        return {
+            "id": self.id,
+            "user_id": self.user_id,
+            "setup_id": self.setup_id,
+            "alert_id": self.alert_id,
+            "analog_id": self.analog_id,
+            "kind": self.kind,
+            "thumb": self.thumb,
+            "free_text": self.free_text,
+            "created_at": self.created_at,
+        }
+
+    @classmethod
+    def from_dict(cls, d: Dict[str, Any]) -> "Feedback":
+        """Reconstruct from a JSON-decoded dict. Unknown keys ignored."""
+        return cls(
+            id=d["id"],
+            user_id=d["user_id"],
+            setup_id=d["setup_id"],
+            alert_id=d.get("alert_id"),
+            analog_id=d.get("analog_id"),
+            kind=d["kind"],
+            thumb=d["thumb"],
+            free_text=d.get("free_text"),
+            created_at=d.get("created_at", ""),
+        )
+
+
+@dataclass
+class InstrumentScanResult:
+    """One instrument's slice of a :class:`ScanResult`.
+
+    Fields
+    ------
+    instrument:
+        Symbol scanned (``"BTCUSDT"``, ``"EURUSD"``).
+    analogs:
+        List of dicts — each is the JSON-serialized form of a
+        :class:`the_similarity.core.scorer.MatchResult` (start_idx,
+        end_idx, dates, confidence_score, score_breakdown). Kept as
+        plain dicts (not the dataclass) so this record can be
+        registry-persisted via JSON without an engine import on the
+        consumer side.
+    forecast:
+        JSON-serialized forecast cone — keys: ``bars`` (int),
+        ``percentiles`` (list[int]),
+        ``curves`` (dict[int, list[float]]). ``None`` when there were
+        not enough analogs to project.
+    error:
+        If the per-instrument scan raised, the error message is recorded
+        here so the top-level scan can still succeed partially.
+        ``None`` on success.
+    """
+
+    instrument: str
+    analogs: list = field(default_factory=list)
+    forecast: Optional[Dict[str, Any]] = None
+    error: Optional[str] = None
+
+    def to_dict(self) -> Dict[str, Any]:
+        """JSON-safe dict."""
+        return {
+            "instrument": self.instrument,
+            "analogs": list(self.analogs),
+            "forecast": self.forecast,
+            "error": self.error,
+        }
+
+    @classmethod
+    def from_dict(cls, d: Dict[str, Any]) -> "InstrumentScanResult":
+        """Reconstruct from a JSON-decoded dict."""
+        return cls(
+            instrument=d["instrument"],
+            analogs=list(d.get("analogs", []) or []),
+            forecast=d.get("forecast"),
+            error=d.get("error"),
+        )
+
+
+@dataclass
+class ScanResult:
+    """The output of one cross-instrument scanner run.
+
+    A :class:`ScanResult` is what the API serializes to clients and
+    what the registry persists (under
+    :attr:`RunKind.SETUP_SCAN`). It carries:
+
+    - ``setup_id`` / ``user_id`` — provenance link back to the originating
+      :class:`Setup`.
+    - ``per_instrument`` — full per-symbol breakdown.
+    - ``top_n`` — flat ranked list of the highest-confidence analogs
+      across the entire universe (each item is the same dict shape as
+      ``InstrumentScanResult.analogs[i]`` plus an ``instrument`` key).
+
+    Lifecycle
+    ---------
+    Mutated by the scanner during a run; immutable once persisted.
+    """
+
+    setup_id: str
+    user_id: str
+    created_at: str
+    per_instrument: list = field(default_factory=list)
+    top_n: list = field(default_factory=list)
+    universe: list = field(default_factory=list)
+    run_id: Optional[str] = None
+
+    def to_dict(self) -> Dict[str, Any]:
+        """JSON-safe dict; nested ``InstrumentScanResult``s flatten to dicts."""
+        return {
+            "setup_id": self.setup_id,
+            "user_id": self.user_id,
+            "created_at": self.created_at,
+            "per_instrument": [
+                r.to_dict() if isinstance(r, InstrumentScanResult) else r
+                for r in self.per_instrument
+            ],
+            "top_n": list(self.top_n),
+            "universe": list(self.universe),
+            "run_id": self.run_id,
+        }
+
+    @classmethod
+    def from_dict(cls, d: Dict[str, Any]) -> "ScanResult":
+        """Reconstruct from a JSON-decoded dict."""
+        per_instrument_raw = d.get("per_instrument", []) or []
+        per_instrument = [
+            InstrumentScanResult.from_dict(r) if isinstance(r, dict) else r
+            for r in per_instrument_raw
+        ]
+        return cls(
+            setup_id=d["setup_id"],
+            user_id=d["user_id"],
+            created_at=d["created_at"],
+            per_instrument=per_instrument,
+            top_n=list(d.get("top_n", []) or []),
+            universe=list(d.get("universe", []) or []),
+            run_id=d.get("run_id"),
+        )
+
+
+# ---------------------------------------------------------------------------
 # Public exports
 # ---------------------------------------------------------------------------
 
@@ -683,12 +977,16 @@ class DatasetSpec:
 __all__ = [
     "ArtifactRecord",
     "DatasetSpec",
+    "Feedback",
+    "InstrumentScanResult",
     "Provenance",
     "RunRecord",
     "RunStatus",
+    "ScanResult",
     "ScenarioSpec",
     "ScorecardKind",
     "ScorecardSummary",
+    "Setup",
     "iso_now",
     "new_run_id",
 ]
