@@ -133,6 +133,9 @@ Rules:
 4. **When CI budget is tight (>70% used), admin-merge on `ci_local.sh` green.** CI becomes a safety net, not a blocking gate.
 5. **Check budget before starting a batch:** review GitHub billing page or ask the user.
 
+### Path-filtered CI
+`pr-gate.yml` and `ci.yml` use a `changes` job (`dorny/paths-filter`) to detect which area of the monorepo a PR touches: **engine** (`the_similarity/**`, `pyproject.toml`), **data** (`the-similarity-data/**`), **frontend** (`the-similarity-app/**`), or **harness** (`docs/agent-harness/**`, `scripts/check_agent_harness.py`, `orchestrator/**`). Each downstream job still runs (so required status checks stay green for branch protection and the orchestrator merge-poll), but its steps are gated on the relevant output and exit in seconds when out of scope. Workflow-file or `pyproject.toml` edits trigger everything as a defensive default. `main-health.yml` is intentionally NOT path-filtered — it's the clean-room check that catches transitive-dependency drift, so it always runs end-to-end.
+
 ## Architecture
 
 ### Engine core
