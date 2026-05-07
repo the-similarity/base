@@ -151,7 +151,9 @@ def test_build_points_unique_ids():
 def test_build_points_with_custom_extras():
     """User-added datasets append cleanly and get their own ring slot."""
     extras = (
-        Dataset("custom1", "Custom One", "custom", 0xABCDEF, "long-cycle", (2000, 2024)),
+        Dataset(
+            "custom1", "Custom One", "custom", 0xABCDEF, "long-cycle", (2000, 2024)
+        ),
     )
     result = build_points(0, extras=extras)
     # Built-in 9 + 1 custom = 10 datasets × 15 windows = 150.

@@ -335,9 +335,7 @@ def _compute_attribute_inference(
     return result
 
 
-def _compute_holdout_leakage(
-    real: np.ndarray, synth: np.ndarray
-) -> dict[str, float]:
+def _compute_holdout_leakage(real: np.ndarray, synth: np.ndarray) -> dict[str, float]:
     """Holdout leakage check.
 
     Split real data 80/20. Measure median DCR from synthetic to the training
@@ -423,7 +421,7 @@ def _compute_tail_exposure(
         # Degenerate: single row, use a small epsilon.
         col_std = np.std(real, axis=0)
         col_std = np.where(col_std > 0, col_std, 1e-12)
-        threshold = 0.5 * np.sqrt(np.sum(col_std ** 2))
+        threshold = 0.5 * np.sqrt(np.sum(col_std**2))
     # Guard against zero threshold (all real rows identical).
     if threshold <= 0:
         threshold = 1e-12
@@ -603,9 +601,7 @@ class PrivacyScorecard:
         }
 
         # Weighted sum: sum(weight_i * risk_i). Weights sum to 1.0.
-        weighted_risk = sum(
-            _RISK_WEIGHTS[k] * risk_values[k] for k in _RISK_WEIGHTS
-        )
+        weighted_risk = sum(_RISK_WEIGHTS[k] * risk_values[k] for k in _RISK_WEIGHTS)
         # Fail-closed guard: the worst single risk still caps the score.
         # This preserves the original invariant where one catastrophic
         # sub-metric (e.g. 100% memorization) cannot be hidden by good

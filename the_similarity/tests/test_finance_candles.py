@@ -9,7 +9,9 @@ import pytest
 from the_similarity.finance.candles import build_candles, infer_source_timeframe
 
 
-def _ohlcv(periods: int, freq: str, start: str = "2024-01-01T00:00:00Z") -> pd.DataFrame:
+def _ohlcv(
+    periods: int, freq: str, start: str = "2024-01-01T00:00:00Z"
+) -> pd.DataFrame:
     """Create deterministic OHLCV rows where aggregation is easy to audit."""
 
     base = np.arange(periods, dtype=float)

@@ -90,7 +90,9 @@ class TestParseNarrative:
         schema = parse_narrative(text)
 
         assert schema.direction == "up", f"Expected up, got {schema.direction}"
-        assert schema.magnitude == "moderate", f"Expected moderate, got {schema.magnitude}"
+        assert schema.magnitude == "moderate", (
+            f"Expected moderate, got {schema.magnitude}"
+        )
         assert schema.volatility == "low", f"Expected low, got {schema.volatility}"
         # 3 months -> 63 trading days
         assert schema.duration_days == 63, f"Expected 63, got {schema.duration_days}"
@@ -98,12 +100,13 @@ class TestParseNarrative:
     def test_parse_sideways_narrative(self) -> None:
         """A narrative with 'range-bound' and 'quiet' should parse as sideways/mild/low."""
         text = (
-            "A mild, range-bound market over 4 weeks with quiet, "
-            "steady price action."
+            "A mild, range-bound market over 4 weeks with quiet, steady price action."
         )
         schema = parse_narrative(text)
 
-        assert schema.direction == "sideways", f"Expected sideways, got {schema.direction}"
+        assert schema.direction == "sideways", (
+            f"Expected sideways, got {schema.direction}"
+        )
         assert schema.magnitude == "mild", f"Expected mild, got {schema.magnitude}"
         assert schema.volatility == "low", f"Expected low, got {schema.volatility}"
         # 4 weeks -> 20 trading days

@@ -103,7 +103,9 @@ def parse_timeframe(value: str) -> Timeframe:
     return Timeframe(code=code, pandas_freq=code, seconds=seconds)
 
 
-def infer_source_timeframe(df: pd.DataFrame, timestamp_col: str = "timestamp") -> Timeframe:
+def infer_source_timeframe(
+    df: pd.DataFrame, timestamp_col: str = "timestamp"
+) -> Timeframe:
     """Infer source frequency from the median timestamp spacing.
 
     This is a fallback for ad-hoc DataFrames. Catalog/API callers should pass
@@ -181,7 +183,11 @@ def build_candles(
     if missing:
         raise ValueError(f"Missing required candle columns: {sorted(missing)}")
 
-    source = parse_timeframe(source_timeframe) if source_timeframe else infer_source_timeframe(df, timestamp_col)
+    source = (
+        parse_timeframe(source_timeframe)
+        if source_timeframe
+        else infer_source_timeframe(df, timestamp_col)
+    )
     target = parse_timeframe(target_timeframe)
     if target.seconds < source.seconds:
         raise ValueError(
@@ -264,13 +270,17 @@ def _normalize_passthrough(df: pd.DataFrame, timestamp_col: str) -> pd.DataFrame
 
     result = df.loc[:, columns].copy()
     result[timestamp_col] = pd.to_datetime(result[timestamp_col], utc=True)
-    result = result.sort_values(timestamp_col).dropna(subset=["open", "high", "low", "close"])
+    result = result.sort_values(timestamp_col).dropna(
+        subset=["open", "high", "low", "close"]
+    )
     if timestamp_col != "timestamp":
         result = result.rename(columns={timestamp_col: "timestamp"})
     return result.reset_index(drop=True)
 
 
-def _bucket_anchor(*, market: str, session_start: str | None) -> tuple[str, pd.Timedelta | None]:
+def _bucket_anchor(
+    *, market: str, session_start: str | None
+) -> tuple[str, pd.Timedelta | None]:
     """Translate market alignment options into pandas resample arguments."""
 
     normalized = market.lower()

@@ -129,7 +129,9 @@ def _transition(probabilities: Mapping[str, float]) -> dict[str, float]:
 
 
 def _as_vector(state: LatentRegimeState | Mapping[str, float]) -> NDArray[np.float64]:
-    probabilities = state.probabilities if isinstance(state, LatentRegimeState) else state
+    probabilities = (
+        state.probabilities if isinstance(state, LatentRegimeState) else state
+    )
     return np.array(
         [float(probabilities.get(label, 0.0)) for label in REGIME_LABELS],
         dtype=np.float64,

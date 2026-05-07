@@ -65,9 +65,7 @@ def _random_predictions(n: int = 1000, seed: int = 42):
     predictions = []
     actuals = []
     for i in range(n):
-        predictions.append(
-            {"question_id": f"q{i}", "predicted_probability": 0.5}
-        )
+        predictions.append({"question_id": f"q{i}", "predicted_probability": 0.5})
         actuals.append({"question_id": f"q{i}", "resolved": rng.random() > 0.5})
     return predictions, actuals
 

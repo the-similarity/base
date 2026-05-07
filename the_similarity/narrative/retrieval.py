@@ -166,9 +166,7 @@ def extract_narrative_features(sequence: dict) -> NDArray[np.float64]:
         for evt in events
         if evt.get("intensity") is not None
     ]
-    features[_N_EVENT_TYPES] = (
-        np.mean(intensities) if intensities else 0.0
-    )
+    features[_N_EVENT_TYPES] = np.mean(intensities) if intensities else 0.0
 
     # --- Dim 11: Mean duration (normalized) ---
     durations = [
@@ -401,8 +399,6 @@ def extract_nl_ts_state(run_summary: dict) -> StateVector:
         vector=vec,
         source_id=run_summary.get("run_id", ""),
         source_kind="nl_ts",
-        label=run_summary.get(
-            "label", f"nl_ts-{run_summary.get('run_id', '?')}"
-        ),
+        label=run_summary.get("label", f"nl_ts-{run_summary.get('run_id', '?')}"),
         metadata={k: run_summary.get(k) for k, _, _ in _NL_TS_RANGES},
     )

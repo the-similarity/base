@@ -35,7 +35,11 @@ from pathlib import Path
 import pytest
 
 from the_similarity.platform.artifacts import RunArtifact, RunKind, iso_now, new_run_id
-from the_similarity.platform.contracts import ScenarioSpec, ScorecardSummary, ScorecardKind
+from the_similarity.platform.contracts import (
+    ScenarioSpec,
+    ScorecardSummary,
+    ScorecardKind,
+)
 from the_similarity.platform.registry import RunRegistry
 
 
@@ -74,7 +78,8 @@ def _make_worlds_artifact(
             "telemetry": "run.jsonl",
             "scorecard": "scorecard.json",
         },
-        summary=summary or {
+        summary=summary
+        or {
             "total_ticks": steps,
             "final_population": 18,
             "mean_energy": 0.73,
@@ -123,9 +128,7 @@ class TestWorldsV2RunRegistration:
 
             got = reg.get(art.run_id)
             assert got is not None, "Registered worlds run not found"
-            assert got.kind == RunKind.WORLDS, (
-                f"Expected kind=WORLDS, got {got.kind}"
-            )
+            assert got.kind == RunKind.WORLDS, f"Expected kind=WORLDS, got {got.kind}"
             # Summary round-trips through JSON in SQLite — verify headline fields
             assert got.summary["total_ticks"] == 50
             assert got.summary["mean_energy"] == 0.73
@@ -302,6 +305,4 @@ class TestWorldsV2AgentImports:
         try:
             from the_similarity.platform.adapters.worlds import register_world_run  # noqa: F401
         except ImportError:
-            pytest.skip(
-                "worlds adapter not yet available — Agent 4 has not merged"
-            )
+            pytest.skip("worlds adapter not yet available — Agent 4 has not merged")

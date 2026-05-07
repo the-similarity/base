@@ -173,8 +173,7 @@ class NarrativeSequence:
         return cls(
             events=[NarrativeEvent.from_dict(e) for e in data.get("events", [])],
             transitions=[
-                NarrativeTransition.from_dict(t)
-                for t in data.get("transitions", [])
+                NarrativeTransition.from_dict(t) for t in data.get("transitions", [])
             ],
             source_text=data.get("source_text", ""),
             metadata=data.get("metadata", {}),

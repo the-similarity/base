@@ -193,9 +193,7 @@ def register_synthetic_dataset(
     """
     synth_path = Path(run_dir) / "synth.parquet"
     if not synth_path.exists():
-        raise FileNotFoundError(
-            f"synth.parquet not found in run directory: {run_dir}"
-        )
+        raise FileNotFoundError(f"synth.parquet not found in run directory: {run_dir}")
 
     # Compute file statistics from the parquet file
     n_rows, n_columns = _read_parquet_shape(synth_path)
@@ -262,15 +260,11 @@ def list_catalog(
     all_datasets = registry.list_datasets()
 
     # Filter to synthetic datasets by checking the source prefix
-    synthetic = [
-        ds for ds in all_datasets
-        if ds.source.startswith("synthetic:")
-    ]
+    synthetic = [ds for ds in all_datasets if ds.source.startswith("synthetic:")]
 
     if promoted_only:
         synthetic = [
-            ds for ds in synthetic
-            if ds.metadata.get("promoted", False) is True
+            ds for ds in synthetic if ds.metadata.get("promoted", False) is True
         ]
 
     return synthetic
@@ -322,7 +316,7 @@ def get_dataset_card(
     source_run_id: Optional[str] = None
     generation_method = "unknown"
     if spec.source.startswith("synthetic:"):
-        source_run_id = spec.source[len("synthetic:"):]
+        source_run_id = spec.source[len("synthetic:") :]
 
     # Extract scorecard summary from metadata
     metadata = spec.metadata or {}

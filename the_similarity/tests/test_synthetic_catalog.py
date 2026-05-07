@@ -203,9 +203,7 @@ class TestListCatalog:
         assert len(result) == 1
         assert result[0].dataset_id == "synthetic-syn1"
 
-    def test_promoted_only_filter(
-        self, registry: RunRegistry, run_dir: Path
-    ) -> None:
+    def test_promoted_only_filter(self, registry: RunRegistry, run_dir: Path) -> None:
         """promoted_only=True filters to datasets with promoted metadata."""
         # Register a non-promoted synthetic dataset
         register_synthetic_dataset(
@@ -265,9 +263,7 @@ class TestGetDatasetCard:
         assert sc["fidelity_score"] == 0.85
         assert sc["utility_transfer_gap"] == 0.03
 
-    def test_missing_dataset_raises_keyerror(
-        self, registry: RunRegistry
-    ) -> None:
+    def test_missing_dataset_raises_keyerror(self, registry: RunRegistry) -> None:
         """KeyError when dataset_id is not in the registry."""
         with pytest.raises(KeyError, match="nonexistent"):
             get_dataset_card("nonexistent", registry)

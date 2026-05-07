@@ -45,16 +45,21 @@ from the_similarity.platform.registry import RunRegistry  # noqa: E402
 def _make_events() -> list[Event]:
     """Build a minimal set of 5 events for testing."""
     return [
-        Event("e1", "Event A", "economic", "2020-01-01", 7305, 0.8,
-              "Economic downturn"),
-        Event("e2", "Event B", "health", "2020-03-15", 7379, 0.9,
-              "Health crisis"),
-        Event("e3", "Event C", "geopolitical", "2021-06-01", 7822, 0.6,
-              "Geopolitical tension"),
-        Event("e4", "Event D", "economic", "2022-01-15", 8050, 0.7,
-              "Rate hike cycle"),
-        Event("e5", "Event E", "health", "2023-05-01", 8521, 0.5,
-              "Pandemic variant"),
+        Event(
+            "e1", "Event A", "economic", "2020-01-01", 7305, 0.8, "Economic downturn"
+        ),
+        Event("e2", "Event B", "health", "2020-03-15", 7379, 0.9, "Health crisis"),
+        Event(
+            "e3",
+            "Event C",
+            "geopolitical",
+            "2021-06-01",
+            7822,
+            0.6,
+            "Geopolitical tension",
+        ),
+        Event("e4", "Event D", "economic", "2022-01-15", 8050, 0.7, "Rate hike cycle"),
+        Event("e5", "Event E", "health", "2023-05-01", 8521, 0.5, "Pandemic variant"),
     ]
 
 
@@ -62,14 +67,10 @@ def _make_questions() -> list[ForecastQuestion]:
     """Build resolved questions linked to the test events."""
     return [
         ForecastQuestion("q1", "e1", "Will GDP fall?", resolution=True),
-        ForecastQuestion("q2", "e2", "Will lockdowns last >3 months?",
-                         resolution=True),
-        ForecastQuestion("q3", "e3", "Will sanctions be imposed?",
-                         resolution=False),
-        ForecastQuestion("q4", "e4", "Will rates exceed 4%?",
-                         resolution=True),
-        ForecastQuestion("q5", "e5", "Will a new vaccine be needed?",
-                         resolution=False),
+        ForecastQuestion("q2", "e2", "Will lockdowns last >3 months?", resolution=True),
+        ForecastQuestion("q3", "e3", "Will sanctions be imposed?", resolution=False),
+        ForecastQuestion("q4", "e4", "Will rates exceed 4%?", resolution=True),
+        ForecastQuestion("q5", "e5", "Will a new vaccine be needed?", resolution=False),
     ]
 
 
@@ -107,8 +108,7 @@ class TestBaseRatePredictor:
 
         for q in questions:
             if q.resolution is not None:
-                p = predict_base_rate(q, events, questions, graph,
-                                      n_analogues=2)
+                p = predict_base_rate(q, events, questions, graph, n_analogues=2)
                 assert 0.0 <= p <= 1.0, (
                     f"Prediction {p} for {q.question_id} out of range"
                 )
@@ -119,9 +119,9 @@ class TestBaseRatePredictor:
         questions = _make_questions()
         graph = build_event_graph(events, k=2)
 
-        orphan_q = ForecastQuestion("q-orphan", "e-unknown",
-                                    "Will something happen?",
-                                    resolution=True)
+        orphan_q = ForecastQuestion(
+            "q-orphan", "e-unknown", "Will something happen?", resolution=True
+        )
         p = predict_base_rate(orphan_q, events, questions, graph)
         # Global base rate: 3 True out of 5 = 0.6
         assert 0.0 <= p <= 1.0

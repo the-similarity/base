@@ -197,9 +197,7 @@ def get_preset(name: str) -> FeaturePreset:
         return PRESETS[name]
     except KeyError as exc:
         available = ", ".join(list_presets())
-        raise KeyError(
-            f"unknown preset '{name}'. available: {available}"
-        ) from exc
+        raise KeyError(f"unknown preset '{name}'. available: {available}") from exc
 
 
 __all__ = [

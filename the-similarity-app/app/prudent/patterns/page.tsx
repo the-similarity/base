@@ -356,7 +356,7 @@ function EventCadenceCard({ avgPerDay, hist }: { avgPerDay: number; hist: number
         ))}
       </div>
       <Interpretation>
-        Days with 3+ events are "rich" — they have enough texture to parse.
+        Days with 3+ events are &quot;rich&quot; — they have enough texture to parse.
       </Interpretation>
     </Card>
   );
