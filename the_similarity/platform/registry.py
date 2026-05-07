@@ -116,9 +116,11 @@ transparently — a ``RunArtifact`` corresponds to a ``RunRecord`` with
 from __future__ import annotations
 
 import json
+import re
 import sqlite3
 import threading
 import uuid
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
@@ -126,12 +128,74 @@ from the_similarity.platform.artifacts import RunArtifact, RunKind
 from the_similarity.platform.contracts import (
     ArtifactRecord,
     DatasetSpec,
+    Feedback,
     RunRecord,
     RunStatus,
     ScenarioSpec,
     ScorecardKind,
     ScorecardSummary,
+    Setup,
 )
+
+
+# ---------------------------------------------------------------------------
+# Migrations directory + filename pattern. Migrations are plain SQL files
+# named ``NNNN_<slug>.sql`` (four-digit version prefix) under
+# ``the_similarity/platform/migrations/``. The runner discovers them in
+# sorted order and applies each inside its own transaction. Applied
+# versions are recorded in a ``schema_migrations`` table so re-runs are
+# no-ops.
+#
+# This is intentionally NOT Alembic — the spine has a tiny migration
+# surface (a few setups/feedback tables) and a plain-SQL story keeps the
+# DB inspectable from the command line and removes a dependency.
+# ---------------------------------------------------------------------------
+
+_MIGRATIONS_DIR = Path(__file__).parent / "migrations"
+_MIGRATION_FILENAME_PATTERN = re.compile(r"^(\d{4})_.+\.sql$")
+
+_CREATE_SCHEMA_MIGRATIONS_SQL = """
+CREATE TABLE IF NOT EXISTS schema_migrations (
+    version    TEXT PRIMARY KEY,
+    applied_at TEXT NOT NULL
+);
+"""
+
+
+def _split_sql_statements(text: str) -> List[str]:
+    """Split a SQL script into individual statements for ``execute()``.
+
+    Why we don't use ``executescript()``: it issues an implicit COMMIT
+    before running, which dissolves any active transaction (including a
+    SAVEPOINT). For atomic migration application we need to keep the
+    outer SAVEPOINT alive, so we drive each statement through
+    ``execute()`` instead.
+
+    Splitter rules (deliberately minimal — migration files own the
+    invariants, not the splitter):
+
+    1. Strip ``--`` line comments.
+    2. Split on ``;`` followed by whitespace/EOL.
+    3. Drop empty fragments (trailing semicolons, blank trailing
+       segments).
+
+    This is NOT a full SQL parser. Migrations MUST avoid embedded
+    semicolons inside string literals or trigger bodies — both are
+    unnecessary for the spine's flat schema and would require a real
+    tokenizer to handle correctly.
+    """
+    # Remove ``--`` line comments without touching string literals.
+    # SQLite's own statement parser does the right thing here at run
+    # time; this strip is purely so the splitter sees clean SQL.
+    no_comments = []
+    for line in text.splitlines():
+        idx = line.find("--")
+        if idx == -1:
+            no_comments.append(line)
+        else:
+            no_comments.append(line[:idx])
+    cleaned = "\n".join(no_comments)
+    return [stmt.strip() for stmt in cleaned.split(";") if stmt.strip()]
 
 
 # ---------------------------------------------------------------------------
@@ -363,6 +427,83 @@ _SELECT_DATASET_BY_ID_SQL = (
 
 
 # ---------------------------------------------------------------------------
+# Setup scanner v1 — setups + feedback SQL.
+#
+# The schema itself is created by ``migrations/0001_setups.sql`` and
+# ``migrations/0002_feedback.sql`` via the migration runner; the
+# constants below are the application-level UPSERT/SELECT surface the
+# CRUD methods bind against.
+#
+# ``region_series`` is stored as JSON-encoded TEXT (a list of floats) so
+# the DB stays human-inspectable from ``sqlite3 .dump``. A BLOB would be
+# more compact but the v1 setups corpus is tiny (setups per user, not
+# millions of rows) and grep-ability is worth more than bytes here.
+# ---------------------------------------------------------------------------
+
+_UPSERT_SETUP_SQL = """
+INSERT INTO setups (
+    id, user_id, name, instrument, timeframe,
+    region_start_ts, region_end_ts, region_series_json,
+    created_at, updated_at
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT(id) DO UPDATE SET
+    user_id            = excluded.user_id,
+    name               = excluded.name,
+    instrument         = excluded.instrument,
+    timeframe          = excluded.timeframe,
+    region_start_ts    = excluded.region_start_ts,
+    region_end_ts      = excluded.region_end_ts,
+    region_series_json = excluded.region_series_json,
+    updated_at         = excluded.updated_at
+;
+"""
+
+_SELECT_SETUP_BY_ID_SQL = (
+    "SELECT id, user_id, name, instrument, timeframe, "
+    "region_start_ts, region_end_ts, region_series_json, "
+    "created_at, updated_at FROM setups WHERE id = ?;"
+)
+
+_SELECT_SETUPS_BY_USER_SQL = (
+    "SELECT id, user_id, name, instrument, timeframe, "
+    "region_start_ts, region_end_ts, region_series_json, "
+    "created_at, updated_at FROM setups WHERE user_id = ? "
+    "ORDER BY updated_at DESC LIMIT ? OFFSET ?;"
+)
+
+_DELETE_SETUP_SQL = "DELETE FROM setups WHERE id = ?;"
+
+_INSERT_FEEDBACK_SQL = """
+INSERT INTO feedback (
+    id, user_id, setup_id, alert_id, analog_id,
+    kind, thumb, free_text, created_at
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT(id) DO UPDATE SET
+    user_id    = excluded.user_id,
+    setup_id   = excluded.setup_id,
+    alert_id   = excluded.alert_id,
+    analog_id  = excluded.analog_id,
+    kind       = excluded.kind,
+    thumb      = excluded.thumb,
+    free_text  = excluded.free_text
+;
+"""
+
+_SELECT_FEEDBACK_BY_USER_SQL = (
+    "SELECT id, user_id, setup_id, alert_id, analog_id, "
+    "kind, thumb, free_text, created_at FROM feedback WHERE user_id = ? "
+    "ORDER BY created_at DESC LIMIT ? OFFSET ?;"
+)
+
+_SELECT_FEEDBACK_BY_USER_SETUP_SQL = (
+    "SELECT id, user_id, setup_id, alert_id, analog_id, "
+    "kind, thumb, free_text, created_at FROM feedback "
+    "WHERE user_id = ? AND setup_id = ? "
+    "ORDER BY created_at DESC LIMIT ? OFFSET ?;"
+)
+
+
+# ---------------------------------------------------------------------------
 # Deterministic run_id helper
 # ---------------------------------------------------------------------------
 
@@ -549,6 +690,87 @@ class RunRegistry:
             self._conn.execute(_CREATE_IDX_RUNS_STATUS)
             self._conn.execute(_CREATE_IDX_ARTIFACTS_RUN_ID)
             self._conn.execute(_CREATE_IDX_SCORECARDS_KIND)
+
+            # Apply numbered migrations from
+            # ``the_similarity/platform/migrations/``. The runner is a no-op
+            # for already-applied versions, so calling it on every connect
+            # is cheap and keeps the schema state self-healing across
+            # parallel agent / orchestrator processes that may share a DB.
+            self._apply_migrations()
+
+    def _apply_migrations(self) -> None:
+        """Run any pending migrations from the ``migrations/`` directory.
+
+        Discovers files matching ``NNNN_<slug>.sql`` (sorted by version
+        prefix), applies each inside its own transaction, and records the
+        version in ``schema_migrations``. Already-applied versions are
+        skipped — re-running this method is idempotent.
+
+        Failure mode
+        ------------
+        A migration file that fails to apply rolls back its transaction and
+        propagates the exception upward — the registry is then in an
+        unusable state for that connection, but the DB on disk remains
+        consistent (the partially-applied DDL is rolled back).
+        """
+        # Bootstrap the version-tracking table itself. Idempotent via
+        # ``CREATE TABLE IF NOT EXISTS`` so it's safe to run on every
+        # connect.
+        self._conn.execute(_CREATE_SCHEMA_MIGRATIONS_SQL)
+
+        # Read the set of already-applied versions so the runner is
+        # cheap on warm DBs (one round-trip per connect, not per file).
+        applied: set[str] = {
+            row[0]
+            for row in self._conn.execute(
+                "SELECT version FROM schema_migrations"
+            ).fetchall()
+        }
+
+        # Discover migration files. ``sorted()`` over filenames is
+        # equivalent to numeric sort because the four-digit prefix is
+        # zero-padded.
+        if not _MIGRATIONS_DIR.is_dir():
+            return
+        for path in sorted(_MIGRATIONS_DIR.iterdir()):
+            match = _MIGRATION_FILENAME_PATTERN.match(path.name)
+            if match is None:
+                continue
+            version = match.group(1)
+            if version in applied:
+                continue
+
+            # Apply the file's SQL inside one transaction. We deliberately
+            # avoid ``executescript()`` here because it issues its own
+            # COMMIT before running, which would dissolve any outer
+            # transaction (including the SAVEPOINT we use for atomicity).
+            # Instead we split on semicolons, strip comments, and run each
+            # statement via ``execute()`` inside one explicit savepoint so
+            # the DDL + the version-record INSERT land atomically.
+            sql_text = path.read_text(encoding="utf-8")
+            statements = _split_sql_statements(sql_text)
+            try:
+                self._conn.execute("SAVEPOINT migration")
+                for stmt in statements:
+                    self._conn.execute(stmt)
+                self._conn.execute(
+                    "INSERT INTO schema_migrations (version, applied_at) "
+                    "VALUES (?, ?)",
+                    (
+                        version,
+                        datetime.now(timezone.utc).isoformat(timespec="seconds"),
+                    ),
+                )
+                self._conn.execute("RELEASE SAVEPOINT migration")
+            except Exception:
+                # Roll back the savepoint so the DB returns to its
+                # pre-migration state, then release the named point.
+                # ``ROLLBACK TO`` does NOT release the savepoint — the
+                # subsequent RELEASE is required to clean up the named
+                # frame on the savepoint stack.
+                self._conn.execute("ROLLBACK TO SAVEPOINT migration")
+                self._conn.execute("RELEASE SAVEPOINT migration")
+                raise
 
     def _maybe_add_column(self, table: str, column: str, decl: str) -> None:
         """``ALTER TABLE table ADD COLUMN column decl`` — idempotent.
@@ -845,6 +1067,175 @@ class RunRegistry:
         return self._row_to_dataset_spec(row)
 
     # ======================================================================
+    # Setup scanner v1 — Setup CRUD
+    #
+    # The setups table is created by ``migrations/0001_setups.sql``. These
+    # methods are the application API for the personalized setup scanner;
+    # they upsert by ``Setup.id``, list per-user, and cascade-delete via
+    # the FK on ``feedback.setup_id``.
+    # ======================================================================
+
+    def create_setup(self, setup: Setup) -> str:
+        """Insert or update a :class:`Setup`. Returns ``setup.id``.
+
+        Idempotent on ``id`` — re-creating with the same ID replaces every
+        column except ``created_at`` (which is preserved via SQLite's
+        ON CONFLICT semantics — see the UPSERT statement; ``created_at``
+        is intentionally absent from the SET clause).
+
+        Auto-stamps ``created_at`` and ``updated_at`` when blank.
+        Mutates the input dataclass in-place so callers see the stamped
+        values. Empty ``user_id`` raises :class:`ValueError` — multi-tenant
+        scoping is the whole point of the table.
+        """
+        if not setup.user_id:
+            raise ValueError("Setup.user_id is required")
+        now_iso = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        if not setup.created_at:
+            setup.created_at = now_iso
+        # Always bump updated_at on write — caller-supplied values are
+        # respected (for tests / data imports) but we default to "now"
+        # which is what 99% of callers want.
+        setup.updated_at = setup.updated_at or now_iso
+
+        # Region series is JSON-encoded text. Empty list serializes to
+        # "[]" which is valid JSON and round-trips cleanly.
+        series_json = json.dumps(list(setup.region_series), separators=(",", ":"))
+
+        with self._conn:
+            self._conn.execute(
+                _UPSERT_SETUP_SQL,
+                (
+                    setup.id,
+                    setup.user_id,
+                    setup.name,
+                    setup.instrument,
+                    setup.timeframe,
+                    setup.region_start_ts,
+                    setup.region_end_ts,
+                    series_json,
+                    setup.created_at,
+                    setup.updated_at,
+                ),
+            )
+        return setup.id
+
+    def get_setup(self, setup_id: str) -> Optional[Setup]:
+        """Return the :class:`Setup` for ``setup_id`` or ``None`` if absent."""
+        cursor = self._conn.execute(_SELECT_SETUP_BY_ID_SQL, (setup_id,))
+        row = cursor.fetchone()
+        if row is None:
+            return None
+        return self._row_to_setup(row)
+
+    def list_setups(
+        self,
+        user_id: str,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> List[Setup]:
+        """Return setups owned by ``user_id``, newest-updated first.
+
+        ``user_id`` is **required** — listing across users would leak
+        between tenants. The index ``idx_setups_user_id`` covers the
+        WHERE clause; the ORDER BY uses the table's ``updated_at`` column
+        directly (no covering index, but the table is small).
+        """
+        if not user_id:
+            raise ValueError("user_id is required for list_setups")
+        cursor = self._conn.execute(
+            _SELECT_SETUPS_BY_USER_SQL, (user_id, limit, offset)
+        )
+        return [self._row_to_setup(row) for row in cursor.fetchall()]
+
+    def delete_setup(self, setup_id: str) -> bool:
+        """Delete a setup and cascade to its feedback rows.
+
+        Returns ``True`` if a row was removed, ``False`` otherwise. The
+        ``ON DELETE CASCADE`` on ``feedback.setup_id`` fires at the DB
+        layer (foreign keys are enabled via the connection PRAGMA).
+        """
+        with self._conn:
+            cursor = self._conn.execute(_DELETE_SETUP_SQL, (setup_id,))
+        return cursor.rowcount > 0
+
+    # ======================================================================
+    # Setup scanner v1 — Feedback CRUD
+    #
+    # Persisted from day 1 even when v1 doesn't compute on the rows yet.
+    # See ``vision/personalized_setup_scanner.md`` (the goodrun feedback
+    # moat) for why these rows MUST land at insert time, regardless of
+    # whether the v1 filter logic uses them.
+    # ======================================================================
+
+    def record_feedback(self, feedback: Feedback) -> str:
+        """Insert (or upsert by ``id``) a :class:`Feedback` row.
+
+        Validates ``kind ∈ {"alert", "analog"}`` and
+        ``thumb ∈ {"up", "down"}`` to catch typos before they corrupt
+        the goodrun training set. Auto-stamps ``created_at`` if blank.
+        """
+        if feedback.kind not in ("alert", "analog"):
+            raise ValueError(
+                f"Feedback.kind must be 'alert' or 'analog', got {feedback.kind!r}"
+            )
+        if feedback.thumb not in ("up", "down"):
+            raise ValueError(
+                f"Feedback.thumb must be 'up' or 'down', got {feedback.thumb!r}"
+            )
+        if not feedback.user_id:
+            raise ValueError("Feedback.user_id is required")
+        if not feedback.setup_id:
+            raise ValueError("Feedback.setup_id is required")
+        if not feedback.created_at:
+            feedback.created_at = datetime.now(timezone.utc).isoformat(
+                timespec="seconds"
+            )
+        with self._conn:
+            self._conn.execute(
+                _INSERT_FEEDBACK_SQL,
+                (
+                    feedback.id,
+                    feedback.user_id,
+                    feedback.setup_id,
+                    feedback.alert_id,
+                    feedback.analog_id,
+                    feedback.kind,
+                    feedback.thumb,
+                    feedback.free_text,
+                    feedback.created_at,
+                ),
+            )
+        return feedback.id
+
+    def list_feedback(
+        self,
+        user_id: str,
+        setup_id: Optional[str] = None,
+        limit: int = 200,
+        offset: int = 0,
+    ) -> List[Feedback]:
+        """Return feedback rows for ``user_id``, optionally filtered by setup.
+
+        ``user_id`` is required (multi-tenant scope). When ``setup_id`` is
+        provided, the result is limited to feedback on that setup —
+        enabling the per-setup goodrun aggregation in
+        :func:`the_similarity.core.scorer.compute_goodrun_score`.
+        """
+        if not user_id:
+            raise ValueError("user_id is required for list_feedback")
+        if setup_id is None:
+            cursor = self._conn.execute(
+                _SELECT_FEEDBACK_BY_USER_SQL, (user_id, limit, offset)
+            )
+        else:
+            cursor = self._conn.execute(
+                _SELECT_FEEDBACK_BY_USER_SETUP_SQL,
+                (user_id, setup_id, limit, offset),
+            )
+        return [self._row_to_feedback(row) for row in cursor.fetchall()]
+
+    # ======================================================================
     # Legacy RunArtifact API — kept byte-compatible with the pre-spine
     # registry so existing callers (CLI subcommands, tests, external
     # scripts) keep working. These wrappers adapt RunArtifact ↔ RunRecord.
@@ -1033,6 +1424,65 @@ class RunRegistry:
             n_columns=n_columns,
             checksum=checksum,
             metadata=json.loads(metadata_json) if metadata_json else {},
+        )
+
+    @staticmethod
+    def _row_to_setup(row: Tuple[Any, ...]) -> Setup:
+        """Hydrate a :class:`Setup` from a row matching ``_SELECT_SETUP_*_SQL``.
+
+        ``region_series_json`` is JSON-decoded into a list of floats.
+        Malformed JSON propagates as a ``json.JSONDecodeError`` — corrupt
+        rows fail loud rather than silently returning an empty series.
+        """
+        (
+            id_,
+            user_id,
+            name,
+            instrument,
+            timeframe,
+            region_start_ts,
+            region_end_ts,
+            region_series_json,
+            created_at,
+            updated_at,
+        ) = row
+        return Setup(
+            id=id_,
+            user_id=user_id,
+            name=name,
+            instrument=instrument,
+            timeframe=timeframe,
+            region_start_ts=region_start_ts,
+            region_end_ts=region_end_ts,
+            region_series=json.loads(region_series_json) if region_series_json else [],
+            created_at=created_at,
+            updated_at=updated_at,
+        )
+
+    @staticmethod
+    def _row_to_feedback(row: Tuple[Any, ...]) -> Feedback:
+        """Hydrate a :class:`Feedback` from a row matching ``_SELECT_FEEDBACK_*_SQL``."""
+        (
+            id_,
+            user_id,
+            setup_id,
+            alert_id,
+            analog_id,
+            kind,
+            thumb,
+            free_text,
+            created_at,
+        ) = row
+        return Feedback(
+            id=id_,
+            user_id=user_id,
+            setup_id=setup_id,
+            alert_id=alert_id,
+            analog_id=analog_id,
+            kind=kind,
+            thumb=thumb,
+            free_text=free_text,
+            created_at=created_at,
         )
 
 
