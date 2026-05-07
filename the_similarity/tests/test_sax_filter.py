@@ -127,7 +127,7 @@ class TestDistTable:
         """Adjacent symbols (|i - j| = 1) must have distance 0."""
         table = _build_dist_table(8)
         for i in range(7):
-            assert table[i, i + 1] == 0.0, f"Expected 0 for adjacent ({i}, {i+1})"
+            assert table[i, i + 1] == 0.0, f"Expected 0 for adjacent ({i}, {i + 1})"
             assert table[i + 1, i] == 0.0
 
     def test_table_symmetric(self):

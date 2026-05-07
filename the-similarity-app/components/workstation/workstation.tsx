@@ -62,6 +62,10 @@ import { Sparkline } from "./sparkline";
 import { AnalogDetailDrawer } from "./analog-detail-drawer";
 import { NotebookPanel } from "./notebook-panel";
 import { SavedRunsPanel } from "./saved-runs-panel";
+import { FeedbackControl } from "../alerts/feedback-control";
+import { ColdBacktestOnboarding } from "../onboarding/cold-backtest-onboarding";
+import { SetupDefinitionPanel } from "../setup/setup-definition-panel";
+import type { SetupBar, SetupTemplate } from "../setup/types";
 
 /**
  * localStorage key for the last-query snapshot.
@@ -368,6 +372,30 @@ function readInitialUrlState(): WorkstationUrlState {
   }
 }
 
+function toSetupBars(
+  series: DataPoint[],
+  ohlc: OhlcData | null,
+  start: number,
+  end: number,
+): SetupBar[] {
+  const bars: SetupBar[] = [];
+  const last = Math.min(end, series.length);
+  for (let idx = Math.max(0, start); idx < last; idx += 1) {
+    const point = series[idx];
+    if (!point) continue;
+    const close = ohlc?.close[idx] ?? point.p;
+    bars.push({
+      timestamp: point.d.toISOString(),
+      open: ohlc?.open[idx] ?? point.p,
+      high: ohlc?.high[idx] ?? Math.max(point.p, close),
+      low: ohlc?.low[idx] ?? Math.min(point.p, close),
+      close,
+      volume: ohlc?.volume[idx],
+    });
+  }
+  return bars;
+}
+
 export function Workstation({ settings, onSettings }: WorkstationProps) {
   /*
    * URL-state snapshot captured at mount.
@@ -466,6 +494,7 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
   const [searchedAnalogs, setSearchedAnalogs] = useState<AnalogMatch[] | null>(null);
   const [searchedCone, setSearchedCone] = useState<ConePoint[] | null>(null);
   const [lastRunAt, setLastRunAt] = useState<Date | null>(null);
+  const [scannerSetup, setScannerSetup] = useState<SetupTemplate | null>(null);
   /*
    * Cross-timeframe selection.
    *
@@ -1981,6 +2010,30 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
     return "SPX \u00B7 daily";
   }, [activeDataset]);
 
+  const setupDatasetMeta = useMemo(() => {
+    const parts = activeDataset.split("/");
+    return {
+      symbol: parts[1]?.toUpperCase() ?? "SPX",
+      timeframe: parts[2] ?? "1d",
+    };
+  }, [activeDataset]);
+
+  const setupRegionBars = useMemo(
+    () =>
+      toSetupBars(
+        loadedSeries,
+        loadedOhlc,
+        windowState.start,
+        windowState.start + windowState.len,
+      ),
+    [loadedSeries, loadedOhlc, windowState],
+  );
+
+  const setupLiveBars = useMemo(
+    () => toSetupBars(loadedSeries, loadedOhlc, 0, loadedSeries.length),
+    [loadedSeries, loadedOhlc],
+  );
+
   // Catalog source for the dropdown.
   //
   // Online mode: use the live /catalog response.
@@ -2283,6 +2336,20 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
               {fmtPct(queryMeta.ret)}
             </span>
           </div>
+        </div>
+
+        <div className="side__section">
+          <div className="side__header">
+            <span className="label">Setup scanner</span>
+            <span className="mono" style={{ fontSize: 10.5, color: "var(--ink-3)" }}>v1</span>
+          </div>
+          <SetupDefinitionPanel
+            symbol={setupDatasetMeta.symbol}
+            timeframe={setupDatasetMeta.timeframe}
+            regionBars={setupRegionBars}
+            liveBars={setupLiveBars}
+            onTemplate={setScannerSetup}
+          />
         </div>
 
         <div className="side__section">
@@ -3459,6 +3526,7 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
                     {fmtPct(a.afterReturn)}
                   </span>
                 </div>
+                <FeedbackControl targetType="analog" targetId={a.id} compact />
               </div>
             );
           })}
@@ -3581,6 +3649,43 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
           label={shareToast}
           onDismiss={() => setShareToast(null)}
         />
+      )}
+
+      {scannerSetup !== null && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Cold backtest onboarding"
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 90,
+            background: "var(--bg)",
+          }}
+        >
+          <button
+            type="button"
+            aria-label="Close cold backtest"
+            onClick={() => setScannerSetup(null)}
+            style={{
+              position: "fixed",
+              top: 12,
+              right: 12,
+              zIndex: 91,
+              width: 34,
+              height: 34,
+              border: "1px solid var(--rule-strong)",
+              borderRadius: "var(--radius-md)",
+              background: "var(--bg-elevated)",
+              color: "var(--ink)",
+              fontSize: 20,
+              lineHeight: 1,
+            }}
+          >
+            &times;
+          </button>
+          <ColdBacktestOnboarding setup={scannerSetup} />
+        </div>
       )}
     </div>
   );

@@ -253,7 +253,11 @@ class TestRegistryIntegration:
                 (BlockBootstrapGenerator, "block_bootstrap"),
                 (_GaussianCopulaGenerator, "gaussian_copula"),
             ]:
-                gen = gen_cls(block_len=10) if gen_name == "block_bootstrap" else gen_cls()  # type: ignore[misc]
+                gen = (
+                    gen_cls(block_len=10)
+                    if gen_name == "block_bootstrap"
+                    else gen_cls()
+                )  # type: ignore[misc]
                 synth = _generate_synth(gen, real, n=200, seed=42)
 
                 run_dir = Path(tmpdir) / f"{gen_name}-run"

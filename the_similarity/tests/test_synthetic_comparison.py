@@ -81,8 +81,12 @@ class TestRankResults:
     def test_tiebreak_by_utility_gap_ascending(self):
         """When fidelity is equal, lower utility_gap should rank first."""
         results = [
-            GeneratorResult(generator_name="worse_util", fidelity_score=0.5, utility_gap=0.8),
-            GeneratorResult(generator_name="better_util", fidelity_score=0.5, utility_gap=0.2),
+            GeneratorResult(
+                generator_name="worse_util", fidelity_score=0.5, utility_gap=0.8
+            ),
+            GeneratorResult(
+                generator_name="better_util", fidelity_score=0.5, utility_gap=0.2
+            ),
         ]
         ranked = _rank_results(results)
         assert ranked[0].generator_name == "better_util"
@@ -91,7 +95,9 @@ class TestRankResults:
     def test_errors_rank_last(self):
         """Results with errors should always rank after error-free results."""
         results = [
-            GeneratorResult(generator_name="errored", fidelity_score=0.99, error="boom"),
+            GeneratorResult(
+                generator_name="errored", fidelity_score=0.99, error="boom"
+            ),
             GeneratorResult(generator_name="ok", fidelity_score=0.1, utility_gap=0.5),
         ]
         ranked = _rank_results(results)

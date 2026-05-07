@@ -105,9 +105,7 @@ class TestQueryProfile:
         )
         distances = query_profile(history, pattern)
         best_pos = int(np.argmin(distances))
-        assert best_pos == 200, (
-            f"Expected minimum at position 200, got {best_pos}"
-        )
+        assert best_pos == 200, f"Expected minimum at position 200, got {best_pos}"
 
     def test_self_distance_near_zero(self):
         """Extracting the embedded subsequence and querying against the history

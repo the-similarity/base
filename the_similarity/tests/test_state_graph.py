@@ -23,7 +23,9 @@ from the_similarity.core.state_graph import (
 # ---------------------------------------------------------------------------
 
 
-def _make_vectors(n: int = 10, dim: int = 4, kind: str = "default", seed: int = 42) -> list[StateVector]:
+def _make_vectors(
+    n: int = 10, dim: int = 4, kind: str = "default", seed: int = 42
+) -> list[StateVector]:
     """Generate *n* random StateVectors of given dimensionality.
 
     Uses canonical StateVector fields from state_space.py:
@@ -130,9 +132,27 @@ class TestClusters:
     def test_clusters_disconnected_graph(self):
         """Two isolated clusters should produce 2 components."""
         # Cluster A: near origin
-        a = [StateVector(vector=np.array([0.0, 0.0]) + np.random.default_rng(i).standard_normal(2) * 0.01, source_id=f"a-{i}", source_kind="default", label=f"a-{i}") for i in range(3)]
+        a = [
+            StateVector(
+                vector=np.array([0.0, 0.0])
+                + np.random.default_rng(i).standard_normal(2) * 0.01,
+                source_id=f"a-{i}",
+                source_kind="default",
+                label=f"a-{i}",
+            )
+            for i in range(3)
+        ]
         # Cluster B: far away
-        b = [StateVector(vector=np.array([100.0, 100.0]) + np.random.default_rng(i + 100).standard_normal(2) * 0.01, source_id=f"b-{i}", source_kind="default", label=f"b-{i}") for i in range(3)]
+        b = [
+            StateVector(
+                vector=np.array([100.0, 100.0])
+                + np.random.default_rng(i + 100).standard_normal(2) * 0.01,
+                source_id=f"b-{i}",
+                source_kind="default",
+                label=f"b-{i}",
+            )
+            for i in range(3)
+        ]
         vectors = a + b
         # k=2 within each cluster — should form 2 components
         graph = build_knn_graph(vectors, k=2)
@@ -171,8 +191,18 @@ class TestShortestPath:
     def test_shortest_path_no_path(self):
         """Disconnected nodes → empty path."""
         # Manually build a graph with 2 disconnected nodes
-        v1 = StateVector(vector=np.array([0.0, 0.0]), source_id="v1", source_kind="default", label="v1")
-        v2 = StateVector(vector=np.array([1.0, 1.0]), source_id="v2", source_kind="default", label="v2")
+        v1 = StateVector(
+            vector=np.array([0.0, 0.0]),
+            source_id="v1",
+            source_kind="default",
+            label="v1",
+        )
+        v2 = StateVector(
+            vector=np.array([1.0, 1.0]),
+            source_id="v2",
+            source_kind="default",
+            label="v2",
+        )
         graph = StateGraph(nodes=[v1, v2], edges=[])
         path = graph.shortest_path(0, 1)
         assert path == []
@@ -248,6 +278,7 @@ class TestCrossDomainNeighbors:
         bridges = find_cross_domain_neighbors(graph, "finance", "worlds", k=k)
         # Group by source
         from collections import Counter
+
         source_counts = Counter(src for src, _, _ in bridges)
         for count in source_counts.values():
             assert count <= k
@@ -280,7 +311,13 @@ class TestSerialization:
             assert orig.source_kind == rest.source_kind
 
     def test_meta_preserved(self):
-        v = StateVector(vector=np.array([1.0, 2.0]), source_id="spy-1", source_kind="test", label="SPY test", metadata={"ticker": "SPY"})
+        v = StateVector(
+            vector=np.array([1.0, 2.0]),
+            source_id="spy-1",
+            source_kind="test",
+            label="SPY test",
+            metadata={"ticker": "SPY"},
+        )
         graph = StateGraph(nodes=[v], edges=[])
         d = to_dict(graph)
         restored = from_dict(d)

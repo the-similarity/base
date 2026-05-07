@@ -717,9 +717,7 @@ def _catalog_main(argv: list[str]) -> int:
 
     if args.catalog_cmd == "list":
         with RunRegistry(db_path) as registry:
-            datasets = list_catalog(
-                registry, promoted_only=args.promoted_only
-            )
+            datasets = list_catalog(registry, promoted_only=args.promoted_only)
         if not datasets:
             print("No synthetic datasets found.")
             return 0

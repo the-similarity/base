@@ -62,13 +62,16 @@ def _extract_state_vector(record: RunRecord) -> np.ndarray:
         [4] fidelity    — fidelity score, [0, 1]
     """
     s = record.summary
-    return np.array([
-        float(s.get("score", 0.0)),
-        min(float(s.get("n_matches", 0)) / 1000.0, 1.0),
-        float(s.get("hit_rate", 0.0)),
-        min(float(s.get("n_ticks", 0)) / 10000.0, 1.0),
-        float(s.get("fidelity_score", 0.0)),
-    ], dtype=np.float64)
+    return np.array(
+        [
+            float(s.get("score", 0.0)),
+            min(float(s.get("n_matches", 0)) / 1000.0, 1.0),
+            float(s.get("hit_rate", 0.0)),
+            min(float(s.get("n_ticks", 0)) / 10000.0, 1.0),
+            float(s.get("fidelity_score", 0.0)),
+        ],
+        dtype=np.float64,
+    )
 
 
 def _build_state_index(records: List[RunRecord]) -> np.ndarray:
@@ -256,7 +259,9 @@ class TestStateSpaceIndex:
         for i in range(index.shape[0]):
             sim = _cosine_similarity(index[i], index[i])
             if np.linalg.norm(index[i]) > 0:
-                assert abs(sim - 1.0) < 1e-10, f"Self-similarity for run {i} should be 1.0"
+                assert abs(sim - 1.0) < 1e-10, (
+                    f"Self-similarity for run {i} should be 1.0"
+                )
 
 
 class TestStateSpaceAgentImports:
@@ -271,6 +276,7 @@ class TestStateSpaceAgentImports:
         """Attempt to import the state_space module from Agent 1."""
         try:
             from the_similarity.platform import state_space  # noqa: F401
+
             # If it exists, verify it has the expected API surface.
             assert hasattr(state_space, "StateVector") or hasattr(
                 state_space, "StateIndex"
@@ -285,6 +291,7 @@ class TestStateSpaceAgentImports:
         """Attempt to import the state_graph module from Agent 1."""
         try:
             from the_similarity.platform import state_graph  # noqa: F401
+
             assert hasattr(state_graph, "StateGraph") or hasattr(
                 state_graph, "build_knn_graph"
             ), "state_graph module exists but missing expected classes"

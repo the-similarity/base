@@ -78,7 +78,7 @@ INFLATION_DOWN = "inflation_down"
 VOLATILITY_BULLISH = "volatility_bullish"  # VIX below 1y average
 VOLATILITY_BEARISH = "volatility_bearish"  # VIX above 1y average
 
-LIQUIDITY_UP = "liquidity_up"      # rate cut
+LIQUIDITY_UP = "liquidity_up"  # rate cut
 LIQUIDITY_DOWN = "liquidity_down"  # rate hike
 
 
@@ -178,9 +178,7 @@ def label_growth_inflation(
     that to keep results reproducible against the paper's tables.
     """
     growth_label = GROWTH_UP if growth > growth_2y_avg else GROWTH_DOWN
-    inflation_label = (
-        INFLATION_UP if inflation > inflation_5y_avg else INFLATION_DOWN
-    )
+    inflation_label = INFLATION_UP if inflation > inflation_5y_avg else INFLATION_DOWN
     return growth_label, inflation_label
 
 
@@ -203,9 +201,7 @@ def label_volatility_liquidity(
     whether to combine them into a 2x2 grid or keep them as separate
     slicing axes.
     """
-    volatility_label = (
-        VOLATILITY_BEARISH if vix > vix_1y_avg else VOLATILITY_BULLISH
-    )
+    volatility_label = VOLATILITY_BEARISH if vix > vix_1y_avg else VOLATILITY_BULLISH
     # ``> 0`` vs ``>= 0`` matters: a flat-policy month is closer to
     # "tightening continues" than to "easing", per the paper's hawkish
     # treatment of unchanged rates as "no liquidity injection".

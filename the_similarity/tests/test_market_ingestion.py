@@ -27,7 +27,10 @@ from the_similarity.events.markets import (
 
 # Path to the benchmark fixture shipped with the package.
 _BENCHMARK_PATH = (
-    Path(__file__).resolve().parent.parent / "events" / "data" / "benchmark_questions.json"
+    Path(__file__).resolve().parent.parent
+    / "events"
+    / "data"
+    / "benchmark_questions.json"
 )
 
 
@@ -234,8 +237,16 @@ class TestMarketAdapter:
         q = _make_question(resolved=True, resolution=True)
         # Last price = 1.0 => perfect forecast for True outcome.
         prices = [
-            MarketPrice(question_id="test-q-1", timestamp="2022-01-01T00:00:00Z", probability=0.5),
-            MarketPrice(question_id="test-q-1", timestamp="2022-01-02T00:00:00Z", probability=1.0),
+            MarketPrice(
+                question_id="test-q-1",
+                timestamp="2022-01-01T00:00:00Z",
+                probability=0.5,
+            ),
+            MarketPrice(
+                question_id="test-q-1",
+                timestamp="2022-01-02T00:00:00Z",
+                probability=1.0,
+            ),
         ]
         h = MarketHistory(question=q, prices=prices)
         qs = QuestionSet(questions=[h], name="brier-test", version="v1.0")

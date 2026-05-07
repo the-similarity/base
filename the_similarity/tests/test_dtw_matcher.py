@@ -203,11 +203,13 @@ class TestRankCandidates:
     def test_rank_identical_first(self):
         """Identical candidate should appear as rank 0 (highest score)."""
         query = _sine(40, seed=0)
-        candidates = np.vstack([
-            _random_walk(40, seed=1),
-            _random_walk(40, seed=2),
-            query.copy(),  # identical — should rank first
-        ])
+        candidates = np.vstack(
+            [
+                _random_walk(40, seed=1),
+                _random_walk(40, seed=2),
+                query.copy(),  # identical — should rank first
+            ]
+        )
         ranked = rank_candidates(query, candidates)
         assert ranked[0][0] == 2, (
             f"Expected identical candidate (index 2) at rank 0; got {ranked[0][0]}"

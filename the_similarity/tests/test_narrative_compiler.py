@@ -35,12 +35,20 @@ from the_similarity.platform.registry import RunRegistry
 
 def _crash_sequence(duration: int = 20, intensity: float = 0.9) -> dict:
     """Single-event crash sequence."""
-    return {"events": [{"event_type": "crash", "intensity": intensity, "duration_bars": duration}]}
+    return {
+        "events": [
+            {"event_type": "crash", "intensity": intensity, "duration_bars": duration}
+        ]
+    }
 
 
 def _rally_sequence(duration: int = 20, intensity: float = 0.9) -> dict:
     """Single-event rally sequence."""
-    return {"events": [{"event_type": "rally", "intensity": intensity, "duration_bars": duration}]}
+    return {
+        "events": [
+            {"event_type": "rally", "intensity": intensity, "duration_bars": duration}
+        ]
+    }
 
 
 def _mixed_sequence() -> dict:
@@ -64,7 +72,9 @@ class TestCrashDownward:
 
     def test_crash_ends_below_start(self):
         """A high-intensity crash over many bars ends below the base price."""
-        prices = compile_trajectory(_crash_sequence(duration=30, intensity=1.0), base_price=100.0)
+        prices = compile_trajectory(
+            _crash_sequence(duration=30, intensity=1.0), base_price=100.0
+        )
         # With 30 bars of max-intensity crash, the end price should be
         # substantially below 100.  We use a generous threshold because
         # stochastic noise can dampen the move.
@@ -74,7 +84,9 @@ class TestCrashDownward:
 
     def test_crash_trend_is_negative(self):
         """The linear regression slope over a crash segment is negative."""
-        prices = compile_trajectory(_crash_sequence(duration=50, intensity=0.9), base_price=100.0)
+        prices = compile_trajectory(
+            _crash_sequence(duration=50, intensity=0.9), base_price=100.0
+        )
         # Simple slope: (last - first) / n_bars
         slope = (prices[-1] - prices[0]) / len(prices)
         assert slope < 0, f"Expected negative slope for crash, got {slope:.6f}"
@@ -85,14 +97,18 @@ class TestRallyUpward:
 
     def test_rally_ends_above_start(self):
         """A high-intensity rally over many bars ends above the base price."""
-        prices = compile_trajectory(_rally_sequence(duration=30, intensity=1.0), base_price=100.0)
+        prices = compile_trajectory(
+            _rally_sequence(duration=30, intensity=1.0), base_price=100.0
+        )
         assert prices[-1] > 100.0, (
             f"Rally should end above base_price=100, got {prices[-1]:.4f}"
         )
 
     def test_rally_trend_is_positive(self):
         """The linear regression slope over a rally segment is positive."""
-        prices = compile_trajectory(_rally_sequence(duration=50, intensity=0.9), base_price=100.0)
+        prices = compile_trajectory(
+            _rally_sequence(duration=50, intensity=0.9), base_price=100.0
+        )
         slope = (prices[-1] - prices[0]) / len(prices)
         assert slope > 0, f"Expected positive slope for rally, got {slope:.6f}"
 
@@ -171,7 +187,11 @@ class TestEdgeCases:
     """Validation and edge-case handling."""
 
     def test_unknown_event_type_raises(self):
-        seq = {"events": [{"event_type": "earthquake", "intensity": 0.5, "duration_bars": 5}]}
+        seq = {
+            "events": [
+                {"event_type": "earthquake", "intensity": 0.5, "duration_bars": 5}
+            ]
+        }
         with pytest.raises(ValueError, match="Unknown event_type"):
             compile_trajectory(seq)
 
@@ -186,14 +206,18 @@ class TestEdgeCases:
     def test_all_supported_event_types_compile(self):
         """Every supported event type compiles without error."""
         for etype in SUPPORTED_EVENT_TYPES:
-            seq = {"events": [{"event_type": etype, "intensity": 0.5, "duration_bars": 5}]}
+            seq = {
+                "events": [{"event_type": etype, "intensity": 0.5, "duration_bars": 5}]
+            }
             prices = compile_trajectory(seq, seed=0)
             assert len(prices) == 5, f"{etype} produced wrong length"
             assert np.all(np.isfinite(prices)), f"{etype} produced non-finite values"
 
     def test_zero_intensity_produces_near_flat(self):
         """Intensity=0 should produce near-flat prices (only minimal noise)."""
-        seq = {"events": [{"event_type": "crash", "intensity": 0.0, "duration_bars": 50}]}
+        seq = {
+            "events": [{"event_type": "crash", "intensity": 0.0, "duration_bars": 50}]
+        }
         prices = compile_trajectory(seq, base_price=100.0)
         # With zero intensity, drift=0 and vol≈0 (clamped to 1e-12),
         # so prices should barely move from 100.

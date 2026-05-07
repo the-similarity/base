@@ -235,9 +235,7 @@ class TestFinanceOperatingBaseline:
                 calibration_grade = summary.get("calibration_grade")
                 if calibration_grade is not None:
                     assert isinstance(calibration_grade, str)
-                    assert calibration_grade in {
-                        "excellent", "good", "fair", "poor"
-                    }, (
+                    assert calibration_grade in {"excellent", "good", "fair", "poor"}, (
                         f"calibration_grade={calibration_grade!r} not a valid grade"
                     )
 

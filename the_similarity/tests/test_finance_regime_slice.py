@@ -49,8 +49,8 @@ def _trial(*, p50_terminal: float, actual_terminal: float) -> TrialResult:
 def test_info_sharpe_buckets_trials_by_label() -> None:
     """Trials with different regime labels land in different buckets."""
     trials = [
-        _trial(p50_terminal=0.01, actual_terminal=0.02),   # bull, hit
-        _trial(p50_terminal=0.01, actual_terminal=0.03),   # bull, hit
+        _trial(p50_terminal=0.01, actual_terminal=0.02),  # bull, hit
+        _trial(p50_terminal=0.01, actual_terminal=0.03),  # bull, hit
         _trial(p50_terminal=0.01, actual_terminal=-0.05),  # bear, miss
         _trial(p50_terminal=-0.01, actual_terminal=-0.04),  # bear, hit
     ]
@@ -59,9 +59,7 @@ def test_info_sharpe_buckets_trials_by_label() -> None:
     # Index trials by their position in the input list so the test does
     # not depend on any timestamp wiring.
     by_id = {id(t): labels[i] for i, t in enumerate(trials)}
-    result = info_sharpe_by_regime(
-        trials, regime_for_trial=lambda t: by_id[id(t)]
-    )
+    result = info_sharpe_by_regime(trials, regime_for_trial=lambda t: by_id[id(t)])
 
     assert set(result.keys()) == {"bull", "bear"}
     # Both buckets had >=2 trials with non-zero variance, so Sharpe is finite.
@@ -76,9 +74,7 @@ def test_info_sharpe_matches_manual_computation() -> None:
         _trial(p50_terminal=0.01, actual_terminal=0.04),  # +1 * 0.04 = 0.04
         _trial(p50_terminal=-0.01, actual_terminal=-0.06),  # -1 * -0.06 = 0.06
     ]
-    result = info_sharpe_by_regime(
-        trials, regime_for_trial=lambda _t: "only"
-    )
+    result = info_sharpe_by_regime(trials, regime_for_trial=lambda _t: "only")
 
     expected_returns = np.array([0.02, 0.04, 0.06])
     expected_sharpe = float(
@@ -90,9 +86,7 @@ def test_info_sharpe_matches_manual_computation() -> None:
 def test_info_sharpe_returns_nan_on_singleton_bucket() -> None:
     """Single-observation buckets are NaN (Sharpe ill-defined)."""
     trials = [_trial(p50_terminal=0.01, actual_terminal=0.02)]
-    result = info_sharpe_by_regime(
-        trials, regime_for_trial=lambda _t: "only"
-    )
+    result = info_sharpe_by_regime(trials, regime_for_trial=lambda _t: "only")
     assert math.isnan(result["only"])
 
 
@@ -102,9 +96,7 @@ def test_info_sharpe_returns_nan_on_zero_variance_bucket() -> None:
         _trial(p50_terminal=0.01, actual_terminal=0.02),
         _trial(p50_terminal=0.01, actual_terminal=0.02),
     ]
-    result = info_sharpe_by_regime(
-        trials, regime_for_trial=lambda _t: "only"
-    )
+    result = info_sharpe_by_regime(trials, regime_for_trial=lambda _t: "only")
     assert math.isnan(result["only"])
 
 
@@ -118,16 +110,12 @@ def test_info_sharpe_skips_trials_with_none_label() -> None:
     labels = ["A", "A", None]
     by_id = {id(t): labels[i] for i, t in enumerate(trials)}
 
-    result = info_sharpe_by_regime(
-        trials, regime_for_trial=lambda t: by_id[id(t)]
-    )
+    result = info_sharpe_by_regime(trials, regime_for_trial=lambda t: by_id[id(t)])
 
     # Only bucket A exists; the excluded trial's outsized return does not
     # appear, which we verify indirectly by recomputing manually.
     expected = np.array([0.02, 0.03])
-    expected_sharpe = float(
-        np.mean(expected) / np.std(expected, ddof=0)
-    )
+    expected_sharpe = float(np.mean(expected) / np.std(expected, ddof=0))
     assert result == {"A": expected_sharpe}
 
 
@@ -149,14 +137,10 @@ def test_info_sharpe_skips_trials_without_p50_curve() -> None:
         _trial(p50_terminal=0.01, actual_terminal=0.03),
         no_p50,
     ]
-    result = info_sharpe_by_regime(
-        trials, regime_for_trial=lambda _t: "only"
-    )
+    result = info_sharpe_by_regime(trials, regime_for_trial=lambda _t: "only")
     # Only the two well-formed trials feed the Sharpe.
     expected = np.array([0.02, 0.03])
-    expected_sharpe = float(
-        np.mean(expected) / np.std(expected, ddof=0)
-    )
+    expected_sharpe = float(np.mean(expected) / np.std(expected, ddof=0))
     assert result["only"] == expected_sharpe
 
 
@@ -173,8 +157,10 @@ def test_info_sharpe_empty_input_returns_empty_dict() -> None:
 def test_growth_inflation_strict_above_average() -> None:
     """Strict > comparison per Correia (2015) Table 7."""
     g, i = label_growth_inflation(
-        growth=3.0, growth_2y_avg=2.0,
-        inflation=2.5, inflation_5y_avg=2.0,
+        growth=3.0,
+        growth_2y_avg=2.0,
+        inflation=2.5,
+        inflation_5y_avg=2.0,
     )
     assert g == GROWTH_UP
     assert i == INFLATION_UP
@@ -182,8 +168,10 @@ def test_growth_inflation_strict_above_average() -> None:
 
 def test_growth_inflation_below_average() -> None:
     g, i = label_growth_inflation(
-        growth=1.0, growth_2y_avg=2.0,
-        inflation=1.5, inflation_5y_avg=2.0,
+        growth=1.0,
+        growth_2y_avg=2.0,
+        inflation=1.5,
+        inflation_5y_avg=2.0,
     )
     assert g == GROWTH_DOWN
     assert i == INFLATION_DOWN
@@ -192,32 +180,28 @@ def test_growth_inflation_below_average() -> None:
 def test_growth_inflation_equal_classed_as_down() -> None:
     """Equality (current == average) falls into the Down bucket."""
     g, i = label_growth_inflation(
-        growth=2.0, growth_2y_avg=2.0,
-        inflation=2.0, inflation_5y_avg=2.0,
+        growth=2.0,
+        growth_2y_avg=2.0,
+        inflation=2.0,
+        inflation_5y_avg=2.0,
     )
     assert g == GROWTH_DOWN
     assert i == INFLATION_DOWN
 
 
 def test_volatility_bearish_when_vix_above_avg() -> None:
-    vol, _ = label_volatility_liquidity(
-        vix=25.0, vix_1y_avg=18.0, fed_rate_change=0.0
-    )
+    vol, _ = label_volatility_liquidity(vix=25.0, vix_1y_avg=18.0, fed_rate_change=0.0)
     assert vol == VOLATILITY_BEARISH
 
 
 def test_volatility_bullish_when_vix_below_avg() -> None:
-    vol, _ = label_volatility_liquidity(
-        vix=12.0, vix_1y_avg=18.0, fed_rate_change=0.0
-    )
+    vol, _ = label_volatility_liquidity(vix=12.0, vix_1y_avg=18.0, fed_rate_change=0.0)
     assert vol == VOLATILITY_BULLISH
 
 
 def test_liquidity_down_on_hike() -> None:
     """Rate hike removes liquidity per Correia Table 7."""
-    _, liq = label_volatility_liquidity(
-        vix=15.0, vix_1y_avg=18.0, fed_rate_change=0.25
-    )
+    _, liq = label_volatility_liquidity(vix=15.0, vix_1y_avg=18.0, fed_rate_change=0.25)
     assert liq == LIQUIDITY_DOWN
 
 
@@ -231,7 +215,5 @@ def test_liquidity_up_on_cut() -> None:
 
 def test_liquidity_flat_treated_as_down() -> None:
     """Unchanged rate is hawkish-by-default per the paper's framing."""
-    _, liq = label_volatility_liquidity(
-        vix=15.0, vix_1y_avg=18.0, fed_rate_change=0.0
-    )
+    _, liq = label_volatility_liquidity(vix=15.0, vix_1y_avg=18.0, fed_rate_change=0.0)
     assert liq == LIQUIDITY_DOWN

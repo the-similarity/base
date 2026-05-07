@@ -88,9 +88,7 @@ class DynamicSizingPolicy:
                 - self.risk_aversion * forecast_variance * size * size
                 - self.turnover_penalty * abs(size - state.current_position_size)
                 - self.drawdown_penalty * max(0.0, state.drawdown) * size
-                - self.calibration_penalty
-                * max(0.0, state.calibration_error)
-                * size
+                - self.calibration_penalty * max(0.0, state.calibration_error) * size
             )
             if utility > best_utility:
                 best_utility = utility

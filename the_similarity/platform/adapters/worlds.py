@@ -360,9 +360,7 @@ def sync_all_presets(
 
     # Open a single registry connection for the batch if none was provided.
     if registry is not None:
-        return [
-            register_scenario_preset(f, registry=registry) for f in json_files
-        ]
+        return [register_scenario_preset(f, registry=registry) for f in json_files]
 
     resolved_db = _resolve_db(db_path)
     with RunRegistry(resolved_db) as r:

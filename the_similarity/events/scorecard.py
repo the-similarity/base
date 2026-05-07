@@ -373,9 +373,7 @@ def calibration_curve(report: EventScoreReport) -> Dict[str, Any]:
         if b["count"] > 0:
             pred = b["mean_predicted"]
             actual = b["mean_actual"]
-            bins_data.append(
-                {"predicted": pred, "actual": actual, "count": b["count"]}
-            )
+            bins_data.append({"predicted": pred, "actual": actual, "count": b["count"]})
             # Ideal line: for every predicted probability, the actual
             # frequency should equal the predicted probability.
             ideal_data.append({"predicted": pred, "actual": pred})

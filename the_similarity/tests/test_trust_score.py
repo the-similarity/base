@@ -90,9 +90,7 @@ class TestComputeTrustScore:
         for hr in test_values:
             for cov in test_values:
                 for crps in crps_values:
-                    score = compute_trust_score(
-                        hit_rate=hr, coverage=cov, crps=crps
-                    )
+                    score = compute_trust_score(hit_rate=hr, coverage=cov, crps=crps)
                     assert 0.0 <= score <= 1.0, (
                         f"Out of bounds: score={score} for "
                         f"hr={hr}, cov={cov}, crps={crps}"
@@ -241,9 +239,7 @@ class TestBuildTrustArtifact:
         assert isinstance(artifact, TrustArtifact)
         assert artifact.run_id == "run-001"
         assert 0.0 <= artifact.trust_score <= 1.0
-        assert artifact.calibration_grade in (
-            "excellent", "good", "fair", "poor"
-        )
+        assert artifact.calibration_grade in ("excellent", "good", "fair", "poor")
         assert isinstance(artifact.decision, TrustDecision)
         assert artifact.uncalibrated is True
         assert artifact.trust_score_version == TRUST_SCORE_VERSION

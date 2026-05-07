@@ -569,9 +569,7 @@ def _reduce(
         )
         result = reducer.fit_transform(mat)
     else:
-        raise ValueError(
-            f"Unknown reduction method {method!r}. Use 'pca' or 'tsne'."
-        )
+        raise ValueError(f"Unknown reduction method {method!r}. Use 'pca' or 'tsne'.")
 
     # If effective_components < n_components, pad with zeros so the caller
     # always gets the promised shape.

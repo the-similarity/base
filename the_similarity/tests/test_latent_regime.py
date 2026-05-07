@@ -26,9 +26,9 @@ def test_regime_similarity_prefers_same_state():
     up_state = infer_latent_regime(up)
     down_state = infer_latent_regime(down)
 
-    assert regime_probability_similarity(up_state, up_state) >= regime_probability_similarity(
-        up_state, down_state
-    )
+    assert regime_probability_similarity(
+        up_state, up_state
+    ) >= regime_probability_similarity(up_state, down_state)
 
 
 def test_matcher_attaches_latent_regime_metadata_when_enabled():

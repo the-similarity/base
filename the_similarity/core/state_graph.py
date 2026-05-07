@@ -69,7 +69,9 @@ class StateGraph:
 
     def _build_adj(self) -> dict[int, list[tuple[int, float]]]:
         """Build adjacency list from edge list.  O(E)."""
-        adj: dict[int, list[tuple[int, float]]] = {i: [] for i in range(len(self.nodes))}
+        adj: dict[int, list[tuple[int, float]]] = {
+            i: [] for i in range(len(self.nodes))
+        }
         for i, j, d in self.edges:
             adj[i].append((j, d))
             adj[j].append((i, d))
@@ -105,7 +107,9 @@ class StateGraph:
             ValueError: If *method* is not recognized.
         """
         if method != "components":
-            raise ValueError(f"Unknown clustering method: {method!r}. Supported: 'components'.")
+            raise ValueError(
+                f"Unknown clustering method: {method!r}. Supported: 'components'."
+            )
 
         n = len(self.nodes)
         if n == 0:
@@ -209,7 +213,7 @@ def _pairwise_distances(vectors: list[StateVector]) -> np.ndarray:
     # .vector is the canonical field name from state_space.StateVector
     mat = np.array([v.vector for v in vectors], dtype=np.float64)
     # ||a - b||^2 = ||a||^2 + ||b||^2 - 2 a . b
-    sq_norms = np.sum(mat ** 2, axis=1)
+    sq_norms = np.sum(mat**2, axis=1)
     # (n,) + (n,1) - 2*(n,n)  → broadcast to (n,n)
     dist_sq = sq_norms[np.newaxis, :] + sq_norms[:, np.newaxis] - 2.0 * mat @ mat.T
     # Numerical guard: clamp negative values from floating-point error
@@ -303,10 +307,12 @@ def build_transition_graph(
     for i in range(len(vectors) - 1):
         # Euclidean distance between consecutive states
         # .vector is the canonical field name from state_space.StateVector
-        d = float(np.linalg.norm(
-            np.asarray(vectors[i].vector, dtype=np.float64)
-            - np.asarray(vectors[i + 1].vector, dtype=np.float64)
-        ))
+        d = float(
+            np.linalg.norm(
+                np.asarray(vectors[i].vector, dtype=np.float64)
+                - np.asarray(vectors[i + 1].vector, dtype=np.float64)
+            )
+        )
         edges.append((i, i + 1, d))
 
     return StateGraph(nodes=list(vectors), edges=edges)
@@ -340,8 +346,12 @@ def find_cross_domain_neighbors(
     """
     # Partition nodes by kind
     # .source_kind is the canonical field name from state_space.StateVector
-    source_indices = [i for i, v in enumerate(graph.nodes) if v.source_kind == source_kind]
-    target_indices = [i for i, v in enumerate(graph.nodes) if v.source_kind == target_kind]
+    source_indices = [
+        i for i, v in enumerate(graph.nodes) if v.source_kind == source_kind
+    ]
+    target_indices = [
+        i for i, v in enumerate(graph.nodes) if v.source_kind == target_kind
+    ]
 
     if not source_indices or not target_indices:
         return []
@@ -356,8 +366,8 @@ def find_cross_domain_neighbors(
 
     # Pairwise distances: (|source|, |target|)
     # ||s - t||^2 = ||s||^2 + ||t||^2 - 2 s . t
-    s_sq = np.sum(source_mat ** 2, axis=1, keepdims=True)  # (|s|, 1)
-    t_sq = np.sum(target_mat ** 2, axis=1, keepdims=True)  # (|t|, 1)
+    s_sq = np.sum(source_mat**2, axis=1, keepdims=True)  # (|s|, 1)
+    t_sq = np.sum(target_mat**2, axis=1, keepdims=True)  # (|t|, 1)
     cross_dist_sq = s_sq + t_sq.T - 2.0 * source_mat @ target_mat.T
     np.maximum(cross_dist_sq, 0.0, out=cross_dist_sq)
     cross_dist = np.sqrt(cross_dist_sq)
@@ -393,7 +403,9 @@ def to_dict(graph: StateGraph) -> dict[str, Any]:
     for v in graph.nodes:
         node_d: dict[str, Any] = {
             # Serialize canonical field names from state_space.StateVector
-            "vector": v.vector.tolist() if isinstance(v.vector, np.ndarray) else list(v.vector),
+            "vector": v.vector.tolist()
+            if isinstance(v.vector, np.ndarray)
+            else list(v.vector),
             "source_kind": v.source_kind,
             "source_id": v.source_id,
             "label": v.label,
@@ -418,13 +430,15 @@ def from_dict(data: dict[str, Any]) -> StateGraph:
     """
     nodes = []
     for nd in data["nodes"]:
-        nodes.append(StateVector(
-            vector=np.array(nd["vector"], dtype=np.float64),
-            source_id=nd.get("source_id", ""),
-            source_kind=nd.get("source_kind", "default"),
-            label=nd.get("label", ""),
-            metadata=nd.get("metadata", {}),
-        ))
+        nodes.append(
+            StateVector(
+                vector=np.array(nd["vector"], dtype=np.float64),
+                source_id=nd.get("source_id", ""),
+                source_kind=nd.get("source_kind", "default"),
+                label=nd.get("label", ""),
+                metadata=nd.get("metadata", {}),
+            )
+        )
 
     edges = [(e["i"], e["j"], e["distance"]) for e in data["edges"]]
 

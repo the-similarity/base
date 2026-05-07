@@ -133,9 +133,7 @@ class TestStateIndex:
         arr = np.zeros(MAX_DIM, dtype=np.float64)
         for i, v in enumerate(vec):
             arr[i] = v
-        return StateVector(
-            vector=arr, source_id=sid, source_kind="test", label=sid
-        )
+        return StateVector(vector=arr, source_id=sid, source_kind="test", label=sid)
 
     def test_add_and_size(self):
         idx = StateIndex()
