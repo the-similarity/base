@@ -152,7 +152,22 @@ class TestAPIKeys:
         api_key, raw_key = auth_mgr.create_api_key(user.id, "Revoke Me")
 
         assert auth_mgr.verify_api_key(raw_key) is not None
-        assert auth_mgr.revoke_api_key(api_key.id) is True
+        assert auth_mgr.revoke_api_key(user.id, api_key.id) is True
+        assert auth_mgr.verify_api_key(raw_key) is None
+
+    def test_revoke_api_key_cross_tenant_blocked(self, auth_mgr):
+        # Row-level scoping: user B cannot revoke user A's key, even if B
+        # somehow learns A's key_id. The DB-layer WHERE clause is the
+        # second line of defense behind the route-layer ownership check.
+        alice = auth_mgr.create_user("alice@example.com", "password123")
+        bob = auth_mgr.create_user("bob@example.com", "password456")
+        alice_key, raw_key = auth_mgr.create_api_key(alice.id, "Alice's key")
+
+        assert auth_mgr.revoke_api_key(bob.id, alice_key.id) is False
+        # Alice's key should still work
+        assert auth_mgr.verify_api_key(raw_key) is not None
+        # Alice can revoke her own key
+        assert auth_mgr.revoke_api_key(alice.id, alice_key.id) is True
         assert auth_mgr.verify_api_key(raw_key) is None
 
     def test_api_key_updates_last_used(self, auth_mgr):

@@ -501,11 +501,17 @@ class AuthManager:
         finally:
             conn.close()
 
-    def revoke_api_key(self, key_id: str) -> bool:
+    def revoke_api_key(self, user_id: str, key_id: str) -> bool:
+        # Row-level scoping: WHERE id = ? AND user_id = ? prevents cross-tenant
+        # revocation even if a future caller forgets to verify ownership at the
+        # route layer. Returns False if the key doesn't exist OR isn't owned by
+        # user_id — callers should treat both as 404, not 403, to avoid leaking
+        # the existence of another tenant's key_id.
         conn = self._connect()
         try:
             cursor = conn.execute(
-                "UPDATE api_keys SET enabled = 0 WHERE id = ?", (key_id,)
+                "UPDATE api_keys SET enabled = 0 WHERE id = ? AND user_id = ?",
+                (key_id, user_id),
             )
             conn.commit()
             return cursor.rowcount > 0
