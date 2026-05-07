@@ -4512,3 +4512,296 @@ input, select, textarea { font: inherit; color: inherit; }
 .case-study__section--close {
   background: var(--bg);
 }
+
+/* ── /try public widget ─────────────────────────────────────────────────
+   Public, zero-signup cold-backtest demo. Borrows the demo-page
+   layout grammar (centered narrow column, centered head block) so the
+   page reads as part of the product, not a separate microsite. */
+
+.try-page {
+  overflow: auto;
+}
+.try-page__inner {
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: var(--s-8) var(--s-6) var(--s-9);
+}
+.try-page__head {
+  margin: 0 auto var(--s-7);
+  max-width: 720px;
+  text-align: center;
+}
+.try-page__title {
+  font-family: var(--serif);
+  font-size: clamp(32px, 4vw, 48px);
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  font-weight: 500;
+  color: var(--ink);
+  margin: var(--s-3) 0 var(--s-4);
+}
+.try-page__lede {
+  font-family: var(--serif);
+  font-size: 16.5px;
+  line-height: 1.6;
+  color: var(--ink-2);
+  margin: 0;
+}
+
+/* Window picker — radiogroup of preset cards */
+.try-picker {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--s-2);
+  margin-bottom: var(--s-5);
+}
+@media (max-width: 780px) {
+  .try-picker {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.try-picker__btn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  text-align: left;
+  gap: var(--s-1);
+  padding: var(--s-4);
+  background: var(--bg);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-md);
+  color: var(--ink-2);
+  cursor: pointer;
+  transition: border-color 120ms ease, background 120ms ease;
+}
+.try-picker__btn:hover:not(:disabled) {
+  border-color: var(--rule-strong, var(--ink-3, var(--rule)));
+}
+.try-picker__btn.is-active {
+  border-color: var(--ink);
+  background: var(--bg-inset);
+  color: var(--ink);
+}
+.try-picker__btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.try-picker__label {
+  font-weight: 600;
+  font-size: 14px;
+  color: inherit;
+}
+.try-picker__sub {
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--ink-2);
+}
+
+/* URL input — rendered but disabled (preview pending public endpoint) */
+.try-url {
+  margin: 0 0 var(--s-6);
+  padding: var(--s-4);
+  border: 1px dashed var(--rule);
+  border-radius: var(--radius-md);
+  background: var(--bg);
+}
+.try-url__label {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  font-size: 13px;
+  color: var(--ink-2);
+  margin-bottom: var(--s-2);
+}
+.try-url__pill {
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  background: var(--bg-inset);
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  padding: 2px 8px;
+  color: var(--ink-2);
+}
+.try-url__input {
+  width: 100%;
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 13px;
+  padding: var(--s-3);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-sm, 6px);
+  background: var(--bg-inset);
+  color: var(--ink-2);
+}
+.try-url__input:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+.try-url__hint {
+  font-size: 12px;
+  color: var(--ink-3, var(--ink-2));
+  margin: var(--s-2) 0 0;
+}
+
+/* Results region */
+.try-results {
+  margin-bottom: var(--s-6);
+}
+.try-results__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s-3);
+  margin-bottom: var(--s-4);
+  padding-bottom: var(--s-2);
+  border-bottom: 1px solid var(--rule);
+}
+.try-results__title {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--ink);
+}
+.try-results__sub {
+  font-size: 12.5px;
+  color: var(--ink-2);
+}
+
+/* Low-coverage indicator — fires when fewer than 5 analogs are returned.
+   The visual is muted (no big red banner) because the message is
+   informational, not a critical error. We want the user to understand
+   the result is sparse, not be alarmed. */
+.try-low-cov {
+  margin-bottom: var(--s-4);
+  padding: var(--s-3) var(--s-4);
+  border: 1px solid var(--warn-border, var(--rule));
+  border-left: 3px solid var(--warn, #c89200);
+  border-radius: var(--radius-sm, 6px);
+  background: var(--warn-bg, var(--bg-inset));
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--ink);
+}
+.try-low-cov strong {
+  color: var(--warn-strong, var(--ink));
+  margin-right: 0.4em;
+}
+
+/* Analog grid — 2 columns on desktop, 1 on mobile */
+.try-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--s-3);
+}
+@media (max-width: 720px) {
+  .try-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.try-show-more {
+  display: block;
+  margin: var(--s-5) auto 0;
+  padding: var(--s-3) var(--s-5);
+  font-size: 13px;
+  color: var(--ink);
+  background: transparent;
+  border: 1px solid var(--ink);
+  border-radius: var(--radius-sm, 6px);
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease;
+}
+.try-show-more:hover {
+  background: var(--ink);
+  color: var(--bg);
+}
+
+/* Analog card — single match tile */
+.try-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  padding: var(--s-4);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-md);
+  background: var(--bg);
+  color: var(--ink);
+}
+.try-card.is-up { color: var(--positive, #1a7a3a); }
+.try-card.is-down { color: var(--negative, #b03030); }
+.try-card.is-flat { color: var(--ink-2); }
+.try-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-2);
+  font-size: 12px;
+  color: var(--ink-2);
+}
+.try-card__rank {
+  font-family: var(--mono, ui-monospace, monospace);
+  font-weight: 600;
+  color: var(--ink);
+}
+.try-card__dates {
+  font-family: var(--mono, ui-monospace, monospace);
+}
+.try-card__spark {
+  width: 100%;
+  height: 60px;
+  display: block;
+}
+.try-card__metrics {
+  display: flex;
+  gap: var(--s-5);
+  margin: var(--s-1) 0 0;
+  padding: 0;
+}
+.try-card__metric {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.try-card__metric dt {
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+  margin: 0;
+}
+.try-card__metric dd {
+  margin: 0;
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.try-card__return.is-up { color: var(--positive, #1a7a3a); }
+.try-card__return.is-down { color: var(--negative, #b03030); }
+.try-card__return.is-flat { color: var(--ink-2); }
+.try-card__note {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--ink-2);
+}
+
+/* Footer — compliance disclaimer + lead-in */
+.try-footer {
+  margin-top: var(--s-7);
+  padding-top: var(--s-5);
+  border-top: 1px solid var(--rule);
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--ink-2);
+}
+.try-footer p {
+  margin: 0 0 var(--s-3);
+}
+.try-footer__cta a {
+  color: var(--ink);
+  border-bottom: 1px dotted var(--rule-strong, var(--ink));
+  text-decoration: none;
+}
+.try-footer__cta a:hover {
+  border-bottom-style: solid;
+}
