@@ -2,16 +2,11 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { scannerProductRoutes } from "../lib/product-boundary";
 
 const links = [
-  { href: "/", label: "Terminal" },
-  { href: "/portfolio", label: "Portfolio" },
-  { href: "/search", label: "Search" },
-  { href: "/strategy", label: "Strategy" },
-  { href: "/reports", label: "Reports" },
-  { href: "/finance", label: "Finance" },
-  { href: "/explore", label: "Explore" },
-  { href: "/narrative", label: "Narrative" },
+  ...scannerProductRoutes,
+  { href: "/labs", label: "Labs" },
 ];
 
 export function Nav() {
