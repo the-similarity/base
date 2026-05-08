@@ -147,17 +147,12 @@ export default function CadencePage() {
 
   return (
     <>
-      {/* Google Fonts — Inter / Instrument Serif / JetBrains Mono. We
-          inject a <link> here rather than via next/font because the
-          Cadence page must not depend on the app's global font setup; if
-          this file is ever lifted into another project the link comes
-          with it. The crossOrigin attr is required by Chrome to actually
-          use the preconnect hint. */}
-      <link rel="preconnect" href="https://fonts.googleapis.com" />
-      <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+      {/* Google Fonts — JetBrains Mono only. Cadence's UI stack mirrors
+          TradingView's Lightweight Charts default system stack, so it
+          does not need a downloaded sans/display font. */}
       <link
         rel="stylesheet"
-        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;450;500;550;600;700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&display=swap"
+        href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap"
       />
 
       {/* Page-scoped stylesheet. Every selector is prefixed with .cadence-app

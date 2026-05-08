@@ -40,7 +40,7 @@ Cadence inherits very little from `docs/design/DESIGN_LANGUAGE.md` because the b
 It overrides almost everything else:
 
 1. **Background.** Painterly multi-stop gradient with fractal-noise overlay (`.cadence-painterly` in `styles.tsx` line 98). The default preset is sage-and-coral: `linear-gradient(160deg, #4a7a5a, #6b9a72, #c4b896, #8a6a4a, #3d2f1f)`. Three other presets `dusk`, `paper`, `charcoal` are exposed via the tweaks panel.
-2. **Display serif.** Instrument Serif for KPI values, hero numbers, and section eyebrows. Loaded via `<link>` in `cadence/page.tsx` line 173, same mechanism as Lumen.
+2. **TradingView stack.** KPI values, hero numbers, section eyebrows, body, and controls use the Lightweight Charts default stack: `-apple-system, BlinkMacSystemFont, 'Trebuchet MS', Roboto, Ubuntu, sans-serif`. Cadence only downloads JetBrains Mono for mono labels.
 3. **Accent.** Sage green `#5b8a72`. Mapped to `--accent`, `--accent-2`, `--pos`. The "color of being well"; green that reads clinical-biological, not finance-bullish.
 4. **Card model.** Two floating cards: a glass sidebar (`.cadence-sidebar`) and a solid white main panel (`.cadence-main`). 14px gutter, 14px border-radius. Same scaffold as Lumen but the screens inside are different.
 5. **Width.** No 1100px container. Cadence runs `100vw × 100vh` and the main card fills the column.
@@ -70,10 +70,9 @@ Rules:
 
 ## Typography
 
-Three families, loaded via `<link>` at `page.tsx` line 173:
+Two families. JetBrains Mono is loaded via `<link>` at `page.tsx` line 154; the TradingView stack is system-native:
 
-- `Instrument Serif` (display): KPI values, hero numbers, eyebrow rows when serif.
-- `Inter` (sans): body, controls, sidebar nav. Default `font-size: 14px`, `line-height: 1.45`.
+- TradingView stack: KPI values, hero numbers, body, controls, sidebar nav. Default `font-size: 14px`, `line-height: 1.45`.
 - `JetBrains Mono`: kbd chips, mono labels, command palette.
 
 Font-feature-settings on `.cadence-app` (line 82): `'cv11', 'ss01', 'ss03'`. Same rationale as Lumen.
@@ -82,15 +81,15 @@ Sizes worth memorizing (from `styles.tsx`):
 
 | Element | Class | Size |
 |---|---|---|
-| Hero recovery number | inline 56px | Instrument Serif |
-| Hero unit suffix `%` | inline 28px | Instrument Serif |
-| KPI value | `.cadence-kpi .cadence-value` | 30px Instrument Serif `letter-spacing: -0.015em` |
-| Metric row value | `.cadence-metric-row .cadence-val` | 22px Instrument Serif tabular |
+| Hero recovery number | inline 56px | TradingView stack |
+| Hero unit suffix `%` | inline 28px | TradingView stack |
+| KPI value | `.cadence-kpi .cadence-value` | 30px TradingView stack `letter-spacing: -0.015em` |
+| Metric row value | `.cadence-metric-row .cadence-val` | 22px TradingView stack tabular |
 | Eyebrow | `.cadence-h-eyebrow` | 11px uppercase, `letter-spacing: 0.1em`, weight 550 |
-| Display | `.cadence-h-display` | Instrument Serif, weight 400, `letter-spacing: -0.02em`, `line-height: 1` |
-| Section title | `.cadence-section-head .cadence-title` | 13px Inter 600 |
-| Brand wordmark | `.cadence-brand-name` | 18px Instrument Serif `letter-spacing: -0.01em` |
-| Body default | `.cadence-app` | 14px Inter 1.45 |
+| Display | `.cadence-h-display` | TradingView stack, weight 400, `letter-spacing: -0.02em`, `line-height: 1` |
+| Section title | `.cadence-section-head .cadence-title` | 13px TradingView stack 600 |
+| Brand wordmark | `.cadence-brand-name` | 18px TradingView stack `letter-spacing: -0.01em` |
+| Body default | `.cadence-app` | 14px TradingView stack 1.45 |
 
 `.cadence-num` and `.cadence-mono` are the two utility classes for tabular alignment. Use `.cadence-num` whenever a number sits next to another number in a column. Use `.cadence-mono` for kbd labels and source-of-truth identifiers.
 
@@ -155,7 +154,7 @@ By file. Read the source before forking a pattern.
 
 - **Sidebar.** `_components/sidebar.tsx`. Brand cluster (`.cadence-brand`) at top, nav groups (`.cadence-nav-group`) with item rows (`.cadence-nav-item`), foot cluster (`.cadence-sidebar-foot`) at bottom with avatar and plan label.
 - **Topbar.** `_components/shared.tsx` exports `Topbar`. 46px row with `.cadence-crumbs` and `.cadence-top-actions`.
-- **KPI tile.** `.cadence-kpi` with `.cadence-label` row, `.cadence-value` Instrument Serif 30px, optional `.cadence-delta` at bottom. Use the `.cadence-kpi-grid` four-col grid.
+- **KPI tile.** `.cadence-kpi` with `.cadence-label` row, `.cadence-value` TradingView stack 30px, optional `.cadence-delta` at bottom. Use the `.cadence-kpi-grid` four-col grid.
 - **Metric row.** `.cadence-metric-row` for the Today screen's vertical key-metrics column. 18px icon | 1fr label | auto value | auto delta. Deltas use `.cadence-delta.cadence-pos`, `.cadence-neg`, `.cadence-flat` pill variants.
 - **Pill.** `.cadence-pill` family: `.cadence-pill-pos`, `.cadence-pill-neg`, `.cadence-pill-warn`, `.cadence-pill-info`, `.cadence-pill-outline`. 22px tall, fully rounded.
 - **Card.** `.cadence-card` plain. `.cadence-card-tinted` for the surface-2 variant. `.cadence-card-pad` (16px) and `.cadence-card-pad-lg` (22px).
@@ -199,5 +198,5 @@ Disclaimer:
 - Do not reuse the workstation's nine-lens radar. Cadence does not need it; the rhyme finder is the trust signal.
 - Do not animate biomarker numbers. Show them stable. A heart rate that ticks counts noise as visible signal.
 - Do not put a `position: fixed` element inside `.cadence-app` for chrome. The cmdk modal is the only legal fixed element here.
-- Do not exceed Instrument Serif 56px for the hero. That is the load-bearing scale. Going to 72px breaks the "calm clinical report" feel.
+- Do not exceed 56px for the hero. That is the load-bearing scale. Going to 72px breaks the "calm clinical report" feel.
 - Do not depend on the global `body { overflow: hidden }` rule. The `.cadence-app` is its own viewport with its own scroll inside `.cadence-scroll`.

@@ -51,8 +51,8 @@ interface LineChartProps {
   /** Callback when query window is dragged */
   onWindowChange: (w: { start: number; len: number }) => void;
   /**
-   * Callback when the user zooms the time axis via the wheel. Receives the
-   * new [start, end] range. The parent owns viewRange, so this is a lift.
+   * Callback when the user pans the visible time range. Receives the new
+   * [start, end] range. The parent owns viewRange, so this is a lift.
    * If omitted, the chart is read-only on the time axis.
    */
   onRangeChange?: (r: { start: number; end: number }) => void;
@@ -107,7 +107,7 @@ export function LineChart({
   const svgRef = useRef<SVGSVGElement>(null);
   const [w, setW] = useState(800);
   /*
-   * Price-axis override for shift-wheel zoom.
+   * Price-axis override for axis-drag zoom.
    *
    * null → auto-compute from the visible price range (default behavior,
    *         preserved for the unzoomed case).
@@ -122,12 +122,10 @@ export function LineChart({
   /*
    * Live mirror of the auto-computed [minP, maxP] from the current render.
    *
-   * Why a ref (not state or closed-over locals): the wheel-zoom effect is
-   * registered ONCE and re-bound only when the deps change; we don't want
-   * the auto-range to be in those deps (it changes on every pan/query
-   * update, which would thrash the listener). Writing into a ref during
-   * render then reading it from the effect is the idiomatic way to bridge
-   * the "latest value needed in a stable callback" gap.
+   * Why a ref (not state or closed-over locals): the axis-drag starter
+   * needs the latest auto range, but that range changes on every pan/query
+   * update. Writing into a ref during render then reading it from the
+   * handler bridges the "latest value needed in a stable callback" gap.
    *
    * Initialized to [0, 1] as a benign placeholder — the first render
    * overwrites it before any wheel event can fire.
@@ -179,7 +177,7 @@ export function LineChart({
     | null
   >(null);
 
-  const padL = 54, padR = 20, padT = 16, padB = 28;
+  const padL = 54, padR = 62, padT = 16, padB = 34;
   const plotW = Math.max(100, w - padL - padR);
   const plotH = height - padT - padB;
 
@@ -191,45 +189,37 @@ export function LineChart({
     return () => ro.disconnect();
   }, []);
 
-  // ── Wheel zoom ─────────────────────────────────────────────────────
+  // ── Wheel / trackpad handling ──────────────────────────────────────
   //
-  // - Plain wheel           → zoom the TIME axis (viewStart..viewEnd) via
-  //                           `onRangeChange`. Anchored on the cursor so
-  //                           the bar under the mouse stays put.
-  // - Shift + wheel         → zoom the PRICE axis (priceOverride state).
-  //                           Anchored on the cursor's y position.
-  // - Double-click          → reset priceOverride to null (re-auto-fits).
+  // - Vertical wheel / two-finger scroll should scroll the workstation,
+  //   not zoom the chart. Hijacking normal up/down scroll made the chart
+  //   feel like it was ugly-zooming while the user tried to move the page.
+  // - Dominant horizontal trackpad scroll still pans the time range.
+  // - Double-click still resets priceOverride to null (re-auto-fits).
   //
   // We attach a NATIVE wheel listener (not React's onWheel) with
-  // `{ passive: false }` so preventDefault() is actually honored —
-  // React's synthetic wheel handlers are passive by default in
-  // Chromium, which means calling preventDefault is a silent no-op
-  // and the page scrolls anyway. Attaching directly to the SVG node
-  // bypasses that.
+  // `{ passive: false }` so preventDefault() is honored for the one
+  // intentional interception path: horizontal chart panning. Vertical
+  // wheel events are left alone so normal scrolling works.
   //
   // The "live" price range (auto-computed each render) is read through
   // `autoPriceRangeRef` rather than closed-over locals so the listener
   // only re-binds when geometry / structural deps change — not on every
   // pan that shifts minP/maxP.
   //
-  // Guards:
-  //   - Refuse to shrink the time range below 50 bars (anything tighter
-  //     and a single bar spans too many px to be useful).
-  //   - Refuse to grow the time range past `series.length * 1.25` (we
-  //     don't want the user to "zoom out" into a mostly-empty chart).
-  //   - Price zoom clamps to >0 width to avoid divide-by-zero in yOf.
+  // Axis-drag zoom is still available from the price/time gutters; wheel
+  // scroll is reserved for moving through the page/workstation.
   useEffect(() => {
     const el = svgRef.current;
     if (!el) return;
     const onWheel = (e: WheelEvent) => {
-      // Only zoom when the cursor is over the plot area (not the axis
+      // Only intercept when the cursor is over the plot area (not the axis
       // gutters). Using the SVG's bounding rect keeps the math right
       // even when the chart is embedded in a flex layout.
       const rect = el.getBoundingClientRect();
       const x = e.clientX - rect.left;
       const y = e.clientY - rect.top;
       if (x < padL || x > padL + plotW || y < padT || y > padT + plotH) return;
-      e.preventDefault();
 
       // ── Horizontal trackpad scroll → pan ──────────────────────────
       // Two-finger horizontal swipe on a trackpad arrives as wheel events
@@ -237,13 +227,14 @@ export function LineChart({
       // dragging the plot body) so the Fast chart matches lightweight-
       // charts' trackpad behavior. We prefer the dominant axis so a
       // diagonal scroll doesn't fight itself: |dx| > |dy| → pan,
-      // otherwise fall through to the zoom branch.
+      // otherwise let the browser/workstation handle vertical scrolling.
       //
       // Scroll-direction convention: deltaX > 0 (two fingers right)
       // advances the view FORWARD in time, same as holding the
       // plot-body and dragging LEFT. Matches Finder / Chrome natural
       // scroll expectations.
       if (Math.abs(e.deltaX) > Math.abs(e.deltaY) && onRangeChange) {
+        e.preventDefault();
         const width = viewEnd - viewStart;
         if (width < 2) return;
         // Scale deltaX (in px) to bars by the same ratio the chart uses.
@@ -255,45 +246,13 @@ export function LineChart({
         onRangeChange({ start: newStart, end: newStart + width });
         return;
       }
-
-      // Normalize wheel delta. Trackpads report small fractional deltas,
-      // mice report ~100 per notch — `deltaY` sign is all we need.
-      // zoomFactor < 1 = zoom IN, > 1 = zoom OUT.
-      const zoomFactor = e.deltaY < 0 ? 0.88 : 1.12;
-
-      if (e.shiftKey) {
-        // ── Price-axis zoom ────────────────────────────────────────
-        const [cMin, cMax] = priceOverride ?? autoPriceRangeRef.current;
-        const range = cMax - cMin;
-        if (range <= 0) return;
-        const yFrac = (y - padT) / plotH;         // 0 at top, 1 at bottom
-        const priceFrac = 1 - yFrac;              // invert: price grows up
-        const anchorPrice = cMin + priceFrac * range;
-        const newRange = Math.max(1e-9, range * zoomFactor);
-        setPriceOverride([
-          anchorPrice - priceFrac * newRange,
-          anchorPrice + (1 - priceFrac) * newRange,
-        ]);
-      } else if (onRangeChange) {
-        // ── Time-axis zoom ─────────────────────────────────────────
-        const rangeWidth = viewEnd - viewStart;
-        if (rangeWidth < 2) return;
-        const xFrac = (x - padL) / plotW;
-        const anchorIdx = viewStart + xFrac * rangeWidth;
-        const newWidth = Math.max(50, Math.min(Math.floor(series.length * 1.25),
-          Math.round(rangeWidth * zoomFactor)));
-        const newStart = Math.max(0, Math.round(anchorIdx - xFrac * newWidth));
-        const newEnd = newStart + newWidth;
-        onRangeChange({ start: newStart, end: newEnd });
-      }
     };
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);
-  }, [viewStart, viewEnd, plotW, plotH, padL, padT, series.length, priceOverride, onRangeChange]);
+  }, [viewStart, viewEnd, plotW, plotH, padL, padT, series.length, onRangeChange]);
 
-  // Reset price-axis override on double-click. Time axis reset is the
-  // parent's concern (preset range chips live on the side panel), so
-  // dblclick here only touches the piece of state we own.
+  // Reset price-axis override on double-click. Axis gutters add their
+  // own more specific reset handlers below.
   const onDoubleClick = () => setPriceOverride(null);
 
   // ── Drag interaction (effect must be above early return) ───────────
@@ -354,8 +313,8 @@ export function LineChart({
         setPriceOverride([mid - newHalf, mid + newHalf]);
       } else if (drag.mode === "time-zoom" && onRangeChange) {
         // Mirrors lightweight-charts' "drag on time axis to scale
-        // horizontally" interaction. Dragging LEFT compresses the
-        // view (zoom in, fewer bars); RIGHT expands (zoom out).
+        // horizontally" interaction. Dragging RIGHT stretches bars
+        // wider (zoom in, fewer bars); LEFT compresses them (zoom out).
         // Zoom centers on the midpoint of the original range.
         const dx = e.clientX - drag.startX;
         const width0 = drag.origViewEnd - drag.origViewStart;
@@ -374,7 +333,7 @@ export function LineChart({
       globalThis.removeEventListener("mousemove", mm);
       globalThis.removeEventListener("mouseup", mu);
     };
-  }, [win, viewStart, viewEnd, plotW, forecastHorizon, onWindowChange, onRangeChange, series.length]);
+  }, [win, viewStart, viewEnd, plotW, plotH, forecastHorizon, onWindowChange, onRangeChange, series.length]);
 
   // ── Early return for empty visible slice ───────────────────────────
   const vis = series.slice(viewStart, viewEnd);
@@ -394,7 +353,7 @@ export function LineChart({
   // Points that fall outside the clamp are still RENDERED (the SVG just
   // draws them past the axis edge); they just don't get to push the
   // axis itself around. When the user needs to see those tails, they
-  // can shift-wheel to zoom out manually.
+  // can drag the price axis to rescale manually.
   let baseMin = Infinity, baseMax = -Infinity;
   vis.forEach(d => { if (d.p < baseMin) baseMin = d.p; if (d.p > baseMax) baseMax = d.p; });
   if (!isFinite(baseMin) || !isFinite(baseMax)) { baseMin = 0; baseMax = 1; }
@@ -468,16 +427,16 @@ export function LineChart({
 
   let minP = baseMin, maxP = baseMax;
   // Pad vertical range 8% — only applied to the auto-computed range. A
-  // user-pinned `priceOverride` wins verbatim so double-click → zoom →
-  // double-click returns to the same frame the user started from.
+  // user-pinned `priceOverride` wins verbatim so double-click → axis-drag
+  // zoom → double-click returns to the same frame the user started from.
   if (priceOverride) {
     [minP, maxP] = priceOverride;
   } else {
     const pad = (maxP - minP) * 0.08;
     minP -= pad; maxP += pad;
   }
-  // Push the auto-computed range into the wheel-handler ref so shift-wheel
-  // anchoring uses the current frame's bounds, not stale ones.
+  // Push the auto-computed range into the ref so price-axis dragging uses
+  // the current frame's bounds, not stale ones.
   autoPriceRangeRef.current = [minP, maxP];
 
   // Coordinate mapping functions
@@ -557,6 +516,7 @@ export function LineChart({
   // the already-zoomed state.
   const onPriceAxisDrag = (e: React.MouseEvent) => {
     if (e.button !== 0) return;
+    e.stopPropagation();
     const [curMin, curMax] = priceOverride ?? autoPriceRangeRef.current;
     dragRef.current = {
       mode: "price-zoom",
@@ -572,6 +532,7 @@ export function LineChart({
   const onTimeAxisDrag = (e: React.MouseEvent) => {
     if (!onRangeChange) return;
     if (e.button !== 0) return;
+    e.stopPropagation();
     dragRef.current = {
       mode: "time-zoom",
       startX: e.clientX,
@@ -581,11 +542,29 @@ export function LineChart({
     e.preventDefault();
   };
 
+  const onPriceAxisDoubleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setPriceOverride(null);
+  };
+
+  const onTimeAxisDoubleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setPriceOverride(null);
+    if (onRangeChange) {
+      onRangeChange({ start: 0, end: Math.max(1, series.length) });
+    }
+  };
+
   // Crosshair hover
   const onMove = (e: React.MouseEvent) => {
     if (!onHover || !ref.current) return;
     const rect = ref.current.getBoundingClientRect();
     const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    if (x < padL || x > padL + plotW || y < padT || y > padT + plotH) {
+      onHover(null);
+      return;
+    }
     const frac = (x - padL) / plotW;
     const idx = Math.round(viewStart + frac * (viewEnd - viewStart - 1));
     if (idx >= viewStart && idx < viewEnd) onHover(idx);
@@ -841,7 +820,7 @@ export function LineChart({
           height={Math.max(1, plotH)}
           fill="transparent"
           onMouseDown={onPriceAxisDrag}
-          onDoubleClick={onDoubleClick}
+          onDoubleClick={onPriceAxisDoubleClick}
         />
         {/* Time-axis drag gutter — the strip BELOW the plot where the
             x-axis labels live. Mirrors lightweight-charts' "drag time
@@ -854,13 +833,26 @@ export function LineChart({
           height={Math.max(1, padB)}
           fill="transparent"
           onMouseDown={onTimeAxisDrag}
+          onDoubleClick={onTimeAxisDoubleClick}
         />
         {/* Grid lines */}
         <g className="grid" style={{ pointerEvents: "none" }}>
           {yTicks.map((t, i) => <line key={i} x1={padL} x2={w - padR} y1={t.y} y2={t.y} />)}
         </g>
         <g className="axis">
-          {yTicks.map((t, i) => <text key={i} x={padL - 6} y={t.y + 3} textAnchor="end">{t.label}</text>)}
+          <line className="price-axis-line" x1={padL + plotW} x2={padL + plotW} y1={padT} y2={padT + plotH} />
+          <line className="time-axis-line" x1={padL} x2={padL + plotW} y1={padT + plotH} y2={padT + plotH} />
+          {yTicks.map((t, i) => (
+            <text
+              key={i}
+              className="price-axis-label"
+              x={padL + plotW + 8}
+              y={t.y + 3}
+              textAnchor="start"
+            >
+              {t.label}
+            </text>
+          ))}
           {xTicks.map((t, i) => <text key={i} x={t.x} y={height - padB + 14} textAnchor="middle">{t.label}</text>)}
         </g>
 

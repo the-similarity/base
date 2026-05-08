@@ -1,5 +1,5 @@
 /**
- * Lumen icon set — compact stroke icons matching the painterly inspo.
+ * Lumen icon set — compact stroke icons matching the route chrome.
  *
  * Each entry in `iconMap` is a fragment of SVG <path>/<circle>/etc nodes
  * that get drawn inside a 20x20 viewBox. The wrapper <svg> applies a

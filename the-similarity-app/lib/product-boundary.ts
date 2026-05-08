@@ -20,14 +20,14 @@ export type ProductBoundaryRoute = {
 export const scannerProductRoutes: ProductBoundaryRoute[] = [
   {
     href: "/scanner",
-    label: "Setup Scanner",
+    label: "Find Matches",
     owner: "scanner",
     status: "product",
     legacyHref: "/workstation",
   },
   {
     href: "/try",
-    label: "Cold Backtest Demo",
+    label: "Try Demo",
     owner: "scanner",
     status: "product",
   },

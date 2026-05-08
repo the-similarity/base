@@ -393,9 +393,9 @@ export default function Page() {
              */}
             {Array.from({ length: 2 }).map((_, k) => (
               <span key={k} style={{ display: "contents" }}>
-                <span className="marquee__item">Structural intelligence for time, state &amp; simulation</span>
-                <span className="marquee__item">Find what rhymes &middot; model what evolves &middot; simulate what comes next</span>
-                <span className="marquee__item"><b>engine</b> nine lenses / four layers</span>
+                <span className="marquee__item">Find old market charts that look like today</span>
+                <span className="marquee__item">Pick a market &middot; choose a shape &middot; see what happened next</span>
+                <span className="marquee__item"><b>main action</b> click Search</span>
               </span>
             ))}
           </div>
@@ -409,10 +409,10 @@ export default function Page() {
               <circle cx="5" cy="5" r="3.5" />
               <line x1="7.5" y1="7.5" x2="11" y2="11" />
             </svg>
-            <span>Search analogs, runs, symbols&hellip;</span>
+            <span>Search</span>
             <span className="label" style={{ marginLeft: "auto", fontSize: 9 }}>&#8984;K</span>
           </button>
-          <button className="nav__iconbtn" title="Tweaks (\u21E7T)" onClick={() => setTweaksOpen(o => !o)}>
+          <button className="nav__iconbtn" title="Change display (\u21E7T)" onClick={() => setTweaksOpen(o => !o)}>
             <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="1.2">
               <circle cx="6.5" cy="6.5" r="2" />
               <line x1="6.5" y1="1" x2="6.5" y2="3.5" />
@@ -457,13 +457,13 @@ export default function Page() {
 
       {/* ── Status bar ─────────────────────────────────────────── */}
       <footer className="statusbar">
-        <span className="statusbar__item"><b>engine</b> v4.14 &middot; nine lenses</span>
+        <span className="statusbar__item"><b>product</b> find past matches</span>
         <span className="statusbar__sep">&boxv;</span>
-        <span className="statusbar__item">feed <b>{DATA_MODE}</b></span>
+        <span className="statusbar__item">data <b>{DATA_MODE}</b></span>
         <span className="statusbar__sep">&boxv;</span>
-        <span className="statusbar__item">window <b>{currentVerb.name}</b></span>
+        <span className="statusbar__item">screen <b>{currentVerb.name}</b></span>
         <div className="statusbar__right">
-          <span className="statusbar__item">press <span className="kbd">/</span> to search</span>
+          <span className="statusbar__item">press <span className="kbd">/</span> to find something</span>
           {/*
            * Jump-chord hint. When preview surfaces are hidden there's only
            * one jump target (retrieve), so advertising s/v would be a lie.

@@ -14,7 +14,7 @@ If a rule is not mentioned in a surface guideline, the base document applies.
 |---|---|---|
 | `workstation.md` | `/workstation` | Flagship analog finder. Three-column terminal, dense, instrument-grade. Researcher and PM audience. |
 | `lumen.md` | `/workstation/lumen` | The same Workstation engine reskinned via CSS-variable cascade. Painterly background, floating white cards, forest-green accent. Demo-first surface. |
-| `cadence.md` | `/cadence` | Health workstation. Nine screens over the user's own biomarkers. Sage-green palette, Instrument Serif metrics, calm clinical feel. Not a trading UI. |
+| `cadence.md` | `/cadence` | Health workstation. Nine screens over the user's own biomarkers. Sage-green palette, TradingView-style system metrics, calm clinical feel. Not a trading UI. |
 | `prudent.md` | `/prudent` | Natural-language to time-series journal. Six sub-routes (today, thread, rhymes, tags, patterns, entries). Newsreader serif body, dark icon rail, blue accent by default. |
 
 ## When to update these
