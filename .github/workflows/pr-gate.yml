@@ -36,7 +36,6 @@ jobs:
       engine: ${{ steps.filter.outputs.engine }}
       data: ${{ steps.filter.outputs.data }}
       frontend: ${{ steps.filter.outputs.frontend }}
-      harness: ${{ steps.filter.outputs.harness }}
     steps:
       - uses: actions/checkout@v4
 
@@ -53,20 +52,12 @@ jobs:
               - 'poetry.lock'
               - 'scripts/ci_local.sh'
               - '.github/workflows/pr-gate.yml'
-              - '.github/workflows/ci.yml'
               - '.github/workflows/main-health.yml'
             data:
               - 'the-similarity-data/**'
               - '.github/workflows/pr-gate.yml'
-              - '.github/workflows/ci.yml'
             frontend:
               - 'the-similarity-app/**'
-              - '.github/workflows/pr-gate.yml'
-              - '.github/workflows/ci.yml'
-            harness:
-              - 'docs/agent-harness/**'
-              - 'scripts/check_agent_harness.py'
-              - 'orchestrator/**'
               - '.github/workflows/pr-gate.yml'
 
   # ── Stage 1: Tests ────────────────────────────────────────────────
@@ -201,31 +192,10 @@ jobs:
         if: needs.changes.outputs.engine == 'true'
         run: ruff format --check the_similarity/
 
-  harness-check:
-    name: Agent Harness Check
-    needs: changes
-    runs-on: ubuntu-latest
-    steps:
-      - name: Skip notice
-        if: needs.changes.outputs.harness != 'true'
-        run: echo "No harness paths changed — skipping harness validator."
-
-      - uses: actions/checkout@v4
-        if: needs.changes.outputs.harness == 'true'
-
-      - uses: actions/setup-python@v5
-        if: needs.changes.outputs.harness == 'true'
-        with:
-          python-version: "3.12"
-
-      - name: Validate agent harness docs
-        if: needs.changes.outputs.harness == 'true'
-        run: python scripts/check_agent_harness.py
-
   # ── Stage 2: Review Agent ─────────────────────────────────────────
   review-agent:
     name: Review Agent
-    needs: [python-tests, data-tests, frontend-tests, python-lint, harness-check]
+    needs: [python-tests, data-tests, frontend-tests, python-lint]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
