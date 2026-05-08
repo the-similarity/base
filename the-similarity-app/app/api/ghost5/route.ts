@@ -149,6 +149,9 @@ export async function GET(request: Request) {
       length: readNumber(url.searchParams, "length", GHOST5_DEFAULT_LENGTH),
       horizon: readNumber(url.searchParams, "horizon", GHOST5_DEFAULT_HORIZON),
       topK: readNumber(url.searchParams, "topK", GHOST5_TOP_K),
+      entryOffset: readOptionalNumber(url.searchParams, "entryOffset"),
+      takeProfitPct: readOptionalNumber(url.searchParams, "takeProfitPct"),
+      stopLossPct: readOptionalNumber(url.searchParams, "stopLossPct"),
     });
 
     return NextResponse.json(scan, {

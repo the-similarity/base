@@ -50,12 +50,18 @@ describe("createGhost5ScanFromSeries", () => {
       start: 300,
       length: 48,
       horizon: 32,
+      entryOffset: 20,
+      takeProfitPct: 4,
+      stopLossPct: -2,
       now: "test",
     });
 
     expect(scan.product).toBe("ghost5");
     expect(scan.priceUsdMonthly).toBe(39);
     expect(scan.matches).toHaveLength(GHOST5_TOP_K);
+    expect(scan.query.tradePlan.entryOffset).toBe(20);
+    expect(scan.query.tradePlan.takeProfitPct).toBe(4);
+    expect(scan.query.tradePlan.stopLossPct).toBe(-2);
 
     for (const match of scan.matches) {
       const overlaps =
@@ -64,6 +70,7 @@ describe("createGhost5ScanFromSeries", () => {
       expect(overlaps).toBe(false);
       expect(match.values).toHaveLength(scan.query.length);
       expect(match.forwardValues).toHaveLength(scan.query.horizon);
+      expect(["take_profit", "stop_loss", "open"]).toContain(match.tradeOutcome.status);
     }
   });
 
@@ -106,6 +113,7 @@ describe("/api/ghost5", () => {
     expect(body.query.start).toBe(240);
     expect(body.query.length).toBe(48);
     expect(body.query.horizon).toBe(24);
+    expect(body.query.tradePlan.entryOffset).toBe(47);
     expect(body.matches).toHaveLength(20);
   });
 });

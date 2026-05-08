@@ -164,6 +164,34 @@ interface WorkstationProps {
   productMode?: "workstation" | "ghost5";
 }
 
+type Ghost5TradePlan = {
+  entryOffset: number;
+  takeProfitPct: number;
+  stopLossPct: number;
+};
+
+function normalizeGhost5TradePlan(plan: Ghost5TradePlan, windowLen: number): Ghost5TradePlan {
+  const maxOffset = Math.max(0, windowLen - 1);
+  const entryOffset = Math.max(0, Math.min(maxOffset, Math.round(plan.entryOffset)));
+  const takeProfitPct = Math.max(0.1, Math.min(100, Number.isFinite(plan.takeProfitPct) ? plan.takeProfitPct : 3));
+  const rawStop = Number.isFinite(plan.stopLossPct) ? plan.stopLossPct : -1.5;
+  const stopLossPct = -Math.max(0.1, Math.min(100, Math.abs(rawStop)));
+  return { entryOffset, takeProfitPct, stopLossPct };
+}
+
+function sameGhost5TradePlan(
+  left: Ghost5TradePlan | null | undefined,
+  right: Ghost5TradePlan | null | undefined,
+): boolean {
+  if (!left && !right) return true;
+  if (!left || !right) return false;
+  return (
+    left.entryOffset === right.entryOffset &&
+    left.takeProfitPct === right.takeProfitPct &&
+    left.stopLossPct === right.stopLossPct
+  );
+}
+
 /**
  * Group catalog items by asset class for the dataset selector dropdown.
  * Returns a map like { "stocks": [item1, item2], "crypto": [item3] }.
@@ -493,6 +521,7 @@ export function Workstation({
     k: number;
     horizon: number;
     timeframes: string[];
+    ghost5TradePlan?: Ghost5TradePlan | null;
   } | null>(null);
   const [searchedAnalogs, setSearchedAnalogs] = useState<AnalogMatch[] | null>(null);
   const [searchedCone, setSearchedCone] = useState<ConePoint[] | null>(null);
@@ -502,6 +531,10 @@ export function Workstation({
     analogId: string;
     label: string;
     date: string;
+    tradePlan: Ghost5TradePlan;
+    entryPrice: number;
+    takeProfitPrice: number;
+    stopLossPrice: number;
   } | null>(null);
   /*
    * Cross-timeframe selection.
@@ -577,6 +610,14 @@ export function Workstation({
     }
     return { start: Math.max(0, N - 240), len: 120 };
   });
+  const [ghost5TradePlan, setGhost5TradePlan] = useState<Ghost5TradePlan>({
+    entryOffset: 0,
+    takeProfitPct: 3,
+    stopLossPct: -1.5,
+  });
+  useEffect(() => {
+    setGhost5TradePlan(plan => normalizeGhost5TradePlan(plan, windowState.len));
+  }, [windowState.len]);
   const [viewRange, setViewRange] = useState(() => {
     const u = urlStateRef.current;
     const lq = lastQueryRef.current;
@@ -1216,6 +1257,9 @@ export function Workstation({
       // produced by. The dirty indicator below uses this to show a
       // pending-search dot when the user changes the selection.
       timeframes: [...selectedTimeframes],
+      ghost5TradePlan: isGhost5
+        ? normalizeGhost5TradePlan(ghost5TradePlan, windowState.len)
+        : null,
     };
 
     // Cancel any in-flight search; the new one supersedes it.
@@ -1302,7 +1346,7 @@ export function Workstation({
     } finally {
       setSearching(false);
     }
-  }, [isOnline, loadedValues, loadedDates, loadedSeries, windowState.start, windowState.len, settings.kAnalogs, settings.horizon, selectedTimeframes]);
+  }, [isOnline, loadedValues, loadedDates, loadedSeries, windowState.start, windowState.len, settings.kAnalogs, settings.horizon, selectedTimeframes, isGhost5, ghost5TradePlan]);
 
   /*
    * Live ref to the current analog list, consumed by the 1..6 keyboard
@@ -1384,7 +1428,10 @@ export function Workstation({
    */
   const pinKey = useMemo(() => {
     if (!lastSearch) return null;
-    return `ts-pinned:${activeDataset}:${lastSearch.start}:${lastSearch.len}`;
+    const plan = lastSearch.ghost5TradePlan
+      ? `:${lastSearch.ghost5TradePlan.entryOffset}:${lastSearch.ghost5TradePlan.takeProfitPct}:${lastSearch.ghost5TradePlan.stopLossPct}`
+      : "";
+    return `ts-pinned:${activeDataset}:${lastSearch.start}:${lastSearch.len}${plan}`;
   }, [activeDataset, lastSearch]);
 
   /*
@@ -1690,13 +1737,18 @@ export function Workstation({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentHorizon, windowState.start, windowState.len, N]);
 
+  const currentGhost5TradePlan = isGhost5
+    ? normalizeGhost5TradePlan(ghost5TradePlan, windowState.len)
+    : null;
+
   const isDirty = !lastSearch
     || lastSearch.start !== windowState.start
     || lastSearch.len !== windowState.len
     || lastSearch.k !== currentK
     || lastSearch.horizon !== currentHorizon
     || lastSearch.timeframes.length !== selectedTimeframes.length
-    || lastSearch.timeframes.some((tf, i) => tf !== selectedTimeframes[i]);
+    || lastSearch.timeframes.some((tf, i) => tf !== selectedTimeframes[i])
+    || !sameGhost5TradePlan(lastSearch.ghost5TradePlan, currentGhost5TradePlan);
 
   // Cone endpoint statistics for the header metrics. Cone itself is
   // already pin-gated upstream (see the `cone` useMemo), so these
@@ -1946,6 +1998,26 @@ export function Workstation({
     const endP = loadedSeries[windowState.start + windowState.len - 1]?.p ?? 0;
     return { startD, endD, startP, endP, ret: startP ? (endP / startP - 1) : 0 };
   }, [windowState, loadedSeries]);
+
+  const ghost5TradeMeta = useMemo(() => {
+    const plan = normalizeGhost5TradePlan(ghost5TradePlan, windowState.len);
+    const entryIndex = Math.max(
+      0,
+      Math.min(loadedSeries.length - 1, windowState.start + plan.entryOffset),
+    );
+    const entry = loadedSeries[entryIndex];
+    const entryPrice = entry?.p ?? 0;
+    const takeProfitPrice = entryPrice * (1 + plan.takeProfitPct / 100);
+    const stopLossPrice = entryPrice * (1 + plan.stopLossPct / 100);
+    return {
+      ...plan,
+      entryIndex,
+      entryDate: entry?.d ?? new Date(),
+      entryPrice,
+      takeProfitPrice,
+      stopLossPrice,
+    };
+  }, [ghost5TradePlan, windowState.start, windowState.len, loadedSeries]);
 
   // Dataset label for display
   const datasetLabel = useMemo(() => {
@@ -2305,9 +2377,88 @@ export function Workstation({
             </div>
             <div className="ghost5-setup-panel">
               <p>
-                Pick the entry on the chart, search, then mark the history
-                card that matches your setup.
+                Define the trade inside this query window, search, then mark
+                the history card that matches your setup.
               </p>
+              <div className="ghost5-trade-plan">
+                <label className="ghost5-trade-plan__field">
+                  <span>Entry point</span>
+                  <input
+                    type="range"
+                    min={0}
+                    max={Math.max(0, windowState.len - 1)}
+                    value={ghost5TradeMeta.entryOffset}
+                    onChange={(e) =>
+                      setGhost5TradePlan(plan =>
+                        normalizeGhost5TradePlan(
+                          { ...plan, entryOffset: Number(e.target.value) },
+                          windowState.len,
+                        ),
+                      )
+                    }
+                  />
+                </label>
+                <div className="ghost5-trade-plan__readout">
+                  <span>{fmtDateShort(ghost5TradeMeta.entryDate)}</span>
+                  <span>{ghost5TradeMeta.entryPrice.toLocaleString("en-US", {
+                    maximumFractionDigits: 2,
+                  })}</span>
+                </div>
+                <label className="ghost5-trade-plan__field">
+                  <span>Take profit / close</span>
+                  <div className="ghost5-trade-plan__number">
+                    <input
+                      type="number"
+                      min={0.1}
+                      max={100}
+                      step={0.1}
+                      value={ghost5TradeMeta.takeProfitPct}
+                      onChange={(e) =>
+                        setGhost5TradePlan(plan =>
+                          normalizeGhost5TradePlan(
+                            { ...plan, takeProfitPct: Number(e.target.value) },
+                            windowState.len,
+                          ),
+                        )
+                      }
+                    />
+                    <span>%</span>
+                  </div>
+                </label>
+                <div className="ghost5-trade-plan__readout">
+                  <span>Target</span>
+                  <span>{ghost5TradeMeta.takeProfitPrice.toLocaleString("en-US", {
+                    maximumFractionDigits: 2,
+                  })}</span>
+                </div>
+                <label className="ghost5-trade-plan__field">
+                  <span>Stop loss</span>
+                  <div className="ghost5-trade-plan__number">
+                    <input
+                      type="number"
+                      min={0.1}
+                      max={100}
+                      step={0.1}
+                      value={Math.abs(ghost5TradeMeta.stopLossPct)}
+                      onChange={(e) =>
+                        setGhost5TradePlan(plan =>
+                          normalizeGhost5TradePlan(
+                            { ...plan, stopLossPct: -Math.abs(Number(e.target.value)) },
+                            windowState.len,
+                          ),
+                        )
+                      }
+                    />
+                    <span>%</span>
+                  </div>
+                </label>
+                <div className="ghost5-trade-plan__readout">
+                  <span>Stop</span>
+                  <span>{ghost5TradeMeta.stopLossPrice.toLocaleString("en-US", {
+                    maximumFractionDigits: 2,
+                  })}</span>
+                </div>
+              </div>
               <div className="side__row">
                 <span className="k">Histories</span>
                 <span className="v">20</span>
@@ -2322,8 +2473,9 @@ export function Workstation({
               </div>
               {ghost5Setup && (
                 <div className="ghost5-setup-panel__saved" role="status">
-                  Setup saved from {ghost5Setup.date}. We can notify you
-                  when this shape starts happening again.
+                  Setup saved from {ghost5Setup.date}: entry {ghost5Setup.entryPrice.toLocaleString("en-US", { maximumFractionDigits: 2 })},
+                  {" "}TP {ghost5Setup.takeProfitPrice.toLocaleString("en-US", { maximumFractionDigits: 2 })},
+                  {" "}SL {ghost5Setup.stopLossPrice.toLocaleString("en-US", { maximumFractionDigits: 2 })}.
                 </div>
               )}
             </div>
@@ -2441,7 +2593,7 @@ export function Workstation({
           <div className="ws-search-row__group">
             {isGhost5 ? (
               <span className="ghost5-search-summary mono" role="note">
-                20 histories · candle chart · mark the card that is your setup
+                20 histories · entry {fmtDateShort(ghost5TradeMeta.entryDate)} · TP {ghost5TradeMeta.takeProfitPct.toFixed(1)}% · SL {Math.abs(ghost5TradeMeta.stopLossPct).toFixed(1)}%
               </span>
             ) : (
               <>
@@ -3119,6 +3271,10 @@ export function Workstation({
                         analogId: a.id,
                         label: a.label,
                         date: fmtDateShort(a.date),
+                        tradePlan: currentGhost5TradePlan ?? ghost5TradeMeta,
+                        entryPrice: ghost5TradeMeta.entryPrice,
+                        takeProfitPrice: ghost5TradeMeta.takeProfitPrice,
+                        stopLossPrice: ghost5TradeMeta.stopLossPrice,
                       });
                     }}
                   >
