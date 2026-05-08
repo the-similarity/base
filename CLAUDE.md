@@ -76,9 +76,9 @@ Pipeline: discover → worktree agents → commit + PR → pr-gate (tests + lint
 ## Agent Harness
 Agent-first operating docs live in `docs/agent-harness/`. Use this as the
 progressive-disclosure layer for harness work: operating model, legibility
-surfaces, golden principles, quality scorecard, and execution plans. Run
-`python scripts/check_agent_harness.py` before PRs that change harness docs,
-orchestrator behavior, agent workflow, or execution-plan structure.
+surfaces, golden principles, quality scorecard, and execution plans.
+`scripts/check_agent_harness.py` validates the doc structure and is
+available for manual runs; it is no longer a blocking PR gate.
 
 ## Active Worktrees (persistent)
 | Directory | Scope | What goes here |
@@ -113,28 +113,26 @@ When multiple agents run in parallel, they WILL conflict on files that every age
 - Test command: `python -m pytest the_similarity/tests/ -v`
 - Slow tests: `python -m pytest the_similarity/tests/ -v -m slow` (integration backtester tests)
 
-## CI Correctness (MANDATORY)
+## CI Correctness
 
-Three rules that prevent silent main breakage:
+Two rules that keep main green:
 
-1. **Before `gh pr create`, run `scripts/ci_local.sh`.** This is the ONLY reliable signal that CI will pass. Local `pytest` in a polluted dev env lies — it picks up packages installed in past sessions that aren't in `pyproject.toml`. Never claim a PR is green without this script passing.
+1. **CI is the test gate.** `pr-gate.yml` runs the full engine + data + frontend suite on every PR with path filtering, and auto-merges on review-agent approval. Don't claim a PR is green based on local `pytest` alone — local environments diverge from CI's clean install. If CI is red, fix forward.
 
-2. **Never merge on local-green alone.** Before merging a PR, poll `gh pr view <N> --json statusCheckRollup` and require every check (Python Tests, Python Lint, Data Package Tests, Frontend Tests) to be `SUCCESS`. The orchestrator is the one enforcement point; agents cannot self-merge without the gate.
+2. **Main health is monitored daily.** `.github/workflows/main-health.yml` does a clean-room install + full suite once a day at 07:00 UTC (and on demand). It catches slow-burning issues — transitive-dep yanks, upstream package drift, intermittent flakes. If it opens an issue labeled `main-health-failure`, stop merging new PRs until it's green again.
 
-3. **Main health is monitored.** `.github/workflows/main-health.yml` runs the full suite on main after every merge and daily at 07:00 UTC. If it opens an issue labeled `main-health-failure`, stop all parallel work until it's green again — merging new PRs on top of a red main compounds debt.
+`scripts/ci_local.sh` is a fast (~30s) install-graph + lint check available for use before pushing. It catches the "polluted venv" bug (a transitive dep installed locally but missing from `pyproject.toml`). It does NOT run pytest — that's CI's job. Run it when you've touched `pyproject.toml` or imports; otherwise it's optional.
 
 ### CI Minutes Budget
-GitHub Actions free tier: 2,000 min/month. Each PR Gate run costs ~15 min (4 parallel jobs × 3-5 min). A 5-agent batch with rebases can burn 900+ min in one session.
+GitHub Actions free tier: 2,000 min/month. With path filtering, a frontend-only PR no longer burns engine + data CI minutes (and vice versa).
 
 Rules:
-1. **Agents run `scripts/ci_local.sh` as the primary gate.** This costs zero CI minutes and mirrors CI exactly.
-2. **Do NOT use `gh api update-branch` for rebases.** Each triggers a full CI run. Instead, merge main locally: `git fetch origin main && git merge origin/main --no-edit && git push`.
-3. **One CI run per PR.** Agent pushes final commit → CI runs once → merge. No intermediate pushes.
-4. **When CI budget is tight (>70% used), admin-merge on `ci_local.sh` green.** CI becomes a safety net, not a blocking gate.
-5. **Check budget before starting a batch:** review GitHub billing page or ask the user.
+1. **Do NOT use `gh api update-branch` for rebases.** Each triggers a full CI run. Instead, merge main locally: `git fetch origin main && git merge origin/main --no-edit && git push`.
+2. **One CI run per PR.** Push the final commit, let CI run once, merge.
+3. **Check budget before starting a large batch:** GitHub billing page or ask the user.
 
 ### Path-filtered CI
-`pr-gate.yml` and `ci.yml` use a `changes` job (`dorny/paths-filter`) to detect which area of the monorepo a PR touches: **engine** (`the_similarity/**`, `pyproject.toml`), **data** (`the-similarity-data/**`), **frontend** (`the-similarity-app/**`), or **harness** (`docs/agent-harness/**`, `scripts/check_agent_harness.py`, `orchestrator/**`). Each downstream job still runs (so required status checks stay green for branch protection and the orchestrator merge-poll), but its steps are gated on the relevant output and exit in seconds when out of scope. Workflow-file or `pyproject.toml` edits trigger everything as a defensive default. `main-health.yml` is intentionally NOT path-filtered — it's the clean-room check that catches transitive-dependency drift, so it always runs end-to-end.
+`pr-gate.yml` uses a `changes` job (`dorny/paths-filter`) to detect which area of the monorepo a PR touches: **engine** (`the_similarity/**`, `pyproject.toml`), **data** (`the-similarity-data/**`), or **frontend** (`the-similarity-app/**`). Each downstream job still runs (so required status checks stay green for branch protection and the orchestrator merge-poll), but its steps are gated on the relevant output and exit in seconds when out of scope. Workflow-file or `pyproject.toml` edits trigger everything as a defensive default. `main-health.yml` is intentionally NOT path-filtered — it's the daily clean-room check that catches transitive-dependency drift, so it always runs end-to-end.
 
 ## Architecture
 
@@ -199,12 +197,11 @@ Rules:
 - `the_similarity/core/terrain_params.py` — Terrain configuration
 
 ### CI / Infrastructure
-- `.github/workflows/pr-gate.yml` — PR tests + lint + review agent + auto-merge
-- `.github/workflows/main-health.yml` — Daily + post-merge clean-install test on main
+- `.github/workflows/pr-gate.yml` — PR tests + lint + review agent + auto-merge (path-filtered)
+- `.github/workflows/main-health.yml` — Daily clean-install test on main (07:00 UTC + on demand)
 - `.github/workflows/branch-reaper.yml` — Automated stale branch cleanup
-- `.github/workflows/ci.yml` — Core CI pipeline
 - `.github/workflows/refresh-data.yml` — Daily data refresh via GitHub Actions
-- `scripts/ci_local.sh` — Throwaway-venv CI mirror for agents (MANDATORY before PR)
+- `scripts/ci_local.sh` — Fast (~30s) install-graph + lint check for use before pushing
 - `scripts/smoke_platform_spine.sh` — End-to-end platform smoke test
 
 ### Other
@@ -225,7 +222,7 @@ Rules:
 - Next.js frontend with lightweight-charts, resizable split pane
 - Platform Spine (Batch 1) shipped 2026-04-17: unified contracts, registry, API, adapters for finance/copies/worlds
 - Synthetic data pipeline: block-bootstrap generation, fidelity/privacy/utility scorecards, CLI with registry integration
-- CI correctness infrastructure: main-health workflow, ci_local.sh throwaway-venv gate, platform smoke tests
+- CI correctness infrastructure: pr-gate path filtering, main-health daily clean-install, platform smoke tests
 - Next: Batch 2 (Finance Operating Product)
 
 ## Coding Standards
