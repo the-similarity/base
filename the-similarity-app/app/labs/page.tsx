@@ -13,15 +13,16 @@ export default function LabsPage() {
   return (
     <main className="page" style={{ padding: 32, overflow: "auto" }}>
       <section style={{ maxWidth: 960, margin: "0 auto" }}>
-        <p className="label">Experiments</p>
-        <h1>These are not the main product.</h1>
+        <p className="label">Product boundary</p>
+        <h1>Labs are isolated from the setup scanner.</h1>
         <p>
-          The main product starts at <Link href="/scanner">Find Matches</Link>.
-          Marketing lives in <code>{landingRoute.href}</code>. Everything below is
-          an experiment until it earns its way into the product.
+          Local product development now starts at <Link href="/scanner">/scanner</Link>.
+          Marketing belongs to <code>{landingRoute.href}</code>. The links below are
+          retained as experiments, demos, or archival product concepts; they are not
+          part of the setup scanner release gate unless promoted intentionally.
         </p>
 
-        <h2>Main product</h2>
+        <h2>Scanner product routes</h2>
         <ul>
           {scannerProductRoutes.map((route) => (
             <li key={route.href}>
@@ -30,7 +31,7 @@ export default function LabsPage() {
           ))}
         </ul>
 
-        <h2>Experiments</h2>
+        <h2>Lab routes</h2>
         <ul>
           {labRoutes.map((route) => (
             <li key={route.href}>
