@@ -1,26 +1,23 @@
 name: Main Health
 
-# Continuous health check on the `main` branch.
+# Daily health check on the `main` branch.
 #
 # Why this exists:
-#   `pr-gate.yml` only runs on PRs. That means a PR can merge with a subtly
-#   broken dependency graph (e.g. a transitive dep installed in every local
-#   dev env but missing from pyproject.toml), and `main` then sits silently
-#   red for hours until the next PR triggers a fresh clean-room install.
-#   This workflow mirrors the pr-gate install/test exactly, on a schedule
-#   plus after every merge, and files a GitHub Issue on any failure so the
-#   orchestrator can halt parallel work until main is green again.
+#   `pr-gate.yml` validates the squash-merge commit, so post-merge
+#   re-runs on the same SHA add no signal. What pr-gate CAN'T catch is
+#   slow drift: a transitive dep going stale, a flaky test, an upstream
+#   yank. This workflow does a clean-room install + full test suite
+#   once a day on whatever HEAD of main currently is, and files a
+#   GitHub Issue on failure so parallel work pauses until main is
+#   green again.
 #
 # Triggers:
-#   - push to main              → immediate post-merge smoke test
 #   - daily cron at 07:00 UTC   → catches upstream dep drift / flakes
 #   - workflow_dispatch         → manual re-run from the Actions UI
 
 on:
   schedule:
     - cron: "0 7 * * *"
-  push:
-    branches: [main]
   workflow_dispatch:
 
 concurrency:
