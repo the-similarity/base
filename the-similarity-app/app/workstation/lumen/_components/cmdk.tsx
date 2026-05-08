@@ -2,7 +2,7 @@
  * Lumen command palette — Cmd+K modal with grouped results + arrow nav.
  *
  * The Lumen route is single-screen so the palette is intentionally
- * sparse: a "Workspace" group with theme + tweaks toggles and an
+ * sparse: a "Workspace" group with a theme toggle and an
  * escape hatch into the standalone /workstation route. There is no
  * "Navigate" group anymore — there is nowhere to navigate to within
  * /workstation/lumen.
@@ -28,7 +28,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import { Icon } from "./icons";
-import type { TweakState } from "./tweaks";
 
 interface PaletteItem {
   g: string;
@@ -43,23 +42,23 @@ interface PaletteItem {
 export interface CmdKProps {
   open: boolean;
   onClose: () => void;
-  setTweaks?: Dispatch<SetStateAction<TweakState>>;
+  setDark?: Dispatch<SetStateAction<boolean>>;
 }
 
-export function CmdK({ open, onClose, setTweaks }: CmdKProps) {
+export function CmdK({ open, onClose, setDark }: CmdKProps) {
   // Early-return when closed so React unmounts the body and its state
   // disappears. The next open() will mount a fresh CmdKBody, giving us a
   // pristine query/active state without any explicit reset.
   if (!open) return null;
-  return <CmdKBody onClose={onClose} setTweaks={setTweaks} />;
+  return <CmdKBody onClose={onClose} setDark={setDark} />;
 }
 
 interface CmdKBodyProps {
   onClose: () => void;
-  setTweaks?: Dispatch<SetStateAction<TweakState>>;
+  setDark?: Dispatch<SetStateAction<boolean>>;
 }
 
-function CmdKBody({ onClose, setTweaks }: CmdKBodyProps) {
+function CmdKBody({ onClose, setDark }: CmdKBodyProps) {
   const [q, setQ] = useState("");
   const [active, setActive] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -72,10 +71,10 @@ function CmdKBody({ onClose, setTweaks }: CmdKBodyProps) {
     return () => clearTimeout(t);
   }, []);
 
-  // Tweaks are optional — defensive default so the palette still works
-  // if the parent forgets to pass `setTweaks`.
+  // Theme control is optional so the palette still works if the parent
+  // renders it without a route-level dark-mode setter.
   const toggleTheme = () => {
-    if (setTweaks) setTweaks((t) => ({ ...t, dark: !t.dark }));
+    if (setDark) setDark((value) => !value);
   };
 
   // Open the standalone Workstation route (the non-Lumen view) in the
@@ -94,15 +93,6 @@ function CmdKBody({ onClose, setTweaks }: CmdKBodyProps) {
       label: "Toggle theme",
       icon: "sparkle",
       run: toggleTheme,
-    },
-    {
-      g: "Workspace",
-      // Discoverability hint — the actual collapse/expand affordance
-      // lives on the floating tweaks tab; this entry is just here so
-      // a Cmd+K user can find it.
-      label: "Toggle tweaks panel",
-      icon: "settings",
-      run: () => {},
     },
     {
       g: "Workspace",

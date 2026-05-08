@@ -55,7 +55,9 @@ export const LUMEN_CSS = `
   --radius-pill: 999px;
 
   position: relative;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --tv-font: -apple-system, BlinkMacSystemFont, 'Trebuchet MS', Roboto, Ubuntu, sans-serif;
+
+  font-family: var(--tv-font);
   color: var(--ink);
   background: var(--bg);
   -webkit-font-smoothing: antialiased;
@@ -95,8 +97,8 @@ export const LUMEN_CSS = `
  *   --positive      → forest green (Lumen accent) #0a6b48
  *   --negative      → muted brick                 #b14a3a
  *   --accent        → forest green                #0a6b48
- *   --serif         → Instrument Serif (display)
- *   --sans          → Inter
+ *   --serif         → TradingView default stack (display)
+ *   --sans          → TradingView default stack
  *   --mono          → JetBrains Mono
  *
  * Analog/cone color tokens are also overridden so the chart's analog
@@ -125,9 +127,7 @@ export const LUMEN_CSS = `
   --negative-soft: rgba(177,74,58,0.08);
   --warn: #b07c1d;
 
-  /* Default accent — overwritten by the tweaks panel via a per-element
-     style.setProperty() call on the .lumen-app root, but the Lumen
-     palette uses forest green out of the gate. */
+  /* Default accent: forest green out of the gate. */
   --accent: #0a6b48;
   --accent-soft: rgba(10,107,72,0.08);
 
@@ -139,7 +139,7 @@ export const LUMEN_CSS = `
   --c-cone-line: #0a6b48;
   --c-grid: #ececea;
 
-  /* Top-K analog ranks 1–6 — earthy palette that pairs with painterly bg. */
+  /* Top-K analog ranks 1-6. */
   --c-analog-1: #0a6b48;
   --c-analog-2: #b07c1d;
   --c-analog-3: #2e5d8c;
@@ -147,13 +147,13 @@ export const LUMEN_CSS = `
   --c-analog-5: #b14a3a;
   --c-analog-6: #3d3d3a;
 
-  --serif: 'Instrument Serif', Georgia, "Times New Roman", serif;
-  --sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --serif: var(--tv-font);
+  --sans: var(--tv-font);
   --mono: 'JetBrains Mono', "SF Mono", Consolas, monospace;
 }
 
-/* Dark-mode overrides — keyed off the .dark class the tweaks panel
-   toggles. Mirrors app/globals.css [data-theme="dark"] so the
+/* Dark-mode overrides — keyed off the .dark class. Mirrors
+   app/globals.css [data-theme="dark"] so the
    embedded Workstation flips into a Lumen-palette dark mode. */
 .lumen-app.dark {
   --bg: #0e0f0d;
@@ -197,49 +197,22 @@ export const LUMEN_CSS = `
   font-family: var(--sans);
 }
 
-/* ============ painterly background — absolutely positioned inside the
-   page, not fixed, so it's contained to this route only. */
-.lumen-app .lumen-painterly {
-  position: absolute; inset: 0; z-index: 0;
-  overflow: hidden;
-  background: linear-gradient(160deg, #4a7a5a 0%, #6b9a72 25%, #c4b896 55%, #8a6a4a 80%, #3d2f1f 100%);
-  pointer-events: none;
-}
-.lumen-app .lumen-painterly::before {
-  content: ''; position: absolute; inset: -10%;
-  background:
-    radial-gradient(ellipse 60% 40% at 20% 30%, rgba(120,160,140,0.6), transparent 60%),
-    radial-gradient(ellipse 50% 35% at 75% 60%, rgba(180,150,100,0.5), transparent 60%),
-    radial-gradient(ellipse 40% 30% at 50% 85%, rgba(60,40,25,0.4), transparent 60%),
-    radial-gradient(ellipse 70% 50% at 90% 15%, rgba(90,130,110,0.5), transparent 70%);
-  filter: blur(40px);
-}
-.lumen-app .lumen-painterly::after {
-  content: ''; position: absolute; inset: 0;
-  background-image:
-    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='400' height='400'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.4 0 0 0 0 0.35 0 0 0 0 0.25 0 0 0 0.6 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)' opacity='0.35'/></svg>");
-  mix-blend-mode: overlay;
-  opacity: 0.5;
-}
-
 /* ============ app shell — renamed from .app to avoid colliding with
    the global .app rule in globals.css that sets a 3-row grid template. */
 .lumen-app .lumen-shell {
   position: relative; z-index: 1;
   height: 100vh;
   padding: 14px;
+  background: transparent;
   display: grid;
-  grid-template-columns: 220px 1fr;
+  grid-template-columns: 1fr;
   grid-template-rows: 1fr;
-  gap: 14px;
 }
 
 /* ============ sidebar ============ */
 .lumen-app .lumen-sidebar {
-  background: rgba(255,255,255,0.72);
-  backdrop-filter: blur(20px) saturate(120%);
-  -webkit-backdrop-filter: blur(20px) saturate(120%);
-  border: 1px solid rgba(255,255,255,0.6);
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   padding: 14px 10px;
   display: flex; flex-direction: column;
@@ -257,7 +230,7 @@ export const LUMEN_CSS = `
 }
 .lumen-app .lumen-brand-mark svg { display: block; }
 .lumen-app .lumen-brand-name {
-  font-family: 'Instrument Serif', serif;
+  font-family: var(--serif);
   font-size: 18px;
   letter-spacing: -0.01em;
 }
@@ -329,7 +302,7 @@ export const LUMEN_CSS = `
 .lumen-app .lumen-main {
   background: var(--surface);
   border-radius: var(--radius-lg);
-  border: 1px solid rgba(255,255,255,0.5);
+  border: 1px solid var(--border);
   box-shadow: var(--shadow-card);
   overflow: hidden;
   display: flex; flex-direction: column;
@@ -410,7 +383,7 @@ export const LUMEN_CSS = `
   color: var(--ink-3); font-weight: 550;
 }
 .lumen-app .lumen-display {
-  font-family: 'Instrument Serif', serif;
+  font-family: var(--serif);
   font-weight: 400;
   letter-spacing: -0.02em;
   line-height: 1;
@@ -510,7 +483,7 @@ export const LUMEN_CSS = `
 }
 .lumen-app .lumen-kpi .lumen-label .lumen-ico { width: 13px; height: 13px; opacity: 0.7; }
 .lumen-app .lumen-kpi .lumen-value {
-  font-family: 'Instrument Serif', serif;
+  font-family: var(--serif);
   font-size: 30px; line-height: 1;
   letter-spacing: -0.015em;
   color: var(--ink);
@@ -539,7 +512,6 @@ export const LUMEN_CSS = `
 .lumen-app .lumen-cmdk-back {
   position: fixed; inset: 0; z-index: 100;
   background: rgba(20,20,20,0.35);
-  backdrop-filter: blur(4px);
   display: grid; place-items: start center;
   padding-top: 14vh;
 }
@@ -583,7 +555,7 @@ export const LUMEN_CSS = `
 
 /* ============ AI insight bubble ============ */
 .lumen-app .lumen-ai-bubble {
-  background: linear-gradient(180deg, #fafaf6, #f4f1ea);
+  background: var(--surface-2);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 14px 16px;
@@ -763,119 +735,12 @@ export const LUMEN_CSS = `
   --accent-soft: #163a2a;
   --accent-ink: #c8e2d4;
 }
-.lumen-app.dark .lumen-painterly {
-  background: linear-gradient(160deg, #1a3528 0%, #2a4534 25%, #4a3a2a 55%, #2a1f15 80%, #0a0a08 100%);
-}
 .lumen-app.dark .lumen-sidebar {
-  background: rgba(24,25,26,0.7);
-  border-color: rgba(255,255,255,0.06);
+  background: var(--surface);
+  border-color: var(--border);
 }
 .lumen-app.dark .lumen-ai-bubble {
-  background: linear-gradient(180deg, #1f2122, #18191a);
-}
-
-/* ============ tweaks panel ============ */
-.lumen-app .lumen-tweaks-tab {
-  position: fixed; right: 16px; bottom: 16px; z-index: 90;
-  height: 28px; padding: 0 12px;
-  border-radius: 999px;
-  border: 1px solid rgba(255,255,255,0.6);
-  background: rgba(255,255,255,0.78);
-  -webkit-backdrop-filter: blur(20px) saturate(160%);
-  backdrop-filter: blur(20px) saturate(160%);
-  color: var(--ink);
-  font-size: 11.5px; font-weight: 500;
-  box-shadow: 0 8px 24px -10px rgba(20,20,20,0.18);
-}
-.lumen-app .lumen-tweaks-panel {
-  position: fixed; right: 16px; bottom: 16px; z-index: 90;
-  width: 260px;
-  background: rgba(250,249,247,0.82);
-  border: 1px solid rgba(255,255,255,0.6);
-  border-radius: 14px;
-  box-shadow: 0 1px 0 rgba(255,255,255,0.5) inset, 0 12px 40px rgba(0,0,0,0.18);
-  -webkit-backdrop-filter: blur(24px) saturate(160%);
-  backdrop-filter: blur(24px) saturate(160%);
-  color: #29261b;
-  font-size: 11.5px;
-  overflow: hidden;
-}
-.lumen-app.dark .lumen-tweaks-panel { background: rgba(24,25,26,0.82); color: var(--ink); }
-.lumen-app.dark .lumen-tweaks-tab { background: rgba(24,25,26,0.78); color: var(--ink); border-color: rgba(255,255,255,0.08); }
-.lumen-app .lumen-tweaks-head {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 10px 8px 10px 14px;
-}
-.lumen-app .lumen-tweaks-head b { font-size: 12px; font-weight: 600; }
-.lumen-app .lumen-tweaks-x {
-  width: 22px; height: 22px;
-  border: 0; background: transparent;
-  border-radius: 6px;
-  font-size: 16px; line-height: 1;
-  color: rgba(41,38,27,0.55);
-  cursor: pointer;
-}
-.lumen-app .lumen-tweaks-x:hover { background: rgba(0,0,0,0.06); color: #29261b; }
-.lumen-app .lumen-tweaks-body { padding: 2px 14px 14px; display: flex; flex-direction: column; gap: 10px; }
-.lumen-app .lumen-tweaks-sect {
-  font-size: 10px; font-weight: 600;
-  letter-spacing: 0.06em; text-transform: uppercase;
-  color: rgba(41,38,27,0.45);
-  padding: 6px 0 0;
-}
-.lumen-app.dark .lumen-tweaks-sect { color: var(--ink-3); }
-.lumen-app .lumen-tweaks-radio {
-  display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px;
-  background: rgba(0,0,0,0.06);
-  border-radius: 8px;
-  padding: 2px;
-}
-.lumen-app .lumen-tweaks-radio button {
-  border: 0; background: transparent;
-  border-radius: 6px;
-  padding: 5px 6px;
-  font-size: 11px; font-weight: 500;
-  color: inherit;
-  cursor: pointer;
-}
-.lumen-app .lumen-tweaks-radio button.is-active {
-  background: rgba(255,255,255,0.9);
-  box-shadow: 0 1px 2px rgba(0,0,0,0.12);
-}
-.lumen-app.dark .lumen-tweaks-radio button.is-active { background: rgba(255,255,255,0.12); }
-.lumen-app .lumen-tweaks-toggle-row {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 2px 0;
-}
-.lumen-app .lumen-tweaks-toggle {
-  position: relative; width: 32px; height: 18px;
-  border: 0; border-radius: 999px;
-  background: rgba(0,0,0,0.15);
-  transition: background 0.15s;
-  cursor: pointer; padding: 0;
-}
-.lumen-app .lumen-tweaks-toggle[data-on="1"] { background: var(--accent); }
-.lumen-app .lumen-tweaks-toggle i {
-  position: absolute; top: 2px; left: 2px;
-  width: 14px; height: 14px;
-  border-radius: 50%;
-  background: #fff;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.25);
-  transition: transform 0.15s;
-}
-.lumen-app .lumen-tweaks-toggle[data-on="1"] i { transform: translateX(14px); }
-
-.lumen-app .lumen-tweak-swatch-row { display: flex; gap: 6px; flex-wrap: wrap; }
-.lumen-app .lumen-tweak-swatch {
-  width: 26px; height: 26px;
-  border-radius: 6px;
-  border: 2px solid transparent;
-  cursor: pointer;
-  position: relative;
-}
-.lumen-app .lumen-tweak-swatch.is-active {
-  border-color: var(--ink);
-  box-shadow: 0 0 0 2px var(--surface) inset;
+  background: var(--surface-2);
 }
 
 /* ====================================================================
@@ -885,7 +750,7 @@ export const LUMEN_CSS = `
  * underlying component (components/workstation/*) was authored in a
  * "research terminal" idiom — mono uppercase labels, sharp 1px rules,
  * boxy chips, burgundy-tinted analog cards, hard contrast. None of
- * that fits Lumen's editorial finance look (Instrument Serif numerals,
+ * that fits Lumen's TradingView-like finance look (system numerals,
  * paper-on-card surfaces, hairline borders, accent-soft tints).
  *
  * Strategy: every workstation class that has a global rule in
@@ -902,22 +767,16 @@ export const LUMEN_CSS = `
  *                   .saved__score, .chip, .chip-row
  *   topbar/search   .ws-search-row, .ws-search-row__group, .ws-search-row__label,
  *                   .ws-search-row__lastrun, .ws-search-row__fewer-matches,
- *                   .ws-topk, .ws-horizon, .ws-search-btn, .ws-share-btn
+ *                   .ws-topk, .ws-horizon, .ws-chartmode,
+ *                   .ws-chart-settings, .ws-search-btn, .ws-share-btn
  *   chart           .chart-card, .chart-card__head, .chart-card__title,
  *                   .chart-card__body, .chart-card__legend, .legend-dot,
- *                   .ws-chartmode-row, .ws-chartmode, .ws-chart-settings,
  *                   .lw-chart, .svg-chart
  *   analog strip    .strip, .analog-card, .analog-card__head,
  *                   .analog-card__date, .analog-card__title,
  *                   .analog-card__score, .analog-card__note,
  *                   .analog-card__spark, .analog-card__after,
  *                   .analog-card__pin-btn
- *   right rail      .right__section, .lens-head, .lens-bars,
- *                   .lens-bar, .lens-radar, .score, .d
- *   trust           .trust, .trust__item, .trust__expand, .trust__info,
- *                   .trust-panel, .trust-panel--empty,
- *                   .trust-panel__empty-card, .trust-panel__cta,
- *                   .trust-panel__narrative, .trust-panel__grade-*
  *   detail drawer   .adrawer, .adrawer__head, .adrawer__rank-badge,
  *                   .adrawer__date-range, .adrawer__label,
  *                   .adrawer__composite-*, .adrawer__pin-toggle,
@@ -935,7 +794,7 @@ export const LUMEN_CSS = `
  * ==================================================================== */
 
 /* --- A. Layout shell -------------------------------------------------
- * The workstation paints its own .side / .main / .right grid. We strip
+ * The workstation paints its own .side / .main grid. We strip
  * the harsh 1px dividers between panels and keep the inside transparent
  * so the Lumen card behind it is the visible surface. Padding is
  * relaxed to Lumen's 14-22px rhythm. */
@@ -943,27 +802,50 @@ export const LUMEN_CSS = `
   background: transparent;
   font-family: var(--sans);
   color: var(--ink);
-  /* Match the Lumen card geometry: rows = topbar-area + body, no third
-     trust row. Trust is rendered inline as a card now, so we collapse
-     the auto-3rd-row to 0. The default workstation grid is 260/1fr/320;
-     bump the side rails wider to give Lumen typography room. */
-  grid-template-columns: 240px 1fr 320px;
+  grid-template-columns: 1fr;
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 0;
 }
 .lumen-app .workstation > .side,
-.lumen-app .workstation > .main,
-.lumen-app .workstation > .right {
+.lumen-app .workstation > .main {
   background: transparent;
   border: none;
 }
+.lumen-app .workstation > .main,
+.lumen-app .workstation .chart-stack,
+.lumen-app .workstation .chart-card {
+  width: 100%;
+  min-width: 0;
+}
 .lumen-app .workstation > .side {
-  border-right: 1px solid var(--border);
+  position: fixed;
+  top: 14px;
+  left: 14px;
+  bottom: 14px;
+  width: 320px;
+  max-width: calc(100vw - 28px);
+  z-index: 70;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
   padding: 4px 0;
+  box-shadow: var(--shadow-pop);
+  transform: translateX(calc(-100% - 24px));
+  transition: transform 180ms ease;
 }
-.lumen-app .workstation > .right {
-  border-left: 1px solid var(--border);
-  padding: 4px 0;
+.lumen-app .workstation[data-left-drawer="open"] > .side {
+  transform: translateX(0);
 }
-
+.lumen-app .workstation[data-left-drawer="open"] > .ws-drawer-backdrop {
+  display: block;
+  background: transparent;
+  z-index: 60;
+}
+.lumen-app .workstation .ws-drawer-toggle--left,
+.lumen-app .workstation .ws-drawer-close--left {
+  display: inline-flex;
+}
 /* --- B. Side panel (left) — query def, window, pinned, notebook ----- */
 .lumen-app .workstation .side__section {
   padding: 16px 18px;
@@ -1100,8 +982,8 @@ export const LUMEN_CSS = `
 .lumen-app .workstation .ws-search-row {
   background: var(--surface);
   border-bottom: 1px solid var(--border);
-  padding: 10px 22px;
-  gap: 14px;
+  padding: 8px 18px;
+  gap: 10px;
 }
 .lumen-app .workstation .ws-search-row__label {
   font-family: var(--sans);
@@ -1203,19 +1085,23 @@ export const LUMEN_CSS = `
 
 /* --- D. Chart stack + chart card ------------------------------------ */
 .lumen-app .workstation .chart-stack {
-  padding: 18px 22px 24px;
-  gap: 18px;
+  padding: 12px 16px 14px;
+  gap: 10px;
   background: transparent;
+  min-height: 0;
 }
 .lumen-app .workstation .chart-card {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  box-shadow: var(--shadow-card);
+  box-shadow: 0 18px 60px rgba(30, 24, 16, 0.12);
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 .lumen-app .workstation .chart-card__head {
-  padding: 14px 18px;
+  padding: 10px 14px;
   border-bottom: 1px solid var(--border);
   background: transparent;
 }
@@ -1232,7 +1118,20 @@ export const LUMEN_CSS = `
   font-size: 12.5px;
 }
 .lumen-app .workstation .chart-card__body {
-  padding: 14px 18px 18px;
+  height: clamp(520px, calc(100vh - 292px), 820px);
+  min-height: 520px;
+  padding: 10px 14px 14px;
+  min-width: 0;
+}
+@media (max-width: 767px) {
+  .lumen-app .workstation .chart-stack {
+    padding: 10px;
+  }
+  .lumen-app .workstation .chart-card__body {
+    height: clamp(360px, 58vh, 560px);
+    min-height: 360px;
+    padding: 8px;
+  }
 }
 .lumen-app .workstation .chart-card__legend {
   font-family: var(--sans);
@@ -1250,9 +1149,6 @@ export const LUMEN_CSS = `
 .lumen-app .workstation .legend-dot.p50 i { background: var(--accent); }
 
 /* --- D1. Chart-mode toggle (Fast/Pro) + settings gear --------------- */
-.lumen-app .workstation .ws-chartmode-row {
-  margin-bottom: 0;
-}
 .lumen-app .workstation .ws-chartmode {
   border: 1px solid var(--border);
   border-radius: 7px;
@@ -1316,6 +1212,16 @@ export const LUMEN_CSS = `
   fill: var(--ink-3);
   letter-spacing: 0;
 }
+.lumen-app .workstation .svg-chart .price-axis-line,
+.lumen-app .workstation .svg-chart .time-axis-line {
+  stroke: var(--border);
+  opacity: 1;
+}
+.lumen-app .workstation .svg-chart .price-axis-label { fill: var(--ink-2); }
+.lumen-app .workstation .svg-chart .price-axis-grabber:hover,
+.lumen-app .workstation .svg-chart .time-axis-grabber:hover {
+  fill: color-mix(in srgb, var(--ink) 5%, transparent);
+}
 .lumen-app .workstation .svg-chart .price { stroke: var(--ink); stroke-width: 1.4; }
 .lumen-app .workstation .svg-chart .data-end { stroke: var(--ink-4); }
 .lumen-app .workstation .svg-chart .data-end-label {
@@ -1370,16 +1276,20 @@ export const LUMEN_CSS = `
 .lumen-app .workstation .strip {
   background: transparent;
   border-top: 1px solid var(--border);
-  padding: 14px 22px 18px;
-  gap: 12px;
+  padding: 10px 16px 12px;
+  gap: 10px;
+  flex: 0 0 auto;
+  height: auto;
+  max-height: none;
+  overflow-x: auto;
 }
 .lumen-app .workstation .analog-card {
-  min-width: 220px;
+  min-width: 190px;
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 14px 14px 12px;
+  padding: 10px 11px 9px;
   background: var(--surface);
-  box-shadow: var(--shadow-card);
+  box-shadow: none;
   transition: all 150ms;
   /* Drop the rank-color left stripe; we replace it with a small dot in
      the head row (see analog-badge styling below). */
@@ -1415,7 +1325,7 @@ export const LUMEN_CSS = `
 }
 .lumen-app .workstation .analog-card__score {
   font-family: var(--serif);
-  font-size: 22px;
+  font-size: 18px;
   font-weight: 400;
   letter-spacing: -0.015em;
   color: var(--ink);
@@ -1430,7 +1340,7 @@ export const LUMEN_CSS = `
 }
 .lumen-app .workstation .analog-card__note {
   color: var(--ink-3);
-  font-size: 11.5px;
+  font-size: 11px;
   font-family: var(--sans);
   margin-bottom: 8px;
   line-height: 1.45;
@@ -1572,119 +1482,6 @@ export const LUMEN_CSS = `
   text-transform: uppercase;
 }
 .lumen-app .workstation .lens-radar .data-dot { fill: var(--accent); }
-
-/* --- G. Trust strip + calibration panel ----------------------------- */
-.lumen-app .workstation .trust {
-  background: var(--surface);
-  border-top: 1px solid var(--border);
-  padding: 0 22px;
-  min-height: 60px;
-}
-.lumen-app .workstation .trust__item {
-  padding: 12px 22px 12px 0;
-  margin-right: 22px;
-  border-right: 1px solid var(--border);
-}
-.lumen-app .workstation .trust__item .label {
-  font-family: var(--sans);
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--ink-3);
-  font-weight: 600;
-}
-.lumen-app .workstation .trust__item .v {
-  font-family: var(--serif);
-  font-size: 22px;
-  font-weight: 400;
-  letter-spacing: -0.015em;
-  color: var(--ink);
-  margin-top: 4px;
-}
-.lumen-app .workstation .trust__item .v.pos { color: var(--pos); }
-.lumen-app .workstation .trust__item .v.warn { color: var(--warn); }
-.lumen-app .workstation .trust__expand {
-  font-family: var(--sans);
-  font-size: 12px;
-  font-weight: 500;
-  letter-spacing: 0;
-  text-transform: none;
-  padding: 6px 12px;
-  border: 1px solid var(--border-strong);
-  border-radius: 7px;
-  color: var(--ink);
-  background: var(--surface);
-}
-.lumen-app .workstation .trust__expand:hover {
-  background: var(--surface-2);
-}
-.lumen-app .workstation .trust__info { color: var(--ink-3); }
-.lumen-app .workstation .trust__info:hover { color: var(--ink); }
-
-/* Trust panel (expanded calibration) */
-.lumen-app .workstation .trust-panel {
-  background: var(--surface);
-  border-top: 1px solid var(--border);
-  padding: 22px 22px 28px;
-}
-.lumen-app .workstation .trust-panel h3 {
-  font-family: var(--serif);
-  font-size: 18px;
-  font-weight: 400;
-  letter-spacing: -0.01em;
-  color: var(--ink);
-  margin: 0 0 12px;
-}
-.lumen-app .workstation .trust-panel--empty { background: var(--surface); }
-.lumen-app .workstation .trust-panel__empty-card {
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--surface-2);
-  padding: 22px;
-  box-shadow: none;
-}
-.lumen-app .workstation .trust-panel__empty-card p {
-  font-family: var(--sans);
-  font-size: 13px;
-  color: var(--ink-2);
-  line-height: 1.55;
-}
-.lumen-app .workstation .trust-panel__cta {
-  font-family: var(--sans);
-  font-size: 12.5px;
-  font-weight: 500;
-  letter-spacing: 0;
-  color: var(--accent);
-  text-decoration: none;
-  border-bottom: 1px solid var(--accent);
-  padding-bottom: 1px;
-}
-.lumen-app .workstation .trust-panel__cta:hover {
-  color: var(--accent-ink);
-  border-bottom-color: var(--accent-ink);
-}
-.lumen-app .workstation .trust-panel__grade-copy {
-  font-family: var(--sans);
-  font-size: 13px;
-  line-height: 1.55;
-  color: var(--ink-2);
-}
-.lumen-app .workstation .trust-panel__grade-list {
-  font-family: var(--sans);
-  font-size: 12.5px;
-  color: var(--ink-2);
-  line-height: 1.7;
-}
-.lumen-app .workstation .trust-panel__grade-list b {
-  color: var(--ink);
-  font-weight: 600;
-}
-.lumen-app .workstation .trust-panel__grade-current {
-  font-family: var(--sans);
-  font-size: 12px;
-  color: var(--ink-3);
-  letter-spacing: 0;
-}
 
 /* --- H. Analog detail drawer (slide-in) ---------------------------- */
 .lumen-app .workstation .adrawer,
@@ -2108,7 +1905,7 @@ export const LUMEN_CSS = `
   font-weight: 500;
   letter-spacing: 0;
   text-transform: none;
-  padding: 5px 10px;
+  padding: 0;
   border: 1px solid var(--border-strong);
   border-radius: 7px;
   color: var(--ink);
@@ -2128,9 +1925,8 @@ export const LUMEN_CSS = `
   color: var(--ink);
 }
 .lumen-app .workstation .ws-drawer-backdrop {
-  background: rgba(20,20,20,0.35);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
+  background: transparent;
+  pointer-events: none;
 }
 
 /* --- L. Dataset selector (left sidebar) ----------------------------- */

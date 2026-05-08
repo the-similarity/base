@@ -107,8 +107,9 @@ describe("AnalogDetailDrawer", () => {
     expect(screen.getByText("#1")).toBeDefined();
     // Composite formatted to 2dp.
     expect(screen.getByText("0.72")).toBeDefined();
-    // Context strip labels covid-era dates.
-    expect(screen.getByText(/COVID/)).toBeDefined();
+    expect(screen.queryByText(/COVID/)).toBeNull();
+    expect(screen.getByRole("dialog", { name: /Summer 2020/i }).getAttribute("aria-modal")).toBe("false");
+    expect(screen.getByText(/radar \+ factors/i)).toBeDefined();
   });
 
   it("fires onTogglePin with the analog id when the pin toggle is clicked", () => {
@@ -140,6 +141,24 @@ describe("AnalogDetailDrawer", () => {
       />,
     );
     fireEvent.click(screen.getByRole("button", { name: /close analog detail drawer/i }));
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it("fires onClose when the backdrop is clicked", () => {
+    const onClose = vi.fn();
+    const { container } = render(
+      <AnalogDetailDrawer
+        analog={makeAnalog()}
+        open={true}
+        pinned={false}
+        onClose={onClose}
+        onTogglePin={() => {}}
+        onUseAsQuery={() => {}}
+      />,
+    );
+    const backdrop = container.querySelector(".adrawer__backdrop");
+    expect(backdrop?.getAttribute("data-open")).toBe("true");
+    fireEvent.click(backdrop!);
     expect(onClose).toHaveBeenCalled();
   });
 

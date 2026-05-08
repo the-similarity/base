@@ -7,8 +7,8 @@ The repo-root folder `design_guideline/` holds per-surface visual rules. Each su
 The product spans four surfaces with different visual identities:
 
 - **Workstation** at `/workstation`: Bloomberg-Lite analog finder. Three-column terminal, oxblood `--accent` `#5a2b2b`, Newsreader serif on warm-paper `#faf9f6`. See [[workstation]] and `the-similarity-app/components/workstation/workstation.tsx`.
-- **Lumen** at `/workstation/lumen`: same Workstation engine reskinned via CSS-variable cascade. Painterly background, forest-green accent `#0a6b48`, Instrument Serif. The token-cascade trick lives in `the-similarity-app/app/workstation/lumen/_components/styles.tsx`.
-- **Cadence** at `/cadence`: nine-screen health workstation rebuilt 2026-04-27. Sage-green accent `#5b8a72`, Instrument Serif metrics, painterly bg. Calm-clinical, not trading. See `the-similarity-app/app/cadence/_components/styles.tsx`.
+- **Lumen** at `/workstation/lumen`: same Workstation engine reskinned via CSS-variable cascade. Painterly background, forest-green accent `#0a6b48`, TradingView default system font stack. The token-cascade trick lives in `the-similarity-app/app/workstation/lumen/_components/styles.tsx`.
+- **Cadence** at `/cadence`: nine-screen health workstation rebuilt 2026-04-27. Sage-green accent `#5b8a72`, TradingView-style system metrics, painterly bg. Calm-clinical, not trading. See `the-similarity-app/app/cadence/_components/styles.tsx`.
 - **Prudent** at `/prudent`: natural-language to time-series journal. Blue accent (tweakable to ember/teal/plum), Newsreader serif composer at 19px, dark icon rail. See [[prudent]] and `the-similarity-app/app/prudent/layout.tsx`.
 
 Each surface uses its own scoped stylesheet and its own classname prefix (`.ws-*`, `.lumen-*`, `.cadence-*`, `.prudent-root`). Class-name collision with `app/globals.css` was the bug that motivated the prefix discipline; the layout docstrings call it out explicitly.

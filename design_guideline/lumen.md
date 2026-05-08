@@ -1,6 +1,6 @@
 # Lumen Design Guideline
 
-Lumen lives at `/workstation/lumen`. It mounts the SAME `<Workstation>` component that drives `/workstation` and reskins it with a painterly background, floating white cards, a forest-green accent, and Instrument Serif display type. No engine logic differs; every visual change happens through CSS-variable cascade.
+Lumen lives at `/workstation/lumen`. It mounts the SAME `<Workstation>` component that drives `/workstation` and reskins it with a painterly background, floating white cards, a forest-green accent, and TradingView's default system font stack. No engine logic differs; every visual change happens through CSS-variable cascade.
 
 Code anchors:
 - Page: `the-similarity-app/app/workstation/lumen/page.tsx`
@@ -28,7 +28,7 @@ Inheritance:
 Deviations:
 1. **Surface tone.** Background is a painterly gradient `linear-gradient(160deg, #4a7a5a, #6b9a72, #c4b896, #8a6a4a, #3d2f1f)` with two layered overlays (`::before` radial gradients, `::after` SVG fractal noise blended with `mix-blend-mode: overlay`). See `.lumen-painterly` in `styles.tsx` lines 200 to 223. The base document forbids gradients on chrome; Lumen treats the painterly element as background art, not chrome, and the workstation cards still sit on flat white.
 2. **Accent.** Forest green `#0a6b48` (`--accent` in `styles.tsx` line 131) replaces the workstation's oxblood `#5a2b2b`. Mapped onto `--positive` so cone fills come out green-on-green. Six-color analog ramp `--c-analog-1` through `--c-analog-6` (line 143) replaces the workstation's gray-ramp default.
-3. **Display serif.** Instrument Serif (line 150) replaces Newsreader. Loaded via Google Fonts `<link>` injected in `lumen/page.tsx` line 186 because Lumen must not depend on the app-level font setup.
+3. **TradingView stack.** Display and body text use the Lightweight Charts default stack: `-apple-system, BlinkMacSystemFont, 'Trebuchet MS', Roboto, Ubuntu, sans-serif`. Lumen only downloads JetBrains Mono for mono labels.
 4. **Card model.** Lumen wraps the workstation in two floating cards instead of letting it occupy the whole viewport. The wrapping uses `:has(.workstation)` (`styles.tsx` line 350) to detect the embedded workstation and turn `.lumen-main` into a transparent layout container so the workstation's two children (chart card, lens panel) become individual floating Lumen cards on the painterly background.
 
 ## Voice and tone
@@ -38,7 +38,7 @@ Same quant-newsroom voice as the workstation. Lumen does not soften the copy. Th
 Real strings from the UI:
 
 - Topbar crumbs (set in `lumen/page.tsx` line 217): `["Workspace", "Retrieve"]`
-- Brand wordmark inside the sidebar (Instrument Serif italic): `Similarity` with `Lumen` as the subline, see `_components/sidebar.tsx`.
+- Brand wordmark inside the sidebar (TradingView stack italic): `Similarity` with `Lumen` as the subline, see `_components/sidebar.tsx`.
 - Cmd+K palette items inherit from the lumen `_components/cmdk.tsx`.
 - The embedded workstation's copy is unchanged ("No datasets registered yet", `engine v4.14 · nine lenses`, etc.) because the same component renders it.
 
@@ -46,24 +46,23 @@ The Lumen-only strings are the topbar crumbs, the sidebar nav labels, and the tw
 
 ## Typography
 
-Three families. All three are loaded via the `<link rel="stylesheet">` injected at the top of the route (`lumen/page.tsx` lines 182 to 187):
+Two families. JetBrains Mono is loaded via the `<link rel="stylesheet">` injected at the top of the route (`lumen/page.tsx` lines 180 to 184); the TradingView stack is system-native:
 
-- `--serif: 'Instrument Serif'`: display, used for the brand wordmark and the lumen brand-name.
-- `--sans: 'Inter'`: body, controls, sidebar nav, topbar crumbs.
+- `--serif` / `--sans`: `-apple-system, BlinkMacSystemFont, 'Trebuchet MS', Roboto, Ubuntu, sans-serif`.
 - `--mono: 'JetBrains Mono'`: kbd chips, mono labels, status counts.
 
-Font-feature-settings on `.lumen-app` (line 63): `'cv11', 'ss01', 'ss03'`. These are the Inter character-variant flags that swap in the single-story `g`, alternate `i`, and curly `f` ligature. They are explicit because the rest of the app does not turn them on; Lumen does because the painterly background reads as more editorial.
+Font-feature-settings on `.lumen-app` (line 63): `'cv11', 'ss01', 'ss03'`. These are harmless on unsupported system fonts and preserve the intended alternate glyphs on stacks that support them.
 
 Sizes worth memorizing:
 
 | Element | Class | Size |
 |---|---|---|
-| Brand wordmark | `.lumen-brand-name` | 18px Instrument Serif |
+| Brand wordmark | `.lumen-brand-name` | 18px TradingView stack |
 | Brand sublabel chip | `.lumen-brand-sub` | 10px uppercase mono |
-| Sidebar nav item | `.lumen-nav-item` | 13px Inter 450 |
+| Sidebar nav item | `.lumen-nav-item` | 13px TradingView stack 450 |
 | Sidebar nav label group | `.lumen-nav-label` | 10.5px uppercase, `letter-spacing: 0.08em`, color `var(--ink-4)` |
 | Topbar crumbs | `.lumen-crumbs` | 13px |
-| Body default | `.lumen-app` | 14px Inter 1.45 line-height |
+| Body default | `.lumen-app` | 14px TradingView stack 1.45 line-height |
 
 ## Color
 

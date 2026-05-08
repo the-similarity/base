@@ -72,9 +72,12 @@ export const CADENCE_CSS = `
   --radius-lg: 14px;
   --radius-sm: 6px;
   --radius-pill: 999px;
+  --tv-font: -apple-system, BlinkMacSystemFont, 'Trebuchet MS', Roboto, Ubuntu, sans-serif;
+  --serif: var(--tv-font);
+  --sans: var(--tv-font);
 
   position: relative;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  font-family: var(--tv-font);
   color: var(--ink);
   background: var(--bg);
   -webkit-font-smoothing: antialiased;
@@ -155,12 +158,12 @@ export const CADENCE_CSS = `
   background: var(--ink);
   display: grid; place-items: center;
   color: #f4f1ea;
-  font-family: 'Instrument Serif', serif;
+  font-family: var(--serif);
   font-size: 16px; font-style: italic;
   line-height: 1;
 }
 .cadence-app .cadence-brand-name {
-  font-family: 'Instrument Serif', serif;
+  font-family: var(--serif);
   font-size: 18px;
   letter-spacing: -0.01em;
 }
@@ -326,7 +329,7 @@ export const CADENCE_CSS = `
   color: var(--ink-3); font-weight: 550;
 }
 .cadence-app .cadence-h-display {
-  font-family: 'Instrument Serif', serif;
+  font-family: var(--serif);
   font-weight: 400;
   letter-spacing: -0.02em;
   line-height: 1;
@@ -395,7 +398,7 @@ export const CADENCE_CSS = `
 }
 .cadence-app .cadence-kpi .cadence-label .cadence-ico { width: 13px; height: 13px; opacity: 0.7; }
 .cadence-app .cadence-kpi .cadence-value {
-  font-family: 'Instrument Serif', serif;
+  font-family: var(--serif);
   font-size: 30px; line-height: 1;
   letter-spacing: -0.015em;
   color: var(--ink);
@@ -422,7 +425,7 @@ export const CADENCE_CSS = `
 .cadence-app .cadence-metric-row .cadence-ico { width: 16px; height: 16px; color: var(--ink-3); }
 .cadence-app .cadence-metric-row .cadence-lab { font-size: 12px; color: var(--ink-3); font-weight: 500; }
 .cadence-app .cadence-metric-row .cadence-val {
-  font-family: 'Instrument Serif', serif;
+  font-family: var(--serif);
   font-size: 22px; line-height: 1;
   letter-spacing: -0.015em;
   color: var(--ink);
@@ -606,7 +609,7 @@ export const CADENCE_CSS = `
 .cadence-app .cadence-ring-wrap { position: relative; width: 84px; height: 84px; }
 .cadence-app .cadence-ring-wrap .cadence-ring-text {
   position: absolute; inset: 0; display: grid; place-items: center;
-  font-family: 'Instrument Serif', serif;
+  font-family: var(--serif);
   font-size: 22px; line-height: 1;
 }
 
@@ -693,7 +696,7 @@ export const CADENCE_CSS = `
   padding: 8px 16px;
 }
 .cadence-app .cadence-lab-row .cadence-nm { font-weight: 500; }
-.cadence-app .cadence-lab-row .cadence-vl { font-family: 'Instrument Serif', serif; font-size: 18px; }
+.cadence-app .cadence-lab-row .cadence-vl { font-family: var(--serif); font-size: 18px; }
 
 /* ============ filter bar ============ */
 .cadence-app .cadence-filter-bar {

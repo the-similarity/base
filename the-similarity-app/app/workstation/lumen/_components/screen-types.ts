@@ -27,7 +27,6 @@
  */
 
 import type { Dispatch, SetStateAction } from "react";
-import type { TweakState } from "./tweaks";
 
 /**
  * The set of screens mounted under /workstation/lumen.
@@ -45,8 +44,7 @@ export type ScreenId = "retrieve";
 export interface ScreenProps {
   onCmdK: () => void;
   onNavigate: (id: ScreenId) => void;
-  // The tweaks setter is forwarded so palette-style "Toggle theme"
-  // actions inside a screen can mutate the chrome's theme. Optional
-  // because most screens never touch it.
-  setTweaks?: Dispatch<SetStateAction<TweakState>>;
+  // Optional route-level dark-mode setter for screens that need to
+  // expose the same theme action as Cmd+K.
+  setDark?: Dispatch<SetStateAction<boolean>>;
 }

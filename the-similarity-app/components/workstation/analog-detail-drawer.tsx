@@ -1,14 +1,13 @@
 "use client";
 
 /**
- * AnalogDetailDrawer — right-side slide-in inspector for a single analog.
+ * AnalogDetailDrawer — right-side inspector for a single analog.
  *
  * Lifecycle:
- *   - Renders as a fixed-position element at the edge of the viewport. The
- *     host component (`Workstation`) keeps state `detailAnalogId` and flips
- *     this component's `open` prop on/off. We ALWAYS mount the drawer
- *     (even when closed) so the slide-out transition plays cleanly — only
- *     the `translateX` changes, the node stays in the DOM.
+ *   - Renders as a right-side fixed-position dialog with a backdrop. The host
+ *     component (`Workstation`) keeps state `detailAnalogId` and flips this
+ *     component's `open` prop on/off. We keep it mounted when closed so CSS
+ *     transitions and state resets remain predictable.
  *   - When `analog` is null the body renders an empty shell. Practically
  *     this only flashes for one frame when the drawer is closing (host
  *     sets `detailAnalogId = null`, which makes `analog = null`, which
@@ -17,9 +16,8 @@
  *     content — but the drawer itself is defensive about null.
  *
  * Accessibility:
- *   - `role="dialog"` + `aria-modal={false}` because the chart behind
- *     remains interactive (by design — the PM can still hover price
- *     while reading the breakdown).
+ *   - `role="dialog"` + `aria-modal={false}` because this behaves like a
+ *     dismissible inspector, not a blocking modal.
  *   - ESC handling lives in the host (Workstation) because it shares a
  *     keyboard map with Search and jump chords; routing it through the
  *     host avoids fighting for the keydown listener.
@@ -29,12 +27,13 @@
  *     live at the bottom of `app/globals.css` (see task spec).
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import type { AnalogMatch, LensScores } from "../../lib/data";
 import { LENS_DEFS, fmtDate, fmtPct } from "../../lib/data";
 import type { GoodrunLabel } from "../../lib/goodruns";
 import { Sparkline } from "./sparkline";
+import { LensRadar } from "./lens-radar";
 
 export interface AnalogDetailDrawerProps {
   /** The analog to inspect. Null when nothing is selected. */
@@ -175,11 +174,17 @@ export function AnalogDetailDrawer({
    */
   const [saveStates, setSaveStates] = useState<Record<GoodrunLabel, SaveState>>(initialSaveStates);
   const [saveErrors, setSaveErrors] = useState<Partial<Record<GoodrunLabel, string>>>({});
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     setSaveStates(initialSaveStates());
     setSaveErrors({});
   }, [analog?.id, open]);
+
+  useEffect(() => {
+    if (!open) return;
+    closeButtonRef.current?.focus();
+  }, [open, analog?.id]);
 
   useEffect(() => {
     const savedLabels = GOODRUN_SAVE_OPTIONS
@@ -258,12 +263,21 @@ export function AnalogDetailDrawer({
   const combined = [...matchValues, ...afterValues];
 
   return (
+    <>
+    <button
+      type="button"
+      className="adrawer__backdrop"
+      data-open={open ? "true" : "false"}
+      aria-hidden="true"
+      tabIndex={-1}
+      onClick={onClose}
+    />
     <aside
       className="adrawer"
       data-open={open ? "true" : "false"}
       role="dialog"
       aria-modal={false}
-      aria-label="Analog detail"
+      aria-labelledby="adrawer-title"
       aria-hidden={!open}
     >
       <header className="adrawer__head">
@@ -276,7 +290,7 @@ export function AnalogDetailDrawer({
               ? `${fmtDate(analog.date)} → ${fmtDate(analog.endDate)}`
               : "—"}
           </div>
-          <div className="adrawer__label serif">{analog?.label ?? ""}</div>
+          <div className="adrawer__label serif" id="adrawer-title">{analog?.label ?? ""}</div>
         </div>
         <div className="adrawer__composite">
           <span className="adrawer__composite-v">
@@ -301,6 +315,7 @@ export function AnalogDetailDrawer({
         <button
           type="button"
           className="adrawer__close"
+          ref={closeButtonRef}
           onClick={onClose}
           aria-label="Close analog detail drawer"
         >
@@ -308,14 +323,20 @@ export function AnalogDetailDrawer({
         </button>
       </header>
 
-      {/* Context strip — one sentence on WHAT was happening back then. */}
+      <div className="adrawer__body">
+
       {analog && (
-        <div className="adrawer__context">
-          <span className="adrawer__context-icon" aria-hidden="true">&#x1F4CD;</span>
-          <span className="adrawer__context-text">
-            {regimeLabelFor(analog.date) || "Historical window"}
-          </span>
-        </div>
+        <section className="adrawer__section adrawer__section--profile" aria-labelledby="adrawer-profile-h">
+          <h3 id="adrawer-profile-h" className="adrawer__h">
+            Match profile
+            <span className="adrawer__h-sub">radar + factors</span>
+          </h3>
+          <div className="adrawer__profile-grid">
+            <div className="adrawer__radar">
+              <LensRadar lenses={analog.lenses} size={220} />
+            </div>
+          </div>
+        </section>
       )}
 
       {/* Per-lens score bars — 9 rows, one per lens, top-3 colored. */}
@@ -352,6 +373,27 @@ export function AnalogDetailDrawer({
                 </div>
               );
             })}
+          </div>
+        </section>
+      )}
+
+      {analog && (
+        <section className="adrawer__section" aria-labelledby="adrawer-why-h">
+          <h3 id="adrawer-why-h" className="adrawer__h">Why these match</h3>
+          <div className="adrawer__why">
+            <p>
+              <b>Shape and movement look similar.</b> That is why this old
+              chart ranked near the top.
+            </p>
+            <p>
+              Decomposition, topology, carry, and consensus are included in
+              the factor profile above so you can see whether the match is
+              broad-based or driven by only one lens.
+            </p>
+            <p>
+              <b>Be careful:</b> old matches are clues, not promises. Use
+              them as examples, not orders.
+            </p>
           </div>
         </section>
       )}
@@ -395,6 +437,7 @@ export function AnalogDetailDrawer({
           </div>
         </section>
       )}
+      </div>
 
       {/* Action row — pin/unpin, find-similar, save-to-goodrun, close. */}
       <footer className="adrawer__actions">
@@ -437,5 +480,6 @@ export function AnalogDetailDrawer({
         </button>
       </footer>
     </aside>
+    </>
   );
 }

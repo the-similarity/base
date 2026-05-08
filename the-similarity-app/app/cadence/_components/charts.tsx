@@ -265,7 +265,7 @@ export function DayTrajectory({
         y={P.t + 12}
         fontSize="11"
         fill={primaryColor}
-        fontFamily="Inter"
+        fontFamily="-apple-system, BlinkMacSystemFont, 'Trebuchet MS', Roboto, Ubuntu, sans-serif"
         fontWeight="600"
       >
         {primaryLabel}

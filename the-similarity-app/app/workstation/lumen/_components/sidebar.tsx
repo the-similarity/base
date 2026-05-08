@@ -92,7 +92,7 @@ export function Sidebar({ current, onNavigate }: SidebarProps) {
         <div className="lumen-brand-mark">
           <BrandMark />
         </div>
-        {/* Wordmark: roman "The" + italic "Similarity" — Instrument Serif
+        {/* Wordmark: roman "The" + italic "Similarity" — TradingView stack
             handles both weights via the same family. */}
         <div className="lumen-brand-name">
           The <em>Similarity</em>

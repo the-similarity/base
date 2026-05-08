@@ -435,7 +435,7 @@ input, select, textarea { font: inherit; color: inherit; }
 
 .workstation {
   display: grid;
-  grid-template-columns: 260px 1fr 320px;
+  grid-template-columns: 260px 1fr;
   grid-template-rows: auto 1fr;
   height: 100%;
   overflow: hidden;
@@ -605,8 +605,7 @@ input, select, textarea { font: inherit; color: inherit; }
      panels are hidden (drawer toggles live at larger breakpoints).
      The main column gets the full width, chart-stack scrolls normally. */
   .workstation { grid-template-columns: 1fr; }
-  .workstation > .side,
-  .workstation > .right { display: none; }
+  .workstation > .side { display: none; }
   .ws-mobile-notice { display: block; }
   /* .main__head / .main__metrics responsive overrides removed with the
      header JSX they were stacking. */
@@ -689,8 +688,8 @@ input, select, textarea { font: inherit; color: inherit; }
 
 /* ------------------------------------------------------------------
    Drawer toggle + close + backdrop (only visible at <1280px).
-   On large screens the drawer is docked (static grid column) and all
-   three of these are hidden by default.
+   The right-side details rail has been replaced by the analog details
+   drawer, so this chrome only controls the left sidebar drawer.
    ------------------------------------------------------------------ */
 .ws-drawer-toggles {
   display: flex;
@@ -701,8 +700,12 @@ input, select, textarea { font: inherit; color: inherit; }
 }
 .ws-drawer-toggle {
   display: none; /* hidden by default, shown in media queries below */
+  align-items: center;
+  justify-content: center;
   align-self: flex-start;
-  padding: 6px 10px;
+  width: 30px;
+  height: 30px;
+  padding: 0;
   font-family: var(--mono);
   font-size: 11px;
   letter-spacing: .04em;
@@ -713,6 +716,12 @@ input, select, textarea { font: inherit; color: inherit; }
   cursor: pointer;
 }
 .ws-drawer-toggle:hover { background: var(--bg-hover); }
+.ws-drawer-toggle svg {
+  display: block;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+}
 .ws-drawer-close {
   display: none; /* hidden by default, shown at midsize */
   position: absolute;
@@ -732,55 +741,31 @@ input, select, textarea { font: inherit; color: inherit; }
   display: none; /* hidden unless a drawer is open at midsize */
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.35);
+  background: transparent;
+  pointer-events: none;
   z-index: 40;
 }
 
 /* ------------------------------------------------------------------
    Midsize layout: 1024-1279px.
-   Right panel becomes an off-canvas slide-in drawer. The grid goes
-   back to 2 columns (sidebar + main). The drawer overlays the main
-   content when open.
+   Two-column grid remains sidebar + main; details open from analog cards
+   in the shared right-side drawer.
    ------------------------------------------------------------------ */
 @media (max-width: 1279px) and (min-width: 1024px) {
   .workstation { grid-template-columns: 240px 1fr; }
-  .workstation > .right {
-    /* Pull the right panel out of the grid and treat it as a fixed
-       overlay. Docked to the right edge, slides in via translateX. */
-    position: fixed;
-    top: 0; right: 0; bottom: 0;
-    width: 340px;
-    max-width: 90vw;
-    border-left: 1px solid var(--rule);
-    background: var(--bg-elevated);
-    z-index: 50;
-    transform: translateX(100%);
-    transition: transform .2s ease-out;
-    box-shadow: -4px 0 16px rgba(0, 0, 0, 0.08);
-  }
-  .workstation[data-right-drawer="open"] > .right {
-    transform: translateX(0);
-  }
-  .workstation[data-right-drawer="open"] > .ws-drawer-backdrop {
-    display: block;
-  }
-  .ws-drawer-toggle--right { display: inline-flex; }
-  .ws-drawer-close { display: inline-flex; }
 }
 
 /* ------------------------------------------------------------------
-   Compact layout: 768-1023px.
+  Compact layout: 768-1023px.
    Left sidebar ALSO becomes a slide-in drawer so the chart gets full
-   width. Right panel stays hidden (only accessible above 1024px, or
-   via future re-design). The main column becomes the only docked
-   thing, and both drawers overlay it when opened.
+   width. Details are available through the analog-card drawer. The main
+   column becomes the only docked thing.
    ------------------------------------------------------------------ */
 /* At <768px we stack everything vertically — both side panels hidden
    and a polite "best viewed on desktop" notice shown at the top. See
    the later mobile block for those rules. */
 @media (max-width: 1023px) and (min-width: 768px) {
   .workstation { grid-template-columns: 1fr; }
-  .workstation > .right { display: none; }
 
   .workstation > .side {
     position: fixed;
@@ -888,7 +873,9 @@ input, select, textarea { font: inherit; color: inherit; }
 .ws-search-row__group {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: var(--s-3);
+  min-width: 0;
 }
 .ws-search-row__group--end { justify-content: flex-end; }
 .ws-search-row__label {
@@ -1015,16 +1002,16 @@ input, select, textarea { font: inherit; color: inherit; }
 .ws-search-btn {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 5px 12px;
-  font-family: var(--mono);
-  font-size: 11.5px;
-  letter-spacing: .06em;
-  text-transform: uppercase;
+  gap: 8px;
+  padding: 9px 16px;
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0;
   color: var(--bg);
   background: var(--ink);
   border: 1px solid var(--ink);
-  border-radius: 3px;
+  border-radius: 4px;
   cursor: pointer;
   position: relative;
 }
@@ -1072,16 +1059,16 @@ input, select, textarea { font: inherit; color: inherit; }
 .ws-share-btn {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 5px 12px;
-  font-family: var(--mono);
-  font-size: 11.5px;
-  letter-spacing: .06em;
-  text-transform: uppercase;
+  gap: 8px;
+  padding: 9px 14px;
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 650;
+  letter-spacing: 0;
   color: var(--ink-2);
   background: var(--bg);
   border: 1px solid var(--rule-strong);
-  border-radius: 3px;
+  border-radius: 4px;
   cursor: pointer;
 }
 .ws-share-btn:hover { background: var(--bg-hover); color: var(--ink); }
@@ -1135,26 +1122,13 @@ input, select, textarea { font: inherit; color: inherit; }
 /* Chart area */
 .chart-stack { padding: var(--s-4) var(--s-6); overflow: auto; display: flex; flex-direction: column; gap: var(--s-5); min-height: 0; }
 
-/* Chart-mode (Fast vs Pro) segmented toggle. Lives above .chart-card;
-   right-aligned to stay out of the way of the search row which owns the
-   left edge. Pattern mirrors .tweaks__segmented so the two controls read
-   as members of the same family. */
-.ws-chartmode-row {
-  display: flex;
-  /* Gear button on the left, Fast/Candle toggle on the right, with the
-     row stretching between them. `justify-content: space-between` keeps
-     them anchored to opposite ends of the chart-card header strip. */
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: calc(var(--s-3) * -1); /* pull toggle snug against chart-card */
-}
-
-/* Chart-settings gear + popover. Sits on the left end of .ws-chartmode-row,
-   opposite the Fast/Candle segmented control. Popover is intentionally
+/* Chart-settings gear + popover. Sits inline with the timeframe controls
+   in the top search row. Popover is intentionally
    subtle — thin border, no shadow, same monospace + spacing idiom as
    the rest of the chart chrome. */
 .ws-chart-settings {
   position: relative;
+  flex: 0 0 auto;
 }
 .ws-chart-settings__btn {
   width: 22px; height: 22px;
@@ -1209,6 +1183,7 @@ input, select, textarea { font: inherit; color: inherit; }
 .ws-chart-settings__row span { color: var(--ink-2); }
 .ws-chartmode {
   display: inline-flex;
+  flex: 0 0 auto;
   border: 1px solid var(--rule);
   border-radius: var(--radius-sm);
   overflow: hidden;
@@ -1244,9 +1219,14 @@ input, select, textarea { font: inherit; color: inherit; }
    the read-only query window band + the corner hint. */
 .lw-chart { position: relative; }
 .lw-chart__window {
+  z-index: 2;
   background: color-mix(in srgb, var(--accent) 10%, transparent);
   border-left: 1px solid color-mix(in srgb, var(--accent) 60%, transparent);
   border-right: 1px solid color-mix(in srgb, var(--accent) 60%, transparent);
+  cursor: move;
+  min-width: 34px;
+  touch-action: none;
+  user-select: none;
 }
 .lw-chart__window-label {
   position: absolute;
@@ -1256,9 +1236,32 @@ input, select, textarea { font: inherit; color: inherit; }
   letter-spacing: .08em;
   color: var(--accent);
   white-space: nowrap;
+  pointer-events: none;
+}
+.lw-chart__window-handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 18px;
+  cursor: ew-resize;
+  touch-action: none;
+}
+.lw-chart__window-handle--left { left: -9px; }
+.lw-chart__window-handle--right { right: -9px; }
+.lw-chart__window-handle::after {
+  content: "";
+  position: absolute;
+  top: 45%;
+  bottom: 45%;
+  left: 5px;
+  width: 2px;
+  min-height: 18px;
+  background: color-mix(in srgb, var(--accent) 76%, transparent);
+  border-radius: 999px;
 }
 .lw-chart__note {
   position: absolute;
+  z-index: 3;
   top: 6px; right: 10px;
   font-family: var(--mono);
   font-size: 10px;
@@ -1301,6 +1304,9 @@ input, select, textarea { font: inherit; color: inherit; }
 .svg-chart { display: block; width: 100%; height: auto; }
 .svg-chart .grid line { stroke: var(--c-grid); stroke-width: 1; }
 .svg-chart .axis text { font-family: var(--mono); font-size: 9px; fill: var(--ink-3); letter-spacing: .04em; }
+.svg-chart .price-axis-line,
+.svg-chart .time-axis-line { stroke: var(--rule); stroke-width: 1; opacity: .8; }
+.svg-chart .price-axis-label { fill: var(--ink-2); }
 .svg-chart .price { fill: none; stroke: var(--c-query); stroke-width: 1.3; }
 /*
  * Analog overlay strokes — tri-state rendering.
@@ -1347,8 +1353,10 @@ input, select, textarea { font: inherit; color: inherit; }
  * ew-resize on the bottom (time) gutter, so the cursor hints the
  * interaction the moment the user floats over the edges.
  */
-.svg-chart .price-axis-grabber { cursor: ns-resize; }
-.svg-chart .time-axis-grabber { cursor: ew-resize; }
+.svg-chart .price-axis-grabber { cursor: ns-resize; fill: transparent; }
+.svg-chart .time-axis-grabber { cursor: ew-resize; fill: transparent; }
+.svg-chart .price-axis-grabber:hover,
+.svg-chart .time-axis-grabber:hover { fill: color-mix(in srgb, var(--ink) 4%, transparent); }
 .svg-chart .price,
 .svg-chart .median,
 .svg-chart .analog,
@@ -1457,40 +1465,6 @@ input, select, textarea { font: inherit; color: inherit; }
 .analog-card__after { font-family: var(--mono); font-size: 10.5px; min-width: 50px; text-align: right; }
 .analog-card__after.pos { color: var(--positive); }
 .analog-card__after.neg { color: var(--negative); }
-
-/* Trust / calibration expandable */
-.trust {
-  display: flex; align-items: stretch;
-  padding: 0 var(--s-6);
-  border-top: 1px solid var(--rule);
-  background: var(--bg-elevated);
-  min-height: 56px;
-}
-.trust__item {
-  display: flex; flex-direction: column; justify-content: center;
-  padding: var(--s-3) var(--s-5) var(--s-3) 0;
-  border-right: 1px dotted var(--rule);
-  margin-right: var(--s-5);
-  min-width: 120px;
-}
-.trust__item:last-child { border-right: 0; }
-.trust__item .v { font-family: var(--mono); font-size: 15px; font-weight: 500; color: var(--ink); }
-.trust__item .v.pos { color: var(--positive); }
-.trust__item .v.warn { color: var(--warn); }
-.trust__expand { margin-left: auto; align-self: center; font-family: var(--mono); font-size: 11px; color: var(--ink-2);
-                 padding: 6px 10px; border: 1px solid var(--rule); border-radius: 3px; }
-.trust__expand:hover { background: var(--bg-hover); }
-
-.trust-panel {
-  grid-column: 1 / -1;
-  padding: var(--s-6);
-  background: var(--bg);
-  border-top: 1px solid var(--rule);
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap: var(--s-6);
-}
-.trust-panel h3 { font-family: var(--serif); font-size: 15px; font-weight: 500; margin: 0 0 var(--s-3); }
 
 /* ====================================================================
    OTHER SURFACES
@@ -2261,99 +2235,6 @@ input, select, textarea { font: inherit; color: inherit; }
 }
 
 /* ====================================================================
-   CALIBRATION PANEL — polish (added by calibration-panel audit 2026-04-20)
-   ====================================================================
-   Classes introduced by the audit fixes. Placed here rather than higher
-   up so the shared `.trust` / `.trust-panel` rules still win specificity
-   battles via cascade order, and so the panel-specific styling is kept
-   together for future editors. */
-
-/* Small info glyph next to metric labels. Inherits the label's muted
-   color by default, shifts to ink on hover so the hover affordance is
-   discoverable. cursor:help nudges browsers into showing the native
-   tooltip promptly instead of the longer link-style delay. */
-.trust__info {
-  display: inline-block;
-  margin-left: 4px;
-  font-size: 10px;
-  color: var(--ink-3);
-  cursor: help;
-  vertical-align: baseline;
-  user-select: none;
-}
-.trust__info:hover { color: var(--ink-2); }
-
-/* Empty-state variant of the trust panel. Uses a single centered card
-   instead of the 3-column grid so the "needs more runs" message is the
-   entire focus. */
-.trust-panel--empty {
-  display: block;
-  text-align: center;
-}
-.trust-panel__empty-card {
-  max-width: 480px;
-  margin: 0 auto;
-  padding: var(--s-4);
-  border: 1px dashed var(--rule-strong);
-  border-radius: 4px;
-  background: var(--bg-alt, var(--bg));
-}
-.trust-panel__empty-card h3 {
-  margin: 0 0 var(--s-3);
-}
-.trust-panel__empty-card p {
-  margin: 0 0 var(--s-4);
-  font-size: 13px;
-  line-height: 1.55;
-  color: var(--ink-2);
-}
-.trust-panel__cta {
-  display: inline-block;
-  font-family: var(--mono);
-  font-size: 12px;
-  color: var(--accent);
-  text-decoration: none;
-  border-bottom: 1px solid currentColor;
-  padding-bottom: 1px;
-}
-.trust-panel__cta:hover { color: var(--ink); }
-
-/* Stacks Grade-explanation + Honesty-note inside the third grid column
-   so the panel stays 3-wide on desktop. */
-.trust-panel__narrative {
-  display: flex;
-  flex-direction: column;
-  gap: var(--s-5);
-}
-.trust-panel__grade-copy {
-  margin: 0 0 var(--s-3);
-  font-size: 12.5px;
-  line-height: 1.55;
-  color: var(--ink-2);
-}
-.trust-panel__grade-list {
-  margin: 0 0 var(--s-3);
-  padding: 0;
-  list-style: none;
-  font-family: var(--mono);
-  font-size: 11.5px;
-  color: var(--ink-2);
-  line-height: 1.7;
-}
-.trust-panel__grade-list b {
-  color: var(--ink);
-  font-weight: 500;
-  display: inline-block;
-  min-width: 38px;
-}
-.trust-panel__grade-current {
-  margin: 0;
-  font-family: var(--mono);
-  font-size: 11.5px;
-  color: var(--ink-3);
-}
-
-/* ====================================================================
    COMMAND PALETTE — section headers + empty state
    (extends the .cmdk block above; kept in a separate block at the end
     so parallel agents editing the original cmdk section have a clean
@@ -2490,37 +2371,54 @@ input, select, textarea { font: inherit; color: inherit; }
 }
 
 /* ── Analog detail drawer ───────────────────────────────────────────
- * Right-side slide-in inspector. Mounts once (even when closed) so the
- * translateX transition plays both directions. On desktop the drawer is
- * 420px wide and docked flush-right; on narrow screens (<768px) it
- * takes the full viewport width so the content stays readable.
+ * Right-side inspector combining the old right-rail analytics with the
+ * existing analog actions. It mounts once (even when closed) so
+ * transitions stay predictable. On narrow screens it fills the viewport.
  *
  * Z-index sits above the chart and workstation backdrop but below any
  * future modal (e.g. the help overlay, which sits at 200).
  * ────────────────────────────────────────────────────────────────── */
+.adrawer__backdrop {
+  position: fixed;
+  inset: 0;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 119;
+}
+.adrawer__backdrop[data-open="true"] {
+  opacity: 1;
+  pointer-events: auto;
+}
 .adrawer {
   position: fixed;
   top: 0;
   right: 0;
+  bottom: 0;
+  width: min(540px, 100vw);
   height: 100vh;
-  width: 420px;
-  max-width: 100vw;
   background: var(--bg-card);
   border-left: 1px solid var(--rule-strong);
-  /* Soft shadow so the drawer reads as elevated above the chart. */
-  box-shadow: -18px 0 40px -20px rgba(0, 0, 0, 0.28);
+  box-shadow: -18px 0 48px -28px rgba(0, 0, 0, 0.48), -1px 0 0 rgba(0, 0, 0, 0.06);
   display: flex;
   flex-direction: column;
   z-index: 120;
-  /* Translated fully off-screen when closed. 101% instead of 100% so
-     the border-left doesn't peek on fractional-pixel devices. */
   transform: translateX(101%);
-  transition: transform 220ms ease;
+  opacity: 1;
+  pointer-events: none;
+  transition: transform 200ms ease;
   overflow: hidden;
 }
-.adrawer[data-open="true"] { transform: translateX(0); }
+.adrawer[data-open="true"] {
+  transform: translateX(0);
+  pointer-events: auto;
+}
 @media (max-width: 767px) {
-  .adrawer { width: 100vw; }
+  .adrawer {
+    width: 100vw;
+  }
 }
 
 /* Header */
@@ -2625,25 +2523,15 @@ input, select, textarea { font: inherit; color: inherit; }
 }
 .adrawer__close:hover { background: var(--bg-hover); color: var(--ink); }
 
-/* Context strip */
-.adrawer__context {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 16px;
-  background: var(--bg-hover);
-  border-bottom: 1px solid var(--rule);
-  font-size: 12px;
-  color: var(--ink-2);
+.adrawer__body {
+  overflow: auto;
+  min-height: 0;
 }
-.adrawer__context-icon { font-size: 13px; }
-.adrawer__context-text { font-family: var(--serif); font-style: italic; }
 
 /* Section wrapper */
 .adrawer__section {
   padding: 14px 16px;
   border-bottom: 1px solid var(--rule);
-  overflow-y: auto;
 }
 .adrawer__section:last-of-type { border-bottom: 0; }
 .adrawer__h {
@@ -2663,6 +2551,25 @@ input, select, textarea { font: inherit; color: inherit; }
   letter-spacing: 0.04em;
   text-transform: none;
   color: var(--ink-4);
+}
+
+.adrawer__profile-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  align-items: center;
+  justify-items: center;
+}
+.adrawer__radar {
+  display: grid;
+  place-items: center;
+  min-width: 0;
+}
+.adrawer__radar .lens-radar {
+  max-width: 220px;
+  margin: 0;
+}
+@media (max-width: 760px) {
+  .adrawer__profile-grid { grid-template-columns: 1fr; }
 }
 
 /* Lens breakdown list */
@@ -2725,6 +2632,18 @@ input, select, textarea { font: inherit; color: inherit; }
 }
 .adrawer__spark-ret.pos { color: var(--positive); }
 .adrawer__spark-ret.neg { color: var(--negative); }
+
+.adrawer__why {
+  font-size: 12.5px;
+  color: var(--ink-2);
+  line-height: 1.6;
+}
+.adrawer__why p { margin: 0 0 10px; }
+.adrawer__why p:last-child { margin-bottom: 0; }
+.adrawer__why b {
+  color: var(--ink);
+  font-weight: 500;
+}
 
 /* Action row */
 .adrawer__actions {

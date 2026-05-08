@@ -3,7 +3,7 @@
  *
  * Each biomarker is a row showing:
  *   - Name + unit
- *   - Current value (instrument serif large)
+ *   - Current value (TradingView-style large)
  *   - Personal baseline (rolling avg of past draws)
  *   - Optimal range (clinical reference)
  *   - 5-point trendline with optimal range band shaded

@@ -3,10 +3,11 @@
 /**
  * The Retrieve workstation — the main interactive view.
  *
- * Three-column layout: 260px sidebar (dataset selector, query definition,
- * window controls, pinned analogs, notebook), fluid center (header metrics,
- * chart card, trust strip, analog strip), and 320px right panel (9-lens
- * radar + bars, lens reading narrative).
+ * Two-column layout: 260px sidebar (dataset selector, query definition,
+ * window controls, pinned analogs, notebook) and fluid center (search
+ * controls, chart card, analog strip). Analog details open in
+ * a right-side drawer so the chart keeps the horizontal room formerly used
+ * by the persistent right rail.
  *
  * Data flow:
  * 1. On mount, check API availability via isApiAvailable()
@@ -20,12 +21,10 @@
  */
 
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
-import Link from "next/link";
 import {
-  SERIES, LENS_DEFS, findAnalogs, buildCone, computeCalibrationMetrics,
+  SERIES, LENS_DEFS, findAnalogs, buildCone,
   fmtDate, fmtDateShort, fmtPct,
   type LensScores, type AnalogMatch, type ConePoint, type DataPoint,
-  type CalibrationResult,
 } from "../../lib/data";
 import {
   isApiAvailable, fetchCatalog, fetchSeries, fetchOhlc, searchApi,
@@ -56,8 +55,6 @@ import {
 } from "../../lib/url-state";
 import { LineChart, AnalogOverlay } from "./line-chart";
 import { LineChartLW } from "./line-chart-lw";
-import { LensRadar } from "./lens-radar";
-import { LensBars } from "./lens-bars";
 import { Sparkline } from "./sparkline";
 import { AnalogDetailDrawer } from "./analog-detail-drawer";
 import { NotebookPanel } from "./notebook-panel";
@@ -619,7 +616,6 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
   const [pinHydrated, setPinHydrated] = useState(false);
   const [hoverAnalog, setHoverAnalog] = useState<string | null>(null);
   const [crosshairIdx, setCrosshairIdx] = useState<number | null>(null);
-  const [trustOpen, setTrustOpen] = useState(false);
 
   /*
    * Notebook entries — durable left-rail observations the user attaches
@@ -662,6 +658,8 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
    */
   const [chartSettingsOpen, setChartSettingsOpen] = useState(false);
   const chartSettingsRef = useRef<HTMLDivElement>(null);
+  const chartBodyRef = useRef<HTMLDivElement>(null);
+  const [chartHeight, setChartHeight] = useState(300);
   useEffect(() => {
     if (!chartSettingsOpen) return;
     const onDown = (e: MouseEvent) => {
@@ -680,6 +678,37 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
       document.removeEventListener("keydown", onKey);
     };
   }, [chartSettingsOpen]);
+  useEffect(() => {
+    const el = chartBodyRef.current;
+    if (!el) return;
+
+    const commitHeight = (height: number) => {
+      const next = Math.max(260, Math.round(height));
+      setChartHeight(prev => Math.abs(prev - next) > 1 ? next : prev);
+    };
+
+    const measureFallback = () => {
+      const styles = window.getComputedStyle(el);
+      const padY =
+        Number.parseFloat(styles.paddingTop || "0") +
+        Number.parseFloat(styles.paddingBottom || "0");
+      commitHeight(el.getBoundingClientRect().height - padY);
+    };
+
+    measureFallback();
+    if (typeof ResizeObserver === "undefined") {
+      window.addEventListener("resize", measureFallback);
+      return () => window.removeEventListener("resize", measureFallback);
+    }
+
+    const ro = new ResizeObserver(entries => {
+      const entry = entries[0];
+      if (!entry) return;
+      commitHeight(entry.contentRect.height);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
   /*
    * Active (chart-visible) analog set.
    *
@@ -719,34 +748,52 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
     }
   }, []);
   // ── Drawer state for mid-size screens ──────────────────────────────
-  // At 1024-1279px the right panel (lens radar + reading) collapses into a
-  // slide-in drawer so the chart isn't crushed. At 768-1023px the left
-  // sidebar (dataset + query controls) ALSO collapses into a left-side
-  // slide-in drawer so the chart gets the full width. State is local;
-  // media queries gate whether the drawer styles apply — on large screens
-  // the data attributes have no effect because the overlay CSS doesn't.
-  const [rightDrawerOpen, setRightDrawerOpen] = useState(false);
+  // At 768-1023px the left sidebar (dataset + query controls) collapses
+  // into a left-side slide-in drawer so the chart gets the full width.
+  // Analog details slide in from the right when requested from a card.
   const [leftDrawerOpen, setLeftDrawerOpen] = useState(false);
+  const leftDrawerRef = useRef<HTMLElement>(null);
+  const leftDrawerToggleRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!leftDrawerOpen) return;
+
+    const onPointerDown = (e: PointerEvent) => {
+      const target = e.target as Node;
+      if (leftDrawerRef.current?.contains(target)) return;
+      if (leftDrawerToggleRef.current?.contains(target)) return;
+      setLeftDrawerOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setLeftDrawerOpen(false);
+    };
+
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [leftDrawerOpen]);
 
   /*
    * Analog detail drawer state.
    *
-   * `detailAnalogId` is the id of the analog the user clicked into for
+   * `detailAnalogId` is the id of the analog the user requested for
    * inspection. When non-null the AnalogDetailDrawer slides in from the
-   * right with that analog's context / lens breakdown / sparklines. When
-   * null, the drawer renders closed (mounted but translated off-screen)
-   * so the slide-out transition plays cleanly.
+   * right with that analog's lens breakdown / sparklines. When null, the
+   * drawer renders closed.
    *
-   * The drawer is a SEPARATE affordance from pinning: clicking the card
-   * body opens the drawer, while clicking a dedicated pin icon in the
-   * card corner toggles pin. This lets a user inspect an analog without
-   * committing to pin it.
+   * The drawer is a SEPARATE affordance from the chart toggle and pinning:
+   * clicking the card body toggles chart visibility, double-clicking opens
+   * the drawer, and clicking the dedicated pin icon toggles pin.
    *
    * Null-safety: `detailAnalog` resolves to null whenever the id is null
    * OR the id no longer matches any current analog (e.g. search re-ran
    * with different results). Drawer is defensive about that case.
-   */
+  */
   const [detailAnalogId, setDetailAnalogId] = useState<string | null>(null);
+  const lastAnalogCardTapRef = useRef<Record<string, number>>({});
   const [useAsQueryBanner, setUseAsQueryBanner] = useState<string | null>(null);
 
   /*
@@ -1247,19 +1294,6 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
   }, [isOnline, loadedValues, loadedDates, loadedSeries, windowState.start, windowState.len, settings.kAnalogs, settings.horizon, selectedTimeframes]);
 
   /*
-   * Live ref to the latest runSearch closure.
-   *
-   * The keyboard-shortcut effect below is attached once on mount (empty
-   * deps) to mirror the style used in `app/page.tsx` for jump/theme
-   * chords — that avoids tearing down and reinstalling listeners on
-   * every render. But a stale closure would call the FIRST runSearch
-   * forever with stale snapshot inputs; the ref solves that by always
-   * pointing at the latest closure.
-   */
-  const runSearchRef = useRef(runSearch);
-  useEffect(() => { runSearchRef.current = runSearch; }, [runSearch]);
-
-  /*
    * Live ref to the current analog list, consumed by the 1..6 keyboard
    * shortcut inside the keydown effect. The effect is installed once
    * (empty deps) to avoid re-binding on every analog-set change; the ref
@@ -1272,26 +1306,17 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
   const analogsRef = useRef<AnalogMatch[]>([]);
 
   /*
-   * Keyboard shortcut: `Enter` or `r` re-runs the search.
+   * Keyboard shortcuts for non-search workstation actions.
    *
-   * Matches the style of the top-level shortcuts in `app/page.tsx`
-   * (t = theme, Shift+T = tweaks, g+letter = jump). We skip the
-   * shortcut when focus is in an editable element so typing "r" into
-   * a future text input wouldn't hijack the keystroke.
-   *
-   * We also skip when any modifier is held so Cmd+R (browser reload)
-   * and Cmd+Enter (future send-command shortcuts) keep working.
+   * Search intentionally has no global shortcut: the initial state must
+   * stay idle, and clicking the "Find Matches" button is the only action
+   * that starts matching. The native button still supports keyboard
+   * activation when it is focused.
    */
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
       const tag = target?.tagName;
-      // Don't hijack keystrokes inside editable elements.
-      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
-      if (target && target.isContentEditable) return;
-      // Skip if any modifier is pressed — leave those for the browser / OS.
-      if (e.metaKey || e.ctrlKey || e.altKey) return;
-
       // Escape closes the analog detail drawer when open. We check first
       // so it wins over the page-level Escape handler (which closes the
       // help modal). setDetailAnalogId(null) is idempotent when already
@@ -1303,25 +1328,20 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
         // cmd palette) — both should cooperate, not clobber.
         setDetailAnalogId(prev => prev !== null ? null : prev);
       }
-      if (e.key === "Enter" || e.key === "r" || e.key === "R") {
-        // Don't preventDefault on plain "r" because of the existing `g r`
-        // jump chord in the root page — but for the shortcut to actually
-        // fire on standalone "r" we need to not conflict. The chord key
-        // handler at the page level sets `lastG` only when `g` was just
-        // pressed; a standalone `r` without a preceding `g` does nothing
-        // there, so re-using it here is safe. We still call
-        // preventDefault for `Enter` to avoid default button activation
-        // on any focused element.
-        if (e.key === "Enter") e.preventDefault();
-        runSearchRef.current();
-      }
+
+      // Don't hijack keystrokes inside editable or native interactive
+      // controls. This keeps drawer buttons behaving like buttons while
+      // preserving card-level keyboard handlers on div[role="button"].
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || tag === "BUTTON") return;
+      if (target && target.isContentEditable) return;
+      // Skip if any modifier is pressed — leave those for the browser / OS.
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
 
       // 1..6 → open the drawer for analog #1..#6. We use rowKeys rather
       // than e.key to keep the mapping 1:1 with ranks; shifted variants
       // (!/@/#/$/%/^) are ignored so the user's shift-typed intent
       // doesn't surprise-open a drawer. Reads analogs via ref for the
-      // same reason runSearchRef exists — analogs identity changes per
-      // search but we don't want to reinstall the listener each time.
+      // latest result set without reinstalling the listener each time.
       if (/^[1-6]$/.test(e.key) && !e.shiftKey) {
         const rank = parseInt(e.key, 10);
         const list = analogsRef.current;
@@ -1337,39 +1357,6 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
   }, []);
 
   /*
-   * One-shot initial search on mount.
-   *
-   * Previously the component auto-fired an API search 500ms after every
-   * window drag, which meant each drag = one network request and a
-   * thrashing cone. The new model is: run exactly ONCE when the component
-   * has enough data to search, then wait for user action (button click
-   * or keyboard shortcut) for all subsequent searches.
-   *
-   * Gate conditions:
-   *   - `isOnline !== null` → health check has resolved (so we know whether
-   *     to hit the API or use synthetic).
-   *   - `lastSearch === null` → we haven't run yet. This is the one-shot
-   *     guard; once the first search completes, this effect stops firing.
-   *   - When online: require loadedValues to be populated (series fetched).
-   *     Offline: synthetic SERIES is always available so no data-gate.
-   *
-   * We deliberately DO NOT depend on windowState here — otherwise any
-   * drag before the first successful search would re-trigger this loop.
-   */
-  useEffect(() => {
-    if (isOnline === null) return; // Still probing.
-    if (lastSearch !== null) return; // Already ran.
-    if (isOnline && loadedValues.length < 10) return; // Wait for series.
-    runSearch();
-    // We intentionally exclude `runSearch` from deps: runSearch identity
-    // changes every time windowState or settings change, which would
-    // cause this one-shot effect to repeatedly fire until lastSearch is
-    // set. The `lastSearch === null` guard above is the authoritative
-    // one-shot check.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOnline, loadedValues.length, lastSearch]);
-
-  /*
    * Per-query localStorage key for the pinned analog set.
    *
    * Different queries should have different pin sets — pinning "Q4 '18"
@@ -1381,8 +1368,8 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
    * produced the analogs, not to the window the user is about to search.
    *
    * When there's no lastSearch yet, we return null — the persistence
-   * effects below bail in that case, so the initial one-shot search
-   * always starts with an empty pin set.
+   * effects below bail in that case, keeping load/refresh idle until the
+   * user explicitly clicks Find Matches.
    */
   const pinKey = useMemo(() => {
     if (!lastSearch) return null;
@@ -1573,7 +1560,7 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
    *   - pinned.size === 0 → baseline: the full top-K analog set is
    *     the basis for the cone, metrics, and lens radar.
    *   - pinned.size >= 1  → curated: every downstream consumer
-   *     (compLenses, coneStats, trust strip, lens radar, composite metric)
+   *     (coneStats, trust strip, composite metric)
    *     reads ONLY the pinned subset. The user is asserting "these are
    *     the analogs I trust" and the UI honors that assertion by
    *     recomputing everything as if the top-K set were exactly those pins.
@@ -1700,72 +1687,6 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
     || lastSearch.timeframes.length !== selectedTimeframes.length
     || lastSearch.timeframes.some((tf, i) => tf !== selectedTimeframes[i]);
 
-  // Composite lenses = mean across the EFFECTIVE analog set.
-  // When the user has pinned analogs, these are just the pinned ones —
-  // so the radar/bars show the mean agreement of their curated set,
-  // not the original top-K. This is the whole reason effectiveAnalogs
-  // exists: pinning drives what the workstation displays.
-  const compLenses = useMemo(() => {
-    const keys = LENS_DEFS.map(d => d.key);
-    const out: Record<string, number> = {};
-    keys.forEach(k => {
-      out[k] = effectiveAnalogs.reduce((s, a) => s + (a.lenses[k as keyof LensScores] || 0), 0) / (effectiveAnalogs.length || 1);
-    });
-    return out as unknown as LensScores;
-  }, [effectiveAnalogs]);
-
-  /*
-   * `displayLenses` drives the radar + bars in the right panel. Priority:
-   *   1. Hover wins — show the exact scores of whichever analog card the
-   *      cursor is over, so the user can scan options and see each
-   *      analog's profile without clicking.
-   *   2. A single activated analog shows its own profile (same behavior
-   *      as hover but sticky; "click to pin this view").
-   *   3. Multiple activated analogs → mean across the active set.
-   *   4. Nothing activated yet → fall back to `compLenses` so the
-   *      initial render still has something sensible in the panel.
-   *
-   * `displayLensesMeta` carries the matching label + composite so the
-   * right-panel header can render a specific analog's ID instead of the
-   * generic "nine lenses · mean agreement" when appropriate.
-   */
-  const [displayLenses, displayLensesMeta] = useMemo((): [
-    LensScores,
-    { kind: "aggregate" | "single"; label: string; composite: number },
-  ] => {
-    const byId = (id: string | null | undefined) =>
-      id ? analogs.find(a => a.id === id) : undefined;
-    const hovered = byId(hoverAnalog);
-    if (hovered) {
-      return [hovered.lenses, { kind: "single", label: `#${hovered.rank} \u00b7 ${hovered.label}`, composite: hovered.composite }];
-    }
-    if (activeAnalogIds.size === 1) {
-      const only = analogs.find(a => activeAnalogIds.has(a.id));
-      if (only) {
-        return [only.lenses, { kind: "single", label: `#${only.rank} \u00b7 ${only.label}`, composite: only.composite }];
-      }
-    }
-    const activeList = analogs.filter(a => activeAnalogIds.has(a.id));
-    if (activeList.length > 1) {
-      const keys = LENS_DEFS.map(d => d.key);
-      const meanAgg: Record<string, number> = {};
-      keys.forEach(k => {
-        meanAgg[k] =
-          activeList.reduce((s, a) => s + (a.lenses[k as keyof LensScores] || 0), 0) /
-          activeList.length;
-      });
-      const mean = meanAgg as unknown as LensScores;
-      const composite = Object.values(mean).reduce((a, b) => a + b, 0) / 9;
-      return [mean, { kind: "aggregate", label: `${activeList.length} active analogs`, composite }];
-    }
-    const fallbackComposite =
-      Object.values(compLenses).reduce((a: number, b: number) => a + b, 0) / 9;
-    return [
-      compLenses,
-      { kind: "aggregate", label: "Nine lenses \u00b7 mean agreement", composite: fallbackComposite },
-    ];
-  }, [hoverAnalog, activeAnalogIds, analogs, compLenses]);
-
   // Cone endpoint statistics for the header metrics. Cone itself is
   // already pin-gated upstream (see the `cone` useMemo), so these
   // summary stats inherit pin-gating automatically — no further changes
@@ -1841,6 +1762,18 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
       n.has(id) ? n.delete(id) : n.add(id);
       return n;
     });
+  };
+
+  const handleAnalogCardClick = (id: string) => {
+    const now = Date.now();
+    const lastTap = lastAnalogCardTapRef.current[id] ?? 0;
+    toggleActive(id);
+    if (now - lastTap < 320) {
+      setDetailAnalogId(id);
+      lastAnalogCardTapRef.current[id] = 0;
+      return;
+    }
+    lastAnalogCardTapRef.current[id] = now;
   };
 
   /*
@@ -2083,14 +2016,13 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
   return (
     <div
       className="workstation"
-      data-right-drawer={rightDrawerOpen ? "open" : "closed"}
       data-left-drawer={leftDrawerOpen ? "open" : "closed"}
     >
       {/* ── Small-screen notice (<768px) ─────────────────────── */}
       {/* Polite, non-blocking: the layout below still renders, but this
           hint appears at the top so a mobile visitor knows what to expect. */}
       <div className="ws-mobile-notice" role="note">
-        Best viewed on a desktop display (&ge; 1024px). Layout is compact on this screen.
+        This works best on a laptop or desktop. Your screen is small, so some panels are hidden.
       </div>
 
       {/* ── Responsive banners (offline / empty-catalog) ─────── */}
@@ -2098,7 +2030,7 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
         <div className="ws-banner ws-banner--warn" role="status">
           <span className="ws-banner__icon" aria-hidden="true">&#x1F536;</span>
           <span className="ws-banner__text">
-            Running in demo mode &mdash; API offline. Data is synthetic, not live SPX.
+            Demo mode is on. This is fake sample data, not live market data.
           </span>
           <button
             type="button"
@@ -2114,8 +2046,8 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
         <div className="ws-banner ws-banner--info" role="status">
           <span className="ws-banner__icon" aria-hidden="true">&#x2139;</span>
           <span className="ws-banner__text">
-            Backend is online but has no registered datasets. See README for how to register one,
-            or run with synthetic fallback via <code>NEXT_PUBLIC_DATA_MODE=demo</code>.
+            The app is connected, but there are no markets to search yet.
+            Add a dataset or use demo data.
           </span>
           <button
             type="button"
@@ -2129,7 +2061,7 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
       )}
 
       {/* ── LEFT SIDEBAR ─────────────────────────────────────── */}
-      <aside className="side" id="workstation-left-panel">
+      <aside className="side" id="workstation-left-panel" ref={leftDrawerRef}>
         {/* Close button — visible only when the sidebar is a drawer (768-1023px) */}
         <button
           type="button"
@@ -2161,10 +2093,10 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
          ─────────────────────────────────────────────────────────── */}
         <div className="side__section">
           <div className="side__header">
-            <span className="label">Dataset</span>
+            <span className="label">Market</span>
             {isOnline === false && (
               <span className="mono" style={{ fontSize: 9, color: "var(--negative)", letterSpacing: ".04em" }}>
-                offline &mdash; synthetic data
+                demo data
               </span>
             )}
             {isOnline === null && (
@@ -2225,23 +2157,23 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
             </span>
           </button>
           {datasetOpen && (
-            <div className="dataset-panel" role="listbox" aria-label="Select dataset">
+            <div className="dataset-panel" role="listbox" aria-label="Select market">
               <input
                 type="search"
                 className="dataset-panel__search"
-                placeholder="Filter by symbol or asset class"
+                placeholder="Type a symbol like SPY or BTC"
                 value={datasetSearch}
                 onChange={e => setDatasetSearch(e.target.value)}
                 autoFocus
-                aria-label="Filter datasets"
+                aria-label="Filter markets"
               />
               <div className="dataset-panel__list">
                 {Object.entries(groupedCatalog).length === 0 && (
                   <div className="dataset-panel__empty">
                     {isOnline === false
-                      ? "Offline — synthetic entry above."
+                      ? "Demo market is shown above."
                       : catalog.length === 0
-                      ? "No datasets registered."
+                      ? "No markets added yet."
                       : "No matches."}
                   </div>
                 )}
@@ -2324,14 +2256,14 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
 
         <div className="side__section">
           <div className="side__header">
-            <span className="label">Query</span>
+            <span className="label">Shape</span>
             <span className="mono" style={{ fontSize: 10.5, color: "var(--ink-3)" }}>{datasetLabel}</span>
           </div>
-          <div className="side__row"><span className="k">Window start</span><span className="v">{fmtDate(queryMeta.startD)}</span></div>
-          <div className="side__row"><span className="k">Window end</span><span className="v">{fmtDate(queryMeta.endD)}</span></div>
-          <div className="side__row"><span className="k">Length</span><span className="v">{windowState.len} d</span></div>
+          <div className="side__row"><span className="k">Starts</span><span className="v">{fmtDate(queryMeta.startD)}</span></div>
+          <div className="side__row"><span className="k">Ends</span><span className="v">{fmtDate(queryMeta.endD)}</span></div>
+          <div className="side__row"><span className="k">Days</span><span className="v">{windowState.len} d</span></div>
           <div className="side__row">
-            <span className="k">Return</span>
+            <span className="k">Move</span>
             <span className="v" style={{ color: queryMeta.ret >= 0 ? "var(--positive)" : "var(--negative)" }}>
               {fmtPct(queryMeta.ret)}
             </span>
@@ -2340,7 +2272,7 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
 
         <div className="side__section">
           <div className="side__header">
-            <span className="label">Setup scanner</span>
+            <span className="label">Pick the pattern</span>
             <span className="mono" style={{ fontSize: 10.5, color: "var(--ink-3)" }}>v1</span>
           </div>
           <SetupDefinitionPanel
@@ -2353,7 +2285,7 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
         </div>
 
         <div className="side__section">
-          <div className="side__header"><span className="label">Window length</span></div>
+          <div className="side__header"><span className="label">Shape length</span></div>
           <div className="chip-row">
             {[30, 60, 120, 180, 250].map(L => (
               <button key={L} className="chip" data-active={windowState.len === L ? "true" : undefined}
@@ -2364,7 +2296,7 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
             ))}
           </div>
           <div style={{ height: 10 }} />
-          <div className="side__header"><span className="label">View range</span></div>
+          <div className="side__header"><span className="label">Chart range</span></div>
           <div className="chip-row">
             {[
               { L: "2Y", n: 500 }, { L: "5Y", n: 1250 }, { L: "10Y", n: 2500 }, { L: "All", n: N - 220 }
@@ -2383,7 +2315,7 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
 
         <div className="side__section">
           <div className="side__header">
-            <span className="label">Pinned analogs</span>
+            <span className="label">Saved matches</span>
             <span className="mono" style={{ fontSize: 10.5, color: "var(--ink-3)" }}>{pinned.size}/{analogs.length}</span>
           </div>
           <div className="saved-list">
@@ -2457,10 +2389,10 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
               - Last-run timestamp — relative, ticks every 30s.
             The tweaks-panel K control is NOT removed; this is a mirror
             surface for discoverability. */}
-        <div className="ws-search-row" role="group" aria-label="Search controls">
+        <div className="ws-search-row" role="group" aria-label="Find matching charts">
           <div className="ws-search-row__group">
-            <span className="label ws-search-row__label">Top K</span>
-            <div className="ws-topk" role="radiogroup" aria-label="Number of analog matches to return">
+            <span className="label ws-search-row__label">Matches</span>
+            <div className="ws-topk" role="radiogroup" aria-label="Number of past matches to show">
               {[1, 3, 6, 10].map(k => (
                 <button
                   key={k}
@@ -2504,12 +2436,12 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
                 This selector stays adjacent to .ws-topk to keep "what the
                 search computes" controls grouped together. */}
             <span className="label ws-search-row__label ws-search-row__label--secondary">
-              Horizon
+              Next
             </span>
             <div
               className="ws-horizon"
               role="radiogroup"
-              aria-label="Forecast horizon in bars"
+              aria-label="How many future bars to show"
             >
               {[30, 60, 120, 180, 250, 365].map(h => (
                 <button
@@ -2520,7 +2452,7 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
                   className="ws-horizon__btn"
                   data-active={currentHorizon === h ? "true" : undefined}
                   onClick={() => onSettings({ ...settings, horizon: h })}
-                  title={`Forecast ${h} bars forward`}
+                  title={`Show what happened ${h} bars later`}
                 >
                   {h}
                 </button>
@@ -2550,14 +2482,14 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
               <>
                 <span
                   className="label ws-search-row__label ws-search-row__label--secondary"
-                  title="Resample history to additional timeframes for cross-resolution analogues"
+                  title="Also look at this market in other time frames"
                 >
-                  TFs
+                  Other views
                 </span>
                 <div
                   className="ws-horizon"
                   role="group"
-                  aria-label="Cross-timeframe selection (resample history to these resolutions)"
+                  aria-label="Also search these other time frames"
                 >
                   {["5min", "15min", "1h", "4h", "1D"].map(tf => {
                     const active = selectedTimeframes.includes(tf);
@@ -2578,8 +2510,8 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
                         }
                         title={
                           active
-                            ? `Stop resampling history to ${tf}`
-                            : `Also search history resampled to ${tf}`
+                            ? `Stop checking ${tf}`
+                            : `Also check ${tf}`
                         }
                       >
                         {tf}
@@ -2589,6 +2521,97 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
                 </div>
               </>
             )}
+            {/* Chart controls live with the timeframe chips so chart chrome
+                does not consume a row above the plot. */}
+            <div className="ws-chart-settings" ref={chartSettingsRef}>
+              <button
+                type="button"
+                className="ws-chart-settings__btn"
+                aria-haspopup="menu"
+                aria-expanded={chartSettingsOpen}
+                aria-label="Chart settings"
+                title="Chart settings"
+                onClick={() => setChartSettingsOpen(o => !o)}
+              >
+                {/* Toothed gear. Path is the Lucide settings glyph, sized
+                    to fit the compact top control row. */}
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.6"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.09a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
+              </button>
+              {chartSettingsOpen && (
+                <div className="ws-chart-settings__pop" role="menu">
+                  {([
+                    {
+                      key: "showCone",
+                      label: "Next-move area",
+                      hint: "Shows the range of moves that came after the old matches",
+                      value: settings.showCone !== false,
+                    },
+                    {
+                      key: "showMedian",
+                      label: "Middle path",
+                      hint: "Shows the middle next move",
+                      value: settings.showMedian !== false,
+                    },
+                    {
+                      key: "showWindow",
+                      label: "Chosen shape",
+                      hint: "Shows the part of today's chart you selected",
+                      value: settings.showWindow !== false,
+                    },
+                  ] as const).map(opt => (
+                    <label
+                      key={opt.key}
+                      className="ws-chart-settings__row"
+                      title={opt.hint}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={opt.value}
+                        onChange={(e) =>
+                          onSettings({ ...settings, [opt.key]: e.target.checked })
+                        }
+                      />
+                      <span>{opt.label}</span>
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="ws-chartmode" role="tablist" aria-label="Chart view">
+              {([
+                { id: "fast", label: "Line", hint: "Simple line chart. Drag the chosen shape here." },
+                { id: "candle", label: "Candles", hint: "Candlestick chart when market data has open, high, low, close." },
+              ] as const).map(opt => {
+                const active = (settings.chartMode ?? "fast") === opt.id;
+                return (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={active}
+                    title={opt.hint}
+                    className="ws-chartmode__btn"
+                    data-active={active ? "true" : undefined}
+                    onClick={() => onSettings({ ...settings, chartMode: opt.id })}
+                  >
+                    {opt.label}
+                  </button>
+                );
+              })}
+            </div>
             {/*
              * View-range clip hint.
              *
@@ -2614,8 +2637,8 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
                 <span
                   className="ws-horizon__clip-hint"
                   role="note"
-                  aria-label="View range warning"
-                  title="View range doesn't cover forecast — expand to see the full cone."
+                  aria-label="Chart range warning"
+                  title="The chart does not show the whole next-move area. Pick a wider chart range."
                 >
                   <svg width="11" height="11" viewBox="0 0 12 12" aria-hidden="true">
                     <circle cx="6" cy="6" r="5" fill="none" stroke="currentColor" strokeWidth="1.2" />
@@ -2627,30 +2650,25 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
             })()}
           </div>
           <div className="ws-search-row__group ws-search-row__group--end">
-            {/* Drawer toggles — each only visible in its own breakpoint via CSS.
+            {/* Drawer toggle — only visible where the sidebar is off-canvas.
                 "Controls" (left drawer) appears at 768-1023px where the sidebar
-                is hidden. "Details" (right drawer) appears at 1024-1279px where
-                the right panel is hidden. Originally lived inside the removed
-                .main__head. Sits at the start of the end-group so it precedes
-                the fewer-matches note / last-run timestamp / search button. */}
+                is hidden. Details now open from analog cards in the right drawer. */}
             <div className="ws-drawer-toggles">
               <button
                 type="button"
+                ref={leftDrawerToggleRef}
                 className="ws-drawer-toggle ws-drawer-toggle--left"
                 aria-expanded={leftDrawerOpen}
                 aria-controls="workstation-left-panel"
+                aria-label="Toggle controls"
+                title={leftDrawerOpen ? "Hide controls" : "Show controls"}
                 onClick={() => setLeftDrawerOpen(o => !o)}
               >
-                &larr; {leftDrawerOpen ? "Hide controls" : "Controls"}
-              </button>
-              <button
-                type="button"
-                className="ws-drawer-toggle ws-drawer-toggle--right"
-                aria-expanded={rightDrawerOpen}
-                aria-controls="workstation-right-panel"
-                onClick={() => setRightDrawerOpen(o => !o)}
-              >
-                {rightDrawerOpen ? "Hide details" : "Details"} &rarr;
+                <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+                  <line x1="3" y1="4" x2="13" y2="4" />
+                  <line x1="3" y1="8" x2="13" y2="8" />
+                  <line x1="3" y1="12" x2="13" y2="12" />
+                </svg>
               </button>
             </div>
             {/*
@@ -2681,8 +2699,8 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
                 role="note"
                 aria-live="polite"
               >
-                Only {searchedAnalogs.length} of {lastSearch.k} analogs have
-                enough forward history at this horizon.
+                Only {searchedAnalogs.length} of {lastSearch.k} matches have
+                enough data after them.
               </span>
             )}
             {lastRunAt && (
@@ -2699,16 +2717,16 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
               disabled={searching}
               aria-label={
                 searching
-                  ? "Searching"
+                  ? "Finding matches"
                   : isDirty
-                  ? "Search (pending changes)"
+                  ? "Search with your changes"
                   : "Search"
               }
             >
               {searching ? (
                 <>
                   <span className="ws-search-btn__spinner" aria-hidden="true" />
-                  <span>Searching&hellip;</span>
+                  <span>Finding&hellip;</span>
                 </>
               ) : (
                 <>
@@ -2740,8 +2758,8 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
               type="button"
               className="ws-share-btn"
               onClick={onShareClick}
-              aria-label="Copy share link to clipboard"
-              title="Copy share link — restores this exact view for a colleague"
+              aria-label="Copy this view as a link"
+              title="Copy a link to this exact view"
             >
               <svg
                 width="12"
@@ -2758,130 +2776,23 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
                 <path d="M5 3.5 a2 2 0 0 1 2 -2 h1.5 a2 2 0 0 1 2 2 v1.5 a2 2 0 0 1 -2 2 h-0.5" />
                 <path d="M7 8.5 a2 2 0 0 1 -2 2 h-1.5 a2 2 0 0 1 -2 -2 v-1.5 a2 2 0 0 1 2 -2 h0.5" />
               </svg>
-              <span>Share</span>
+              <span>Copy Link</span>
             </button>
           </div>
         </div>
 
         <div className="chart-stack">
-          {/* Chart-mode toggle — "Fast" SVG vs "Pro" lightweight-charts.
-              Sits just above the chart-card so it doesn't collide with the
-              search/top-K row (owned by another agent). Keeping this a tiny
-              right-aligned segmented control keeps it in the same
-              .ws-chartmode pattern as the nearby chip rows. */}
-          <div
-            className="ws-chartmode-row"
-            role="region"
-            aria-label="Chart view mode"
-          >
-            {/* Chart-settings gear — anchors a subtle popover with
-                chart-only toggles. Sits opposite the Fast/Candle
-                segmented control on the other end of the row. */}
-            <div className="ws-chart-settings" ref={chartSettingsRef}>
-              <button
-                type="button"
-                className="ws-chart-settings__btn"
-                aria-haspopup="menu"
-                aria-expanded={chartSettingsOpen}
-                aria-label="Chart settings"
-                title="Chart settings"
-                onClick={() => setChartSettingsOpen(o => !o)}
-              >
-                {/* Toothed gear. Previously this was a circle + four
-                    radial strokes — which read as a sun/asterisk, not
-                    a gear. Path below is an 8-toothed cog with a
-                    center hub, lifted from the Lucide 'settings' icon
-                    and sized to fit the 22×22 button. */}
-                <svg
-                  width="14"
-                  height="14"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.6"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  aria-hidden="true"
-                >
-                  <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.09a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
-                  <circle cx="12" cy="12" r="3" />
-                </svg>
-              </button>
-              {chartSettingsOpen && (
-                <div className="ws-chart-settings__pop" role="menu">
-                  {([
-                    {
-                      key: "showCone",
-                      label: "P10–P90 cone",
-                      hint: "Fan of forecast quantiles from the analog set",
-                      value: settings.showCone !== false,
-                    },
-                    {
-                      key: "showMedian",
-                      label: "P50 median line",
-                      hint: "Single-line median forecast through the cone",
-                      value: settings.showMedian !== false,
-                    },
-                    {
-                      key: "showWindow",
-                      label: "Query window band",
-                      hint: "Shaded rectangle marking the query slice",
-                      value: settings.showWindow !== false,
-                    },
-                  ] as const).map(opt => (
-                    <label
-                      key={opt.key}
-                      className="ws-chart-settings__row"
-                      title={opt.hint}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={opt.value}
-                        onChange={(e) =>
-                          onSettings({ ...settings, [opt.key]: e.target.checked })
-                        }
-                      />
-                      <span>{opt.label}</span>
-                    </label>
-                  ))}
-                </div>
-              )}
-            </div>
-            <div className="ws-chartmode" role="tablist" aria-label="Chart view">
-              {([
-                { id: "fast", label: "Fast", hint: "SVG chart, draggable query window" },
-                { id: "candle", label: "Candle", hint: "TradingView-grade canvas, OHLC candles" },
-              ] as const).map(opt => {
-                const active = (settings.chartMode ?? "fast") === opt.id;
-                return (
-                  <button
-                    key={opt.id}
-                    type="button"
-                    role="tab"
-                    aria-selected={active}
-                    title={opt.hint}
-                    className="ws-chartmode__btn"
-                    data-active={active ? "true" : undefined}
-                    onClick={() => onSettings({ ...settings, chartMode: opt.id })}
-                  >
-                    {opt.label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
           {showEmptyCatalogBanner && (
             // Empty-state card: backend is live but has zero registered datasets.
             // We still render the synthetic fallback chart below it so the user
             // can evaluate the UI, but this card makes the "fix your setup" path
             // obvious with two explicit CTAs.
-            <div className="ws-empty-state" role="region" aria-label="No datasets registered">
+            <div className="ws-empty-state" role="region" aria-label="No markets added">
               <div className="ws-empty-state__card">
-                <h2 className="ws-empty-state__headline">No datasets registered yet</h2>
+                <h2 className="ws-empty-state__headline">No markets added yet</h2>
                 <p className="ws-empty-state__body">
-                  The engine finds analogs by matching historical windows, so it needs at
-                  least one dataset to search against. Register a dataset via the platform
-                  registry, or flip the app into synthetic-demo mode to explore the UI.
+                  Add one market so the app has history to search. Or load demo
+                  SPX data and try the product right now.
                 </p>
                 <div className="ws-empty-state__actions">
                   <button
@@ -2893,7 +2804,7 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
                       setIsOnline(false);
                     }}
                   >
-                    Load demo SPX data
+                    Try demo SPX
                   </button>
                   <a
                     className="ws-empty-state__cta"
@@ -2901,7 +2812,7 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
                     target="_blank"
                     rel="noreferrer noopener"
                   >
-                    Open docs
+                    How to add markets
                   </a>
                 </div>
               </div>
@@ -2910,11 +2821,11 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
           <div className="chart-card">
             <div className="chart-card__head">
               <div className="chart-card__title">
-                <span className="t">{datasetLabel} &middot; full history</span>
+                <span className="t">{datasetLabel} &middot; history</span>
                 <span className="sub">{loadedSeries.length.toLocaleString()} bars</span>
               </div>
               <div className="chart-card__legend">
-                <span className="legend-dot"><i />Query</span>
+                <span className="legend-dot"><i />Chosen shape</span>
                 {/* Per-rank legend dots — one colored pip per analog, colored
                     to match the chart overlay AND the card's left border. A
                     click on a dot toggles the pin on that analog (same as
@@ -2925,7 +2836,7 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
                     existing "is it only showing top 1?" question lands a
                     visible count even when dots wrap. */}
                 <span className="legend-dot analog">
-                  <i />Analogs ({analogOverlays.length})
+                  <i />Past matches ({analogOverlays.length})
                 </span>
                 {analogOverlays.map((a, i) => {
                   const id = a.id;
@@ -2939,8 +2850,8 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
                     >
                       <button
                         type="button"
-                        aria-label={`Toggle pin on analog ${i + 1}`}
-                        title={isPinned ? "Unpin this analog" : "Pin this analog"}
+                        aria-label={`Save or unsave match ${i + 1}`}
+                        title={isPinned ? "Remove from saved matches" : "Save this match"}
                         onClick={() => { if (id) togglePin(id); }}
                         onMouseEnter={() => { if (id) setHoverAnalog(id); }}
                         onMouseLeave={() => setHoverAnalog(null)}
@@ -2951,32 +2862,35 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
                     </span>
                   );
                 })}
-                <span className="legend-dot cone"><i />P10&ndash;P90 cone</span>
+                <span className="legend-dot cone"><i />What happened next</span>
                 {searching && (
                   <span className="mono" style={{ fontSize: 10, color: "var(--ink-3)", marginLeft: 8 }}>
-                    searching...
+                    finding...
                   </span>
                 )}
               </div>
             </div>
-            <div className="chart-card__body" style={{ position: "relative" }}>
+            <div
+              ref={chartBodyRef}
+              className="chart-card__body"
+              style={{ position: "relative" }}
+            >
               {searching && (
                 <div style={{
                   position: "absolute", inset: 0, display: "flex", alignItems: "center",
                   justifyContent: "center", background: "var(--bg-card)", opacity: 0.6, zIndex: 10,
                   pointerEvents: "none",
                 }}>
-                  <span className="mono" style={{ fontSize: 12, color: "var(--ink-2)" }}>Searching...</span>
+                  <span className="mono" style={{ fontSize: 12, color: "var(--ink-2)" }}>Finding matches...</span>
                 </div>
               )}
               {loadedSeries.length === 0 ? (
                 // Dataset loaded but returned zero bars — better to tell the
                 // user than silently render an empty chart axis.
                 <div className="ws-micro-empty" role="status">
-                  <div className="ws-micro-empty__title">No data in this window</div>
+                  <div className="ws-micro-empty__title">No data here</div>
                   <div className="ws-micro-empty__body">
-                    The current dataset returned zero bars. Try a different dataset
-                    or widen the view range.
+                    Pick another market or show more of the chart.
                   </div>
                 </div>
               ) : (
@@ -2996,7 +2910,7 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
                     forecastHorizon: settings.horizon || 60,
                     onHover: setCrosshairIdx,
                     crosshairIdx,
-                    height: 300,
+                    height: chartHeight,
                     showCone: settings.showCone !== false,
                     showMedian: settings.showMedian !== false,
                     showWindow: settings.showWindow !== false,
@@ -3030,408 +2944,21 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
           </div>
         </div>
 
-        {/* ── Trust strip (computed from THIS query's analogs) ──────────────
-            Metrics flow: the trust strip reads `trustMetrics`, which is
-            `computeCalibrationMetrics(analogs, cone, queryLastPrice)`.
-            This is *in-sample* — each analog's forward window is compared
-            against the engine's own forecast cone. Numbers change with
-            every query because the analog set changes.
-
-            When backend integration lands (SearchResponse.metrics), swap
-            the `computeCalibrationMetrics(...)` call for `apiMetrics ??
-            computeCalibrationMetrics(...)` so backend ground-truth wins
-            and the client-side derivation is the fallback.
-
-            Grade drives the badge color:
-              A → positive (green), B → accent (blue),
-              C → warning (amber), D/F → negative (red),
-              unknown → muted (grey, em-dashes for numerics).           */}
-        <div style={{ display: "flex", flexDirection: "column" }}>
-          {(() => {
-            // Compute metrics inline so hooks outside this block are
-            // untouched. The computation is O(analogs * percentiles)
-            // and runs once per render — cheap.
-            //
-            // Pin-gating: we pass effectiveAnalogs (not analogs) so a PM
-            // who has pinned 2 analogs sees Coverage/CRPS/HitRate/Grade
-            // computed ONLY on those 2. This is the critical quant-
-            // credibility path — the trust strip must answer "how well
-            // does the cone I'm looking at match its empirical history",
-            // and when curation changes the cone, it must change the
-            // metrics too. `cone` above is already pin-gated.
-            const queryLastPrice = loadedSeries[windowState.start + windowState.len - 1]?.p ?? 1;
-            const trustMetrics: CalibrationResult = computeCalibrationMetrics(
-              effectiveAnalogs,
-              cone,
-              queryLastPrice,
-            );
-            const isUnknown = trustMetrics.grade === "unknown";
-            // Numeric badge class per metric value — mirrors the live-data
-            // sign convention used elsewhere in the trust strip.
-            const coverageGap = Math.abs(trustMetrics.coverage - 0.80);
-            const coverageClass = isUnknown
-              ? ""
-              : coverageGap <= 0.05 ? "pos"
-              : coverageGap <= 0.15 ? ""
-              : "warn";
-            const hitClass = isUnknown
-              ? ""
-              : trustMetrics.hitRate >= 0.55 ? "pos"
-              : trustMetrics.hitRate >= 0.50 ? ""
-              : "neg";
-            const driftClass = isUnknown
-              ? ""
-              : trustMetrics.regimeDrift === "low" ? "pos"
-              : trustMetrics.regimeDrift === "elevated" ? "warn"
-              : "neg";
-            // Em-dash placeholders whenever the engine returned unknown,
-            // so a quant can distinguish "no data yet" from "zero".
-            const dash = "\u2014";
-            // ℹ glyph — rendered next to each metric label so quants get
-            // a one-sentence definition on hover without leaving the page.
-            // Intentionally uses the native `title` attribute: acceptable
-            // shortcut per the calibration-panel audit spec, avoids adding
-            // a custom tooltip layer (and its accessibility footguns) to
-            // the workstation bundle. Screen readers announce `title` as
-            // an accessible name, so the explanations are surfaced there
-            // as well. 12px sizing matches the muted .label typography.
-            const infoGlyph = (tip: string) => (
-              <span
-                className="trust__info"
-                role="img"
-                aria-label={tip}
-                title={tip}
-              >
-                &#9432;
-              </span>
-            );
-            return (
-              <>
-                <div className="trust">
-                  <div className="trust__item">
-                    <span className="label">
-                      Coverage 80%
-                      {infoGlyph("Coverage: fraction of realized moves that landed inside the P10-P90 cone. Target 80%.")}
-                    </span>
-                    <span className={"v " + coverageClass}>
-                      {isUnknown ? dash : fmtPct(trustMetrics.coverage, 1)}
-                    </span>
-                  </div>
-                  <div className="trust__item">
-                    <span className="label">
-                      CRPS
-                      {infoGlyph("CRPS (Continuous Ranked Probability Score): lower is better. Measures how well the probability distribution matched the realized outcome.")}
-                    </span>
-                    <span className="v">
-                      {isUnknown ? dash : trustMetrics.crps.toFixed(3)}
-                    </span>
-                  </div>
-                  <div className="trust__item">
-                    <span className="label">
-                      Hit rate &middot; sign
-                      {infoGlyph("Hit rate: fraction of analogs whose forward direction matched the realized direction at horizon. Chance baseline is 0.50.")}
-                    </span>
-                    <span className={"v " + hitClass}>
-                      {isUnknown ? dash : trustMetrics.hitRate.toFixed(2)}
-                    </span>
-                  </div>
-                  <div className="trust__item">
-                    <span className="label">
-                      Regime drift
-                      {infoGlyph("Regime drift: how much the market regime has changed between the analogs and now. Low is good; high means the analog set may be stale.")}
-                    </span>
-                    <span className={"v " + driftClass}>
-                      {isUnknown ? dash : trustMetrics.regimeDrift}
-                    </span>
-                  </div>
-                  <div className="trust__item">
-                    <span className="label">
-                      N analogs used
-                      {infoGlyph("Number of analogs with realized forward windows used to compute these metrics. Pinning filters this set.")}
-                    </span>
-                    <span className="v">{trustMetrics.nAnalogs}</span>
-                  </div>
-                  <button className="trust__expand" onClick={() => setTrustOpen(o => !o)}>
-                    {trustOpen ? "Hide" : "Open"} calibration panel &rarr;
-                  </button>
-                </div>
-
-                {trustOpen && isUnknown && (
-                  // Empty-state card: we avoid rendering the reliability
-                  // diagram or per-bucket bar chart at all when the engine
-                  // has insufficient data, because drawing either with zero
-                  // buckets produces visually-empty plots that quants read
-                  // as "calibration is broken" rather than "not enough
-                  // runs yet". Instead we surface a concrete explanation
-                  // and a CTA. The link target is a placeholder — once
-                  // backtest-sweep UI lands it should point at that route
-                  // (see Batch 2 finance operating product roadmap).
-                  <div className="trust-panel trust-panel--empty" role="status">
-                    <div className="trust-panel__empty-card">
-                      <h3>Calibration needs more runs</h3>
-                      <p>
-                        The engine has fewer than 3 analogs with realised
-                        forward windows against this query. Coverage, CRPS,
-                        and the reliability diagram need at least a handful
-                        of observed outcomes before they carry signal. Trust
-                        score will appear automatically once the engine has
-                        accumulated at least 30 runs against this dataset.
-                      </p>
-                      <Link
-                        href="/finance/reviews"
-                        className="trust-panel__cta"
-                      >
-                        Trigger backtest sweep &rarr;
-                      </Link>
-                    </div>
-                  </div>
-                )}
-                {trustOpen && !isUnknown && (
-                  <div className="trust-panel">
-                    <div>
-                      <h3>Reliability diagram</h3>
-                      <svg viewBox="0 0 260 160" width="100%" height="160">
-                        <rect x="1" y="1" width="258" height="158" fill="none" stroke="var(--rule)" />
-                        {/* Identity line y=x → perfect calibration reference.
-                            Plot region: x in [20, 240], y in [140, 20]. */}
-                        <line x1="20" y1="140" x2="240" y2="20" stroke="var(--ink-4)" strokeDasharray="3 3" />
-                        {/* Empirical (predicted, observed) scatter, coloured
-                            by deviation from the identity line.
-                            •  |obs − pred| < 0.10  → green  (well-calibrated)
-                            •  0.10 ≤ |…| < 0.20    → amber  (watch)
-                            •  |obs − pred| ≥ 0.20  → red    (mis-calibrated)
-                            Prior behaviour painted every dot green, which
-                            hid bad buckets — fixed as of the calibration-
-                            panel audit (obsidian/topics/calibration panel
-                            audit 2026-04-20). Each dot carries a native
-                            <title> so hovering surfaces the raw numbers
-                            without requiring a custom tooltip layer. */}
-                        {trustMetrics.reliability.length === 0 ? (
-                          <text x="130" y="80" textAnchor="middle" fontSize="11" fill="var(--ink-3)">
-                            not enough data
-                          </text>
-                        ) : (
-                          trustMetrics.reliability.map((pt, i) => {
-                            const pClamped = Math.max(0, Math.min(1, pt.predicted));
-                            const oClamped = Math.max(0, Math.min(1, pt.observed));
-                            const deviation = Math.abs(oClamped - pClamped);
-                            const color = deviation < 0.10
-                              ? "var(--positive)"
-                              : deviation < 0.20
-                              ? "var(--warn)"
-                              : "var(--negative)";
-                            return (
-                              <circle
-                                key={i}
-                                cx={20 + pClamped * 220}
-                                cy={140 - oClamped * 120}
-                                r="3.5"
-                                fill={color}
-                              >
-                                <title>
-                                  {`predicted ${pClamped.toFixed(2)} · observed ${oClamped.toFixed(2)} · deviation ${deviation.toFixed(2)}`}
-                                </title>
-                              </circle>
-                            );
-                          })
-                        )}
-                        <text x="20" y="154" className="axis-label" fontSize="9" fill="var(--ink-3)">predicted</text>
-                        <text x="4" y="20" className="axis-label" fontSize="9" fill="var(--ink-3)" transform="rotate(-90 8 20)">observed</text>
-                      </svg>
-                      <div style={{ fontSize: 12, color: "var(--ink-2)", marginTop: 8 }}>
-                        {trustMetrics.reliability.length === 0
-                          ? "Not enough analogs with forward windows to build a reliability diagram."
-                          : (() => {
-                              // Max absolute deviation from the identity line, in
-                              // percentage points. Makes the narrative change per
-                              // query instead of claiming a static "within 4pp".
-                              const maxDev = Math.max(
-                                ...trustMetrics.reliability.map(r => Math.abs(r.observed - r.predicted)),
-                              );
-                              return `Predicted quantiles match observed frequencies to within ${(maxDev * 100).toFixed(1)} percentage points.`;
-                            })()}
-                      </div>
-                    </div>
-                    <div>
-                      <h3>Per-bucket observed frequency</h3>
-                      <svg viewBox="0 0 260 160" width="100%" height="160">
-                        <rect x="1" y="1" width="258" height="158" fill="none" stroke="var(--rule)" />
-                        {/* Previous implementation drew 12 IDENTICAL bars,
-                            all at height = trustMetrics.coverage. That
-                            looked like a rolling time-series but was a
-                            synthetic placeholder (same number painted 12
-                            times). It's been replaced with the real per-
-                            percentile observed frequency derived from
-                            trustMetrics.reliability[] — the thing that
-                            actually changes per query and per pin set.
-                            A perfectly calibrated engine has every bar
-                            at height = its predicted quantile. */}
-                        {trustMetrics.reliability.length === 0 ? (
-                          <text x="130" y="90" textAnchor="middle" fontSize="11" fill="var(--ink-3)">
-                            not enough data
-                          </text>
-                        ) : (() => {
-                            // Plot region: x in [30, 250], y in [140, 20].
-                            // Bar slot width derived from the number of
-                            // reliability buckets so the layout scales
-                            // correctly if the backend adds more.
-                            const n = trustMetrics.reliability.length;
-                            const plotLeft = 30;
-                            const plotRight = 250;
-                            const plotTop = 20;
-                            const plotBottom = 140;
-                            const slotW = (plotRight - plotLeft) / n;
-                            const barW = Math.max(8, slotW * 0.55);
-                            const plotH = plotBottom - plotTop;
-                            // Guide lines at y = 0, 0.5, 1.0 so the eye can
-                            // read deviation without counting pixels.
-                            const guideYs = [0, 0.5, 1];
-                            return (
-                              <g>
-                                {guideYs.map(g => (
-                                  <line
-                                    key={`g-${g}`}
-                                    x1={plotLeft}
-                                    x2={plotRight}
-                                    y1={plotBottom - g * plotH}
-                                    y2={plotBottom - g * plotH}
-                                    stroke="var(--rule)"
-                                    strokeDasharray="2 3"
-                                  />
-                                ))}
-                                {trustMetrics.reliability.map((pt, i) => {
-                                  const oClamped = Math.max(0, Math.min(1, pt.observed));
-                                  const pClamped = Math.max(0, Math.min(1, pt.predicted));
-                                  const deviation = Math.abs(oClamped - pClamped);
-                                  const barColor = deviation < 0.10
-                                    ? "var(--positive)"
-                                    : deviation < 0.20
-                                    ? "var(--warn)"
-                                    : "var(--negative)";
-                                  const cx = plotLeft + slotW * (i + 0.5);
-                                  const x = cx - barW / 2;
-                                  const y = plotBottom - oClamped * plotH;
-                                  const predY = plotBottom - pClamped * plotH;
-                                  return (
-                                    <g key={`bar-${i}`}>
-                                      {/* Observed bar (colored by deviation). */}
-                                      <rect
-                                        x={x}
-                                        y={y}
-                                        width={barW}
-                                        height={plotBottom - y}
-                                        fill={barColor}
-                                        opacity={0.85}
-                                      >
-                                        <title>
-                                          {`P${Math.round(pClamped * 100)} · observed ${oClamped.toFixed(2)} · predicted ${pClamped.toFixed(2)} · deviation ${deviation.toFixed(2)}`}
-                                        </title>
-                                      </rect>
-                                      {/* Predicted-quantile tick: where the
-                                          bar WOULD end for a perfectly
-                                          calibrated engine. */}
-                                      <line
-                                        x1={x - 2}
-                                        x2={x + barW + 2}
-                                        y1={predY}
-                                        y2={predY}
-                                        stroke="var(--ink)"
-                                        strokeWidth="1"
-                                        strokeDasharray="2 2"
-                                      />
-                                      {/* Per-bucket x-label: the predicted
-                                          quantile, so a quant can read e.g.
-                                          "P25 observed 0.32" at a glance. */}
-                                      <text
-                                        x={cx}
-                                        y={plotBottom + 12}
-                                        textAnchor="middle"
-                                        fontSize="9"
-                                        fill="var(--ink-3)"
-                                      >
-                                        {`P${Math.round(pClamped * 100)}`}
-                                      </text>
-                                    </g>
-                                  );
-                                })}
-                                {/* y-axis reference labels (0 / 0.5 / 1). */}
-                                {guideYs.map(g => (
-                                  <text
-                                    key={`yl-${g}`}
-                                    x={plotLeft - 4}
-                                    y={plotBottom - g * plotH + 3}
-                                    textAnchor="end"
-                                    fontSize="9"
-                                    fill="var(--ink-3)"
-                                  >
-                                    {g.toFixed(1)}
-                                  </text>
-                                ))}
-                              </g>
-                            );
-                          })()}
-                      </svg>
-                      <div style={{ fontSize: 12, color: "var(--ink-2)", marginTop: 8 }}>
-                        {trustMetrics.reliability.length === 0
-                          ? "Observed frequencies will appear once the engine has at least 3 analogs with forward windows."
-                          : `Bars = observed fraction of analogs at or below each predicted quantile. Dashed ticks mark the predicted value. Coverage P10→P90 is ${(trustMetrics.coverage * 100).toFixed(0)}% vs 80% target; drift is ${trustMetrics.regimeDrift}.`}
-                      </div>
-                    </div>
-                    <div className="trust-panel__narrative">
-                      {/* Grade explanation — thresholds are the source-of-
-                          truth from `the-similarity-app/lib/data.ts
-                          ::gradeFromMetrics`. If those thresholds change
-                          there, they must change here too (or be lifted to
-                          a shared const). Kept inline so the user can see
-                          WHY the grade is what it is without leaving the
-                          panel. */}
-                      <div>
-                        <h3>Grade &middot; {trustMetrics.grade}</h3>
-                        <p className="trust-panel__grade-copy">
-                          Composite letter grade from coverage gap, CRPS,
-                          and hit rate.
-                        </p>
-                        <ul className="trust-panel__grade-list">
-                          <li><b>A</b> · gap &le; 5%, CRPS &le; 0.05, hit &ge; 0.58</li>
-                          <li><b>B</b> · gap &le; 10%, CRPS &le; 0.08, hit &ge; 0.54</li>
-                          <li><b>C</b> · gap &le; 15%, CRPS &le; 0.12, hit &ge; 0.52</li>
-                          <li><b>D / F</b> · anything looser</li>
-                        </ul>
-                        <p className="trust-panel__grade-current">
-                          This query: gap {(Math.abs(trustMetrics.coverage - 0.80) * 100).toFixed(1)}% &middot; CRPS {trustMetrics.crps.toFixed(3)} &middot; hit {trustMetrics.hitRate.toFixed(2)}.
-                        </p>
-                      </div>
-                      <div>
-                        <h3>Honesty note</h3>
-                        <p style={{ fontFamily: "var(--serif)", fontSize: 15, lineHeight: 1.5, color: "var(--ink-2)", fontStyle: "italic" }}>
-                          Similarity is not a guarantee. Markets regime-shift. The cone reports what
-                          <span style={{ fontStyle: "normal", fontWeight: 500 }}> tended to happen</span> after similar
-                          structural patterns &mdash; nothing more, nothing less.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </>
-            );
-          })()}
-        </div>
-
         {/* Analog strip */}
         <div className="strip">
           {searching && analogs.length === 0 && (
             <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "100%", padding: 32 }}>
-              <span className="mono" style={{ fontSize: 12, color: "var(--ink-3)" }}>Searching for analogs...</span>
+              <span className="mono" style={{ fontSize: 12, color: "var(--ink-3)" }}>Finding past matches...</span>
             </div>
           )}
           {!searching && analogs.length === 0 && loadedSeries.length > 0 && (
             // Search finished with no matches — give the user a concrete next step
             // instead of silently leaving the strip blank.
             <div className="ws-micro-empty ws-micro-empty--strip" role="status">
-              <div className="ws-micro-empty__title">No analogs found</div>
+              <div className="ws-micro-empty__title">No past matches found</div>
               <div className="ws-micro-empty__body">
-                Try widening the query window (pick a longer length chip), or drag
-                the window to a different section of the timeline.
+                Try a longer shape, or drag the chosen shape to a different
+                part of the chart.
               </div>
             </div>
           )}
@@ -3442,16 +2969,16 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
             // the chart overlay's rank index so card and chart line
             // share the same palette color.
             //
-            // Click affordance split (PR #K):
-            //   - Card body click    → open the analog detail drawer
+            // Click affordance split:
+            //   - Card body click    → toggle chart visibility
+            //   - Card double-click  → open the analog detail drawer
             //   - Pin icon click     → toggle pin (existing behavior,
             //                           now scoped to just the icon)
             //   - Hover              → chart path preview (PR #231)
             //
             // The pin icon's onClick calls stopPropagation so the card's
-            // click handler doesn't ALSO open the drawer when the user
-            // clicks the icon. Without stopPropagation the user's "pin
-            // only" intent would still open the drawer as a side effect.
+            // click handler doesn't ALSO toggle chart visibility when the
+            // user clicks the icon.
             const isPinned = pinned.has(a.id);
             const isActive = activeAnalogIds.has(a.id);
             return (
@@ -3462,12 +2989,11 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
                 role="button"
                 tabIndex={0}
                 aria-pressed={isActive}
-                aria-label={`${isActive ? "Hide" : "Show"} analog ${a.rank} on chart: ${a.label}. Double-click for details.`}
-                onClick={() => toggleActive(a.id)}
-                onDoubleClick={() => setDetailAnalogId(a.id)}
+                aria-label={`${isActive ? "Hide" : "Show"} match ${a.rank} on chart: ${a.label}. Double-click or press D for details.`}
+                onClick={() => handleAnalogCardClick(a.id)}
                 onKeyDown={(e) => {
-                  // Enter / Space toggle chart visibility. 'd' opens the
-                  // detail drawer (double-click equivalent for keyboard).
+                  // Enter / Space toggle chart visibility.
+                  // 'd' opens details without changing chart visibility.
                   // We avoid hijacking keys from input-like descendants
                   // via the target-tag guard.
                   const target = e.target as HTMLElement;
@@ -3492,12 +3018,12 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
                       className="analog-card__pin-btn"
                       data-pinned={isPinned ? "true" : undefined}
                       aria-pressed={isPinned}
-                      aria-label={isPinned ? `Unpin analog ${a.rank}` : `Pin analog ${a.rank}`}
-                      title={isPinned ? "Unpin this analog" : "Pin this analog"}
+                      aria-label={isPinned ? `Remove saved match ${a.rank}` : `Save match ${a.rank}`}
+                      title={isPinned ? "Remove from saved matches" : "Save this match"}
                       onClick={(e) => {
-                        // Stop bubbling so the card's click (drawer open)
-                        // doesn't fire. The pin icon is the ONLY affordance
-                        // that toggles pin from the card strip now.
+                        // Stop bubbling so the card's chart-visibility
+                        // toggle doesn't fire. The pin icon is the only
+                        // affordance that toggles pin from the card strip.
                         e.stopPropagation();
                         togglePin(a.id);
                       }}
@@ -3538,56 +3064,12 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
           doesn't apply so the backdrop is hidden via display: none. */}
       <div
         className="ws-drawer-backdrop"
-        onClick={() => { setRightDrawerOpen(false); setLeftDrawerOpen(false); }}
+        onClick={() => { setLeftDrawerOpen(false); }}
         aria-hidden="true"
       />
 
-      {/* ── RIGHT PANEL ──────────────────────────────────────── */}
-      <aside className="right" id="workstation-right-panel">
-        {/* Close button inside the drawer — hidden on large screens where
-            the panel is statically docked. */}
-        <button
-          type="button"
-          className="ws-drawer-close"
-          aria-label="Close details panel"
-          onClick={() => setRightDrawerOpen(false)}
-        >
-          &times;
-        </button>
-        <div
-          className="right__section"
-          data-lens-view={displayLensesMeta.kind}
-        >
-          <div className="lens-head">
-            <div>
-              <div className="label">{displayLensesMeta.label}</div>
-              <div className="score">
-                {displayLensesMeta.composite.toFixed(2)}
-                <span className="d"> / 1.00</span>
-              </div>
-            </div>
-          </div>
-          <LensRadar lenses={displayLenses} size={220} />
-          <LensBars lenses={displayLenses} compact={false} />
-        </div>
-
-        <div className="right__section">
-          <div className="side__header"><span className="label">Lens reading</span></div>
-          <div style={{ fontSize: 12.5, color: "var(--ink-2)", lineHeight: 1.6 }}>
-            <p style={{ margin: "0 0 10px" }}>
-              <b style={{ color: "var(--ink)", fontWeight: 500 }}>High agreement on Shape + Engine lenses</b> suggests
-              structural and dynamical alignment with top analogs.
-            </p>
-            <p style={{ margin: 0 }}>
-              <b style={{ color: "var(--ink)", fontWeight: 500 }}>Weakest lens:</b> Carry &mdash;
-              the predictive transfer is real but modest. Treat P50 as a center of mass, not a target.
-            </p>
-          </div>
-        </div>
-      </aside>
-
       {/* ── Analog detail drawer ─────────────────────────────────
-          Slides in from the right when the user clicks a card body.
+          Opens from the right when the user double-clicks/taps a card body.
           Open state is driven by `detailAnalogId` — null = closed.
           The drawer itself is stateless beyond the controlled props. */}
       <AnalogDetailDrawer
@@ -3599,7 +3081,7 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
         onSaveGoodrun={handleSaveGoodrun}
         onUseAsQuery={(analog) => {
           // Move the query window to the analog's [startIdx, priceWindow.length]
-          // range. We DO NOT auto-fire search — the user must click Search so
+          // range. We DO NOT auto-fire search — the user must click Find Matches so
           // the new window is visible first. `isDirty` already flips on the
           // windowState change (see derivation below) so the Search button
           // starts pulsing immediately.

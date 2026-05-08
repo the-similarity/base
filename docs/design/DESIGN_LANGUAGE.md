@@ -136,7 +136,7 @@ Each card contains:
 
 System font stack for editorial pages. Heavy headers, tabular numbers, tight spacing. Surface-specific font stacks live in their respective `design_guideline/*.md` files and override the SF Pro fallback chain below.
 
-**Actual ship.** Workstation uses Newsreader (display serif), Inter, and JetBrains Mono. Lumen uses Newsreader or Instrument Serif paired with Inter. Cadence uses Newsreader or Instrument Serif (metrics up to 56px) with Inter. Prudent uses Newsreader (composer 19px) with Inter. The SF Pro chain stays as the system fallback for editorial surfaces.
+**Actual ship.** Workstation uses Newsreader (display serif), Inter, and JetBrains Mono. Lumen and Cadence use TradingView's Lightweight Charts default stack (`-apple-system, BlinkMacSystemFont, 'Trebuchet MS', Roboto, Ubuntu, sans-serif`) plus JetBrains Mono. Prudent uses Newsreader (composer 19px) with Inter. The SF Pro chain stays as the system fallback for editorial surfaces.
 
 ```css
 :root {

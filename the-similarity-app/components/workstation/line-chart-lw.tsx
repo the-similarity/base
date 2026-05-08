@@ -6,10 +6,9 @@
  * Drop-in replacement for {@link LineChart} (the SVG "Fast" view). Renders the
  * same data shape (`series`, `cone`, `analogsOverlay`, `win`, `viewStart`,
  * `viewEnd`, `forecastHorizon`, `showCone`, `showWindow`) via the
- * TradingView-grade `lightweight-charts` canvas engine. The Pro view is
- * read-only with respect to the query window: the `onWindowChange` prop is
- * accepted for interface parity but never invoked. A corner note tells the
- * user window editing remains in Fast view.
+ * TradingView-grade `lightweight-charts` canvas engine. The query window is
+ * a draggable DOM overlay synchronized with the chart's time scale; moving
+ * or resizing it calls the shared `onWindowChange` path used by Fast view.
  *
  * Lifecycle and invariants:
  * - The chart instance is created once on mount via `createChart` and destroyed
@@ -38,13 +37,15 @@
  *   `timeScale().setVisibleRange(...)` after each data update.
  *
  * Accessibility:
- * - Root container exposes `role="img"` + `aria-label`. Keyboard users can
- *   still pan/zoom via the native lightweight-charts canvas wheel handling
- *   (mouse/trackpad), but there is no screen-reader friendly representation
- *   of the price data — for that the Fast SVG view has proper tick text.
+ * - Root container exposes `role="img"` + `aria-label`. Native
+ *   lightweight-charts wheel/trackpad handling is enabled here so candle
+ *   mode keeps TradingView-style scroll/scale behavior; the Fast SVG view
+ *   keeps the restrained page-scroll behavior separately. There is no
+ *   screen-reader friendly representation of the price data — for that
+ *   the Fast SVG view has proper tick text.
  */
 
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef, type PointerEvent as ReactPointerEvent } from "react";
 import {
   createChart,
   AreaSeries,
@@ -79,7 +80,7 @@ export interface LineChartLWProps {
   viewEnd: number;
   /** Query window position and length */
   window: { start: number; len: number };
-  /** Kept for interface parity — Pro view never fires this. */
+  /** Move/resize the query window from the chart overlay. */
   onWindowChange: (w: { start: number; len: number }) => void;
   /** Analog overlays to draw on the chart */
   analogsOverlay?: AnalogOverlay[];
@@ -93,7 +94,7 @@ export interface LineChartLWProps {
   crosshairIdx?: number | null;
   /** Hover callback — unused by Pro view. */
   onHover?: (idx: number | null) => void;
-  /** Whether to show the (read-only) query window band */
+  /** Whether to show the editable query window band. */
   showWindow?: boolean;
   /** Whether to show the forecast cone (p10..p90 filled band). */
   showCone?: boolean;
@@ -504,6 +505,7 @@ export function LineChartLW({
   viewStart,
   viewEnd,
   window: win,
+  onWindowChange,
   analogsOverlay,
   cone,
   height = 300,
@@ -537,6 +539,134 @@ export function LineChartLW({
   // DOM overlay (absolutely positioned div) that syncs with the chart's
   // timeScale via coordinate lookups — see effect below.
   const windowOverlayRef = useRef<HTMLDivElement>(null);
+  const seriesTimes = useMemo(
+    () => series.map(d => Math.floor(d.d.getTime() / 1000)),
+    [series],
+  );
+  const dragRef = useRef<{
+    mode: "move" | "left" | "right";
+    pointerOffset: number;
+    start: number;
+    len: number;
+    end: number;
+  } | null>(null);
+
+  function clampIndex(idx: number, min: number, max: number): number {
+    return Math.max(min, Math.min(max, idx));
+  }
+
+  function timeToSeconds(time: Time | null): number | null {
+    if (time == null) return null;
+    if (typeof time === "number") return time;
+    if (typeof time === "string") {
+      const ms = Date.parse(time);
+      return Number.isNaN(ms) ? null : Math.floor(ms / 1000);
+    }
+    return Math.floor(Date.UTC(time.year, time.month - 1, time.day) / 1000);
+  }
+
+  function nearestSeriesIndex(seconds: number): number {
+    const n = seriesTimes.length;
+    if (n <= 1) return 0;
+    if (seconds <= seriesTimes[0]) return 0;
+    if (seconds >= seriesTimes[n - 1]) return n - 1;
+
+    let lo = 0;
+    let hi = n - 1;
+    while (lo < hi) {
+      const mid = Math.floor((lo + hi) / 2);
+      if (seriesTimes[mid] < seconds) lo = mid + 1;
+      else hi = mid;
+    }
+    const prev = Math.max(0, lo - 1);
+    return Math.abs(seriesTimes[lo] - seconds) < Math.abs(seconds - seriesTimes[prev])
+      ? lo
+      : prev;
+  }
+
+  function indexForClientX(clientX: number): number {
+    const chart = chartRef.current;
+    const el = containerRef.current;
+    const n = series.length;
+    if (!chart || !el || n <= 1) return 0;
+
+    const rect = el.getBoundingClientRect();
+    const x = clientX - rect.left;
+    if (x <= 0) return 0;
+    if (x >= rect.width) return n - 1;
+
+    const seconds = timeToSeconds(chart.timeScale().coordinateToTime(x));
+    if (seconds !== null) return nearestSeriesIndex(seconds);
+
+    // Fallback for coordinates outside the concrete time scale: map the
+    // pointer across the current visible index range and clamp to data.
+    const width = Math.max(1, viewEnd - viewStart);
+    return clampIndex(Math.round(viewStart + (x / Math.max(1, rect.width)) * width), 0, n - 1);
+  }
+
+  function commitWindow(nextStart: number, nextLen: number) {
+    const n = series.length;
+    if (n < 2) return;
+    const len = clampIndex(Math.round(nextLen), 2, n);
+    const start = clampIndex(Math.round(nextStart), 0, n - len);
+    if (start === win.start && len === win.len) return;
+    onWindowChange({ start, len });
+  }
+
+  function updateWindowDrag(clientX: number) {
+    const drag = dragRef.current;
+    const n = series.length;
+    if (!drag || n < 2) return;
+
+    const idx = indexForClientX(clientX);
+    if (drag.mode === "move") {
+      commitWindow(clampIndex(idx - drag.pointerOffset, 0, n - drag.len), drag.len);
+      return;
+    }
+    if (drag.mode === "left") {
+      const newStart = clampIndex(idx, 0, drag.end - 1);
+      commitWindow(newStart, drag.end - newStart + 1);
+      return;
+    }
+    const newEnd = clampIndex(idx, drag.start + 1, n - 1);
+    commitWindow(drag.start, newEnd - drag.start + 1);
+  }
+
+  function startWindowDrag(
+    event: ReactPointerEvent<HTMLDivElement>,
+    mode: "move" | "left" | "right",
+  ) {
+    if (!showWindow || series.length < 2) return;
+    event.preventDefault();
+    event.stopPropagation();
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+
+    const start = clampIndex(win.start, 0, Math.max(0, series.length - 2));
+    const len = clampIndex(win.len, 2, series.length - start);
+    const end = start + len - 1;
+    const pointerIndex = indexForClientX(event.clientX);
+    dragRef.current = {
+      mode,
+      pointerOffset: clampIndex(pointerIndex - start, 0, len - 1),
+      start,
+      len,
+      end,
+    };
+
+    const onMove = (moveEvent: PointerEvent) => {
+      moveEvent.preventDefault();
+      updateWindowDrag(moveEvent.clientX);
+    };
+    const onUp = () => {
+      dragRef.current = null;
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onUp);
+  }
 
   // ── Chart creation (once) ────────────────────────────────────────────
   useEffect(() => {
@@ -572,8 +702,18 @@ export function LineChartLW({
         timeVisible: false,
         secondsVisible: false,
       },
-      handleScroll: true,
-      handleScale: true,
+      handleScroll: {
+        mouseWheel: true,
+        pressedMouseMove: true,
+        horzTouchDrag: true,
+        vertTouchDrag: false,
+      },
+      handleScale: {
+        mouseWheel: true,
+        pinch: true,
+        axisPressedMouseMove: true,
+        axisDoubleClickReset: true,
+      },
       autoSize: false,
     });
     chartRef.current = chart;
@@ -953,10 +1093,10 @@ export function LineChartLW({
   }, [analogsOverlay, series, win, forecastHorizon, hoveredAnalogId]);
 
   // ── Window band overlay (DOM, positioned from timeScale coordinates) ─
-  // We implement the read-only query window as an absolutely-positioned
+  // We implement the editable query window as an absolutely-positioned
   // shaded div synced to the chart's timeScale via timeToCoordinate lookups.
   // This keeps the chart canvas untouched (no hidden series, no flicker) and
-  // gives us native CSS styling for the label text.
+  // gives us native CSS styling/cursors for the label and drag handles.
   useEffect(() => {
     const chart = chartRef.current;
     const overlay = windowOverlayRef.current;
@@ -983,9 +1123,13 @@ export function LineChartLW({
         overlay.style.display = "none";
         return;
       }
+      const rawLeft = Math.min(x1, x2);
+      const rawWidth = Math.max(2, Math.abs(x2 - x1));
+      const minGrabWidth = 34;
+      const visualWidth = Math.max(minGrabWidth, rawWidth);
       overlay.style.display = "block";
-      overlay.style.left = `${Math.min(x1, x2)}px`;
-      overlay.style.width = `${Math.max(2, Math.abs(x2 - x1))}px`;
+      overlay.style.left = `${rawLeft - (visualWidth - rawWidth) / 2}px`;
+      overlay.style.width = `${visualWidth}px`;
     };
     update();
     const ts = chart.timeScale();
@@ -1009,28 +1153,34 @@ export function LineChartLW({
       aria-label="Price chart, professional view"
       style={{ position: "relative", width: "100%", height }}
     >
-      {/* Read-only query window band. Positioned by the effect above. */}
+      {/* Editable query window band. Positioned by the effect above. */}
       {showWindow && (
         <div
           ref={windowOverlayRef}
           className="lw-chart__window"
           aria-hidden="true"
+          onPointerDown={(e) => startWindowDrag(e, "move")}
           style={{
             position: "absolute",
             top: 0,
             bottom: 0,
+            zIndex: 2,
             display: "none",
-            pointerEvents: "none",
+            pointerEvents: "auto",
             // Color and border are driven by CSS tokens (see globals.css).
           }}
         >
+          <div
+            className="lw-chart__window-handle lw-chart__window-handle--left"
+            onPointerDown={(e) => startWindowDrag(e, "left")}
+            aria-hidden="true"
+          />
           <span className="lw-chart__window-label">QUERY WINDOW &middot; {win.len}D</span>
-        </div>
-      )}
-      {/* Corner note — only meaningful when a draggable window exists in Fast. */}
-      {showWindow && (
-        <div className="lw-chart__note" aria-live="polite">
-          Window editing is in Fast view.
+          <div
+            className="lw-chart__window-handle lw-chart__window-handle--right"
+            onPointerDown={(e) => startWindowDrag(e, "right")}
+            aria-hidden="true"
+          />
         </div>
       )}
     </div>
