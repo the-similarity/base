@@ -754,8 +754,7 @@ class RunRegistry:
                 for stmt in statements:
                     self._conn.execute(stmt)
                 self._conn.execute(
-                    "INSERT INTO schema_migrations (version, applied_at) "
-                    "VALUES (?, ?)",
+                    "INSERT INTO schema_migrations (version, applied_at) VALUES (?, ?)",
                     (
                         version,
                         datetime.now(timezone.utc).isoformat(timespec="seconds"),

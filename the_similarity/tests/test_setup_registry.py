@@ -50,7 +50,9 @@ def _make_setup(
         timeframe=timeframe,
         region_start_ts="2026-04-01T00:00:00Z",
         region_end_ts="2026-04-02T00:00:00Z",
-        region_series=region_series if region_series is not None else [1.0, 2.0, 3.0, 4.0],
+        region_series=region_series
+        if region_series is not None
+        else [1.0, 2.0, 3.0, 4.0],
     )
 
 
@@ -318,7 +320,9 @@ def test_compute_goodrun_score_aggregates_thumbs(db_path: Path) -> None:
         registry.create_setup(_make_setup(id_="s1", user_id="alice"))
         for i in range(3):
             registry.record_feedback(
-                _make_feedback(id_=f"up-{i}", user_id="alice", setup_id="s1", thumb="up")
+                _make_feedback(
+                    id_=f"up-{i}", user_id="alice", setup_id="s1", thumb="up"
+                )
             )
         registry.record_feedback(
             _make_feedback(id_="dn-1", user_id="alice", setup_id="s1", thumb="down")
