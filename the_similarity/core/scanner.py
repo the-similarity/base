@@ -315,7 +315,8 @@ def _serialize_forecast(forecast: Forecast) -> dict:
         "bars": int(forecast.bars),
         "percentiles": list(forecast.percentiles),
         "curves": {
-            str(p): forecast.curves[p].tolist() for p in forecast.percentiles
+            str(p): forecast.curves[p].tolist()
+            for p in forecast.percentiles
             if p in forecast.curves
         },
     }
@@ -360,7 +361,9 @@ def _scan_one_instrument(
             config=config,
         )
         if not matches:
-            return InstrumentScanResult(instrument=instrument, analogs=[], forecast=None)
+            return InstrumentScanResult(
+                instrument=instrument, analogs=[], forecast=None
+            )
 
         forecast = project(
             matches=matches,
@@ -498,7 +501,9 @@ def scan(
     # finished first. The completion order is arbitrary; the wire
     # contract is universe-order.
     by_symbol = {r.instrument: r for r in per_instrument}
-    per_instrument_ordered = [by_symbol[sym] for sym in universe_list if sym in by_symbol]
+    per_instrument_ordered = [
+        by_symbol[sym] for sym in universe_list if sym in by_symbol
+    ]
 
     # Build the flat top-N: extract every analog from every instrument,
     # tag it with its source symbol, and sort by confidence descending.

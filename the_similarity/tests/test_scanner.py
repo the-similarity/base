@@ -46,9 +46,7 @@ def _make_setup(region_series: list[float] | None = None) -> Setup:
     if region_series is None:
         # A simple sinusoidal pattern — gives the matcher something
         # repeatable to align against.
-        region_series = [
-            float(np.sin(i / 4.0) + 1.0) for i in range(32)
-        ]
+        region_series = [float(np.sin(i / 4.0) + 1.0) for i in range(32)]
     return Setup(
         id="setup-test-1",
         user_id="user-test",
