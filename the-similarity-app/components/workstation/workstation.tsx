@@ -161,6 +161,7 @@ export interface WorkstationSettings {
 interface WorkstationProps {
   settings: WorkstationSettings;
   onSettings: (s: WorkstationSettings) => void;
+  productMode?: "workstation" | "ghost5";
 }
 
 /**
@@ -393,7 +394,12 @@ function toSetupBars(
   return bars;
 }
 
-export function Workstation({ settings, onSettings }: WorkstationProps) {
+export function Workstation({
+  settings,
+  onSettings,
+  productMode = "workstation",
+}: WorkstationProps) {
+  const isGhost5 = productMode === "ghost5";
   /*
    * URL-state snapshot captured at mount.
    *
@@ -492,6 +498,11 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
   const [searchedCone, setSearchedCone] = useState<ConePoint[] | null>(null);
   const [lastRunAt, setLastRunAt] = useState<Date | null>(null);
   const [scannerSetup, setScannerSetup] = useState<SetupTemplate | null>(null);
+  const [ghost5Setup, setGhost5Setup] = useState<{
+    analogId: string;
+    label: string;
+    date: string;
+  } | null>(null);
   /*
    * Cross-timeframe selection.
    *
@@ -2270,20 +2281,56 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
           </div>
         </div>
 
-        <div className="side__section">
-          <div className="side__header">
-            <span className="label">Pick the pattern</span>
-            <span className="mono" style={{ fontSize: 10.5, color: "var(--ink-3)" }}>v1</span>
+        {!isGhost5 && (
+          <div className="side__section">
+            <div className="side__header">
+              <span className="label">Pick the pattern</span>
+              <span className="mono" style={{ fontSize: 10.5, color: "var(--ink-3)" }}>v1</span>
+            </div>
+            <SetupDefinitionPanel
+              symbol={setupDatasetMeta.symbol}
+              timeframe={setupDatasetMeta.timeframe}
+              regionBars={setupRegionBars}
+              liveBars={setupLiveBars}
+              onTemplate={setScannerSetup}
+            />
           </div>
-          <SetupDefinitionPanel
-            symbol={setupDatasetMeta.symbol}
-            timeframe={setupDatasetMeta.timeframe}
-            regionBars={setupRegionBars}
-            liveBars={setupLiveBars}
-            onTemplate={setScannerSetup}
-          />
-        </div>
+        )}
 
+        {isGhost5 && (
+          <div className="side__section">
+            <div className="side__header">
+              <span className="label">Ghost5 setup</span>
+              <span className="mono" style={{ fontSize: 10.5, color: "var(--ink-3)" }}>$39</span>
+            </div>
+            <div className="ghost5-setup-panel">
+              <p>
+                Pick the entry on the chart, search, then mark the history
+                card that matches your setup.
+              </p>
+              <div className="side__row">
+                <span className="k">Histories</span>
+                <span className="v">20</span>
+              </div>
+              <div className="side__row">
+                <span className="k">Chart</span>
+                <span className="v">Candles</span>
+              </div>
+              <div className="side__row">
+                <span className="k">Alert</span>
+                <span className="v">{ghost5Setup ? "Armed" : "Waiting"}</span>
+              </div>
+              {ghost5Setup && (
+                <div className="ghost5-setup-panel__saved" role="status">
+                  Setup saved from {ghost5Setup.date}. We can notify you
+                  when this shape starts happening again.
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {!isGhost5 && (
         <div className="side__section">
           <div className="side__header"><span className="label">Shape length</span></div>
           <div className="chip-row">
@@ -2312,6 +2359,7 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
             ))}
           </div>
         </div>
+        )}
 
         <div className="side__section">
           <div className="side__header">
@@ -2391,6 +2439,12 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
             surface for discoverability. */}
         <div className="ws-search-row" role="group" aria-label="Find matching charts">
           <div className="ws-search-row__group">
+            {isGhost5 ? (
+              <span className="ghost5-search-summary mono" role="note">
+                20 histories · candle chart · mark the card that is your setup
+              </span>
+            ) : (
+              <>
             <span className="label ws-search-row__label">Matches</span>
             <div className="ws-topk" role="radiogroup" aria-label="Number of past matches to show">
               {[1, 3, 6, 10].map(k => (
@@ -2648,6 +2702,8 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
                 </span>
               );
             })()}
+              </>
+            )}
           </div>
           <div className="ws-search-row__group ws-search-row__group--end">
             {/* Drawer toggle — only visible where the sidebar is off-canvas.
@@ -3052,7 +3108,28 @@ export function Workstation({ settings, onSettings }: WorkstationProps) {
                     {fmtPct(a.afterReturn)}
                   </span>
                 </div>
-                <FeedbackControl targetType="analog" targetId={a.id} compact />
+                {isGhost5 && (
+                  <button
+                    type="button"
+                    className="ghost5-setup-btn"
+                    data-active={ghost5Setup?.analogId === a.id ? "true" : undefined}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setGhost5Setup({
+                        analogId: a.id,
+                        label: a.label,
+                        date: fmtDateShort(a.date),
+                      });
+                    }}
+                  >
+                    {ghost5Setup?.analogId === a.id
+                      ? "Setup selected"
+                      : "This is my setup"}
+                  </button>
+                )}
+                {!isGhost5 && (
+                  <FeedbackControl targetType="analog" targetId={a.id} compact />
+                )}
               </div>
             );
           })}

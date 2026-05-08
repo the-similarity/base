@@ -2,9 +2,10 @@ import { describe, expect, it } from "vitest";
 import { labRoutes, scannerProductRoutes } from "../lib/product-boundary";
 
 describe("product boundary manifest", () => {
-  it("keeps scanner product routes out of the labs namespace", () => {
-    expect(scannerProductRoutes.map(route => route.href)).toEqual(["/scanner", "/try"]);
-    expect(scannerProductRoutes.every(route => route.owner === "scanner" && route.status === "product")).toBe(true);
+  it("keeps sellable product routes out of the labs namespace", () => {
+    expect(scannerProductRoutes.map(route => route.href)).toEqual(["/scanner", "/try", "/ghost5"]);
+    expect(scannerProductRoutes.every(route => route.status === "product")).toBe(true);
+    expect(scannerProductRoutes.find(route => route.href === "/ghost5")?.owner).toBe("ghost5");
   });
 
   it("quarantines legacy product ideas under /labs", () => {
