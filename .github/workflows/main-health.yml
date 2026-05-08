@@ -167,7 +167,12 @@ jobs:
 
           ### What to do
           1. Stop merging new PRs on top of main until this is green.
-          2. Reproduce locally with \`./scripts/ci_local.sh\`.
+          2. Reproduce locally with a clean venv:
+             \`\`\`
+             python3 -m venv /tmp/repro && source /tmp/repro/bin/activate
+             pip install -e . && pip install pytest
+             python -m pytest the_similarity/tests/ -v
+             \`\`\`
           3. Fix, PR, and let pr-gate verify before this clears.
 
           This issue is auto-filed by \`.github/workflows/main-health.yml\`.
