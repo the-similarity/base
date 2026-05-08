@@ -2373,92 +2373,13 @@ export function Workstation({
           <div className="side__section">
             <div className="side__header">
               <span className="label">Ghost5 setup</span>
-              <span className="mono" style={{ fontSize: 10.5, color: "var(--ink-3)" }}>$39</span>
+              <span className="mono" style={{ fontSize: 10.5, color: "var(--ink-3)" }}>alert</span>
             </div>
             <div className="ghost5-setup-panel">
               <p>
-                Define the trade inside this query window, search, then mark
-                the history card that matches your setup.
+                Search the trade plan above, then mark the history card that
+                matches your setup.
               </p>
-              <div className="ghost5-trade-plan">
-                <label className="ghost5-trade-plan__field">
-                  <span>Entry point</span>
-                  <input
-                    type="range"
-                    min={0}
-                    max={Math.max(0, windowState.len - 1)}
-                    value={ghost5TradeMeta.entryOffset}
-                    onChange={(e) =>
-                      setGhost5TradePlan(plan =>
-                        normalizeGhost5TradePlan(
-                          { ...plan, entryOffset: Number(e.target.value) },
-                          windowState.len,
-                        ),
-                      )
-                    }
-                  />
-                </label>
-                <div className="ghost5-trade-plan__readout">
-                  <span>{fmtDateShort(ghost5TradeMeta.entryDate)}</span>
-                  <span>{ghost5TradeMeta.entryPrice.toLocaleString("en-US", {
-                    maximumFractionDigits: 2,
-                  })}</span>
-                </div>
-                <label className="ghost5-trade-plan__field">
-                  <span>Take profit / close</span>
-                  <div className="ghost5-trade-plan__number">
-                    <input
-                      type="number"
-                      min={0.1}
-                      max={100}
-                      step={0.1}
-                      value={ghost5TradeMeta.takeProfitPct}
-                      onChange={(e) =>
-                        setGhost5TradePlan(plan =>
-                          normalizeGhost5TradePlan(
-                            { ...plan, takeProfitPct: Number(e.target.value) },
-                            windowState.len,
-                          ),
-                        )
-                      }
-                    />
-                    <span>%</span>
-                  </div>
-                </label>
-                <div className="ghost5-trade-plan__readout">
-                  <span>Target</span>
-                  <span>{ghost5TradeMeta.takeProfitPrice.toLocaleString("en-US", {
-                    maximumFractionDigits: 2,
-                  })}</span>
-                </div>
-                <label className="ghost5-trade-plan__field">
-                  <span>Stop loss</span>
-                  <div className="ghost5-trade-plan__number">
-                    <input
-                      type="number"
-                      min={0.1}
-                      max={100}
-                      step={0.1}
-                      value={Math.abs(ghost5TradeMeta.stopLossPct)}
-                      onChange={(e) =>
-                        setGhost5TradePlan(plan =>
-                          normalizeGhost5TradePlan(
-                            { ...plan, stopLossPct: -Math.abs(Number(e.target.value)) },
-                            windowState.len,
-                          ),
-                        )
-                      }
-                    />
-                    <span>%</span>
-                  </div>
-                </label>
-                <div className="ghost5-trade-plan__readout">
-                  <span>Stop</span>
-                  <span>{ghost5TradeMeta.stopLossPrice.toLocaleString("en-US", {
-                    maximumFractionDigits: 2,
-                  })}</span>
-                </div>
-              </div>
               <div className="side__row">
                 <span className="k">Histories</span>
                 <span className="v">20</span>
@@ -2592,9 +2513,71 @@ export function Workstation({
         <div className="ws-search-row" role="group" aria-label="Find matching charts">
           <div className="ws-search-row__group">
             {isGhost5 ? (
-              <span className="ghost5-search-summary mono" role="note">
-                20 histories · entry {fmtDateShort(ghost5TradeMeta.entryDate)} · TP {ghost5TradeMeta.takeProfitPct.toFixed(1)}% · SL {Math.abs(ghost5TradeMeta.stopLossPct).toFixed(1)}%
-              </span>
+              <div className="ghost5-query-plan" aria-label="Ghost5 trade plan">
+                <span className="ghost5-search-summary mono" role="note">
+                  20 histories
+                </span>
+                <label className="ghost5-query-plan__entry">
+                  <span>Entry</span>
+                  <input
+                    type="range"
+                    min={0}
+                    max={Math.max(0, windowState.len - 1)}
+                    value={ghost5TradeMeta.entryOffset}
+                    onChange={(e) =>
+                      setGhost5TradePlan(plan =>
+                        normalizeGhost5TradePlan(
+                          { ...plan, entryOffset: Number(e.target.value) },
+                          windowState.len,
+                        ),
+                      )
+                    }
+                  />
+                  <strong>
+                    {fmtDateShort(ghost5TradeMeta.entryDate)} · {ghost5TradeMeta.entryPrice.toLocaleString("en-US", {
+                      maximumFractionDigits: 2,
+                    })}
+                  </strong>
+                </label>
+                <label className="ghost5-query-plan__number">
+                  <span>TP</span>
+                  <input
+                    type="number"
+                    min={0.1}
+                    max={100}
+                    step={0.1}
+                    value={ghost5TradeMeta.takeProfitPct}
+                    onChange={(e) =>
+                      setGhost5TradePlan(plan =>
+                        normalizeGhost5TradePlan(
+                          { ...plan, takeProfitPct: Number(e.target.value) },
+                          windowState.len,
+                        ),
+                      )
+                    }
+                  />
+                  <em>%</em>
+                </label>
+                <label className="ghost5-query-plan__number">
+                  <span>SL</span>
+                  <input
+                    type="number"
+                    min={0.1}
+                    max={100}
+                    step={0.1}
+                    value={Math.abs(ghost5TradeMeta.stopLossPct)}
+                    onChange={(e) =>
+                      setGhost5TradePlan(plan =>
+                        normalizeGhost5TradePlan(
+                          { ...plan, stopLossPct: -Math.abs(Number(e.target.value)) },
+                          windowState.len,
+                        ),
+                      )
+                    }
+                  />
+                  <em>%</em>
+                </label>
+              </div>
             ) : (
               <>
             <span className="label ws-search-row__label">Matches</span>

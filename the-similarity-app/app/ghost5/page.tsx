@@ -50,7 +50,6 @@ export default function Ghost5Page() {
           <div className="lumen-main">
             <Topbar
               crumbs={["Workspace", "Ghost5"]}
-              actions={<span className="lumen-pill is-pos">$39 / month</span>}
               onCmdK={() => setCmdOpen(true)}
             />
             <div

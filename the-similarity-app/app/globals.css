@@ -1485,61 +1485,58 @@ input, select, textarea { font: inherit; color: inherit; }
   line-height: 1.45;
 }
 
-.ghost5-trade-plan {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 10px;
-  border: 1px solid var(--rule);
-  border-radius: var(--radius-sm);
-  background: var(--bg-soft);
-}
-
-.ghost5-trade-plan__field,
-.ghost5-trade-plan__readout {
+.ghost5-query-plan {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  min-height: 26px;
-  font-size: 11.5px;
-}
-
-.ghost5-trade-plan__field span:first-child,
-.ghost5-trade-plan__readout span:first-child {
-  color: var(--ink-3);
-}
-
-.ghost5-trade-plan__field input[type="range"] {
-  flex: 1;
+  gap: 8px;
   min-width: 0;
-  accent-color: var(--accent);
+  flex-wrap: wrap;
 }
 
-.ghost5-trade-plan__readout {
-  font-family: var(--mono);
-  color: var(--ink);
-}
-
-.ghost5-trade-plan__number {
+.ghost5-query-plan__entry,
+.ghost5-query-plan__number {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  min-width: 86px;
-  justify-content: flex-end;
-  font-family: var(--mono);
-}
-
-.ghost5-trade-plan__number input {
-  width: 58px;
-  height: 26px;
-  padding: 0 6px;
+  gap: 6px;
+  height: 30px;
+  padding: 0 8px;
   border: 1px solid var(--rule);
   border-radius: var(--radius-sm);
   background: var(--bg-card);
+  color: var(--ink-2);
+  font-size: 11.5px;
+  white-space: nowrap;
+}
+
+.ghost5-query-plan__entry span,
+.ghost5-query-plan__number span,
+.ghost5-query-plan__number em {
+  color: var(--ink-3);
+  font-family: var(--mono);
+  font-style: normal;
+}
+
+.ghost5-query-plan__entry input[type="range"] {
+  width: clamp(92px, 11vw, 150px);
+  accent-color: var(--accent);
+}
+
+.ghost5-query-plan__entry strong {
   color: var(--ink);
-  font: inherit;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  font-weight: 500;
+}
+
+.ghost5-query-plan__number input {
+  width: 48px;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 11.5px;
   text-align: right;
+  outline: none;
 }
 
 .ghost5-setup-panel__saved {
