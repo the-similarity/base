@@ -57,9 +57,7 @@ def test_storm_tracks_z_scale_ablation():
 
     rows: list[tuple[float, dict[str, tuple[float, float, float, int]]]] = []
     for z in z_scales:
-        bt_p, bt_l, bt_r, bt_m, n_windows = _run_predictor_table(
-            z_scale=z, K=K, J=J
-        )
+        bt_p, bt_l, bt_r, bt_m, n_windows = _run_predictor_table(z_scale=z, K=K, J=J)
         rows.append(
             (
                 z,

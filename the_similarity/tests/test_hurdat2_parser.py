@@ -20,9 +20,7 @@ import pytest
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _FIXTURE_PATH = _REPO_ROOT / "the-similarity-data" / "fixtures" / "hurdat2-tiny.txt"
-_FETCHER_PATH = (
-    _REPO_ROOT / "the-similarity-data" / "scripts" / "fetch_hurdat2.py"
-)
+_FETCHER_PATH = _REPO_ROOT / "the-similarity-data" / "scripts" / "fetch_hurdat2.py"
 
 
 @pytest.fixture(scope="module")
@@ -153,9 +151,7 @@ class TestFullFixtureParse:
         fixes = fetcher_module.parse_hurdat2_text(fixture_text, min_fixes=8)
         # Pick KATRINA's landfall fix (fix_idx=9, 22:30 UTC on 25 Aug 2005).
         katrina_landfall = next(
-            f
-            for f in fixes
-            if f.storm_id == "AL122005" and f.fix_idx == 9
+            f for f in fixes if f.storm_id == "AL122005" and f.fix_idx == 9
         )
         assert katrina_landfall.datetime_utc == datetime(2005, 8, 25, 22, 30)
         assert katrina_landfall.lat == pytest.approx(26.0)

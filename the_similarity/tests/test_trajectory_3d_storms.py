@@ -72,7 +72,11 @@ from the_similarity.datasets.storm_tracks import Storm, load_storms
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _PARQUET_PATH = (
-    _REPO_ROOT / "the-similarity-data" / "datasets" / "storm_tracks" / "atlantic.parquet"
+    _REPO_ROOT
+    / "the-similarity-data"
+    / "datasets"
+    / "storm_tracks"
+    / "atlantic.parquet"
 )
 
 
@@ -175,7 +179,10 @@ def _random_analogue_forecast(
 def _model_forecast(query_points: np.ndarray, corpus, forward_bars: int):
     """The system under test: Frenet-DTW analogue forecast."""
     f = forecast_cone(
-        query_points, corpus, forward_bars=forward_bars, top_n=10,
+        query_points,
+        corpus,
+        forward_bars=forward_bars,
+        top_n=10,
         percentiles=(10, 50, 90),
     )
     if f.n_analogues == 0:
@@ -188,7 +195,9 @@ def _model_forecast(query_points: np.ndarray, corpus, forward_bars: int):
 # ---------------------------------------------------------------------------
 
 
-def _evaluate_forecast_xy(forecast: dict, actual: np.ndarray) -> tuple[float, bool, float]:
+def _evaluate_forecast_xy(
+    forecast: dict, actual: np.ndarray
+) -> tuple[float, bool, float]:
     """Compute (spatial MAE in km, hit_rate, CRPS) using only the (x, y) axes.
 
     The z axis is wind-scaled (its units aren't km) so we project it
@@ -205,8 +214,7 @@ def _evaluate_forecast_xy(forecast: dict, actual: np.ndarray) -> tuple[float, bo
     # We deliberately only check the horizontal axes — z hit-rate is
     # confounded by the wind-scale ablation we run elsewhere.
     hit = bool(
-        np.all(actual[-1, :2] >= p10[-1, :2])
-        and np.all(actual[-1, :2] <= p90[-1, :2])
+        np.all(actual[-1, :2] >= p10[-1, :2]) and np.all(actual[-1, :2] <= p90[-1, :2])
     )
     crps_vals = []
     cdf_levels = np.array([0.1, 0.5, 0.9])
@@ -359,9 +367,7 @@ def test_storm_tracks_backtest_vs_baselines():
     J = 4
     Z_SCALE = 5.0  # Default — 100 kt -> 500 km, comparable to track extents.
 
-    bt_p, bt_l, bt_r, bt_m, n_windows = _run_predictor_table(
-        z_scale=Z_SCALE, K=K, J=J
-    )
+    bt_p, bt_l, bt_r, bt_m, n_windows = _run_predictor_table(z_scale=Z_SCALE, K=K, J=J)
 
     # Print a clean summary so the result is visible in CI output
     # whether or not the model "wins". This is the headline number
@@ -401,6 +407,4 @@ def test_storm_tracks_backtest_vs_baselines():
     # The test asserts the harness ran cleanly — not the experiment
     # outcome. The honest verdict is in the printed table and the
     # concept note.
-    assert bt_m.n_trials >= 50, (
-        f"Too few trials to draw conclusions: {bt_m.n_trials}"
-    )
+    assert bt_m.n_trials >= 50, f"Too few trials to draw conclusions: {bt_m.n_trials}"

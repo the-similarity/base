@@ -119,9 +119,7 @@ def _equirectangular_project(
         signed convention — west is negative).
     """
     if lats.shape != lons.shape:
-        raise ValueError(
-            f"lat / lon shape mismatch: {lats.shape} vs {lons.shape}"
-        )
+        raise ValueError(f"lat / lon shape mismatch: {lats.shape} vs {lons.shape}")
     if lats.size == 0:
         return np.empty(0, dtype=np.float64), np.empty(0, dtype=np.float64)
 
@@ -185,9 +183,7 @@ def _read_parquet_or_csv(path: Path) -> Mapping[str, NDArray[np.float64]]:
             "lat": np.asarray(cols["lat"], dtype=np.float64),
             "lon": np.asarray(cols["lon"], dtype=np.float64),
             "max_wind_kt": np.asarray(cols["max_wind_kt"], dtype=np.float64),
-            "min_pressure_mb": np.asarray(
-                cols["min_pressure_mb"], dtype=np.float64
-            ),
+            "min_pressure_mb": np.asarray(cols["min_pressure_mb"], dtype=np.float64),
             "status": np.asarray(cols["status"], dtype=object),
         }
 

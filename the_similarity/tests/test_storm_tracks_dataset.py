@@ -24,9 +24,7 @@ from the_similarity.datasets.storm_tracks import (
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _FIXTURE_PATH = _REPO_ROOT / "the-similarity-data" / "fixtures" / "hurdat2-tiny.txt"
-_FETCHER_PATH = (
-    _REPO_ROOT / "the-similarity-data" / "scripts" / "fetch_hurdat2.py"
-)
+_FETCHER_PATH = _REPO_ROOT / "the-similarity-data" / "scripts" / "fetch_hurdat2.py"
 
 
 def _load_fetcher():
