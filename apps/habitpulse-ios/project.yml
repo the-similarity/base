@@ -1,0 +1,58 @@
+# Habitpulse — iOS app powered by the-similarity engine.
+#
+# Generated via xcodegen. To rebuild the .xcodeproj after edits:
+#   cd apps/habitpulse-ios && xcodegen generate
+#
+# The app target depends on no third-party SwiftPM packages — all forecasts
+# come from the the-similarity-api HTTP surface (POST /habit/forecast),
+# and on-device persistence uses the system SwiftData framework. This keeps
+# the dependency graph trivial and lets new contributors build with just
+# Xcode + xcodegen installed.
+
+name: Habitpulse
+options:
+  bundleIdPrefix: com.thesimilarity
+  deploymentTarget:
+    iOS: "17.0"
+  developmentLanguage: en
+  createIntermediateGroups: true
+
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    IPHONEOS_DEPLOYMENT_TARGET: "17.0"
+    TARGETED_DEVICE_FAMILY: "1,2"
+    CODE_SIGNING_ALLOWED: NO
+    CODE_SIGN_IDENTITY: ""
+    DEVELOPMENT_TEAM: ""
+
+targets:
+  Habitpulse:
+    type: application
+    platform: iOS
+    sources:
+      - path: Sources
+    resources:
+      - path: Resources
+    info:
+      path: Resources/Info.plist
+      properties:
+        CFBundleDisplayName: Habitpulse
+        CFBundleShortVersionString: "0.1.0"
+        CFBundleVersion: "1"
+        UILaunchScreen:
+          UIColorName: ""
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+        # App Transport Security: allow plain HTTP to localhost during
+        # development. In production builds this should be removed and the
+        # API URL set to https://api.thesimilarity.tech in Settings.
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        UIRequiresFullScreen: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.thesimilarity.habitpulse
+        GENERATE_INFOPLIST_FILE: NO
