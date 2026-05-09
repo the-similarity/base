@@ -20,6 +20,10 @@
  *   --out <path>         JSONL output path (default: runs/<scenario>-<seed>.jsonl)
  *   --include-state      emit per-agent state on every tick (larger output)
  *   --state-every <n>    emit per-agent state every n ticks (default: never)
+ *   --track-agents       emit per-agent (id,tick,x,y,z?) records to
+ *                        <out>.tracks.jsonl for trajectory analysis
+ *   --tracks-out <path>  override the default sibling tracks path
+ *   --heightmap <path>   load a JSON heightmap (lifts agents to 3D)
  *   --quiet              suppress stdout progress logs
  *
  * This runner is a pure Node script — no bundler, no transpiler, no external
@@ -36,6 +40,7 @@ import { loadScenario as loadScenarioLegacy } from './scenario.js';
 import { loadScenario, listPresets, mergeOverrides } from '../scenario-loader.js';
 import { TelemetryWriter } from './telemetry.js';
 import { basename, dirname, resolve as resolvePath } from 'node:path';
+import { readFileSync } from 'node:fs';
 import { registerWorldRun } from '../../platform/registry-client.js';
 
 /**
@@ -50,6 +55,9 @@ function parseArgs(argv) {
     quiet: false,
     register: false,
     listScenarios: false,
+    trackAgents: false,    // --track-agents toggles per-agent JSONL output
+    tracksOut: undefined,  // optional explicit path for tracks file
+    heightmapPath: undefined, // optional --heightmap path for 3D agents
     paramOverrides: {},  // key=value pairs from --param flags
   };
   for (let i = 0; i < argv.length; i++) {
@@ -65,6 +73,15 @@ function parseArgs(argv) {
       case '--state-every':   out.stateEvery = Number(argv[++i]); break;
       case '--quiet':      out.quiet = true; break;
       case '--list-scenarios': out.listScenarios = true; break;
+      // --track-agents writes per-tick (agent_id, tick, x, y, z?) records
+      // to a sibling JSONL file. Default off so legacy outputs are
+      // byte-identical. --tracks-out lets the caller pick an explicit path;
+      // otherwise we derive `<--out>.tracks.jsonl`.
+      case '--track-agents': out.trackAgents = true; break;
+      case '--tracks-out':   out.tracksOut = argv[++i]; break;
+      // --heightmap loads a JSON heightmap (see scripts/generate_heightmap.py)
+      // and lifts agents to 3D. Without this flag agents stay 2D.
+      case '--heightmap':    out.heightmapPath = argv[++i]; break;
       // --param key=value — repeatable flag to override scenario params.
       // Multiple --param flags accumulate into paramOverrides.
       case '--param': {
@@ -105,6 +122,12 @@ function printHelp() {
   --out <path>          JSONL output path
   --include-state       dump per-agent state every tick
   --state-every <n>     dump per-agent state every n ticks
+  --track-agents        emit per-agent (id, tick, x, y, z?) JSONL alongside
+                        the main file; output path is <out>.tracks.jsonl by
+                        default (or --tracks-out <path>)
+  --tracks-out <path>   override the default sibling tracks file path
+  --heightmap <path>    load a JSON heightmap (see scripts/generate_heightmap.py)
+                        and lift agents to 3D
   --register            POST the finished run to the platform registry
                         (best-effort; warns on failure, exit 0)
   --api-url <url>       platform API base URL (default: $THE_SIMILARITY_API_URL
@@ -196,8 +219,43 @@ async function main() {
 
   log(`[worlds] scenario=${scenario.name} seed=${seed} steps=${steps} out=${outPath}`);
 
-  const world = createWorld(scenario, seed);
-  const writer = new TelemetryWriter(outPath);
+  // Optional 3D heightmap. The file is the JSON shape produced by
+  // scripts/generate_heightmap.py: { width, height, data: [...] }. We
+  // load synchronously because the runner is a one-shot CLI; async
+  // loading would buy nothing here.
+  let heightmap = null;
+  if (args.heightmapPath) {
+    try {
+      const raw = readFileSync(resolvePath(args.heightmapPath), 'utf8');
+      const parsed = JSON.parse(raw);
+      if (!parsed.width || !parsed.height || !Array.isArray(parsed.data)) {
+        throw new Error('heightmap JSON missing width/height/data');
+      }
+      heightmap = parsed;
+      log(`[worlds] heightmap=${args.heightmapPath} (${parsed.width}x${parsed.height})`);
+    } catch (e) {
+      process.stderr.write(`error: failed to load heightmap: ${e.message}\n`);
+      process.exit(1);
+    }
+  }
+
+  const world = createWorld(scenario, seed, { heightmap });
+
+  // Default tracks path is <outPath>.tracks.jsonl when --track-agents is
+  // set without --tracks-out. We strip a trailing .jsonl/.json before
+  // appending so the result is `runs/foo.tracks.jsonl` not
+  // `runs/foo.jsonl.tracks.jsonl`.
+  let tracksPath;
+  if (args.trackAgents) {
+    if (args.tracksOut) {
+      tracksPath = args.tracksOut;
+    } else {
+      tracksPath = outPath.replace(/\.jsonl?$/i, '') + '.tracks.jsonl';
+    }
+    log(`[worlds] track-agents=on tracks=${tracksPath}`);
+  }
+
+  const writer = new TelemetryWriter(outPath, { tracksPath });
 
   writer.writeProvenance({
     seed,
@@ -227,6 +285,14 @@ async function main() {
       }
 
       writer.writeTick(world.tick, metrics, state);
+
+      // Per-agent track emission. We do this after writeTick so the main
+      // file's per-tick line lands first; the tracks file is independent
+      // and can be tail-followed without blocking the main writer. No-op
+      // when --track-agents is off.
+      if (args.trackAgents) {
+        writer.writeAgentTracks(world.tick, world.agents);
+      }
 
       // Light progress log every ~10% so a user running interactively sees
       // something, but the output is bounded in CI/batch mode.
