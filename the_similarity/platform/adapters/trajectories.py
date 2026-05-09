@@ -217,9 +217,7 @@ def register_trajectory_backtest_run(
     dataset_spec: Optional[DatasetSpec] = None
     if dataset_id is not None:
         if not dataset_name:
-            raise ValueError(
-                "dataset_name is required when dataset_id is provided"
-            )
+            raise ValueError("dataset_name is required when dataset_id is provided")
         dataset_spec = DatasetSpec(
             dataset_id=dataset_id,
             name=dataset_name,

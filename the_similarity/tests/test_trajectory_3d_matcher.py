@@ -21,9 +21,7 @@ from the_similarity.core.trajectory_matcher import (
 def _helix(n_pts: int, r: float, c: float, phase: float = 0.0) -> np.ndarray:
     """Helix sampler used across multiple tests."""
     theta = np.linspace(0, 6 * np.pi, n_pts) + phase
-    return np.stack(
-        [r * np.cos(theta), r * np.sin(theta), c * theta], axis=1
-    )
+    return np.stack([r * np.cos(theta), r * np.sin(theta), c * theta], axis=1)
 
 
 def _line(n_pts: int, direction: np.ndarray, length: float = 30.0) -> np.ndarray:
@@ -41,9 +39,7 @@ def _line(n_pts: int, direction: np.ndarray, length: float = 30.0) -> np.ndarray
 class TestCorpusBuilding:
     def test_short_trajectory_adds_zero_windows(self):
         # T < window_len + forward_bars -> nothing added.
-        corpus = build_corpus(
-            [np.zeros((30, 3))], window_len=50, forward_bars=20
-        )
+        corpus = build_corpus([np.zeros((30, 3))], window_len=50, forward_bars=20)
         assert len(corpus.windows) == 0
 
     def test_window_count_matches_stride_arithmetic(self):
@@ -51,14 +47,19 @@ class TestCorpusBuilding:
         # Last valid start = 200 - 70 = 130. Windows at 0, 10, ..., 130 => 14.
         helix = _helix(200, 1.0, 0.3)
         corpus = build_corpus(
-            [helix], window_len=50, stride=10, forward_bars=20,
+            [helix],
+            window_len=50,
+            stride=10,
+            forward_bars=20,
         )
         assert len(corpus.windows) == 14
 
     def test_corpus_windows_have_kt_and_future(self):
         corpus = build_corpus(
             [_helix(200, 1.0, 0.3)],
-            window_len=50, stride=10, forward_bars=20,
+            window_len=50,
+            stride=10,
+            forward_bars=20,
         )
         w = corpus.windows[0]
         assert w.kt.shape == (50, 2)
@@ -84,14 +85,20 @@ class TestRetrievalShapeClass:
             h = _helix(300, r=1.0, c=0.3, phase=k * 0.4)
             h = h + rng.normal(0, noise, h.shape)
             trajectories.append(h)
-        directions = [np.array([1, 0, 0.0]), np.array([0, 1, 0.0]), np.array([1, 1, 1.0])]
+        directions = [
+            np.array([1, 0, 0.0]),
+            np.array([0, 1, 0.0]),
+            np.array([1, 1, 1.0]),
+        ]
         for d in directions[:n_each]:
             ln = _line(300, d, length=30)
             ln = ln + rng.normal(0, noise, ln.shape)
             trajectories.append(ln)
         return build_corpus(
             trajectories,
-            window_len=80, stride=20, forward_bars=30,
+            window_len=80,
+            stride=20,
+            forward_bars=30,
         ), n_each
 
     def test_helix_query_retrieves_helices(self):
@@ -123,9 +130,7 @@ class TestRetrievalShapeClass:
         # If we exclude trajectory id=0, no result should come from it.
         corpus, _ = self._build_helix_line_corpus()
         query = _helix(120, r=1.0, c=0.3, phase=0.0)[:80]
-        matches = find_analogues(
-            query, corpus, top_n=10, exclude_trajectory_id=0
-        )
+        matches = find_analogues(query, corpus, top_n=10, exclude_trajectory_id=0)
         assert all(m.window.trajectory_id != 0 for m in matches)
 
     def test_empty_corpus_returns_empty_list(self):
@@ -146,9 +151,7 @@ class TestForecastCone:
         for k in range(5):
             h = _helix(400, r=1.0, c=0.3, phase=k * 0.3)
             trajectories.append(h + rng.normal(0, 0.005, h.shape))
-        return build_corpus(
-            trajectories, window_len=80, stride=20, forward_bars=30
-        )
+        return build_corpus(trajectories, window_len=80, stride=20, forward_bars=30)
 
     def test_forecast_shape_and_quantile_ordering(self):
         corpus = self._setup()

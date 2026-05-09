@@ -131,9 +131,7 @@ def arc_length_resample(
         raise ValueError(f"n_samples must be >= 2, got {n_samples}")
     pts = np.asarray(points, dtype=np.float64)
     if pts.ndim != 2 or pts.shape[1] != 3:
-        raise ValueError(
-            f"points must be shape (N, 3); got {pts.shape}"
-        )
+        raise ValueError(f"points must be shape (N, 3); got {pts.shape}")
     if pts.shape[0] < 2:
         raise ValueError(f"need >= 2 points to resample; got {pts.shape[0]}")
 
@@ -242,16 +240,14 @@ def frenet_descriptors(
         raise ValueError(f"points must be shape (N, 3); got {pts.shape}")
     n = pts.shape[0]
     if n < 4:
-        raise ValueError(
-            f"need >= 4 points for Frenet descriptors; got {n}"
-        )
+        raise ValueError(f"need >= 4 points for Frenet descriptors; got {n}")
 
     # Per-segment vectors and their lengths. We compute Delta_s as the
     # mean segment length — for arc-length-resampled input this is
     # essentially constant, but using the mean stabilizes against
     # tiny numerical drift in the resampler.
-    diffs = pts[1:] - pts[:-1]                     # shape (N-1, 3)
-    seg_lens = np.linalg.norm(diffs, axis=1)       # shape (N-1,)
+    diffs = pts[1:] - pts[:-1]  # shape (N-1, 3)
+    seg_lens = np.linalg.norm(diffs, axis=1)  # shape (N-1,)
     delta_s = float(np.mean(seg_lens))
     if delta_s <= 0.0:
         raise ValueError("polyline has zero arc length")
@@ -259,19 +255,19 @@ def frenet_descriptors(
     # Unit tangents. Where a segment is degenerate (zero length)
     # the tangent is zero so downstream kappa/tau pick up zero.
     safe_lens = np.where(seg_lens > 1e-12, seg_lens, 1.0)
-    tangents = diffs / safe_lens[:, None]          # shape (N-1, 3)
+    tangents = diffs / safe_lens[:, None]  # shape (N-1, 3)
     tangents[seg_lens <= 1e-12] = 0.0
 
     # Discrete tangent derivative (= curvature direction). Length N-2.
-    dT = tangents[1:] - tangents[:-1]              # (N-2, 3)
-    dT_norm = np.linalg.norm(dT, axis=1)           # (N-2,)
+    dT = tangents[1:] - tangents[:-1]  # (N-2, 3)
+    dT_norm = np.linalg.norm(dT, axis=1)  # (N-2,)
 
-    kappa_short = dT_norm / delta_s                # (N-2,)
+    kappa_short = dT_norm / delta_s  # (N-2,)
     # Principal normal: dT / ||dT|| where defined; zero where dT=0
     # (collinear triple). Returning zero keeps the binormal computation
     # well-defined (cross with zero -> zero) which propagates correctly.
     safe_dT = np.where(dT_norm[:, None] > 1e-12, dT_norm[:, None], 1.0)
-    normals = dT / safe_dT                         # (N-2, 3)
+    normals = dT / safe_dT  # (N-2, 3)
     normals[dT_norm <= 1e-12] = 0.0
 
     # Binormal: T x T_next, then normalized. Using consecutive
@@ -280,11 +276,11 @@ def frenet_descriptors(
     cross = np.cross(tangents[:-1], tangents[1:])  # (N-2, 3)
     cross_norm = np.linalg.norm(cross, axis=1)
     safe_cn = np.where(cross_norm[:, None] > 1e-12, cross_norm[:, None], 1.0)
-    binormals = cross / safe_cn                    # (N-2, 3)
+    binormals = cross / safe_cn  # (N-2, 3)
     binormals[cross_norm <= 1e-12] = 0.0
 
     # Discrete binormal derivative. Length N-3.
-    dB = binormals[1:] - binormals[:-1]            # (N-3, 3)
+    dB = binormals[1:] - binormals[:-1]  # (N-3, 3)
 
     # Torsion: tau_i = -<dB_i, N_i> / Delta_s. We dot dB against the
     # *aligned* normal (normals[:-1] has length N-3 to match dB).
@@ -303,7 +299,7 @@ def frenet_descriptors(
     # threshold. The threshold is in the *unitless* domain of
     # tangent cross-products, so it transfers across sample
     # spacings without rescaling.
-    cross_mag_aligned = cross_norm[:tau_short.shape[0]]
+    cross_mag_aligned = cross_norm[: tau_short.shape[0]]
     # 0.02 corresponds to a turning angle of ~1.1 degrees per step
     # — below that, position noise dominates the geometry signal
     # and tau cannot be trusted. Empirically this is the cleanest
@@ -316,14 +312,14 @@ def frenet_descriptors(
     # the directly-computed values; the last 2 entries replicate the
     # final value. This keeps array shapes uniform across callers.
     kappa = np.empty(n, dtype=np.float64)
-    kappa[:n - 2] = kappa_short
+    kappa[: n - 2] = kappa_short
     if n >= 3:
-        kappa[n - 2:] = kappa_short[-1]
+        kappa[n - 2 :] = kappa_short[-1]
 
     tau = np.empty(n, dtype=np.float64)
-    tau[:n - 3] = tau_short
+    tau[: n - 3] = tau_short
     if n - 3 >= 1:
-        tau[n - 3:] = tau_short[-1]
+        tau[n - 3 :] = tau_short[-1]
     else:
         tau[:] = 0.0
 
@@ -422,8 +418,8 @@ def dtw_kt_distance(
     # Pairwise local costs: c[i, j] = ||a[i] - b[j]||. Use broadcasting
     # for a vectorized O(NM) build; for the sequence lengths we target
     # (N, M ~ 50) this stays well under a millisecond.
-    diff = a[:, None, :] - b[None, :, :]           # (N, M, 2)
-    cost = np.sqrt(np.sum(diff * diff, axis=-1))   # (N, M)
+    diff = a[:, None, :] - b[None, :, :]  # (N, M, 2)
+    cost = np.sqrt(np.sum(diff * diff, axis=-1))  # (N, M)
 
     # Accumulated cost matrix. Initialize to +inf so the boundary
     # conditions fall out of the standard min(...) recurrence.

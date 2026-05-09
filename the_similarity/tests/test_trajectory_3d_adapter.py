@@ -32,9 +32,24 @@ def _sample_metrics():
     """Realistic-looking predictor metrics from the MVP backtest."""
     return {
         "model": {"spatial_mae": 2.72, "hit_rate": 0.40, "crps": 0.16, "n_trials": 750},
-        "persistence": {"spatial_mae": 6.57, "hit_rate": 0.00, "crps": 0.23, "n_trials": 750},
-        "linear": {"spatial_mae": 4.21, "hit_rate": 0.37, "crps": 0.17, "n_trials": 750},
-        "random_analogue": {"spatial_mae": 2.87, "hit_rate": 0.17, "crps": 0.21, "n_trials": 750},
+        "persistence": {
+            "spatial_mae": 6.57,
+            "hit_rate": 0.00,
+            "crps": 0.23,
+            "n_trials": 750,
+        },
+        "linear": {
+            "spatial_mae": 4.21,
+            "hit_rate": 0.37,
+            "crps": 0.17,
+            "n_trials": 750,
+        },
+        "random_analogue": {
+            "spatial_mae": 2.87,
+            "hit_rate": 0.17,
+            "crps": 0.21,
+            "n_trials": 750,
+        },
     }
 
 
@@ -72,9 +87,13 @@ class TestRegisterTrajectoryBacktest:
     def test_scorecard_collapses_per_predictor_into_details(self, registry):
         run_id = register_trajectory_backtest_run(
             predictor_metrics=_sample_metrics(),
-            n_agents=10, n_ticks=100, n_windows=80,
-            window_len=20, forward_bars=10,
-            seed=7, registry=registry,
+            n_agents=10,
+            n_ticks=100,
+            n_windows=80,
+            window_len=20,
+            forward_bars=10,
+            seed=7,
+            registry=registry,
         )
         # The adapter merges all predictor scorecards into ONE row
         # because the registry's scorecards table has primary key
@@ -85,7 +104,10 @@ class TestRegisterTrajectoryBacktest:
         assert sc.kind == ScorecardKind.BACKTEST
         per_pred = sc.details["per_predictor"]
         assert set(per_pred.keys()) == {
-            "model", "persistence", "linear", "random_analogue"
+            "model",
+            "persistence",
+            "linear",
+            "random_analogue",
         }
         # Headline numbers come from the primary predictor (model).
         assert sc.details["primary_predictor"] == "model"
@@ -94,8 +116,11 @@ class TestRegisterTrajectoryBacktest:
     def test_dataset_spec_registered_when_id_supplied(self, registry):
         register_trajectory_backtest_run(
             predictor_metrics=_sample_metrics(),
-            n_agents=50, n_ticks=500, n_windows=2200,
-            window_len=50, forward_bars=20,
+            n_agents=50,
+            n_ticks=500,
+            n_windows=2200,
+            window_len=50,
+            forward_bars=20,
             dataset_id="traj-corpus-test-v1",
             dataset_name="Trajectory MVP corpus (test)",
             registry=registry,
@@ -112,9 +137,13 @@ class TestRegisterTrajectoryBacktest:
         with pytest.raises(ValueError, match="dataset_name is required"):
             register_trajectory_backtest_run(
                 predictor_metrics=_sample_metrics(),
-                n_agents=10, n_ticks=100, n_windows=80,
-                window_len=20, forward_bars=10,
-                dataset_id="x", dataset_name=None,
+                n_agents=10,
+                n_ticks=100,
+                n_windows=80,
+                window_len=20,
+                forward_bars=10,
+                dataset_id="x",
+                dataset_name=None,
                 registry=registry,
             )
 
@@ -122,8 +151,12 @@ class TestRegisterTrajectoryBacktest:
         explicit = "abcdef0123456789abcdef0123456789"
         rid = register_trajectory_backtest_run(
             predictor_metrics=_sample_metrics(),
-            n_agents=1, n_ticks=10, n_windows=1,
-            window_len=5, forward_bars=2,
-            run_id=explicit, registry=registry,
+            n_agents=1,
+            n_ticks=10,
+            n_windows=1,
+            window_len=5,
+            forward_bars=2,
+            run_id=explicit,
+            registry=registry,
         )
         assert rid == explicit

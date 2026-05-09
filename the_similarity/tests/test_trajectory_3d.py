@@ -138,9 +138,7 @@ class BacktestResult:
     per_trial_mae: List[float] = field(default_factory=list)
 
 
-def _persistence_forecast(
-    query_points: np.ndarray, forward_bars: int
-) -> dict:
+def _persistence_forecast(query_points: np.ndarray, forward_bars: int) -> dict:
     """Baseline: agent stays put at its last position."""
     last = query_points[-1]
     p50 = np.tile(last[None, :], (forward_bars, 1))
@@ -155,9 +153,7 @@ def _persistence_forecast(
     }
 
 
-def _linear_forecast(
-    query_points: np.ndarray, forward_bars: int
-) -> dict:
+def _linear_forecast(query_points: np.ndarray, forward_bars: int) -> dict:
     """Baseline: linear extrapolation from the last K points.
 
     Fits a line per axis vs. step index using the last K points and
@@ -172,9 +168,7 @@ def _linear_forecast(
         slope, intercept = np.polyfit(t, query_points[:, axis], deg=1)
         coeffs.append((slope, intercept))
     future_t = np.arange(K, K + forward_bars)
-    p50 = np.column_stack(
-        [c[0] * future_t + c[1] for c in coeffs]
-    )
+    p50 = np.column_stack([c[0] * future_t + c[1] for c in coeffs])
     # Uncertainty band: scale residual std with horizon
     residuals = []
     for axis in range(3):
@@ -252,9 +246,7 @@ def _model_forecast(
     }
 
 
-def _evaluate_forecast(
-    forecast: dict, actual: np.ndarray
-) -> tuple[float, bool, float]:
+def _evaluate_forecast(forecast: dict, actual: np.ndarray) -> tuple[float, bool, float]:
     """Compute (spatial MAE at horizon, hit_inside_cone, crps_per_axis_avg).
 
     spatial_mae:
@@ -276,10 +268,7 @@ def _evaluate_forecast(
     err = np.linalg.norm(p50 - actual, axis=1)
     spatial_mae = float(np.mean(err))
     # Hit: terminal actual inside the P10-P90 box on every axis.
-    hit = bool(
-        np.all(actual[-1] >= p10[-1])
-        and np.all(actual[-1] <= p90[-1])
-    )
+    hit = bool(np.all(actual[-1] >= p10[-1]) and np.all(actual[-1] <= p90[-1]))
     # CRPS approximation — per axis, per bar, sum over the (P10, P50,
     # P90) triple, then averaged. Same formula as
     # the_similarity.core.metrics.crps but computed locally so we
@@ -321,8 +310,8 @@ def _walk_forward_backtest(
         if T < K + J:
             continue
         for start in range(0, T - K - J + 1, stride):
-            query = traj[start: start + K]
-            actual = traj[start + K: start + K + J]
+            query = traj[start : start + K]
+            actual = traj[start + K : start + K + J]
             try:
                 forecast = forecaster(query, start, tid)
             except Exception:
@@ -368,9 +357,7 @@ def test_trajectory_3d_backtest_vs_baselines():
 
     # Build the corpus (excluding self-matches handled per-trial via
     # exclude_trajectory_id in the model forecaster).
-    corpus = build_corpus(
-        trajectories, window_len=K, stride=10, forward_bars=J
-    )
+    corpus = build_corpus(trajectories, window_len=K, stride=10, forward_bars=J)
 
     # Wrap each forecaster so it has the same signature for the harness.
     def model_fc(query, _start, tid):
@@ -419,8 +406,7 @@ def test_trajectory_3d_backtest_vs_baselines():
     print("  " + "-" * (len(header) - 2))
     for r in [bt_model, bt_persistence, bt_linear, bt_random]:
         print(
-            f"  {r.name:<18} {r.spatial_mae:>10.4f} "
-            f"{r.hit_rate:>10.4f} {r.crps:>10.4f}"
+            f"  {r.name:<18} {r.spatial_mae:>10.4f} {r.hit_rate:>10.4f} {r.crps:>10.4f}"
         )
     print()
 

@@ -100,8 +100,12 @@ class TestFrenetAnalyticalReferences:
         line = np.stack([t, 2 * t, -3 * t], axis=1)
         resampled = arc_length_resample(line, 80)
         kappa, tau = frenet_descriptors(resampled, sigma=0.0)
-        assert np.max(np.abs(kappa)) < 1e-8, f"Line should have kappa=0; got max {kappa.max()}"
-        assert np.max(np.abs(tau)) < 1e-8, f"Line should have tau=0; got max {np.abs(tau).max()}"
+        assert np.max(np.abs(kappa)) < 1e-8, (
+            f"Line should have kappa=0; got max {kappa.max()}"
+        )
+        assert np.max(np.abs(tau)) < 1e-8, (
+            f"Line should have tau=0; got max {np.abs(tau).max()}"
+        )
 
     def test_circle_curvature_inverse_radius(self):
         # Circle of radius r in the xy-plane. Expected kappa = 1/r.
@@ -131,13 +135,11 @@ class TestFrenetAnalyticalReferences:
         # Analytical: kappa = r / (r^2 + c^2), tau = c / (r^2 + c^2).
         for r, c in [(1.0, 0.25), (2.0, 0.5), (1.0, 1.0)]:
             theta = np.linspace(0, 6 * np.pi, 800)
-            helix = np.stack(
-                [r * np.cos(theta), r * np.sin(theta), c * theta], axis=1
-            )
+            helix = np.stack([r * np.cos(theta), r * np.sin(theta), c * theta], axis=1)
             resampled = arc_length_resample(helix, 300)
             kappa, tau = frenet_descriptors(resampled, sigma=1.5)
-            expected_k = r / (r ** 2 + c ** 2)
-            expected_t = c / (r ** 2 + c ** 2)
+            expected_k = r / (r**2 + c**2)
+            expected_t = c / (r**2 + c**2)
             med_k = float(np.median(_interior(kappa, 0.15)))
             med_t = float(np.median(_interior(tau, 0.15)))
             assert abs(med_k - expected_k) < 0.02, (
@@ -155,18 +157,22 @@ class TestRigidMotionInvariance:
         # Build a random rotation via three Euler angles. Numerically
         # stable enough for the tolerances we test against.
         a, b, c = rng.uniform(-np.pi, np.pi, size=3)
-        Rx = np.array([[1, 0, 0], [0, np.cos(a), -np.sin(a)], [0, np.sin(a), np.cos(a)]])
-        Ry = np.array([[np.cos(b), 0, np.sin(b)], [0, 1, 0], [-np.sin(b), 0, np.cos(b)]])
-        Rz = np.array([[np.cos(c), -np.sin(c), 0], [np.sin(c), np.cos(c), 0], [0, 0, 1]])
+        Rx = np.array(
+            [[1, 0, 0], [0, np.cos(a), -np.sin(a)], [0, np.sin(a), np.cos(a)]]
+        )
+        Ry = np.array(
+            [[np.cos(b), 0, np.sin(b)], [0, 1, 0], [-np.sin(b), 0, np.cos(b)]]
+        )
+        Rz = np.array(
+            [[np.cos(c), -np.sin(c), 0], [np.sin(c), np.cos(c), 0], [0, 0, 1]]
+        )
         return Rz @ Ry @ Rx
 
     def test_helix_descriptors_invariant_under_rigid_motion(self):
         rng = np.random.default_rng(42)
         theta = np.linspace(0, 4 * np.pi, 500)
         r, c = 1.0, 0.3
-        helix = np.stack(
-            [r * np.cos(theta), r * np.sin(theta), c * theta], axis=1
-        )
+        helix = np.stack([r * np.cos(theta), r * np.sin(theta), c * theta], axis=1)
         # Original descriptors
         original = arc_length_resample(helix, 200)
         k0, t0 = frenet_descriptors(original, sigma=1.0)
@@ -184,13 +190,17 @@ class TestRigidMotionInvariance:
             # algebraically invariant — any deviation is purely
             # floating-point.
             np.testing.assert_allclose(
-                _interior(k0, 0.15), _interior(k1, 0.15), atol=1e-3,
+                _interior(k0, 0.15),
+                _interior(k1, 0.15),
+                atol=1e-3,
                 err_msg=f"trial {trial}: kappa changed under rigid motion",
             )
             # Torsion is signed; rotation can flip handedness only via
             # a reflection, which a proper rotation (det=+1) does not.
             np.testing.assert_allclose(
-                _interior(t0, 0.15), _interior(t1, 0.15), atol=1e-3,
+                _interior(t0, 0.15),
+                _interior(t1, 0.15),
+                atol=1e-3,
                 err_msg=f"trial {trial}: tau changed under proper rotation",
             )
 
@@ -203,9 +213,7 @@ class TestRigidMotionInvariance:
 class TestMultiscaleDescriptors:
     def test_default_sigmas_returns_three_scales(self):
         theta = np.linspace(0, 4 * np.pi, 200)
-        helix = np.stack(
-            [np.cos(theta), np.sin(theta), 0.3 * theta], axis=1
-        )
+        helix = np.stack([np.cos(theta), np.sin(theta), 0.3 * theta], axis=1)
         resampled = arc_length_resample(helix, 100)
         out = multiscale_descriptors(resampled)
         assert set(out.keys()) == {1.0, 4.0, 16.0}
@@ -220,9 +228,7 @@ class TestMultiscaleDescriptors:
 
     def test_explicit_sigmas_passes_through(self):
         theta = np.linspace(0, 2 * np.pi, 100)
-        circle = np.stack(
-            [np.cos(theta), np.sin(theta), np.zeros_like(theta)], axis=1
-        )
+        circle = np.stack([np.cos(theta), np.sin(theta), np.zeros_like(theta)], axis=1)
         resampled = arc_length_resample(circle, 60)
         out = multiscale_descriptors(resampled, sigmas=[0.5, 2.0])
         assert set(out.keys()) == {0.5, 2.0}
@@ -250,9 +256,7 @@ class TestDtwKtDistance:
         # should warp onto itself with a SMALL DTW distance.
         theta = np.linspace(0, 6 * np.pi, 400)
         r, c = 1.0, 0.3
-        helix = np.stack(
-            [r * np.cos(theta), r * np.sin(theta), c * theta], axis=1
-        )
+        helix = np.stack([r * np.cos(theta), r * np.sin(theta), c * theta], axis=1)
         a = arc_length_resample(helix[:300], 100)
         b = arc_length_resample(helix[100:400], 100)
         ka, ta_ = frenet_descriptors(a, sigma=1.0)
@@ -263,9 +267,7 @@ class TestDtwKtDistance:
 
         # Compare to a line of the same shape — distance should be
         # noticeably larger.
-        line = np.stack(
-            [np.linspace(0, 1, 300), np.zeros(300), np.zeros(300)], axis=1
-        )
+        line = np.stack([np.linspace(0, 1, 300), np.zeros(300), np.zeros(300)], axis=1)
         line_resampled = arc_length_resample(line, 100)
         kl, tl = frenet_descriptors(line_resampled, sigma=1.0)
         kt_l = np.column_stack([kl, tl])

@@ -206,9 +206,7 @@ class TrajectoryCorpus:
     sax_alphabet: int = 4
     windows: List[TrajectoryWindow] = field(default_factory=list)
 
-    def add_trajectory(
-        self, trajectory_id: int, points: NDArray[np.float64]
-    ) -> int:
+    def add_trajectory(self, trajectory_id: int, points: NDArray[np.float64]) -> int:
         """Slice a trajectory into windows and append to the corpus.
 
         Returns the number of windows added. Trajectories shorter
@@ -227,10 +225,9 @@ class TrajectoryCorpus:
         # further would chop the continuation short.
         last_start = T - (self.window_len + self.forward_bars)
         for start in range(0, last_start + 1, self.stride):
-            window_pts = pts[start: start + self.window_len]
+            window_pts = pts[start : start + self.window_len]
             future_pts = pts[
-                start + self.window_len:
-                start + self.window_len + self.forward_bars
+                start + self.window_len : start + self.window_len + self.forward_bars
             ]
             try:
                 # We resample to window_len in case the input was
@@ -402,14 +399,15 @@ def find_analogues(
     # the 1D pipeline.
     matches: List[AnalogueMatch] = []
     for idx in shortlist:
-        if exclude_trajectory_id is not None and corpus.windows[idx].trajectory_id == exclude_trajectory_id:
+        if (
+            exclude_trajectory_id is not None
+            and corpus.windows[idx].trajectory_id == exclude_trajectory_id
+        ):
             continue
         w = corpus.windows[idx]
         d = dtw_kt_distance(qkt, w.kt)
         sim = float(np.exp(-d / max(corpus.window_len, 1)))
-        matches.append(
-            AnalogueMatch(window=w, dtw_distance=float(d), similarity=sim)
-        )
+        matches.append(AnalogueMatch(window=w, dtw_distance=float(d), similarity=sim))
 
     matches.sort(key=lambda m: m.similarity, reverse=True)
     return matches[:top_n]
@@ -507,7 +505,7 @@ def forecast_cone(
         # with the query anchor. We use the last point of the
         # analogue's *window* as its anchor.
         analogue_anchor = m.window.points[-1]
-        delta = f - analogue_anchor                  # shape (J, 3)
+        delta = f - analogue_anchor  # shape (J, 3)
         if delta.shape[0] < forward_bars:
             # Pad with the terminal value so the cone stays defined.
             pad = np.tile(delta[-1:], (forward_bars - delta.shape[0], 1))
@@ -517,7 +515,7 @@ def forecast_cone(
         futures.append(delta)
         weights_raw.append(m.similarity)
 
-    futures_arr = np.stack(futures, axis=0)          # (n, J, 3)
+    futures_arr = np.stack(futures, axis=0)  # (n, J, 3)
     weights = np.asarray(weights_raw, dtype=np.float64)
     total = float(np.sum(weights))
     if total > 0:
@@ -529,7 +527,9 @@ def forecast_cone(
     # call the existing _weighted_quantile helper. For the corpus
     # sizes we target (a few thousand windows, top_n <= 32, J <= 50)
     # this is negligible overhead.
-    curves: Dict[int, NDArray[np.float64]] = {p: np.zeros((forward_bars, 3)) for p in pcts}
+    curves: Dict[int, NDArray[np.float64]] = {
+        p: np.zeros((forward_bars, 3)) for p in pcts
+    }
     for axis in range(3):
         for bar in range(forward_bars):
             col = futures_arr[:, bar, axis]
