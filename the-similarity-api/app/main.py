@@ -22,6 +22,7 @@ from app.backtest_routes import router as backtest_router
 from app.goodruns import router as goodruns_router
 from app.alerts import router as setup_scanner_alerts_router
 from app.billing import router as billing_router
+from app.habit_routes import router as habit_router
 
 logger = logging.getLogger(__name__)
 
@@ -60,6 +61,10 @@ app.include_router(backtest_router)
 app.include_router(goodruns_router)
 app.include_router(setup_scanner_alerts_router)
 app.include_router(billing_router)
+# Habit forecast surface — stateless analogue + cone projection over a
+# user's own habit time series. Powers the Habitpulse iOS app
+# (apps/habitpulse-ios). Mounted at ``/habit/*``.
+app.include_router(habit_router)
 
 
 # Health probe — registered on both /health and /healthz.
