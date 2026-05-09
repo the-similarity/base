@@ -25,18 +25,60 @@
  * Knobs (scenario.world):
  * - size                 (default 64): grid is size × size; agents/food wrap.
  * - initial_population   (default 20): number of agents spawned at t=0.
+ *
+ * Optional 3D mode (terrain-walking agents):
+ * - createWorld accepts an optional `heightmap` parameter shaped
+ *   `{ width, height, data }` where `data` is a flat row-major float array
+ *   of length width*height. When provided, every alive agent's `z` field is
+ *   set to `heightmap.data[y * width + x]` after each move so trajectories
+ *   are 3D and bend with the terrain. When `heightmap` is omitted, agents
+ *   stay 2D (no `z` field) — backwards-compatible with all existing JSONL
+ *   outputs and consumers.
  */
 
 import { PRNG } from '../rng.js';
 
 /**
+ * Look up a row-major heightmap value at integer (x, y), with toroidal
+ * wrapping that matches the world's torus topology. Returns 0 when the
+ * heightmap is missing or malformed — fail-soft so a corrupt fixture
+ * does not crash the simulation; downstream telemetry simply records
+ * z=0 and the trajectory is detectable as "lookup failed".
+ */
+export function sampleHeight(heightmap, x, y) {
+  if (!heightmap || !heightmap.data) return 0;
+  const w = heightmap.width;
+  const h = heightmap.height;
+  if (!Number.isFinite(w) || !Number.isFinite(h) || w <= 0 || h <= 0) return 0;
+  // Wrap negative / oversized indices the same way the world wraps agent
+  // positions. Without this, a movement step that lands exactly on `size`
+  // (post-modulo) plus a heightmap of a different size would index OOB.
+  const xi = ((Math.floor(x) % w) + w) % w;
+  const yi = ((Math.floor(y) % h) + h) % h;
+  const idx = yi * w + xi;
+  const v = heightmap.data[idx];
+  return Number.isFinite(v) ? v : 0;
+}
+
+/**
  * Build an initial world from a scenario config + seed.
  * Pure factory — all randomness goes through the provided PRNG.
+ *
+ * @param {object} scenario - Scenario config (see module docstring).
+ * @param {number} seed - PRNG seed.
+ * @param {object} [options] - Optional extras.
+ * @param {object} [options.heightmap] - Optional 2D height grid:
+ *     `{ width: number, height: number, data: number[] }`. When supplied,
+ *     agents are lifted to 3D — each alive agent gets a `z` field equal
+ *     to `data[y * width + x]` after every step. The heightmap is stored
+ *     by reference on the world; mutating it externally during a run is
+ *     unsupported and produces undefined behavior.
  */
-export function createWorld(scenario, seed) {
+export function createWorld(scenario, seed, options = {}) {
   const rng = new PRNG(seed);
   const worldCfg = scenario.world ?? {};
   const params = scenario.params ?? {};
+  const heightmap = options.heightmap ?? null;
 
   // Fill in defaults once here so downstream code can read params without
   // constantly null-coalescing. Mutating this object is NOT allowed after
@@ -53,19 +95,29 @@ export function createWorld(scenario, seed) {
 
   // Agents: light representation — id, position, energy, alive. Keep numeric
   // fields as plain numbers (not objects) so JSON serialization is compact
-  // when full-state dumps are requested.
+  // when full-state dumps are requested. The optional `z` field is only
+  // populated when a heightmap is provided; in 2D mode it stays undefined
+  // and is omitted from JSON serialization (backwards compatible).
   const agents = [];
   for (let i = 0; i < initialPop; i++) {
-    agents.push({
+    const x = Math.floor(rng.next() * size);
+    const y = Math.floor(rng.next() * size);
+    const a = {
       id: i,
-      x: Math.floor(rng.next() * size),
-      y: Math.floor(rng.next() * size),
+      x,
+      y,
       // Start with energy in [0.5, 1.0] so a few agents die early and we see
       // non-trivial population dynamics in the telemetry.
       energy: 0.5 + rng.next() * 0.5,
       alive: true,
       age: 0,
-    });
+    };
+    if (heightmap) {
+      // Lift to 3D. We sample at the spawn position so the very first
+      // emitted track record carries a sensible z value (not undefined).
+      a.z = sampleHeight(heightmap, x, y);
+    }
+    agents.push(a);
   }
 
   // Food cells: sparse list of {x,y}. We keep this as an array instead of a
@@ -83,6 +135,10 @@ export function createWorld(scenario, seed) {
     rng,
     // Cumulative counters — useful for World Eval calibration checks.
     totals: { deaths: 0, births: 0, food_eaten: 0 },
+    // Optional heightmap for 3D mode. Stored by reference; consumers that
+    // need to inspect z values per tick should call `sampleHeight(world.heightmap, x, y)`
+    // rather than re-reading scenario config.
+    heightmap,
   };
 }
 
@@ -95,7 +151,7 @@ export function createWorld(scenario, seed) {
  *   3. Update tick counter.
  */
 export function stepWorld(world) {
-  const { rng, size, params, agents, food } = world;
+  const { rng, size, params, agents, food, heightmap } = world;
 
   // 1. Food spawn — one independent Bernoulli trial per tick, not per cell,
   //    to keep food density bounded and predictable regardless of grid size.
@@ -118,6 +174,15 @@ export function stepWorld(world) {
     // This also avoids the need for collision-with-boundary logic in the MVP.
     a.x = ((a.x + dx) % size + size) % size;
     a.y = ((a.y + dy) % size + size) % size;
+
+    // 3D lift — when a heightmap is loaded, snap z to the local terrain
+    // height after each move. This produces trajectories that bend with
+    // slope (non-trivial torsion) which is the whole point of the 3D
+    // self-similarity experiment. When no heightmap is loaded, `z` stays
+    // undefined and the agent record serializes 2D-style.
+    if (heightmap) {
+      a.z = sampleHeight(heightmap, a.x, a.y);
+    }
 
     // Food pickup — linear scan is O(F) per agent; acceptable while F stays
     // small. If food ever grows unbounded we should switch to a spatial hash.
