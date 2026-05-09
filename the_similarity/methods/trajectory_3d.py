@@ -290,6 +290,28 @@ def frenet_descriptors(
     # *aligned* normal (normals[:-1] has length N-3 to match dB).
     tau_short = -np.einsum("ij,ij->i", dB, normals[:-1]) / delta_s
 
+    # Numerical guard: when consecutive tangents are nearly parallel
+    # (kappa near zero, i.e. the curve is locally straight), the
+    # binormal direction is ill-defined and the discrete dB jitters
+    # randomly. The result is a "tau is wild on lines" failure mode
+    # where a noisy-straight trajectory looks more torsioned than a
+    # clean helix.
+    #
+    # Mitigation: zero out tau where the local cross-product
+    # magnitude (which equals |T_i x T_{i+1}| = sin(angle), an exact
+    # surrogate for local kappa magnitude) is below a small
+    # threshold. The threshold is in the *unitless* domain of
+    # tangent cross-products, so it transfers across sample
+    # spacings without rescaling.
+    cross_mag_aligned = cross_norm[:tau_short.shape[0]]
+    # 0.02 corresponds to a turning angle of ~1.1 degrees per step
+    # — below that, position noise dominates the geometry signal
+    # and tau cannot be trusted. Empirically this is the cleanest
+    # cutoff that still preserves real torsion on helices
+    # (whose cross_mag is ~0.05+ at our default sigma).
+    straight_mask = cross_mag_aligned < 0.02
+    tau_short = np.where(straight_mask, 0.0, tau_short)
+
     # Pad kappa to length N by edge-replication. Indices [0, N-3] are
     # the directly-computed values; the last 2 entries replicate the
     # final value. This keeps array shapes uniform across callers.
