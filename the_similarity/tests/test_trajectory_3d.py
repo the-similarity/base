@@ -362,7 +362,6 @@ def test_trajectory_3d_backtest_vs_baselines():
     """
     K = 50  # window length
     J = 20  # forecast horizon
-    rng = np.random.default_rng(123)
 
     # Synthetic corpus — 50 agents, 500 ticks each.
     trajectories = _make_agent_corpus(seed=7, n_agents=50, n_steps=500)

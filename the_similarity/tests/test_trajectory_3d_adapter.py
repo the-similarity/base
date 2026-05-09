@@ -92,7 +92,7 @@ class TestRegisterTrajectoryBacktest:
         assert sc.details["spatial_mae"] == 2.72
 
     def test_dataset_spec_registered_when_id_supplied(self, registry):
-        run_id = register_trajectory_backtest_run(
+        register_trajectory_backtest_run(
             predictor_metrics=_sample_metrics(),
             n_agents=50, n_ticks=500, n_windows=2200,
             window_len=50, forward_bars=20,

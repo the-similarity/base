@@ -10,7 +10,6 @@ shape, monotonic widening as horizon grows).
 from __future__ import annotations
 
 import numpy as np
-import pytest
 
 from the_similarity.core.trajectory_matcher import (
     build_corpus,
