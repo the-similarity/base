@@ -88,7 +88,8 @@ jobs:
 
       - name: Run engine tests
         if: needs.changes.outputs.engine == 'true'
-        run: python -m pytest the_similarity/tests/ -v
+        # Slow tests run on main-health.yml's daily clean-install gate, not every PR (CI minute budget per CLAUDE.md).
+        run: python -m pytest the_similarity/tests/ -v -m "not slow"
 
   data-tests:
     name: Data Package Tests
