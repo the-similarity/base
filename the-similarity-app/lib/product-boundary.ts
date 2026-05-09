@@ -12,7 +12,7 @@
 export type ProductBoundaryRoute = {
   href: string;
   label: string;
-  owner: "scanner" | "labs" | "landing";
+  owner: "scanner" | "ghost5" | "labs" | "landing";
   status: "product" | "lab" | "external";
   legacyHref?: string;
 };
@@ -29,6 +29,12 @@ export const scannerProductRoutes: ProductBoundaryRoute[] = [
     href: "/try",
     label: "Try Demo",
     owner: "scanner",
+    status: "product",
+  },
+  {
+    href: "/ghost5",
+    label: "Ghost5",
+    owner: "ghost5",
     status: "product",
   },
 ];

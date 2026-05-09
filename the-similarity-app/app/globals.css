@@ -1274,6 +1274,12 @@ input, select, textarea { font: inherit; color: inherit; }
   pointer-events: none;
 }
 
+.ghost5-search-summary {
+  color: var(--ink-2);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
 .chart-card {
   border: 1px solid var(--rule);
   background: var(--bg-card);
@@ -1465,6 +1471,103 @@ input, select, textarea { font: inherit; color: inherit; }
 .analog-card__after { font-family: var(--mono); font-size: 10.5px; min-width: 50px; text-align: right; }
 .analog-card__after.pos { color: var(--positive); }
 .analog-card__after.neg { color: var(--negative); }
+
+.ghost5-setup-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ghost5-setup-panel p {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.ghost5-query-plan {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.ghost5-query-plan__entry,
+.ghost5-query-plan__number {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 8px;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+  color: var(--ink-2);
+  font-size: 11.5px;
+  white-space: nowrap;
+}
+
+.ghost5-query-plan__entry span,
+.ghost5-query-plan__number span,
+.ghost5-query-plan__number em {
+  color: var(--ink-3);
+  font-family: var(--mono);
+  font-style: normal;
+}
+
+.ghost5-query-plan__entry input[type="range"] {
+  width: clamp(92px, 11vw, 150px);
+  accent-color: var(--accent);
+}
+
+.ghost5-query-plan__entry strong {
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 11.5px;
+  font-weight: 500;
+}
+
+.ghost5-query-plan__number input {
+  width: 48px;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 11.5px;
+  text-align: right;
+  outline: none;
+}
+
+.ghost5-setup-panel__saved {
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--rule));
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--accent) 9%, transparent);
+  color: var(--ink);
+  font-size: 12px;
+  line-height: 1.45;
+  padding: 9px 10px;
+}
+
+.ghost5-setup-btn {
+  width: 100%;
+  min-height: 30px;
+  margin-top: var(--s-2);
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.ghost5-setup-btn:hover,
+.ghost5-setup-btn[data-active="true"] {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 11%, var(--bg-card));
+  color: var(--accent);
+}
 
 /* ====================================================================
    OTHER SURFACES
