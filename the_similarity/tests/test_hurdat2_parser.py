@@ -169,8 +169,8 @@ class TestParquetWrite:
     def test_writes_parquet_with_expected_columns(
         self, fetcher_module, fixture_text, tmp_path
     ):
-        pyarrow = pytest.importorskip("pyarrow")
-        import pyarrow.parquet as pq  # noqa: F401  # imported for round-trip read
+        pytest.importorskip("pyarrow")
+        import pyarrow.parquet as pq
 
         fixes = fetcher_module.parse_hurdat2_text(fixture_text, min_fixes=8)
         out_path = tmp_path / "atlantic.parquet"

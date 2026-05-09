@@ -21,8 +21,6 @@ we downsample the test set further (currently 100 storms).
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import pytest
 
 # Reuse the shared helpers from the headline test. Importing test
