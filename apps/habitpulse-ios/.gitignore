@@ -1,0 +1,14 @@
+# Xcode
+build/
+DerivedData/
+*.xcuserstate
+xcuserdata/
+*.xcscmblueprint
+*.xccheckout
+
+# xcodegen-generated project — regenerate from project.yml.
+# Comment this out if you want to commit the project file directly.
+Habitpulse.xcodeproj/
+
+# macOS
+.DS_Store
